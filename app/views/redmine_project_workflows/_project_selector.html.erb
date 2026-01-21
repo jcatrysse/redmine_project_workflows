@@ -1,0 +1,8 @@
+  <label><%= l(:label_project) %>:
+  <% selected_project_values = [] %>
+  <% selected_project_values << 'global' if @global_selected %>
+  <% selected_project_values.concat(Array(@selected_projects).map { |project| project.id.to_s }) %>
+  <% selector_id = local_assigns[:selector_id] || 'project_id' %>
+  <%= options_for_workflow_select 'project_id[]', @projects.map { |project| [project.name, project.id] }, selected_project_values, :id => selector_id, :class => 'expandable' %>
+  <span class="toggle-multiselect icon-only"></span>
+  </label>

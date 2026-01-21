@@ -1,0 +1,11 @@
+nl:
+  label_project_workflows_global: Generic
+  label_project_workflows_bulk_action: Bulkactie
+  label_project_workflows_bulk_apply_all: Toepassen op alles
+  label_project_workflows_bulk_apply_row: Toepassen op rij
+  label_project_workflows_bulk_apply_column: Toepassen op kolom
+  label_project_workflows_bulk_enable: Inschakelen
+  label_project_workflows_bulk_disable: Uitschakelen
+  label_project_workflows_bulk_no_change: Geen wijziging
+  label_project_workflows_bulk_controls_help: Gebruik rij-/kolomknoppen om de geselecteerde actie toe te passen.
+  error_workflow_copy_source_project: Selecteer een brontracker, rol en project.

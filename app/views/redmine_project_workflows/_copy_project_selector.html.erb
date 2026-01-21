@@ -1,0 +1,15 @@
+<label><%= l(:label_project) %></label>
+<% selector_id = local_assigns[:selector_id] || 'project_id' %>
+<% field_name = local_assigns[:field_name] || 'project_id[]' %>
+<% multiple = local_assigns[:multiple] || false %>
+<% include_same_as_target = local_assigns[:include_same_as_target] || false %>
+<% disable_blank = local_assigns[:disable_blank] || false %>
+<% selected_values = Array.wrap(local_assigns[:selected_values]).reject(&:blank?).map(&:to_s) %>
+<% blank_selected = selected_values.empty? && !disable_blank %>
+<% option_tags = content_tag('option', "--- #{l(:actionview_instancetag_blank_option)} ---", value: '', disabled: disable_blank, selected: blank_selected) %>
+<% if include_same_as_target %>
+  <% option_tags << content_tag('option', "--- #{l(:label_copy_same_as_target)} ---", value: 'any', selected: selected_values.include?('any')) %>
+<% end %>
+<% option_tags << content_tag('option', l(:label_project_workflows_global), value: 'global', selected: selected_values.include?('global')) %>
+<% option_tags << options_from_collection_for_select(@projects, 'id', 'name', selected_values) %>
+<%= select_tag field_name, option_tags, id: selector_id, multiple: multiple %>

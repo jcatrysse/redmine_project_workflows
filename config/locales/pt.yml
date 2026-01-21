@@ -1,0 +1,11 @@
+pt:
+  label_project_workflows_global: Generic
+  label_project_workflows_bulk_action: Ação em massa
+  label_project_workflows_bulk_apply_all: Aplicar a todos
+  label_project_workflows_bulk_apply_row: Aplicar à linha
+  label_project_workflows_bulk_apply_column: Aplicar à coluna
+  label_project_workflows_bulk_enable: Ativar
+  label_project_workflows_bulk_disable: Desativar
+  label_project_workflows_bulk_no_change: Sem alteração
+  label_project_workflows_bulk_controls_help: Use os botões de linha/coluna para aplicar a ação selecionada.
+  error_workflow_copy_source_project: Selecione um rastreador, uma função e um projeto de origem.
