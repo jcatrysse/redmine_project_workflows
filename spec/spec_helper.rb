@@ -25,5 +25,11 @@ RSpec.configure do |config|
   if config.respond_to?(:use_transactional_fixtures=)
     config.use_transactional_fixtures = true
   end
+
+  config.before(:suite) do
+    WorkflowTransition.delete_all
+    WorkflowPermission.delete_all
+    WorkflowRule.delete_all if defined?(WorkflowRule)
+  end
 end
 

@@ -239,6 +239,30 @@ module RedmineProjectWorkflows
         end
         normalized
       end
+
+      def find_trackers_roles_and_statuses_for_edit
+        find_roles
+        find_trackers
+        load_project_options
+        find_statuses
+      end
+
+      def find_statuses
+        @used_statuses_only = (params[:used_statuses_only] == '0' ? false : true)
+        if @trackers && @used_statuses_only
+          role_ids = Role.all.select(&:consider_workflow?).map(&:id)
+          project_ids = selected_project_ids
+          status_ids = WorkflowTransition.where(
+            tracker_id: @trackers.map(&:id),
+            role_id: role_ids,
+            project_id: project_ids
+          ).where(
+            'old_status_id <> new_status_id'
+          ).distinct.pluck(:old_status_id, :new_status_id).flatten.uniq
+          @statuses = IssueStatus.where(id: status_ids).sorted.to_a.presence
+        end
+        @statuses ||= IssueStatus.sorted.to_a
+      end
     end
   end
 end

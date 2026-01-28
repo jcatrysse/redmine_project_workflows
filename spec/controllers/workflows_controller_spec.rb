@@ -6,12 +6,15 @@ describe WorkflowsController, type: :controller do
   fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members, :member_roles
 
   let(:project) { projects(:projects_001) }
+  let(:other_project) { projects(:projects_002) }
   let(:role) { roles(:roles_001) }
   let(:target_role) { roles(:roles_002) }
   let(:tracker) { trackers(:trackers_001) }
   let(:target_tracker) { trackers(:trackers_002) }
   let(:old_status) { issue_statuses(:issue_statuses_001) }
   let(:new_status) { issue_statuses(:issue_statuses_002) }
+  let(:project_status) { issue_statuses(:issue_statuses_003) }
+  let(:other_project_status) { issue_statuses(:issue_statuses_004) }
 
   before do
     @request.session[:user_id] = 1
@@ -47,6 +50,49 @@ describe WorkflowsController, type: :controller do
     workflows = assigns(:workflows)
 
     expect(workflows['always']).to all(have_attributes(project_id: nil))
+  end
+
+  it 'limits used statuses to the selected project in edit view' do
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: new_status.id,
+      project_id: nil,
+      author: false,
+      assignee: false
+    )
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: project_status.id,
+      project_id: project.id,
+      author: false,
+      assignee: false
+    )
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: other_project_status.id,
+      project_id: other_project.id,
+      author: false,
+      assignee: false
+    )
+
+    get :edit, params: {
+      role_id: [role.id],
+      tracker_id: [tracker.id],
+      project_id: [project.id.to_s],
+      used_statuses_only: '1'
+    }
+
+    status_ids = assigns(:statuses).map(&:id)
+
+    expect(status_ids).to include(project_status.id)
+    expect(status_ids).not_to include(new_status.id)
+    expect(status_ids).not_to include(other_project_status.id)
   end
 
   it 'filters project-specific permissions from global workflow permissions view' do
@@ -142,6 +188,112 @@ describe WorkflowsController, type: :controller do
 
     expect(response).to have_http_status(:ok)
     expect(permissions[old_status.id]['subject']).to match_array(%w[readonly required])
+  end
+
+  it 'includes global and project statuses when used statuses only with combined selection' do
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: new_status.id,
+      project_id: nil,
+      author: false,
+      assignee: false
+    )
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: project_status.id,
+      project_id: project.id,
+      author: false,
+      assignee: false
+    )
+
+    get :permissions, params: {
+      role_id: [role.id],
+      tracker_id: [tracker.id],
+      project_id: ['global', project.id.to_s],
+      used_statuses_only: '1'
+    }
+
+    status_ids = assigns(:statuses).map(&:id)
+
+    expect(status_ids).to include(new_status.id, project_status.id)
+  end
+
+  it 'excludes project-specific statuses when only global is selected' do
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: new_status.id,
+      project_id: nil,
+      author: false,
+      assignee: false
+    )
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: project_status.id,
+      project_id: project.id,
+      author: false,
+      assignee: false
+    )
+
+    get :edit, params: {
+      role_id: [role.id],
+      tracker_id: [tracker.id],
+      project_id: ['global'],
+      used_statuses_only: '1'
+    }
+
+    status_ids = assigns(:statuses).map(&:id)
+
+    expect(status_ids).to include(new_status.id)
+    expect(status_ids).not_to include(project_status.id)
+  end
+
+  it 'includes statuses from all projects when project_id=all is selected' do
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: new_status.id,
+      project_id: nil,
+      author: false,
+      assignee: false
+    )
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: project_status.id,
+      project_id: project.id,
+      author: false,
+      assignee: false
+    )
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: other_project_status.id,
+      project_id: other_project.id,
+      author: false,
+      assignee: false
+    )
+
+    get :edit, params: {
+      role_id: [role.id],
+      tracker_id: [tracker.id],
+      project_id: ['all'],
+      used_statuses_only: '1'
+    }
+
+    status_ids = assigns(:statuses).map(&:id)
+
+    expect(status_ids).to include(new_status.id, project_status.id, other_project_status.id)
   end
 
   it 'renders permissions when project is selected without tracker or role' do
