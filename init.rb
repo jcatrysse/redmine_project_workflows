@@ -5,11 +5,15 @@ Redmine::Plugin.register :redmine_project_workflows do
   author 'Jan Catrysse'
   description 'Project workflows for Redmine'
   url 'https://github.com/jcatrysse/redmine_project_workflows'
-  version '0.0.2'
+  version '0.0.3'
   requires_redmine version_or_higher: '5.0'
 end
 
-require 'deface'
+begin
+  require 'deface'
+rescue LoadError => e
+  raise LoadError, "redmine_project_workflows requires deface: #{e.message}"
+end
 require_relative 'lib/redmine_project_workflows'
 
 Rails.application.config.after_initialize do

@@ -3,7 +3,11 @@
 module RedmineProjectWorkflows
   module Services
     class TransitionQuery
-      def self.override_active?(project_id:, tracker_id:, role_ids:)
+      # Returns true when any project has overrides for this tracker/role
+      # combination. When true, the plugin path must be used instead of
+      # Redmine's native code because the native queries do not filter on
+      # project_id and would return contaminated results.
+      def self.override_active?(tracker_id:, role_ids:)
         return false if tracker_id.blank? || role_ids.blank?
 
         WorkflowTransition.where(

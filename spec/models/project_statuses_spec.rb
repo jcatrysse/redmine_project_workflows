@@ -3,7 +3,7 @@
 require_relative '../spec_helper'
 
 describe Project, type: :model do
-  fixtures :projects, :roles, :trackers, :issue_statuses, :enabled_modules
+  fixtures :projects, :roles, :trackers, :issue_statuses, :enabled_modules, :members, :member_roles
 
   let(:project) { projects(:projects_001) }
   let(:other_project) { projects(:projects_002) }

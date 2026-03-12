@@ -10,7 +10,6 @@ module RedmineProjectWorkflows
         return {} if roles.empty?
 
         unless RedmineProjectWorkflows::Services::PermissionQuery.override_active?(
-          project_id: project_id,
           tracker_id: tracker_id,
           role_ids: roles.map(&:id)
         )
@@ -29,13 +28,7 @@ module RedmineProjectWorkflows
             hash[permission.field_name][permission.role_id] = permission.rule
             hash
           end
-          fields_with_roles = {}
-          IssueCustomField.where(visible: false).
-            joins(:roles).pluck(:id, "role_id").
-            each do |field_id, role_id|
-              fields_with_roles[field_id] ||= []
-              fields_with_roles[field_id] << role_id
-            end
+          fields_with_roles = invisible_custom_field_role_map
           roles.each do |role|
             fields_with_roles.each do |field_id, role_ids|
               next if role_ids.include?(role.id)
@@ -59,7 +52,6 @@ module RedmineProjectWorkflows
       def new_statuses_allowed_to(user=User.current, include_default=false)
         roles = roles_for_workflow(user)
         if roles.present? && RedmineProjectWorkflows::Services::TransitionQuery.override_active?(
-          project_id: project_id,
           tracker_id: tracker_id,
           role_ids: roles.map(&:id)
         )
@@ -109,6 +101,20 @@ module RedmineProjectWorkflows
           super
         end
       end
+
+
+      private
+
+      def invisible_custom_field_role_map
+        store = defined?(::RequestStore) ? ::RequestStore.store : Thread.current
+        store[:redmine_project_workflows_invisible_custom_field_role_map] ||= begin
+          IssueCustomField.where(visible: false).joins(:roles).pluck(:id, 'role_id').each_with_object({}) do |(field_id, role_id), map|
+            map[field_id] ||= []
+            map[field_id] << role_id
+          end
+        end
+      end
+
     end
   end
 end

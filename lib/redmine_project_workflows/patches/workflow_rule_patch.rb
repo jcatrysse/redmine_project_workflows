@@ -4,9 +4,11 @@ module RedmineProjectWorkflows
   module Patches
     module WorkflowRulePatch
       def copy_for_project(source_project_id, target_project_id, source_tracker, source_role, target_trackers, target_roles)
-        unless source_tracker.is_a?(Tracker) || source_role.is_a?(Role)
+        unless (source_tracker.nil? || source_tracker.is_a?(Tracker)) &&
+            (source_role.nil? || source_role.is_a?(Role)) &&
+            (source_tracker.is_a?(Tracker) || source_role.is_a?(Role))
           raise ArgumentError,
-                "source_tracker or source_role must be specified, given: " \
+                "source_tracker or source_role must be specified as a tracker/role, given: " \
                 "#{source_tracker.class.name} and #{source_role.class.name}"
         end
 
@@ -63,8 +65,8 @@ module RedmineProjectWorkflows
 
         source_project_id = Integer(source_project_id) if source_project_id
         target_project_id = Integer(target_project_id) if target_project_id
-        source_project_condition = source_project_id ? "= #{source_project_id}" : 'IS NULL'
-        target_project_value = target_project_id ? target_project_id.to_s : 'NULL'
+        source_project_condition = source_project_id ? "= #{connection.quote(source_project_id)}" : 'IS NULL'
+        target_project_value = target_project_id ? connection.quote(target_project_id) : 'NULL'
 
         return false if source_tracker == target_tracker && source_role == target_role &&
           source_project_id == target_project_id
@@ -88,29 +90,7 @@ module RedmineProjectWorkflows
       end
 
       def copy_one(source_tracker, source_role, target_tracker, target_role)
-        unless source_tracker.is_a?(Tracker) && !source_tracker.new_record? &&
-          source_role.is_a?(Role) && !source_role.new_record? &&
-          target_tracker.is_a?(Tracker) && !target_tracker.new_record? &&
-          target_role.is_a?(Role) && !target_role.new_record?
-
-          raise ArgumentError, 'arguments can not be nil or unsaved objects'
-        end
-
-        return false if source_tracker == target_tracker && source_role == target_role
-
-        transaction do
-          where(tracker_id: target_tracker.id, role_id: target_role.id, project_id: nil).delete_all
-          connection.insert(
-            "INSERT INTO #{WorkflowRule.table_name}" \
-              " (tracker_id, role_id, old_status_id, new_status_id," \
-               " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, project_id)" \
-              " SELECT #{target_tracker.id}, #{target_role.id}, old_status_id, new_status_id," \
-                      " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, NULL" \
-                " FROM #{WorkflowRule.table_name}" \
-                " WHERE tracker_id = #{source_tracker.id} AND role_id = #{source_role.id} AND project_id IS NULL"
-          )
-        end
-        true
+        copy_one_for_project(nil, nil, source_tracker, source_role, target_tracker, target_role)
       end
 
       def delete_existing_rules_for_project(project_id, copy_pairs, skipped_pairs)

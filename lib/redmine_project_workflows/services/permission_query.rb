@@ -3,7 +3,10 @@
 module RedmineProjectWorkflows
   module Services
     class PermissionQuery
-      def self.override_active?(project_id:, tracker_id:, role_ids:)
+      # Returns true when any project has permission overrides for this
+      # tracker/role combination. See TransitionQuery.override_active? for
+      # the rationale behind this system-wide check.
+      def self.override_active?(tracker_id:, role_ids:)
         return false if tracker_id.blank? || role_ids.blank?
 
         WorkflowPermission.where(

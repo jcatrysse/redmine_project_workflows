@@ -20,7 +20,7 @@ module RedmineProjectWorkflows
     files = Dir.glob(File.join(overrides_path, '**', '*.rb')).sort
 
     files.each do |file|
-      load file
+      require file
     rescue => e
       Rails.logger.error "[redmine_project_workflows] error loading #{file}: #{e.class} #{e.message}"
       raise

@@ -5,7 +5,7 @@ module RedmineProjectWorkflows
       Deface::Override.new(
         virtual_path: 'workflows/edit',
         name: 'redmine_project_workflows_edit_add_project_hidden_field',
-        insert_after: 'div.autoscroll',
+        insert_top: 'div.autoscroll',
         text: <<~ERB
     <% project_ids = Array(params[:project_id]).presence || ['global'] %>
     <% if project_ids.include?('all') %>

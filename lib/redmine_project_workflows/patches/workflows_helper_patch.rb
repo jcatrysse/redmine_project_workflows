@@ -9,7 +9,7 @@ module RedmineProjectWorkflows
         objects = normalize_workflow_objects(name, objects)
         selected = normalize_workflow_selected(objects, selected)
 
-        html = super(name, objects, selected, options)
+        super(name, objects, selected, options)
       end
 
       def field_permission_tag(permissions, status, field, roles)

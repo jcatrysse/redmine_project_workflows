@@ -296,6 +296,18 @@ describe WorkflowsController, type: :controller do
     expect(status_ids).to include(new_status.id, project_status.id, other_project_status.id)
   end
 
+
+  it 'returns 404 for unknown project ids' do
+    get :edit, params: {
+      role_id: [role.id],
+      tracker_id: [tracker.id],
+      project_id: ['999999'],
+      used_statuses_only: '0'
+    }
+
+    expect(response).to have_http_status(:not_found)
+  end
+
   it 'renders permissions when project is selected without tracker or role' do
     get :permissions, params: {
       project_id: [project.id.to_s],
@@ -325,7 +337,7 @@ describe WorkflowsController, type: :controller do
     expect(response).to have_http_status(:ok)
   end
 
-  it 'updates both global and project transitions when combined selection is saved' do
+  it 'updates both global and project transitions when combined selection is saved (status-first payload)' do
     post :update, params: {
       role_id: [role.id],
       tracker_id: [tracker.id],
@@ -371,7 +383,7 @@ describe WorkflowsController, type: :controller do
     ).to be_present
   end
 
-  it 'updates both global and project permissions when combined selection is saved' do
+  it 'updates both global and project permissions when combined selection is saved (field-first payload)' do
     post :update_permissions, params: {
       role_id: [role.id],
       tracker_id: [tracker.id],
@@ -426,53 +438,7 @@ describe WorkflowsController, type: :controller do
     expect(assigns(:selected_projects).size).to eq(Project.count)
   end
 
-  it 'updates both global and project transitions when combined selection is saved' do
-    post :update, params: {
-      role_id: [role.id],
-      tracker_id: [tracker.id],
-      project_id: ['global', project.id.to_s],
-      used_statuses_only: '0',
-      transitions: {
-        old_status.id.to_s => {
-          new_status.id.to_s => {
-            'always' => '1',
-            'author' => '0',
-            'assignee' => '0'
-          }
-        }
-      }
-    }
-
-    expect(response).to redirect_to(
-      edit_workflows_path(
-        project_id: ['global', project.id],
-        tracker_id: [tracker.id],
-        role_id: [role.id],
-        used_statuses_only: '0'
-      )
-    )
-
-    expect(
-      WorkflowTransition.find_by(
-        tracker_id: tracker.id,
-        role_id: role.id,
-        old_status_id: old_status.id,
-        new_status_id: new_status.id,
-        project_id: nil
-      )
-    ).to be_present
-    expect(
-      WorkflowTransition.find_by(
-        tracker_id: tracker.id,
-        role_id: role.id,
-        old_status_id: old_status.id,
-        new_status_id: new_status.id,
-        project_id: project.id
-      )
-    ).to be_present
-  end
-
-  it 'updates both global and project permissions when combined selection is saved' do
+  it 'updates both global and project permissions when combined selection is saved (status-first payload)' do
     post :update_permissions, params: {
       role_id: [role.id],
       tracker_id: [tracker.id],
@@ -545,19 +511,6 @@ describe WorkflowsController, type: :controller do
         project_id: project.id
       )
     ).to have_attributes(rule: 'required')
-  end
-
-  it 'treats project_id=all as all projects plus generic' do
-    get :edit, params: {
-      role_id: [role.id],
-      tracker_id: [tracker.id],
-      project_id: ['all'],
-      used_statuses_only: '0'
-    }
-
-    expect(response).to have_http_status(:ok)
-    expect(assigns(:global_selected)).to be(true)
-    expect(assigns(:selected_projects).size).to eq(Project.count)
   end
 
   it 'copies project-specific workflow rules when duplicating' do
@@ -728,87 +681,6 @@ describe WorkflowsController, type: :controller do
     ).to have_attributes(rule: 'required')
   end
 
-  it 'replaces existing target rules when duplicating to multiple roles' do
-    WorkflowTransition.create!(
-      tracker_id: tracker.id,
-      role_id: role.id,
-      old_status_id: old_status.id,
-      new_status_id: new_status.id,
-      project_id: project.id,
-      author: false,
-      assignee: false
-    )
-    WorkflowPermission.create!(
-      tracker_id: tracker.id,
-      role_id: role.id,
-      old_status_id: old_status.id,
-      field_name: 'subject',
-      rule: 'readonly',
-      project_id: project.id
-    )
-    WorkflowPermission.create!(
-      tracker_id: target_tracker.id,
-      role_id: role.id,
-      old_status_id: old_status.id,
-      field_name: 'subject',
-      rule: 'required',
-      project_id: project.id
-    )
-    WorkflowPermission.create!(
-      tracker_id: target_tracker.id,
-      role_id: target_role.id,
-      old_status_id: old_status.id,
-      field_name: 'subject',
-      rule: 'required',
-      project_id: project.id
-    )
-    WorkflowPermission.create!(
-      tracker_id: tracker.id,
-      role_id: target_role.id,
-      old_status_id: old_status.id,
-      field_name: 'subject',
-      rule: 'required',
-      project_id: project.id
-    )
-
-    post :duplicate, params: {
-      source_tracker_id: tracker.id,
-      source_role_id: role.id,
-      source_project_id: project.id,
-      target_tracker_ids: [target_tracker.id],
-      target_role_ids: [role.id, target_role.id],
-      target_project_ids: [project.id]
-    }
-
-    expect(
-      WorkflowPermission.find_by(
-        tracker_id: target_tracker.id,
-        role_id: role.id,
-        old_status_id: old_status.id,
-        field_name: 'subject',
-        project_id: project.id
-      )
-    ).to have_attributes(rule: 'readonly')
-    expect(
-      WorkflowPermission.find_by(
-        tracker_id: target_tracker.id,
-        role_id: target_role.id,
-        old_status_id: old_status.id,
-        field_name: 'subject',
-        project_id: project.id
-      )
-    ).to have_attributes(rule: 'readonly')
-    expect(
-      WorkflowPermission.find_by(
-        tracker_id: tracker.id,
-        role_id: target_role.id,
-        old_status_id: old_status.id,
-        field_name: 'subject',
-        project_id: project.id
-      )
-    ).to have_attributes(rule: 'required')
-  end
-
   it 'copies global rules to the same tracker/role on a target project' do
     WorkflowTransition.create!(
       tracker_id: tracker.id,
@@ -870,5 +742,72 @@ describe WorkflowsController, type: :controller do
     expect(response).to have_http_status(:ok)
     expect(assigns(:source_project_id)).to be_nil
     expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_source_project))
+  end
+
+  # M2: regressietest voor niet-bestaand numeriek source_project_id
+  it 'rejects a numeric source_project_id that does not exist and preserves target data' do
+    existing = WorkflowTransition.create!(
+      tracker_id: target_tracker.id,
+      role_id: target_role.id,
+      old_status_id: old_status.id,
+      new_status_id: new_status.id,
+      project_id: project.id,
+      author: false,
+      assignee: false
+    )
+
+    post :duplicate, params: {
+      source_tracker_id: tracker.id,
+      source_role_id: role.id,
+      source_project_id: '999999',
+      target_tracker_ids: [target_tracker.id],
+      target_role_ids: [target_role.id],
+      target_project_ids: [project.id]
+    }
+
+    expect(response).to have_http_status(:ok)
+    expect(assigns(:source_project_id)).to be_nil
+    expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_source_project))
+    # Target data mag niet gewist zijn
+    expect(WorkflowTransition.exists?(existing.id)).to be(true)
+  end
+
+  # S4: gedrag bij lege bron (bestaand project, maar geen regels)
+  it 'clears target rules when duplicating from a project with no workflow rules' do
+    WorkflowTransition.create!(
+      tracker_id: target_tracker.id,
+      role_id: target_role.id,
+      old_status_id: old_status.id,
+      new_status_id: new_status.id,
+      project_id: project.id,
+      author: false,
+      assignee: false
+    )
+
+    # other_project heeft geen regels
+    post :duplicate, params: {
+      source_tracker_id: tracker.id,
+      source_role_id: role.id,
+      source_project_id: other_project.id,
+      target_tracker_ids: [target_tracker.id],
+      target_role_ids: [target_role.id],
+      target_project_ids: [project.id]
+    }
+
+    expect(response).to redirect_to(
+      copy_workflows_path(
+        source_tracker_id: tracker.id,
+        source_role_id: role.id,
+        source_project_id: other_project.id
+      )
+    )
+    # Gedocumenteerd gedrag: bij lege bron worden bestaande target-regels gewist
+    expect(
+      WorkflowTransition.find_by(
+        tracker_id: target_tracker.id,
+        role_id: target_role.id,
+        project_id: project.id
+      )
+    ).to be_nil
   end
 end

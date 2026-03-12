@@ -32,4 +32,3 @@ RSpec.configure do |config|
     WorkflowRule.delete_all if defined?(WorkflowRule)
   end
 end
-

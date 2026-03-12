@@ -12,7 +12,8 @@ module RedmineProjectWorkflows
       def overridden_role_ids_for(model)
         return [] if @role_ids.empty? || @project_id.blank? || @tracker_id.blank?
 
-        model.where(
+        @overridden_role_ids ||= {}
+        @overridden_role_ids[model] ||= model.where(
           project_id: @project_id,
           tracker_id: @tracker_id,
           role_id: @role_ids

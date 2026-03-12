@@ -25,7 +25,6 @@ module RedmineProjectWorkflows
       end
 
       def self.delete_permissions_for_scope(scope, permissions)
-        permissions = normalize_permissions(permissions)
         table = WorkflowPermission.arel_table
         conditions = permissions.each_with_object([]) do |(status_id, rule_by_field), memo|
           next unless rule_by_field.respond_to?(:keys)
@@ -42,7 +41,6 @@ module RedmineProjectWorkflows
       end
 
       def self.build_permission_rows(project_id, trackers, roles, permissions)
-        permissions = normalize_permissions(permissions)
         rows = []
         permissions.each do |status_id, rule_by_field|
           status_id = status_id.to_i

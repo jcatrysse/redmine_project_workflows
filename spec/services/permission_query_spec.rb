@@ -17,6 +17,37 @@ describe RedmineProjectWorkflows::Services::PermissionQuery do
     member.save!
   end
 
+
+
+  it 'returns false when only global permissions exist' do
+    WorkflowPermission.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: status.id,
+      field_name: 'subject',
+      rule: 'readonly',
+      project_id: nil
+    )
+
+    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(false)
+  end
+
+  it 'returns false when no permissions exist at all' do
+    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(false)
+  end
+
+  it 'detects permission overrides when they exist on another project for the same tracker and role' do
+    WorkflowPermission.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: status.id,
+      field_name: 'subject',
+      rule: 'readonly',
+      project_id: projects(:projects_002).id
+    )
+
+    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(true)
+  end
   it 'detects project overrides for permissions' do
     WorkflowPermission.create!(
       tracker_id: tracker.id,
@@ -27,7 +58,7 @@ describe RedmineProjectWorkflows::Services::PermissionQuery do
       project_id: project.id
     )
 
-    expect(described_class.override_active?(project_id: project.id, tracker_id: tracker.id, role_ids: [role.id])).to be(true)
+    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(true)
   end
 
   it 'returns project rules when overrides exist' do

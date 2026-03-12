@@ -19,6 +19,39 @@ describe RedmineProjectWorkflows::Services::TransitionQuery do
     member.save!
   end
 
+
+
+  it 'returns false when only global transitions exist' do
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: global_status.id,
+      project_id: nil,
+      author: false,
+      assignee: false
+    )
+
+    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(false)
+  end
+
+  it 'returns false when no transitions exist at all' do
+    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(false)
+  end
+
+  it 'detects overrides when they exist on another project for the same tracker and role' do
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: project_status.id,
+      project_id: projects(:projects_002).id,
+      author: false,
+      assignee: false
+    )
+
+    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(true)
+  end
   it 'detects project overrides for transitions' do
     WorkflowTransition.create!(
       tracker_id: tracker.id,
@@ -30,7 +63,7 @@ describe RedmineProjectWorkflows::Services::TransitionQuery do
       assignee: false
     )
 
-    expect(described_class.override_active?(project_id: project.id, tracker_id: tracker.id, role_ids: [role.id])).to be(true)
+    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(true)
   end
 
   it 'prefers project transitions over global ones for overridden roles' do

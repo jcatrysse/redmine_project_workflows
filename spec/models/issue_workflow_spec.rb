@@ -77,6 +77,52 @@ describe Issue, type: :model do
     expect(statuses).not_to include(global_status)
   end
 
+  describe '#workflow_rule_by_attribute' do
+    let(:status) { issue_statuses(:issue_statuses_001) }
+
+    it 'returns project-specific permission rules when overrides exist' do
+      WorkflowPermission.create!(
+        tracker_id: tracker.id,
+        role_id: role.id,
+        old_status_id: status.id,
+        field_name: 'subject',
+        rule: 'required',
+        project_id: nil
+      )
+      WorkflowPermission.create!(
+        tracker_id: tracker.id,
+        role_id: role.id,
+        old_status_id: status.id,
+        field_name: 'subject',
+        rule: 'readonly',
+        project_id: project.id
+      )
+
+      issue = Issue.new(project: project, tracker: tracker, status: status, author: user)
+
+      rules = issue.workflow_rule_by_attribute(user)
+
+      expect(rules['subject']).to eq('readonly')
+    end
+
+    it 'falls back to global rules when no project overrides exist' do
+      WorkflowPermission.create!(
+        tracker_id: tracker.id,
+        role_id: role.id,
+        old_status_id: status.id,
+        field_name: 'subject',
+        rule: 'required',
+        project_id: nil
+      )
+
+      issue = Issue.new(project: project, tracker: tracker, status: status, author: user)
+
+      rules = issue.workflow_rule_by_attribute(user)
+
+      expect(rules['subject']).to eq('required')
+    end
+  end
+
   it 'falls back to the default status when no transitions are defined' do
     WorkflowTransition.create!(
       tracker_id: tracker.id,
