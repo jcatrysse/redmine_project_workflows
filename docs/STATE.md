@@ -22,7 +22,12 @@
   `claude/redmine-workflows-plugin-review-zpjyfv`, which held the same commit as
   `claude/dev`, and checked out `claude/dev` before touching anything.
   `git checkout -B claude/dev origin/claude/dev` is the safe form.
-- **`main`:** unchanged. Jan asks for the merge himself.
+- **`main`:** unchanged. Jan asks for the merge himself. Worth knowing before he
+  does: `main` still carries the *old* CI setup — `.github/workflows/rspec-51.yml`
+  and `rspec-60.yml`, two cells — while the nine-cell `specs.yml` exists only on
+  `claude/dev`. The merge replaces the two with the matrix; the two names linger
+  in GitHub's workflow list afterwards with no file behind them, which is
+  cosmetic.
 - **Open findings:** **two**, both deliberate and both recorded with the
   reasoning: `G02` and `G03` from the earlier runs. This session adds one
   `wont-fix` (`R05`, the project selector lists every project) and one `invalid`
@@ -105,10 +110,10 @@ private again.
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **618 examples, 0 failures** (was 585; 33 added) |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **618 examples, 0 failures** |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **618 examples, 0 failures** |
-| Plugin suite, 7.0-stable + **MariaDB 10.11** | **618 examples, 0 failures** |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **619 examples, 0 failures** (was 585; 34 added) |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **619 examples, 0 failures** |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **619 examples, 0 failures** |
+| Plugin suite, 7.0-stable + **MariaDB 10.11** | **619 examples, 0 failures** |
 | Fails on the old code | **19 of the new examples**, run rather than assumed: committed the fix, wrote the `9a1a9ef` version of `lib/` and the two changed partials back with `git show`, ran, then `git checkout -- .`. The rest are positive controls that must pass on both sides |
 | Migration up → 0 → up | clean on all four hosts, run **before** each suite; schema checked by hand on 7.0 (no `workflows.project_id`, no `project_workflow_scopes`). This session adds no migration |
 | Backfill check | `dev/check-backfill.sh` passes on the 7.0 host |
