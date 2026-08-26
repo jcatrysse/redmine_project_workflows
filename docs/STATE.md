@@ -154,20 +154,17 @@ gates this session. What it did produce, each of which became an example:
 | Migration up → 0 → up | clean on the 7.0 host, run **before** its suite. This session adds no migration |
 | Locale parity | eight files, **92** keys each (was 91) |
 | MySQL / MariaDB | **not run** — no such server and no `mysqld` in this container. Three of the nine cells are unverified locally; CI covers them |
-| CI | see below — the head moved four times this session and the concurrency group cancels a superseded run, so read the run for the **head**, `4db60dd` |
+| CI | **green.** Run **63** on `250c8b3` — which carries the entire code change — succeeded on **all ten jobs**: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Run **65** on `6852fa2` is green too. That is what covers the three **MySQL and MariaDB** cells nothing in this container could run. Runs 61, 62 and 64 read "cancelled": the concurrency group superseded each of them when the next commit was pushed, which is not a failure — read the run for the commit you care about, not the newest completed one |
 
 ## Exact next step
 
-**Read CI for `4db60dd`, then it is Jan's turn again.**
+**It is Jan's turn.**
 
-1. **Check CI on the head.** `4db60dd` is pushed to `claude/dev` and its run had
-   not finished when this session ended. Nine cells plus RuboCop; the three
-   **MySQL and MariaDB** cells are the ones nothing in this container can run, and
-   the change touches parameter parsing rather than SQL, so they are unlikely to
-   differ — but "unlikely" is not "checked". If a cell is red, fix it before
-   anything else. (Beware: a run can read "cancelled" because the concurrency
-   group superseded it when a later commit was pushed. Read the *head's* run, not
-   the newest completed one.)
+1. **Nothing to check first.** CI is green on all ten jobs for the code (run 63
+   on `250c8b3`) and for the branch after it (run 65 on `6852fa2`). Only one
+   commit lands after that — this STATE rewrite, docs only — so if its own run is
+   green the whole branch is. See the CI row above for the "cancelled" runs,
+   which are the concurrency group and not failures.
 2. **Nothing else is queued.** WP0..WP8 are done, `spec/characterization/` is
    empty, and the three open findings are all deliberate — `C01` is waiting on
    Jan, `G02` and `G03` were both recorded with the reasoning for leaving them.
