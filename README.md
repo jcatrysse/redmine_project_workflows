@@ -42,6 +42,15 @@ covered by CI only.
    Giving a project its own workflow starts from a copy of the generic one by
    default, because an empty one would allow no transition at all.
 
+4. **Summary** counts the workflow you selected. Without a project selected that
+   is the generic workflow, exactly as before; select a project and the grid
+   counts that project's own rules.
+5. **Workflow inventory**, reached from the link next to *Summary*, answers the
+   question the grid cannot: which projects have taken a workflow over. One line
+   per project, tracker and role, with the state in words and a link into the
+   matrix it describes. It shows only the projects that decided something unless
+   you ask for everything.
+
 ## Maintenance
 
 Neither Redmine nor this plugin has a unique constraint on the `workflows`

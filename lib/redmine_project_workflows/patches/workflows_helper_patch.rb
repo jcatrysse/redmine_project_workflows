@@ -65,6 +65,21 @@ module RedmineProjectWorkflows
         content_tag(:span, text, class: "project-workflow-scope-state #{state.state}")
       end
 
+      # One cell of the summary grid. Core builds the link with a bare
+      # {:action => 'edit', :role_id => ..., :tracker_id => ...}, which carries
+      # no project: with a project selected, the counts on the page would be
+      # that project's and the link would open the generic matrix. The
+      # selection is nil when it is the default -- the generic workflow alone --
+      # so the URL then stays byte-identical to core's.
+      def project_workflow_summary_count_link(count, tracker, role, selection)
+        url = { action: 'edit', role_id: role, tracker_id: tracker }
+        url[:project_id] = selection if selection.present?
+
+        link_to(project_workflows_summary_count_body(count), url,
+                title: l(:button_edit),
+                class: project_workflows_summary_count_class(count))
+      end
+
       def transition_tag(transition_count, old_status, new_status, name)
         tag_name = "transitions[#{old_status.try(:id) || 0}][#{new_status.id}][#{name}]"
         if old_status == new_status

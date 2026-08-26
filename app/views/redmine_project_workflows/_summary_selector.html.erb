@@ -1,0 +1,13 @@
+<%#
+  Which workflow the summary grid below is counting.
+
+  Without plugin parameters the selection is the generic workflow alone, which
+  is what core's page has always shown -- so an administrator who does not use
+  the plugin sees the same numbers, and the same links, as before.
+%>
+<%= form_tag({ action: 'index' }, method: 'get') do %>
+  <p>
+    <%= render partial: 'redmine_project_workflows/project_selector' %>
+    <%= submit_tag l(:button_apply), name: nil %>
+  </p>
+<% end %>

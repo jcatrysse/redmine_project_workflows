@@ -20,6 +20,75 @@ describe WorkflowsController, type: :controller do
     @request.session[:user_id] = 1
   end
 
+  # WP3 / claude F01. This was the last characterization example: core's
+  # summary page groups every workflow row by tracker and role with no
+  # project_id predicate at all (INV-4), so a project that had taken over one
+  # tracker made the generic workflow look like it had rules it does not have.
+  describe 'the summary page' do
+    it 'leaves a project\'s rules out of the generic totals' do
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id,
+                                 project_id: nil)
+      get :index
+      generic_only = assigns(:workflow_counts)[[tracker.id, role.id]]
+
+      give_own_workflow(project, tracker, role)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id,
+                                 project_id: project.id)
+      get :index
+
+      expect(generic_only).to eq(1)
+      expect(assigns(:workflow_counts)[[tracker.id, role.id]]).to eq(1)
+    end
+
+    it 'counts the selected project instead of the generic workflow' do
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id,
+                                 project_id: nil)
+      give_own_workflow(project, tracker, role)
+      [project_status, other_project_status].each do |status|
+        WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                   old_status_id: old_status.id, new_status_id: status.id,
+                                   project_id: project.id)
+      end
+
+      get :index, params: { project_id: [project.id.to_s] }
+
+      expect(assigns(:workflow_counts)[[tracker.id, role.id]]).to eq(2)
+    end
+
+    # A project that inherits holds no rules of its own, and the page says so
+    # with a zero rather than by quietly showing the generic ones.
+    it 'counts nothing for a project that inherits' do
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id,
+                                 project_id: nil)
+
+      get :index, params: { project_id: [project.id.to_s] }
+
+      expect(assigns(:workflow_counts)[[tracker.id, role.id]]).to be_nil
+    end
+
+    it 'keeps the default selection out of the count links' do
+      get :index
+
+      expect(assigns(:project_workflow_selection)).to be_nil
+    end
+
+    it 'carries a real selection into the count links' do
+      get :index, params: { project_id: [project.id.to_s] }
+
+      expect(assigns(:project_workflow_selection)).to eq([project.id])
+    end
+
+    it 'refuses a project id that does not resolve' do
+      get :index, params: { project_id: ['99999999'] }
+
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
   it 'filters project-specific transitions from global workflow edit view' do
     WorkflowTransition.create!(
       tracker_id: tracker.id,

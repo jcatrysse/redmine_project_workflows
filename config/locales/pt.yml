@@ -38,3 +38,12 @@ pt:
     one: "%{count} fluxo de trabalho esvaziado."
     other: "%{count} fluxos de trabalho esvaziados."
   notice_project_workflow_scope_unchanged: Não havia nada a alterar.
+  label_project_workflow_inventory: Inventário dos fluxos de trabalho
+  label_project_workflow_rule_type: Tipo de regra
+  label_project_workflow_inventory_deviations_only: Apenas projetos com fluxo de trabalho próprio
+  text_project_workflow_inventory_description: "Uma linha por projeto, tipo e função. O número indica quantas regras o próprio projeto tem; o rótulo diz se são essas regras que se aplicam, ou o fluxo de trabalho geral."
+  text_project_workflow_inventory_empty: Nenhum projeto tem fluxo de trabalho próprio para esta seleção.
+  text_project_workflow_inventory_empty_filtered: Nenhuma combinação de projeto, tipo e função corresponde a esta seleção.
+  button_project_workflow_inventory_show_all: Mostrar todos os projetos, tipos e funções
+  button_project_workflow_inventory_open_matrices: Abrir as matrizes do fluxo de trabalho
+  error_project_workflow_inventory_filter: Um ou mais valores de filtro já não existem e foram ignorados.

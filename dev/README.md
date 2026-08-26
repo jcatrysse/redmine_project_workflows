@@ -75,4 +75,4 @@ BUNDLE_GEMFILE=.github/lint/Gemfile bundle exec rubocop
 | ---------------------- | ------- |
 | `spec/services`, `spec/models`, `spec/controllers`, `spec/helpers`, `spec/views` | Behaviour the plugin intends to provide. |
 | `spec/integration`     | Guards that each Deface override still matches an anchor in the host's views. An unmatched override fails silently, so this must be checked per Redmine version. |
-| `spec/characterization` | Behaviour that is currently **wrong**, pinned so that fixes are deliberate. When a defect is repaired, invert or delete its example — never make it green again. |
+| `spec/characterization` | Behaviour that is currently **wrong**, pinned so that fixes are deliberate. When a defect is repaired, invert or delete its example — never make it green again. The directory is empty as of WP3, and the convention stands: a newly found defect that is not being fixed yet belongs here first. |

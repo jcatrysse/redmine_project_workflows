@@ -38,3 +38,12 @@ en:
     one: "%{count} workflow emptied."
     other: "%{count} workflows emptied."
   notice_project_workflow_scope_unchanged: Nothing had to be changed.
+  label_project_workflow_inventory: Workflow inventory
+  label_project_workflow_rule_type: Kind of rule
+  label_project_workflow_inventory_deviations_only: Only projects with their own workflow
+  text_project_workflow_inventory_description: One line per project, tracker and role. The number is how many rules the project holds itself; the label says whether those rules are what applies, or whether the generic workflow does.
+  text_project_workflow_inventory_empty: No project has its own workflow for this selection.
+  text_project_workflow_inventory_empty_filtered: No project, tracker and role match this selection.
+  button_project_workflow_inventory_show_all: Show every project, tracker and role
+  button_project_workflow_inventory_open_matrices: Open the workflow matrices
+  error_project_workflow_inventory_filter: One or more filter values no longer exist and have been ignored.

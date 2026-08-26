@@ -17,8 +17,8 @@
 | --- | --- | --- |
 | WP0 | Immediate repairs | **done** |
 | WP1 | Scopes: table, model, resolver, backfill | **done** |
-| WP2 | Correctness at the core seams | not started |
-| WP3 | Summary and inventory | not started |
+| WP2 | Correctness at the core seams | **done** |
+| WP3 | Summary and inventory | **done** |
 | WP4 | Project settings tab and permissions | not started |
 | WP5 | Bulk editing in the matrix | not started |
 | WP6 | Compare, audit, undo | not started |
@@ -135,6 +135,30 @@ claude F01 and therefore WP3's. WP2 cannot empty the directory.)*
 
 **Done when** `spec/characterization/` is empty — the summary-page example is
 its last one.
+
+**Done.** `spec/characterization/` no longer exists. The summary page counts per
+scope and carries the selection into its count links; the inventory is a screen
+of the plugin's own at `/project_workflow_inventories`, reached from core's
+action menu and from the summary page.
+
+Three things came out differently from what this bullet list assumed:
+
+1. **The count cell had to be replaced, not only the count.** Core builds the
+   link with a bare `{:action => 'edit', :role_id => ..., :tracker_id => ...}`,
+   which carries no project, so a filtered page would have shown one workflow's
+   numbers and linked to another's. The cell is now the plugin's markup, and
+   because 5.1 and 6.0 draw an empty cell differently the shape comes from
+   `VersionHelper`. Without a project selection the URL stays byte-identical to
+   core's.
+2. **The inventory counts the project's own rules, never the generic ones.** An
+   inheriting row therefore reads `0`, and the *label* — not the number — is
+   what says the generic workflow applies. The alternative, showing the generic
+   count on an inheriting row, would have put a number in the cell that does not
+   match the matrix the cell links to.
+3. **Deleting the last characterization example uncovered five specs that
+   passed for the wrong reason.** That file was the only one loading the
+   `enumerations` fixture, and five specs that create an `Issue` were relying on
+   it being in the database. They now declare it themselves.
 
 ## WP4 — Project settings tab and permissions
 

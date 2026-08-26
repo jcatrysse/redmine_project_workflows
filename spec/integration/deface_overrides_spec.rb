@@ -16,12 +16,19 @@ describe WorkflowsController, type: :controller do
   let(:role)    { roles(:roles_001) }
   let(:tracker) { trackers(:trackers_001) }
 
-  # There are eight overrides across seven files, and each needs an assertion
+  # There are eleven overrides across ten files, and each needs an assertion
   # that only *it* can satisfy. `include('project_id[]')` was not one: the
   # selector and the hidden field both render that name, so either could have
   # stopped matching without the suite noticing.
   def hidden_project_field
     /<input[^>]*type="hidden"[^>]*name="project_id\[\]"/
+  end
+
+  # Redmine 5.1 draws icons from CSS classes; 6.0 and later from SVG sprites.
+  # Wherever the plugin renders markup core also renders, it has to match
+  # whichever the host under test uses.
+  def core_renders_sprites?
+    ApplicationController.helpers.respond_to?(:sprite_icon)
   end
 
   it 'injects the project selector into the transitions page' do
@@ -125,6 +132,88 @@ describe WorkflowsController, type: :controller do
     end
   end
 
+  # WP3 / INV-9. The summary page carries three of the overrides: the header
+  # above the grid, the link to the inventory in core's own action menu, and the
+  # count cells, which core builds without a project and which therefore linked
+  # to the generic matrix however the page was filtered.
+  describe 'the summary page' do
+    let(:project) { projects(:projects_001) }
+
+    it 'gets the project selector above the grid' do
+      get :index
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('id="project_id"')
+    end
+
+    it 'gets the link to the inventory' do
+      get :index
+
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_inventory)))
+      expect(response.body).to include('project_workflow_inventories')
+    end
+
+    # The count cells are the third override, and this is the assertion only
+    # they can satisfy: the header's selector renders 'project_id' too, but it
+    # never renders it inside a link to workflows/edit.
+    it 'carries the selected project into every count link' do
+      give_own_workflow(project, tracker, role)
+
+      get :index, params: { project_id: [project.id.to_s] }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to match(
+        %r{href="[^"]*/workflows/edit\?[^"]*project_id(%5B%5D|\[\])=#{project.id}}
+      )
+    end
+
+    it 'draws the inventory link the way the host draws icons' do
+      get :index
+      link = response.body[%r{<a class="icon icon-list".*?</a>}m]
+
+      expect(link).to be_present
+      if core_renders_sprites?
+        expect(link).to include('<svg')
+      else
+        expect(link).not_to include('<svg')
+      end
+    end
+
+    # The count cells are the plugin's markup now, so an empty one has to look
+    # the way core's did on the host it is running on.
+    it 'marks an empty cell the way the host does' do
+      get :index
+      cell = response.body[%r{<a title="Edit".*?</a>}m]
+
+      expect(cell).to be_present
+      if core_renders_sprites?
+        expect(cell).to include('decoration-red')
+      else
+        expect(cell).to include('icon-not-ok')
+      end
+    end
+
+    # ... and leaves core's own URL alone for an administrator who does not use
+    # the plugin, which is the other half of the same override.
+    it 'leaves the count links as core built them by default' do
+      get :index
+
+      expect(response.body).to match(%r{href="[^"]*/workflows/edit\?[^"]*role_id=})
+      expect(response.body).not_to match(%r{href="[^"]*/workflows/edit\?[^"]*project_id})
+    end
+  end
+
+  # The inventory link also reaches the two matrices, which render core's action
+  # menu partial. The summary and copy pages do not render that partial; the
+  # summary page gets the link from the plugin's own header instead.
+  it 'injects the inventory link into the action menu' do
+    get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                         project_id: ['global'], used_statuses_only: '0' }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include('project_workflow_inventories')
+  end
+
   # WP0 / claude F04. Since Redmine 6.0 core renders sprite_icon('') inside
   # every .toggle-multiselect span, and toggleMultiSelectIconInit() calls
   # updateSVGIcon($(this).find('svg')[0], iconType) for each of them. A span
@@ -136,10 +225,6 @@ describe WorkflowsController, type: :controller do
   describe 'the multiselect toggle the plugin injects' do
     def toggle_spans(body)
       body.scan(%r{<span class="toggle-multiselect[^"]*">(.*?)</span>}m).flatten
-    end
-
-    def core_renders_sprites?
-      ApplicationController.helpers.respond_to?(:sprite_icon)
     end
 
     it 'matches core on the transitions page' do

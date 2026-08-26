@@ -3,7 +3,7 @@
 require_relative '../spec_helper'
 
 describe RedmineProjectWorkflows::Services::ScopeWriter do
-  fixtures :projects, :roles, :trackers, :issue_statuses, :users
+  fixtures :projects, :roles, :trackers, :issue_statuses, :users, :enumerations
 
   let(:project) { projects(:projects_001) }
   let(:other) { projects(:projects_002) }

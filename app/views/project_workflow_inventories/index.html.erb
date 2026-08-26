@@ -1,0 +1,80 @@
+<%= title [l(:label_workflow), edit_workflows_path], l(:label_project_workflow_inventory) %>
+
+<p><%= l(:text_project_workflow_inventory_description) %></p>
+
+<%= form_tag(project_workflow_inventories_path, method: :get) do %>
+<fieldset>
+  <legend><%= l(:label_filter_plural) %></legend>
+  <p>
+    <label for="project_id"><%= l(:label_project) %>:</label>
+    <%= project_workflow_inventory_filter_select('project_id[]', 'project_id', @projects, @selected_projects) %>
+
+    <label for="tracker_id"><%= l(:label_tracker) %>:</label>
+    <%= project_workflow_inventory_filter_select('tracker_id[]', 'tracker_id', @trackers, @selected_trackers) %>
+
+    <label for="role_id"><%= l(:label_role) %>:</label>
+    <%= project_workflow_inventory_filter_select('role_id[]', 'role_id', @roles, @selected_roles) %>
+  </p>
+  <p>
+    <label for="rule_type"><%= l(:label_project_workflow_rule_type) %>:</label>
+    <%= select_tag 'rule_type',
+                   options_for_select(
+                     [[l(:label_all), '']] +
+                       ProjectWorkflowScope::RULE_TYPES.map { |type| [project_workflow_rule_type_label(type), type] },
+                     @rule_type.to_s
+                   ) %>
+
+    <%# The hidden field has to precede the checkbox: unchecked, it is the only
+        value submitted, and Rack keeps the last one when both are sent. %>
+    <%= hidden_field_tag 'deviations_only', '0', id: nil %>
+    <label for="deviations_only">
+      <%= check_box_tag 'deviations_only', '1', @deviations_only %>
+      <%= l(:label_project_workflow_inventory_deviations_only) %>
+    </label>
+  </p>
+  <p><%= submit_tag l(:button_apply), name: nil %></p>
+</fieldset>
+<% end %>
+
+<% if @rows.empty? %>
+  <p class="nodata"><%= @deviations_only ? l(:text_project_workflow_inventory_empty) : l(:text_project_workflow_inventory_empty_filtered) %></p>
+  <p>
+    <% if @deviations_only %>
+      <%= link_to l(:button_project_workflow_inventory_show_all),
+                  project_workflow_inventories_path(project_workflow_inventory_filter_params(deviations_only: '0')) %>
+    <% end %>
+    <%= link_to l(:button_project_workflow_inventory_open_matrices), edit_workflows_path %>
+  </p>
+<% else %>
+<div class="autoscroll">
+<table class="list project-workflow-inventory">
+  <thead>
+    <tr>
+      <th><%= l(:label_project) %></th>
+      <th><%= l(:label_tracker) %></th>
+      <th><%= l(:label_role) %></th>
+      <% @rule_types.each do |rule_type| %>
+        <th><%= project_workflow_rule_type_label(rule_type) %></th>
+      <% end %>
+    </tr>
+  </thead>
+  <tbody>
+    <% @rows.each do |row| %>
+    <tr>
+      <td class="name"><%= row.project.name %></td>
+      <td class="name"><%= row.tracker.name %></td>
+      <td class="name"><%= content_tag(row.role.builtin? ? 'em' : 'span', row.role.name) %></td>
+      <% @rule_types.each do |rule_type| %>
+        <% cell = row.cells[rule_type] %>
+        <td class="project-workflow-<%= rule_type %>">
+          <%= project_workflow_inventory_count_link(cell, row, rule_type) %>
+          <%= project_workflow_inventory_state_tag(cell) %>
+        </td>
+      <% end %>
+    </tr>
+    <% end %>
+  </tbody>
+</table>
+</div>
+<span class="pagination"><%= pagination_links_full @pages, @row_count %></span>
+<% end %>

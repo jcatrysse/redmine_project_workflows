@@ -38,3 +38,12 @@ es:
     one: "%{count} flujo de trabajo vaciado."
     other: "%{count} flujos de trabajo vaciados."
   notice_project_workflow_scope_unchanged: No hubo nada que cambiar.
+  label_project_workflow_inventory: Inventario de flujos de trabajo
+  label_project_workflow_rule_type: Tipo de regla
+  label_project_workflow_inventory_deviations_only: Solo proyectos con su propio flujo de trabajo
+  text_project_workflow_inventory_description: "Una línea por proyecto, tipo y perfil. El número indica cuántas reglas tiene el propio proyecto; la etiqueta indica si son esas reglas las que se aplican, o el flujo de trabajo general."
+  text_project_workflow_inventory_empty: Ningún proyecto tiene su propio flujo de trabajo para esta selección.
+  text_project_workflow_inventory_empty_filtered: Ninguna combinación de proyecto, tipo y perfil coincide con esta selección.
+  button_project_workflow_inventory_show_all: Mostrar todos los proyectos, tipos y perfiles
+  button_project_workflow_inventory_open_matrices: Abrir las matrices del flujo de trabajo
+  error_project_workflow_inventory_filter: Uno o más valores de filtro ya no existen y se han ignorado.

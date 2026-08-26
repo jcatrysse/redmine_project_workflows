@@ -38,3 +38,12 @@ de:
     one: "%{count} Workflow geleert."
     other: "%{count} Workflows geleert."
   notice_project_workflow_scope_unchanged: Es musste nichts geändert werden.
+  label_project_workflow_inventory: Workflow-Übersicht
+  label_project_workflow_rule_type: Art der Regel
+  label_project_workflow_inventory_deviations_only: Nur Projekte mit eigenem Workflow
+  text_project_workflow_inventory_description: "Eine Zeile je Projekt, Tracker und Rolle. Die Zahl gibt an, wie viele Regeln das Projekt selbst hat; die Beschriftung sagt, ob diese Regeln gelten oder der allgemeine Workflow."
+  text_project_workflow_inventory_empty: Kein Projekt hat für diese Auswahl einen eigenen Workflow.
+  text_project_workflow_inventory_empty_filtered: Keine Kombination aus Projekt, Tracker und Rolle entspricht dieser Auswahl.
+  button_project_workflow_inventory_show_all: Jedes Projekt, jeden Tracker und jede Rolle anzeigen
+  button_project_workflow_inventory_open_matrices: Workflow-Matrizen öffnen
+  error_project_workflow_inventory_filter: Ein oder mehrere Filterwerte existieren nicht mehr und wurden ignoriert.

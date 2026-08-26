@@ -41,3 +41,12 @@ pl:
     one: "Opróżniono %{count} przepływ pracy."
     other: "Liczba opróżnionych przepływów pracy: %{count}."
   notice_project_workflow_scope_unchanged: Nie było nic do zmiany.
+  label_project_workflow_inventory: Zestawienie przepływów pracy
+  label_project_workflow_rule_type: Rodzaj reguły
+  label_project_workflow_inventory_deviations_only: Tylko projekty z własnym przepływem pracy
+  text_project_workflow_inventory_description: "Jeden wiersz na projekt, typ zagadnienia i rolę. Liczba oznacza, ile reguł ma sam projekt; etykieta mówi, czy obowiązują te reguły, czy ogólny przepływ pracy."
+  text_project_workflow_inventory_empty: Żaden projekt nie ma własnego przepływu pracy dla tego wyboru.
+  text_project_workflow_inventory_empty_filtered: Żadne połączenie projektu, typu zagadnienia i roli nie pasuje do tego wyboru.
+  button_project_workflow_inventory_show_all: Pokaż każdy projekt, typ zagadnienia i rolę
+  button_project_workflow_inventory_open_matrices: Otwórz macierze przepływu pracy
+  error_project_workflow_inventory_filter: Co najmniej jedna wartość filtra już nie istnieje i została pominięta.

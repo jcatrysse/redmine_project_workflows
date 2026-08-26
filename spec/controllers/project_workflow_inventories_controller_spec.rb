@@ -1,0 +1,196 @@
+# frozen_string_literal: true
+
+require_relative '../spec_helper'
+
+describe ProjectWorkflowInventoriesController, type: :controller do
+  fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members,
+           :member_roles, :enabled_modules
+
+  let(:project) { projects(:projects_001) }
+  let(:other_project) { projects(:projects_002) }
+  let(:role) { roles(:roles_001) }
+  let(:tracker) { trackers(:trackers_001) }
+  let(:s1) { issue_statuses(:issue_statuses_001) }
+  let(:s2) { issue_statuses(:issue_statuses_002) }
+
+  def rows
+    assigns(:rows).map { |row| [row.project.id, row.tracker.id, row.role.id] }
+  end
+
+  describe 'authorization' do
+    # INV-7. The inventory names every project that has taken over a workflow,
+    # so it is an administrator screen until WP4 gives it a per-project entry
+    # point with its own permission.
+    it 'sends an anonymous visitor to the login page' do
+      get :index
+      expect(response).to redirect_to(/login/)
+    end
+
+    it 'refuses a logged-in non-administrator' do
+      @request.session[:user_id] = 2
+      get :index
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'answers an administrator' do
+      @request.session[:user_id] = 1
+      get :index
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
+  context 'as an administrator' do
+    before { @request.session[:user_id] = 1 }
+
+    it 'lists only the projects that decided something, by default' do
+      give_own_workflow(project, tracker, role)
+
+      get :index
+
+      expect(assigns(:deviations_only)).to be(true)
+      expect(rows).to eq([[project.id, tracker.id, role.id]])
+    end
+
+    it 'lists every combination when asked to' do
+      get :index, params: { deviations_only: '0' }
+
+      expect(assigns(:deviations_only)).to be(false)
+      expect(assigns(:row_count))
+        .to eq(Project.count * Tracker.count * Role.sorted.count(&:consider_workflow?))
+    end
+
+    it 'narrows to the projects asked for' do
+      give_own_workflow(project, tracker, role)
+      give_own_workflow(other_project, tracker, role)
+
+      get :index, params: { project_id: [other_project.id.to_s] }
+
+      expect(rows).to eq([[other_project.id, tracker.id, role.id]])
+    end
+
+    it 'narrows to one kind of rule' do
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+
+      get :index, params: { rule_type: ProjectWorkflowScope::TRANSITIONS }
+
+      expect(assigns(:rule_types)).to eq([ProjectWorkflowScope::TRANSITIONS])
+      expect(rows).to eq([])
+    end
+
+    it 'shows both kinds of rule when none is asked for' do
+      get :index
+      expect(assigns(:rule_types)).to eq(ProjectWorkflowScope::RULE_TYPES)
+    end
+
+    it 'counts the project\'s own rules and not the generic ones' do
+      give_own_workflow(project, tracker, role)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                 old_status_id: s1.id, new_status_id: s2.id, project_id: nil)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                 old_status_id: s1.id, new_status_id: s2.id, project_id: project.id)
+
+      get :index
+
+      cell = assigns(:rows).first.cells[ProjectWorkflowScope::TRANSITIONS]
+      expect(cell.rule_count).to eq(1)
+      expect(cell.state).to eq(:own)
+    end
+
+    describe 'a filter value that does not resolve' do
+      # A filter is a form the operator can correct, so it is a message and a
+      # narrowed result rather than a 404 -- unlike the scope action links,
+      # which the screen generates itself.
+      it 'is dropped, reported, and does not take the rest of the filter with it' do
+        give_own_workflow(project, tracker, role)
+        give_own_workflow(other_project, tracker, role)
+
+        get :index, params: { project_id: [project.id.to_s, '99999999'] }
+
+        expect(response).to have_http_status(:ok)
+        expect(flash.now[:warning]).to eq(I18n.t(:error_project_workflow_inventory_filter))
+        expect(rows).to eq([[project.id, tracker.id, role.id]])
+      end
+
+      # A filter that survives nothing must list nothing. Treating it as "no
+      # filter" would answer a request for one project with every project.
+      it 'lists nothing when the whole filter was invalid' do
+        give_own_workflow(project, tracker, role)
+
+        get :index, params: { project_id: ['99999999'] }
+
+        expect(response).to have_http_status(:ok)
+        expect(rows).to eq([])
+      end
+
+      it 'does not let a loosely cast id widen the selection' do
+        give_own_workflow(project, tracker, role)
+        give_own_workflow(other_project, tracker, role)
+
+        # Project.where(id: ['1e5']) resolves to project 1 in Rails; matching
+        # against the loaded list rather than the database is what stops it.
+        get :index, params: { project_id: ["#{project.id}e5"] }
+
+        expect(rows).to eq([])
+        expect(flash.now[:warning]).to be_present
+      end
+
+      it 'reports an unknown kind of rule' do
+        get :index, params: { rule_type: 'sideways' }
+
+        expect(response).to have_http_status(:ok)
+        expect(assigns(:rule_types)).to eq(ProjectWorkflowScope::RULE_TYPES)
+        expect(flash.now[:warning]).to be_present
+      end
+    end
+
+    it 'answers a page number past the end with an empty page' do
+      give_own_workflow(project, tracker, role)
+
+      get :index, params: { page: '99' }
+
+      expect(response).to have_http_status(:ok)
+      expect(assigns(:row_count)).to eq(1)
+      expect(assigns(:rows)).to eq([])
+    end
+
+    describe 'the rendered page' do
+      render_views
+
+      it 'names each state in words' do
+        give_own_workflow(project, tracker, role)
+
+        get :index
+
+        expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_state_own_empty)))
+      end
+
+      it 'links each row into the two matrices, pre-filled' do
+        give_own_workflow(project, tracker, role)
+
+        get :index
+
+        expect(response.body).to match(
+          %r{workflows/edit\?[^"']*project_id(%5B%5D|\[\])=#{project.id}}
+        )
+        expect(response.body).to match(
+          %r{workflows/permissions\?[^"']*project_id(%5B%5D|\[\])=#{project.id}}
+        )
+      end
+
+      it 'offers a sentence and two ways on when there is nothing to list' do
+        get :index
+
+        expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_inventory_empty)))
+        expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inventory_show_all)))
+        expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inventory_open_matrices)))
+      end
+
+      it 'keeps the other filters when it offers to drop the deviations one' do
+        get :index, params: { tracker_id: [tracker.id.to_s] }
+
+        expect(response.body).to match(/deviations_only=0/)
+        expect(response.body).to match(/tracker_id(%5B%5D|\[\])=#{tracker.id}/)
+      end
+    end
+  end
+end

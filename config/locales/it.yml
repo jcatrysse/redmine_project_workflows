@@ -38,3 +38,12 @@ it:
     one: "%{count} workflow svuotato."
     other: "%{count} workflow svuotati."
   notice_project_workflow_scope_unchanged: Non c'era nulla da cambiare.
+  label_project_workflow_inventory: Inventario dei workflow
+  label_project_workflow_rule_type: Tipo di regola
+  label_project_workflow_inventory_deviations_only: Solo i progetti con un workflow proprio
+  text_project_workflow_inventory_description: "Una riga per progetto, tracker e ruolo. Il numero indica quante regole possiede il progetto stesso; l'etichetta dice se sono quelle regole ad applicarsi, oppure il workflow generale."
+  text_project_workflow_inventory_empty: Nessun progetto ha un workflow proprio per questa selezione.
+  text_project_workflow_inventory_empty_filtered: Nessuna combinazione di progetto, tracker e ruolo corrisponde a questa selezione.
+  button_project_workflow_inventory_show_all: Mostra ogni progetto, tracker e ruolo
+  button_project_workflow_inventory_open_matrices: Apri le matrici del workflow
+  error_project_workflow_inventory_filter: Uno o più valori di filtro non esistono più e sono stati ignorati.

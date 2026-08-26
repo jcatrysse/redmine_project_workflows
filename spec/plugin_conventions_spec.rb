@@ -37,7 +37,8 @@ describe RedmineProjectWorkflows do
 end
 
 describe 'the invisible custom field role map' do
-  fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members, :member_roles
+  fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members, :member_roles,
+           :enumerations
 
   let(:issue) { Issue.new(project: projects(:projects_001), tracker: trackers(:trackers_001)) }
 

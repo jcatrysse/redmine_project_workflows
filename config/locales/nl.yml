@@ -38,3 +38,12 @@ nl:
     one: "%{count} workflow leeggemaakt."
     other: "%{count} workflows leeggemaakt."
   notice_project_workflow_scope_unchanged: Er hoefde niets gewijzigd te worden.
+  label_project_workflow_inventory: Workflowoverzicht
+  label_project_workflow_rule_type: Soort regel
+  label_project_workflow_inventory_deviations_only: Alleen projecten met een eigen workflow
+  text_project_workflow_inventory_description: "Eén regel per project, tracker en rol. Het getal is het aantal regels dat het project zelf heeft; het label zegt of die regels gelden, dan wel de algemene workflow."
+  text_project_workflow_inventory_empty: Geen enkel project heeft een eigen workflow voor deze selectie.
+  text_project_workflow_inventory_empty_filtered: Geen enkele combinatie van project, tracker en rol voldoet aan deze selectie.
+  button_project_workflow_inventory_show_all: Toon elk project, elke tracker en elke rol
+  button_project_workflow_inventory_open_matrices: Open de workflowmatrices
+  error_project_workflow_inventory_filter: Een of meer filterwaarden bestaan niet meer en zijn genegeerd.

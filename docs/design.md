@@ -138,7 +138,7 @@ This is the complete list: every place in Redmine 5.1, 6.1 and 7.0 that names
 | `Issue#tracker=` | whether the issue keeps its status when the tracker changes | replaced. Core asks `Tracker#issue_status_ids`, a union across every project, and resets the status to the new tracker's default when the answer is no; the plugin asks the issue's own project's effective workflow, with no role filter, exactly as core has none |
 | `Project#rolled_up_statuses` | fills the status filter and the status report | replaced: one (project, tracker) pair per project in the tree, each resolved against its own scope and then unioned (INV-6), with **no role filter** — core has none either, and adding one empties the list for projects without members. Two queries whatever the size of the tree |
 | `Tracker#issue_status_ids`, `Tracker#issue_statuses` | which statuses a tracker's workflow uses | left as a global union on purpose: narrowing them to generic rules would strip a status from an issue in a project whose own workflow uses it. Both call sites in `Issue` are project-aware instead. Core itself no longer reads `issue_statuses`; a plugin that does gets the wide answer |
-| `WorkflowsController#index` | the summary page | **still core's.** Counts mix project and generic rows — WP3 |
+| `WorkflowsController#index` | the summary page | replaced: the count carries an explicit `project_id` predicate for the selection, so a project's rules can never be added into the generic totals. Without plugin parameters the selection is the generic workflow alone, which is exactly what core counted before any project had its own |
 | `WorkflowsController#edit`, `#permissions` | the two matrices | replaced, with an explicit `project_id` predicate for the selection |
 | `WorkflowsController#find_statuses` | the "only used statuses" checkbox | replaced: the effective workflow of the selection, not the rows physically stored against it. A selection whose workflow is genuinely empty still falls back to every status, which is the only way an empty matrix can be filled in |
 | `WorkflowsController#update`, `#update_permissions` | saving a matrix | routed through `TransitionWriter` / `PermissionWriter` (INV-1, INV-2) |
@@ -214,7 +214,7 @@ the repeats inside a project but not across projects. Recorded as finding G02.
 
 ## Views
 
-Eight Deface overrides in seven files, all on admin screens:
+Eleven Deface overrides in ten files, all on admin screens:
 
 | View | Anchor | Adds |
 | --- | --- | --- |
@@ -226,6 +226,16 @@ Eight Deface overrides in seven files, all on admin screens:
 | `workflows/permissions` | the `submit_tag l(:button_edit)` expression | the project selector |
 | `workflows/copy` | the `select_tag('source_role_id'` expression | the source project selector |
 | `workflows/copy` | the `select_tag 'target_role_ids'` expression | the target project selector |
+| `workflows/index` | the `title [l(:label_workflow)` expression (**surround**) | the link to the inventory above the heading, the project selector below it |
+| `workflows/index` | the count cell's url hash | the project selection, carried into the link |
+| `workflows/_action_menu` | `div.contextual` (bottom) | the link to the inventory |
+
+The summary page's count cell is a *surround* on one side and a *replace* on the
+other because the two halves belong on either side of core's heading, and
+because the cell itself differs between versions: 5.1 renders an `icon-not-ok`
+span instead of a zero, 6.0 and later colour the number. The anchor is the part
+the two shapes have in common — the url hash — and
+`RedmineProjectWorkflows::VersionHelper` decides which shape to reproduce.
 
 The scope panel renders only when the selection contains at least one real
 project. An administrator who does not use the plugin sees core's screens
@@ -238,6 +248,18 @@ actually reaches the rendered page (**INV-9**), with an assertion that only
 that override can satisfy — the selector and the hidden field both render
 `project_id[]`, so a shared assertion would have let either of them stop
 matching unnoticed.
+
+The **inventory** is not a Deface override either: it is a screen of the
+plugin's own, at `/project_workflow_inventories`, listing one row per (project,
+tracker, role) with a column per rule type. The state is a text label — *Own
+workflow*, *Own empty workflow*, *Inherits the generic workflow* — and the
+number next to it is the project's own rule count, never the generic one, so it
+always matches the matrix the cell links to. It defaults to the combinations
+that have decided something; asked for everything, it addresses the product of
+projects, trackers and roles arithmetically rather than building it, so a page
+costs the same on an installation with three projects and one with three
+thousand. `Services::InventoryQuery` answers it in at most five queries per
+page.
 
 The project settings screen is not a Deface override: it is a tab added by
 patching `ProjectsHelper#project_settings_tabs`, rendering the plugin's own
