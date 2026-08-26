@@ -5,7 +5,11 @@
 This plugin adds project-specific workflows to Redmine by extending the core workflows table with a nullable `project_id`.
 Generic rules (`project_id = NULL`) behave exactly like Redmine core, while project rules override generic rules for selected roles and trackers.
 
-The plugin has been tested on Redmine 5.1. but I encourage you to test it thoroughly before using it in production. Redmine 6.0 and 6.1 should also work, but this has not been tested.
+The specs pass on Redmine 5.1, 6.1 and 7.0, against PostgreSQL 16, MySQL and MariaDB.
+Redmine 5.1 with PostgreSQL is the combination in day-to-day use; the others are
+covered by CI only. Note that on Redmine 6.0 and later the project selector does
+not render the SVG sprite that core's JavaScript expects, which raises a
+TypeError during page initialisation; see `spec/characterization`.
 
 ## Features
 
@@ -38,6 +42,15 @@ The plugin includes an RSpec test suite. Run it from your Redmine root with:
 RAILS_ENV=test bundle exec rspec plugins/redmine_project_workflows/spec
 ```
 
+To create a throwaway Redmine host for a given version and database, see
+[`dev/README.md`](dev/README.md):
+
+```
+dev/setup.sh 5.1-stable postgresql 3.2.6
+dev/run.sh .redmine/5.1-stable-postgresql
+```
+
 ## Compatibility
 
-- Redmine > 5.0
+- Redmine 5.1, 6.1 and 7.0 (5.0 declared as the minimum, but untested)
+- PostgreSQL, MySQL and MariaDB

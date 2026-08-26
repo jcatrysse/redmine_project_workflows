@@ -1,0 +1,101 @@
+name: Specs
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: specs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rspec:
+    name: Redmine ${{ matrix.redmine }} / ${{ matrix.db }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        redmine: ['5.1-stable', '6.1-stable', '7.0-stable']
+        db: [postgresql, mysql, mariadb]
+        include:
+          - redmine: '5.1-stable'
+            ruby: '3.2'
+          - redmine: '6.1-stable'
+            ruby: '3.3'
+          - redmine: '7.0-stable'
+            ruby: '3.3'
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: redmine
+          POSTGRES_PASSWORD: redmine
+          POSTGRES_DB: redmine_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: redmine
+          MYSQL_USER: redmine
+          MYSQL_PASSWORD: redmine
+          MYSQL_DATABASE: redmine_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -predmine"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: redmine
+          MARIADB_USER: redmine
+          MARIADB_PASSWORD: redmine
+          MARIADB_DATABASE: redmine_test
+        ports: ['3307:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+
+    env:
+      RAILS_ENV: test
+      REDMINE_BRANCH: ${{ matrix.redmine }}
+      REDMINE_DIR: ${{ github.workspace }}/.redmine/host
+      DB_NAME: redmine_test
+      DB_USER: redmine
+      DB_PASS: redmine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select database connection
+        run: |
+          case "${{ matrix.db }}" in
+            postgresql) echo "DB=postgresql"  >> $GITHUB_ENV
+                        echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV ;;
+            mysql)      echo "DB=mysql"       >> $GITHUB_ENV
+                        echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV
+                        echo "DB_PORT=3306"   >> $GITHUB_ENV ;;
+            mariadb)    echo "DB=mysql"       >> $GITHUB_ENV
+                        echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV
+                        echo "DB_PORT=3307"   >> $GITHUB_ENV ;;
+          esac
+
+      - name: Install system packages
+        run: sudo apt-get update && sudo apt-get install -y build-essential libpq-dev libmysqlclient-dev rsync
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: false
+
+      - name: Set up Redmine host and plugin
+        run: dev/setup.sh "${{ matrix.redmine }}" "$DB"
+
+      - name: Run specs
+        run: dev/run.sh "$REDMINE_DIR" --format progress
