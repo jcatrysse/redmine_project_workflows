@@ -224,6 +224,44 @@ describe Issue, type: :model do
       expect(issue.status).to eq(project_status)
     end
 
+    it 'reads the generic workflow for an issue that has no project yet' do
+      transition(project_status, global_status)
+      issue = Issue.new(tracker: bug, author: user, subject: 'No project')
+      issue.status = project_status
+
+      issue.tracker = feature
+
+      # Nothing to scope the question with, so the generic workflow is the
+      # answer -- the same choice #new_statuses_allowed_to makes.
+      expect(issue.status).to eq(project_status)
+    end
+
+    it 'behaves as core does when the tracker is cleared' do
+      transition(project_status, global_status)
+      issue = issue_with_status(project_status)
+
+      issue.tracker = nil
+
+      expect(issue.tracker).to be_nil
+      expect(issue.status).to eq(project_status)
+    end
+
+    it 'stops answering from the cache once a scope changes' do
+      transition(project_status, global_status)
+      issue = issue_with_status(project_status)
+      issue.tracker = feature
+      expect(issue.status).to eq(project_status)
+
+      give_own_workflow(project, feature, role)
+      RedmineProjectWorkflows::Services::Resolver.reset_cache!
+      again = issue_with_status(project_status)
+      again.tracker = feature
+
+      # The project now answers for itself and permits nothing, so the status
+      # cannot survive the tracker change any more.
+      expect(again.status).to eq(feature.default_status)
+    end
+
     it 'leaves Tracker#issue_status_ids a global union' do
       give_own_workflow(other_project, feature, role)
       transition(project_status, global_status, for_project: other_project)

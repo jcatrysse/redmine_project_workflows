@@ -196,6 +196,28 @@ describe Project, type: :model do
       expect(status_ids).to include(global_status.id)
     end
 
+    it 'ignores a subproject without issue tracking, as core does' do
+      generic_transition(old_status, global_status)
+      parent = project_with_tracker('moduleless-parent', trackers: [])
+      child = project_with_tracker('moduleless-child', parent: parent)
+      give_own_workflow(child, tracker, role)
+      project_transition(child, old_status, project_status)
+      child.enabled_modules.where(name: 'issue_tracking').destroy_all
+
+      expect(parent.reload.rolled_up_statuses.pluck(:id)).to be_empty
+    end
+
+    it 'answers with nothing for a project whose own workflow is deliberately empty' do
+      generic_transition(old_status, global_status)
+      lone = project_with_tracker('empty-own-workflow')
+      Role.find_each { |any_role| give_own_workflow(lone, tracker, any_role) }
+
+      # Every role answers for itself and none of them permits anything, so the
+      # status filter for this project is empty -- which is what an empty own
+      # workflow means (INV-3, INV-5), not a bug to paper over.
+      expect(lone.reload.rolled_up_statuses.pluck(:id)).to be_empty
+    end
+
     it 'ignores an archived subproject, as core does' do
       generic_transition(old_status, global_status)
       parent = project_with_tracker('archived-parent', trackers: [])

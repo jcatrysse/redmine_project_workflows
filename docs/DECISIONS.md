@@ -67,9 +67,54 @@
 | 2026-08-26 | WP1 | `Resolver.scoped?` was written and then deleted before the commit | It had no caller once the `override_active?` gate went. WP3 or WP4 can add it back when something needs it; `ScopeState` answers the question the screens actually ask. |
 | 2026-08-26 | WP1 | The backfill has its own CI gate, `dev/check-backfill.sh`, run before the suite | Migration bookkeeping is wiped once the suite starts, so a backfill test cannot live in RSpec. The script seeds the rules an installation from before ADR-001 would have, takes migration 004 down and up, and checks the scopes that come back. |
 | 2026-08-26 | WP1 | Two README paragraphs invalidated by WP0 and WP1 were corrected now rather than left for WP7 | WP7 still owns the rewrite. What was removed was a warning about a JavaScript error WP0 fixed, pointing at a characterization file that no longer exists, and a usage step that described the implicit model ADR-001 replaced. |
+| 2026-08-26 | WP2 | `StatusListQuery` works on (project, tracker) **pairs**, not one project at a time | A project tree has to resolve every project against its own scope (INV-6), and looping the old single-project entry point would have made the query count grow with the size of the tree. The pairs API costs two queries whatever the tree looks like, and the single-project call is now a thin wrapper over it. |
+| 2026-08-26 | WP2 | `role_ids: nil` in `StatusListQuery` now means "no role filter", not "every role that considers the workflow" | Core's own queries in these places carry no role predicate, and enumerating roles was what made a member-less project answer with nothing. It also drops a `Role.all` load from the path. Where a role predicate genuinely belongs — the matrix screens — the caller passes one. |
+| 2026-08-26 | WP2 | The role filter in `Issue#new_statuses_allowed_to`'s status lookup was removed, reversing a WP1 detail | That lookup decides whether an issue *keeps* its status across a tracker change. A status only another role's rules use is still the issue's status, and with the filter a Resolved issue was quietly offered the new tracker's default instead. Core has no filter there. |
+| 2026-08-26 | WP2 | `Issue#tracker=`'s status list is cached per (project, tracker) for the length of the request | Core memoises its equivalent on the Tracker instance, and core's own `tracker_id=` builds a fresh instance per issue — so a bulk tracker change queried once per issue. The cache lives in `RedmineProjectWorkflows::Current` and is cleared by `Resolver.reset_cache!`, which now clears every cache that reads the scope table rather than only its own. |
+| 2026-08-26 | WP2 | Role and tracker duplication get their own patches; `.copy_one` is left generic-only | The administration copy screen falls through to core's `.copy` when no project is selected, and the two methods are indistinguishable from inside `.copy`. Folding the project rules in there would have turned "copy the generic workflow" into "copy every project's workflow too". `Role#copy_workflow_rules` and `Tracker#copy_workflow_rules` are core's only other callers and are the two that mean "duplicate this entirely". |
+| 2026-08-26 | WP2 | A copied role or tracker inherits the source's scopes exactly, an own **empty** workflow included | Dropping an empty scope would silently return that combination to the generic workflow, which is the collapse INV-3 forbids. Core only ever calls these on a freshly created role or tracker, so nothing existing is disturbed. |
+| 2026-08-26 | WP2 | No unique index on `workflows`; a `rake` repair task instead | The key needs `project_id` and `field_name`, both nullable, and PostgreSQL, MySQL and MariaDB all treat NULLs in a unique index as distinct — the generic rows would not be constrained at all. See the "Open" item below for the one option that would work. |
+| 2026-08-26 | WP2 | The duplicate sweep deletes **exact** duplicates only | Two field permissions that agree on everything but the rule are a contradiction, not a duplicate; picking one would be answering a question only an administrator can answer. |
+| 2026-08-26 | WP2 | Migration 005 drops two of the four plugin indexes on `workflows` | One has the same columns as another with role and tracker swapped, which decides nothing for equality predicates; the other is a strict prefix of a third. Every index is paid for on every insert, and a workflow save inserts a whole matrix. Reversible: `down` puts both back so 001 and 002 can still remove them. |
+| 2026-08-26 | WP2 | `IssueStatus.new_statuses_allowed` and `WorkflowPermission.rules_by_status_id` are left project-blind | Core no longer reaches either once the plugin is installed, and the first has no project in scope to narrow it with. Recorded in `design.md` so a future plugin author is not surprised. |
 
 ## Open — for Jan
 
-*(Nothing open. Items land here with their options, a plain-language
-explanation of each and a recommendation, while the build continues on the
-safest default.)*
+*(A build never waits for one of these: the safest reversible default is
+already in place and named below.)*
+
+### The label on the "only used statuses" checkbox
+
+- **Choice:** should the checkbox above the two workflow matrices still read
+  "Only display statuses that are used by this tracker"?
+- **Options:**
+  A) Leave core's label alone. The filter now shows the statuses the *selected
+     workflow* uses, and when a project is selected that project's workflow is
+     what "this tracker" means there anyway.
+  B) Override the text when a project is selected, to something like "Only
+     display statuses used by the selected workflow". This needs two more
+     Deface anchors (one per matrix view) and a spec for each, because an
+     override that stops matching produces no error, only a missing label.
+- **Recommendation:** A. The behaviour is now the one the reviewer asked for,
+  and the wording difference is small enough that it does not pay for two more
+  places the plugin can quietly come unstuck from core's markup.
+- **Urgent?** no — we continued with A.
+
+### A real unique constraint on the `workflows` table
+
+- **Choice:** do we want the database to refuse duplicate workflow rows?
+- **Options:**
+  A) No. Keep `project_id` nullable, where NULL means "the generic workflow",
+     and live with the repair task. Two administrators saving the same matrix
+     at the same instant can still create duplicates; core has the same race
+     and has never closed it.
+  B) Yes, at the price of the data model: make `project_id` `NOT NULL` and use
+     `0` for the generic workflow. Then a plain unique index works on all three
+     databases. It is a migration over Redmine's own table, it changes what
+     `docs/design.md` and every query mean by "generic", and it would need an
+     ADR.
+- **Recommendation:** A. The defect it prevents is two identical rows, whose
+  only visible effect is that a matrix cell renders as a mixed dropdown instead
+  of a checkbox, and the repair task fixes that in seconds. B trades a real
+  data-model complication for it.
+- **Urgent?** no — we continued with A.

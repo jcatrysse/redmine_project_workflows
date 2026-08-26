@@ -84,6 +84,18 @@ describe 'Copying a role or a tracker' do
       expect(own_workflow?(project, tracker, target_role, ProjectWorkflowScope::TRANSITIONS)).to be(false)
     end
 
+    it 'copies a project row that has no scope as a row with no scope' do
+      transition(tracker_id: tracker.id, role_id: source_role.id, project_id: project.id)
+
+      target_role.copy_workflow_rules(source_role)
+
+      # A row without a scope is dead data the resolver ignores (INV-3). The copy
+      # mirrors the source rather than inventing a decision the source never
+      # made; repairing such rows is the copy *screen*'s business, not this one's.
+      expect(WorkflowTransition.where(role_id: target_role.id, project_id: project.id).count).to eq(1)
+      expect(own_workflow?(project, tracker, target_role)).to be(false)
+    end
+
     it 'leaves a project that the source does not override alone' do
       give_own_workflow(project, tracker, source_role)
       transition(tracker_id: tracker.id, role_id: source_role.id, project_id: project.id)
