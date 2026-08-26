@@ -82,7 +82,7 @@ role/tracker copy path (`WorkflowRule.copy`).
 | Plugin suite, 5.1-stable + PostgreSQL 16 | 178 examples, 0 failures |
 | Plugin suite, 6.1-stable + PostgreSQL 16 | 178 examples, 0 failures |
 | Plugin suite, 7.0-stable + PostgreSQL 16 | 178 examples, 0 failures |
-| CI, all nine cells + RuboCop | green on `5fcf02d` (run 9) |
+| CI, all nine cells + RuboCop | green on `5fcf02d` (run 9) and on `899dc8a` (run 10) |
 | RuboCop | 54 files, no offences |
 | `zeitwerk:check` | "All is good!" on 5.1, 6.1 and 7.0 |
 | Migration reversibility up → 0 → up | clean on 5.1, 6.1 and 7.0, run before the suite |
@@ -103,9 +103,9 @@ from inheritance", and the resolver cache invalidation.
 
 MySQL and MariaDB could not be run locally: no server for either is available in
 this container and the packages could not be installed. CI covered those six
-cells: run 9 is green on `5fcf02d`, which carries the whole of WP1. The branch
-head adds one commit on top of it — a helper change and four examples — and its
-run should be checked before building on it.
+cells twice: run 9 on `5fcf02d`, which carries the whole of WP1, and run 10 on
+the branch head. Both are green on all nine cells plus RuboCop, and both ran the
+new backfill gate. Nothing is left unverified.
 
 **Two claims in this session's history had to be corrected, both caught by
 checking rather than assuming.** A commit message asserted that three new
