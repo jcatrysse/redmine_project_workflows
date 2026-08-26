@@ -134,15 +134,20 @@ gates this session. What it did produce, each of which became an example:
 - The snapshot the examples compare is both tables — `workflows` **and**
   `project_workflow_scopes` — so a rejected request that recorded a scope for a
   copy that never happened (INV-3) would be caught too.
+- Two examples with `render_views`, because a rejection is a **screen**: the copy
+  form has to come back carrying the message rather than raising on a selection
+  that only half resolved. Controller specs here do not render views by default,
+  so `render_template(:copy)` alone proves only which template *would* have been
+  chosen.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **580 examples, 0 failures** (was 566; 14 added) |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **580 examples, 0 failures**, and again with `--seed 777` |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **580 examples, 0 failures**, and again with `--seed 4242` |
-| Fails on the old code | **10 of the 14 new examples**, run rather than assumed: `git stash push lib/…/workflows_controller_patch.rb`, suite, `git stash pop`. Each of the ten had written a workflow row and redirected with the success notice instead of rejecting. The other four are the positive controls that must pass both before and after — `any` as a source tracker, `any` as a source role, the same target tracker id submitted twice, and a blank source tracker still reporting the older message |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **582 examples, 0 failures** (was 566; 16 added) |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **582 examples, 0 failures**, and again with `--seed 777` |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **582 examples, 0 failures**, and again with `--seed 4242` |
+| Fails on the old code | **12 of the 16 new examples**, run rather than assumed: the patch file restored to its `db381fc` state with `git show db381fc:<path> > <path>`, the block run, then `git checkout -- <path>`. Ten had written a workflow row and redirected with the success notice instead of rejecting; two more render the copy page and look for the message on it, and found a redirect. The other four are positive controls that must pass on **both** sides — `any` as a source tracker, `any` as a source role, the same target tracker id submitted twice, and a blank source tracker still reporting the older message |
 | RuboCop | 91 files, no offences, **no new `.rubocop_todo.yml` entry** |
 | `zeitwerk:check` | passes on the 7.0 host |
 | Migration up → 0 → up | clean on the 7.0 host, run **before** its suite. This session adds no migration |
@@ -189,7 +194,12 @@ the eleven after them came from WP8, and the rest from the work packages before 
   makes this go wrong is stashing too much: a new locale key has to **stay** in
   the working tree, or `I18n.t` returns the "translation missing" string and the
   example fails for a reason that has nothing to do with the code under test —
-  which reads as proof and is not. Commit first if the tree is worth protecting.
+  which reads as proof and is not. And once the change is **committed**,
+  `git stash push` on that file has nothing to stash: it exits 0, says "No local
+  changes to save", and the "old code" run is the new code passing itself. Use
+  `git show <old-sha>:<path> > <path>` … `git checkout -- <path>` instead — that
+  works whether or not the change is committed, and this session was fooled by
+  the stash form once.
 - **A backgrounded `dev/setup.sh` reports success immediately and means
   nothing.** `nohup dev/setup.sh … &` returns at once, so the shell's exit code
   describes the `&`, not the setup. Read the log file. Both real failures were

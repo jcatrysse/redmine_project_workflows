@@ -1117,6 +1117,26 @@ describe WorkflowsController, type: :controller do
       expect(assigns(:source_project_id)).to eq('global')
     end
 
+    # The rejection is a screen, not just a status code: the form has to come
+    # back carrying the message, with the selectors intact, rather than raising
+    # on a selection that only half resolved.
+    describe 'the page the administrator is left on' do
+      render_views
+
+      it 'names what is missing about the target' do
+        duplicate_with(target_tracker_ids: [target_tracker.id.to_s, '999999'])
+
+        expect(response.body).to include(I18n.t(:error_workflow_copy_target_tracker_or_role))
+        expect(response.body).to include('target_project_ids[]')
+      end
+
+      it 'names what is missing about the source' do
+        duplicate_with(source_tracker_id: '999999')
+
+        expect(response.body).to include(I18n.t(:error_workflow_copy_source))
+      end
+    end
+
     # The three legitimate readings of "any", none of which this may reject.
     it 'still copies with any as the source tracker' do
       duplicate_with(source_tracker_id: 'any')
