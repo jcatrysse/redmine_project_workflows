@@ -17,10 +17,12 @@ describe WorkflowsController, type: :controller do
   let(:role)    { roles(:roles_001) }
   let(:tracker) { trackers(:trackers_001) }
 
-  # There are thirteen overrides across eleven files, and each needs an assertion
+  # There are fourteen overrides across twelve files, and each needs an assertion
   # that only *it* can satisfy. `include('project_id[]')` was not one: the
   # selector and the hidden field both render that name, so either could have
-  # stopped matching without the suite noticing.
+  # stopped matching without the suite noticing. Thirteen of them are on the
+  # workflow screens and are asserted here; the fourteenth is on the issue form
+  # and is asserted in the IssuesController group at the foot of this file.
   def hidden_project_field
     /<input[^>]*type="hidden"[^>]*name="project_id\[\]"/
   end
@@ -380,5 +382,79 @@ describe WorkflowsController, type: :controller do
       expect(response.body).to include('project-workflow-bulk-note')
       expect(response.body).not_to include('id="project-workflow-bulk-undo"')
     end
+  end
+end
+
+# WP8 / INV-9. The fourteenth override, and the only one outside the workflow
+# screens: the link to the workflow panel, beside core's own status select on the
+# issue form.
+#
+# The anchor is core's `f.select :status_id` expression, byte-identical in 5.1,
+# 6.1 and 7.0 -- unlike the help icon rendered directly after it, which 6.0
+# turned into an SVG sprite. The assertion only this override can satisfy is the
+# link's own path: nothing else on an issue form renders it.
+describe IssuesController, type: :controller do
+  render_views
+  fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members,
+           :member_roles, :enabled_modules, :projects_trackers, :enumerations,
+           :issues, :issue_categories, :versions
+
+  let(:project) { projects(:projects_001) }
+  let(:tracker) { trackers(:trackers_001) }
+  let(:new_status) { issue_statuses(:issue_statuses_001) }
+  let(:assigned) { issue_statuses(:issue_statuses_002) }
+
+  before do
+    @request.session[:user_id] = 2
+    WorkflowTransition.create!(tracker_id: tracker.id, role_id: roles(:roles_001).id, project_id: nil,
+                               old_status_id: 0, new_status_id: new_status.id)
+    WorkflowTransition.create!(tracker_id: tracker.id, role_id: roles(:roles_001).id, project_id: nil,
+                               old_status_id: new_status.id, new_status_id: assigned.id)
+  end
+
+  it 'injects the link into the edit form of a saved issue' do
+    issue = Issue.create!(project: project, tracker: tracker, status: new_status,
+                          author_id: 2, subject: 'deface override spec')
+
+    get :edit, params: { id: issue.id }
+
+    expect(response).to have_http_status(:ok)
+    path = issue_workflow_map_path(issue, tracker_id: tracker.id)
+    expect(response.body).to include(ERB::Util.html_escape(path))
+  end
+
+  # The new-issue form has no issue to name, so the link carries the project and
+  # the tracker instead -- and that is the other half of the same override.
+  it 'injects the link into the new-issue form' do
+    get :new, params: { project_id: project.id, issue: { tracker_id: tracker.id } }
+
+    expect(response).to have_http_status(:ok)
+    path = project_workflow_map_path(project, tracker_id: tracker.id)
+    expect(response.body).to include(ERB::Util.html_escape(path))
+  end
+
+  it 'draws the link the way the host draws icons' do
+    get :new, params: { project_id: project.id, issue: { tracker_id: tracker.id } }
+    link = response.body[%r{<a[^>]*class="icon-only icon-workflows project-workflow-map-link".*?</a>}m]
+
+    expect(link).to be_present
+    if ApplicationController.helpers.respond_to?(:sprite_icon)
+      expect(link).to include('<svg')
+    else
+      expect(link).not_to include('<svg')
+    end
+  end
+
+  # Out of scope on purpose: a selection can span projects and trackers, so one
+  # map would be a lie about most of it. core's bulk-edit form has markup of its
+  # own, and this is the assertion that it stays that way.
+  it 'stays off the bulk-edit form' do
+    issue = Issue.create!(project: project, tracker: tracker, status: new_status,
+                          author_id: 2, subject: 'deface override spec')
+
+    get :bulk_edit, params: { ids: [issue.id] }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include('workflow_map')
   end
 end

@@ -1,0 +1,5 @@
+<%# WP8. What a browser without JavaScript gets when it follows the link: the
+    same panel as a page of its own rather than a dead link. Redmine's own modal
+    links behave the same way -- the .js.erb is the enhancement, not the only
+    path. %>
+<%= render partial: 'project_workflow_maps/map', locals: { modal: false } %>

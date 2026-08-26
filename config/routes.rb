@@ -34,3 +34,16 @@ post   'projects/:project_id/workflow/scope',         to: 'project_workflows#ena
 delete 'projects/:project_id/workflow/scope',         to: 'project_workflows#inherit'
 post   'projects/:project_id/workflow/scope/clear',   to: 'project_workflows#clear',
                                                       as: 'clear_project_workflow_scope'
+
+# The workflow panel on the issue form (WP8). Read-only, and authorized by the
+# issue rather than by a permission of its own: a saved issue through
+# Issue.visible, and the new-issue form through the project plus add_issues.
+#
+# Two paths to one action, because the two carry their scope differently: with an
+# issue the project is the issue's and no parameter is consulted for it, and
+# without one the project is named by the path. Neither can be widened by a
+# request parameter (INV-7).
+get 'issues/:issue_id/workflow_map',    to: 'project_workflow_maps#show',
+                                        as: 'issue_workflow_map'
+get 'projects/:project_id/workflow_map', to: 'project_workflow_maps#show',
+                                         as: 'project_workflow_map'

@@ -23,7 +23,7 @@
 | WP5 | Bulk editing in the matrix | **done** |
 | WP6 | Compare, audit, undo | **done** |
 | WP7 | Documentation, locales, release | **done** |
-| WP8 | Status help and the transition map on the issue form | not started |
+| WP8 | Status help and the transition map on the issue form | done |
 
 ---
 
@@ -340,7 +340,10 @@ is not a writer; and F11 ended up marked both fixed and open.
 
 New requirement, raised 2026-08-26: *when editing an issue a clickable info icon
 shows the meaning of every available status, and — as Jira does — a flowchart of
-the possible status changes.* `design.md` carries the target; this is the route.
+the possible status changes.* `design.md` carries the target; this was the route.
+**Done**: `Services::TransitionMapQuery`, `ProjectWorkflowMapsController`, one
+Deface override on `issues/_attributes` (INV-9 count 13 → 14), and 68 examples,
+green on 5.1, 6.1 and 7.0.
 
 **The first half already exists in Redmine, and this plugin is what makes it
 correct.** `issues/_attributes.html.erb` renders an `icon-help` link next to the

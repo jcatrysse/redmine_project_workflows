@@ -14,7 +14,9 @@ require_relative 'redmine_project_workflows/services/scope_state'
 require_relative 'redmine_project_workflows/services/status_list_query'
 require_relative 'redmine_project_workflows/services/inventory_query'
 require_relative 'redmine_project_workflows/services/project_options'
+require_relative 'redmine_project_workflows/services/transition_map_query'
 require_relative 'redmine_project_workflows/patches/issue_patch'
+require_relative 'redmine_project_workflows/patches/issues_controller_patch'
 require_relative 'redmine_project_workflows/patches/workflows_controller_project_selection'
 require_relative 'redmine_project_workflows/patches/workflows_controller_patch'
 require_relative 'redmine_project_workflows/patches/workflow_transition_patch'
@@ -55,6 +57,10 @@ module RedmineProjectWorkflows
     # neighbouring plugin's alias chain would copy the prepended method and lose
     # its super, taking core's own tabs down with it.
     Patches::ProjectsHelperPatch.apply!
+    # Nor a prepend: this only puts the plugin's issue-form helper into the
+    # controller's helper chain, which Rails' include_all_helpers does not do
+    # for a plugin's app/helpers. See the patch.
+    Patches::IssuesControllerPatch.apply!
     prepend_once(Role, Patches::RolePatch)
     prepend_once(Tracker, Patches::TrackerPatch)
   end

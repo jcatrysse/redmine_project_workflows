@@ -87,3 +87,20 @@ fr:
   text_project_workflow_bulk_unsaved: Rien n'a encore été enregistré. Cliquez sur Enregistrer pour appliquer ces modifications.
   label_project_workflow_comparison: Comparaison des workflows
   text_project_workflow_compare_unreachable_field: Au moins une différence ci-dessous concerne un champ que ce tracker ne propose plus ; la matrice propre au projet ne peut donc ni l'afficher ni le modifier. Un administrateur système peut supprimer une telle règle depuis l'administration.
+  label_project_workflow_map: Workflow de cette demande
+  label_project_workflow_map_scope: Quel workflow s'applique
+  label_project_workflow_map_from_here: Changements de statut autorisés depuis ici
+  label_project_workflow_map_leads_here: Statuts qui mènent à celui-ci
+  label_project_workflow_map_available: Disponible maintenant
+  text_project_workflow_map_authority: Voici ce que le workflow autorise. La liste des statuts du formulaire reste la référence pour ce que vous pouvez faire à cet instant ; chaque écart entre les deux est expliqué ci-dessous.
+  text_project_workflow_map_no_outgoing: Ce workflow n'autorise aucun changement de statut depuis ici.
+  text_project_workflow_map_no_incoming: Ce workflow n'autorise aucun changement de statut vers celui-ci.
+  text_project_workflow_map_no_roles: Vous n'avez dans ce projet aucun rôle participant à un workflow, donc aucun changement de statut n'est autorisé.
+  text_project_workflow_map_own_empty: Ce projet a son propre workflow pour ce tracker et ce rôle, et celui-ci ne contient aucune règle, donc aucun changement de statut n'est autorisé. C'est une configuration voulue et non une anomalie.
+  text_project_workflow_map_requires_author: Seul l'auteur de la demande peut effectuer ce changement.
+  text_project_workflow_map_requires_assignee: Seule la personne assignée peut effectuer ce changement.
+  text_project_workflow_map_requires_author_or_assignee: Seul l'auteur ou la personne assignée peut effectuer ce changement.
+  text_project_workflow_map_unavailable: Pas disponible pour cette demande actuellement.
+  label_project_workflow_map_condition_author: Seulement si l'utilisateur est l'auteur
+  label_project_workflow_map_condition_assignee: Seulement si l'utilisateur est la personne assignée
+  label_project_workflow_map_condition_author_or_assignee: Seulement si l'utilisateur est l'auteur ou la personne assignée

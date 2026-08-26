@@ -249,9 +249,9 @@ the repeats inside a project but not across projects. Recorded as finding G02.
 
 ## Views
 
-Thirteen Deface overrides in eleven files. Eleven are on the administration
-screens; the last two are on `workflows/_form`, which the project matrices
-render as well, so one pair serves both:
+Fourteen Deface overrides in twelve files. Eleven are on the administration
+screens; two are on `workflows/_form`, which the project matrices render as
+well, so one pair serves both; and the last is on the issue form:
 
 | View | Anchor | Adds |
 | --- | --- | --- |
@@ -268,6 +268,7 @@ render as well, so one pair serves both:
 | `workflows/_action_menu` | `div.contextual` (bottom) | the link to the inventory |
 | `workflows/_form` | the column header (`td[data-erb-style]`, bottom) | the column's three actions |
 | `workflows/_form` | the row header (`td.name`, bottom) | the row's three actions |
+| `issues/_attributes` | the `f.select :status_id` expression (after) | the link to the workflow panel (WP8) |
 
 The summary page's count cell is a *surround* on one side and a *replace* on the
 other because the two halves belong on either side of core's heading, and
@@ -539,7 +540,7 @@ An issue's status dropdown lists the statuses the workflow permits and says
 nothing about why. With per-project workflows that gap gets worse rather than
 better: two projects on the same tracker now offer different choices, and the
 person editing the issue has no way to see which rules govern them. This section
-is the target for WP8; nothing in it is built yet.
+is what WP8 built.
 
 ### What Redmine already does — do not rebuild it
 
@@ -575,7 +576,8 @@ Two consequences for this plugin:
 
 A second icon beside core's, opening a modal of the plugin's own: **the workflow
 this issue is actually governed by.** Two parts, because they answer two
-different questions.
+different questions. **The local one is what shipped**, per the decision below;
+the whole map is what the drawing option would need.
 
 **From here.** The local view, and the one an end user wants: the current status,
 the statuses it may move to, and per edge the condition core stores on it —
@@ -652,12 +654,31 @@ one. The dropdown stays the authority for "what may I do this minute"; the map
 answers "what does this workflow allow, and why is that not on offer". Anything
 less honest is worse than no map, because it invites a support ticket per edge.
 
+### The empty case is worse than it sounds
+
+`new_statuses_allowed_to` appends the issue's own status to its answer *only when
+the workflow permitted something* — `statuses << initial_status unless
+statuses.empty?`. So an **own empty workflow** does not give the reader an empty
+dropdown: it gives them **no status control at all**, because
+`issues/_attributes` renders the select only `if @allowed_statuses.present?` and
+otherwise falls back to `<p><label>Status</label> New</p>`. No select, no help
+icon, no modal, and nothing anywhere on the form saying why.
+
+Measured rather than assumed, on all three versions:
+`spec/integration/issue_status_help_spec.rb`. It is the strongest argument for
+the panel, and the reason the panel's own sentence about the empty case is not
+optional.
+
 ### How it is drawn
 
 Server-side, lazily: the issue form gets a link and runs no extra query, and the
-modal's content comes from an action of the plugin's own. The resolver's hot path
-(**INV-6**, **G6**) is untouched — an ordinary issue edit costs exactly what it
-costs today.
+modal's content comes from an action of the plugin's own — filling core's
+`#ajax-modal`, exactly as core's own *New version* and *New category* links on
+the same form do, so the modal, its close behaviour and its styling are
+Redmine's and the plugin ships no JavaScript for it. A browser without
+JavaScript follows the link to the same content as a page of its own. The
+resolver's hot path (**INV-6**, **G6**) is untouched — an ordinary issue edit
+costs exactly what it costs today.
 
 **The renderer is the local view and nothing else** — decided **C** by Jan on
 2026-08-26. A `table.list` of *from → to → condition*: the statuses this issue
@@ -688,6 +709,8 @@ underneath it.
 | The tracker comes from the issue; on the new-issue form it arrives as a parameter and is **matched against the project's own trackers** | **INV-7** — no request parameter may widen the scope, and Rails resolves `where(id: ['1e5'])` to record 1 |
 | The roles are the user's own roles in that project | the dropdown reflects exactly those, and the map's whole job is to explain the dropdown |
 | One scope lookup plus one transitions query, both carrying an explicit `project_id` | **INV-4** |
+| No permission of its own, and a controller of its own rather than an action on `ProjectWorkflowsController` | every action there is behind `view_project_workflow`; requiring that to read the workflow governing your own issue would hide the panel from the people it is for |
+| The condition of one *move* is worded "only when the user is the author", not the comparison screen's "also when…" | there the label names a whole grid, which is core's framing; here the conditions of one move have been collapsed, so a move naming only the author grid is one only the author may make, and "also" would say the opposite |
 
 The anchor is core's `f.select :status_id` expression in
 `issues/_attributes.html.erb`, which is byte-identical in 5.1, 6.1 and 7.0 — the

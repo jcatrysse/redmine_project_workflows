@@ -87,3 +87,20 @@ pt:
   text_project_workflow_bulk_unsaved: Ainda não foi guardado nada. Prima Guardar para aplicar estas alterações.
   label_project_workflow_comparison: Comparação de fluxos de trabalho
   text_project_workflow_compare_unreachable_field: Pelo menos uma diferença abaixo refere-se a um campo que este tipo de tarefa já não oferece, pelo que a matriz própria do projeto não o pode mostrar nem alterar. Um administrador de sistema pode remover essa regra na Administração.
+  label_project_workflow_map: Fluxo de trabalho desta tarefa
+  label_project_workflow_map_scope: Que fluxo de trabalho se aplica
+  label_project_workflow_map_from_here: Mudanças de estado permitidas a partir daqui
+  label_project_workflow_map_leads_here: Estados que conduzem a este
+  label_project_workflow_map_available: Disponível agora
+  text_project_workflow_map_authority: É isto que o fluxo de trabalho permite. A lista de estados no formulário continua a ser a referência para o que pode fazer neste momento; cada diferença entre as duas é explicada abaixo.
+  text_project_workflow_map_no_outgoing: Este fluxo de trabalho não permite qualquer mudança de estado a partir daqui.
+  text_project_workflow_map_no_incoming: Este fluxo de trabalho não permite qualquer mudança de estado para este.
+  text_project_workflow_map_no_roles: Não tem neste projeto nenhum perfil que participe num fluxo de trabalho, pelo que nenhuma mudança de estado é permitida.
+  text_project_workflow_map_own_empty: Este projeto tem o seu próprio fluxo de trabalho para este tipo de tarefa e este perfil, e não contém qualquer regra, pelo que nenhuma mudança de estado é permitida. É uma configuração deliberada e não uma falha.
+  text_project_workflow_map_requires_author: Só o autor da tarefa pode fazer esta alteração.
+  text_project_workflow_map_requires_assignee: Só a pessoa atribuída pode fazer esta alteração.
+  text_project_workflow_map_requires_author_or_assignee: Só o autor ou a pessoa atribuída pode fazer esta alteração.
+  text_project_workflow_map_unavailable: Não disponível para esta tarefa neste momento.
+  label_project_workflow_map_condition_author: Apenas quando o utilizador é o autor
+  label_project_workflow_map_condition_assignee: Apenas quando o utilizador é a pessoa atribuída
+  label_project_workflow_map_condition_author_or_assignee: Apenas quando o utilizador é o autor ou a pessoa atribuída

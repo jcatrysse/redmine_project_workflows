@@ -68,6 +68,9 @@ one of them has surprised somebody.
   that the generic one does not, and the other way round.
 - **Who last changed it, and when**, on the project's Workflow tab and in the
   inventory.
+- On the issue form, a **Workflow for this issue** panel: which workflow governs
+  you, what it lets this issue move to, what leads into its current status, and
+  why anything the workflow permits is not on offer right now.
 - Optimised SQL performance for bulk workflow transition/permission updates.
 
 ## Installation
@@ -212,6 +215,53 @@ Next to the state on the tab and in the inventory, **Updated by … ago** says w
 last changed those rules. The date the decision was taken is kept separately from
 the date the rules last changed, so re-saving a matrix does not make it look like
 a fresh decision.
+
+### Explaining the status list on the issue form
+
+Two things sit next to the status list when you create or edit an issue.
+
+**Redmine's own help icon** — the question mark — lists every status you may pick
+with the description an administrator wrote for it. This is core's, not the
+plugin's, and the plugin is what makes it correct: the list it shows is your
+project's own effective workflow, never another project's rules. It is invisible
+until somebody fills those descriptions in, at **Administration → Issue statuses
+→ Description**, which is worth doing once — an installation that has never used
+that field concludes the feature does not exist.
+
+**Workflow for this issue** — the second icon — is the plugin's, and it answers
+the question the status list cannot:
+
+- **Which workflow applies**, in the same three words the rest of the plugin
+  uses: *Own workflow*, *Own empty workflow*, or *Inherits the generic workflow*.
+  One line per role you hold, because a role can be overridden while the next one
+  inherits, and what you see on the form is the union of both. Where you may
+  change it, there is a link; where you may not, there is no link rather than one
+  that answers *403*.
+- **Status changes allowed from here**, with what each one requires — anyone with
+  the role, only the author, only the assignee — and whether the status list is
+  offering it *now*.
+- **Statuses that lead to this one**, so *how did this issue get here* is
+  answerable.
+
+The panel says what the workflow allows; the status list on the form stays the
+authority for what you may do this minute, and every difference between the two
+carries its reason. Redmine withholds a closed status from an issue with an open
+subtask or a blocking issue, and an open one from a subtask of a closed parent —
+in those cases the panel shows Redmine's own sentence. Where the reason is who
+you are, it says so: *Only the author of the issue may make this change.*
+
+**The case worth knowing about.** A project given its **own empty workflow** for
+your tracker and role permits nothing at all, and Redmine's response to that is
+not an empty dropdown — it is *no status control on the form whatsoever*, with
+nothing to say why. That is a deliberate configuration and not a fault, and this
+panel is the only place that says so.
+
+It costs nothing until you open it: the form gets a link, and the panel is
+loaded when you click it.
+
+The panel is on the single-issue form — new, edit, and the inline edit form on the
+issue page. It is deliberately **not** on the bulk-edit form, where a selection
+can span projects and trackers, so one map would be wrong about most of it.
 
 ## Settings
 

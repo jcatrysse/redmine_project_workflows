@@ -1,0 +1,153 @@
+<%#
+  The workflow governing one issue (WP8). Rendered into core's #ajax-modal by
+  show.js.erb, and into a page of its own by show.html.erb for a browser that
+  followed the link without JavaScript.
+
+  Three things, in the order somebody debugging "why can I not close this issue"
+  needs them:
+
+  1. Which of the three states of INV-3 governs them, per role, and where that
+     workflow is changed. Nothing else on the issue form says it -- core has no
+     concept of a project workflow -- and the "own empty workflow" case is the
+     one where an empty status list stops being explicable at all.
+  2. What the workflow allows from here, with what each move requires and
+     whether the status list offers it now. This is the honesty clause: the map
+     says what the rules permit, the status list stays the authority for what
+     may be done this minute, and every difference between the two carries its
+     reason.
+  3. What leads here, so "how did this issue get into this status" is
+     answerable.
+
+  A table.list of from -> to -> condition, and no drawing: decided C on
+  2026-08-26. A layered diagram is exactly this data with a layout pass added,
+  so it stays reachable from here.
+%>
+<% multiple_roles = @map.role_states.size > 1 %>
+<%# `modal` is true for the panel inside core's #ajax-modal, which reads its own
+    title out of h3.title, and false for the standalone page a browser without
+    JavaScript lands on, where the heading is core's own `title` helper. %>
+<% modal = local_assigns.fetch(:modal, true) %>
+
+<% if modal %>
+  <h3 class="title"><%= l(:label_project_workflow_map) %></h3>
+<% else %>
+  <%= title l(:label_project_workflow_map) %>
+<% end %>
+
+<div class="project-workflow-map">
+  <p>
+    <strong><%= l(:label_project) %>:</strong> <%= @project.name %>
+    &nbsp;
+    <strong><%= l(:label_tracker) %>:</strong> <%= @tracker.name %>
+    &nbsp;
+    <strong><%= l(:field_status) %>:</strong>
+    <%= project_workflow_status_label(@map.status, @map.status_id) %>
+  </p>
+
+  <% unless @map.any_roles? %>
+    <%# No role that takes part in a workflow at all: the reader has no status
+        choice on the form either, so there is nothing to describe and saying so
+        is better than an empty table. %>
+    <p class="nodata"><%= l(:text_project_workflow_map_no_roles) %></p>
+  <% end %>
+
+  <% if @map.any_roles? %>
+    <%# Per role, because resolution is per role and what the reader sees is the
+        union (INV-5). One sentence where they agree; a line each where they do
+        not -- which is the case that is impossible to work out from anywhere
+        else. %>
+    <% uniform = @map.uniform_state %>
+    <% if uniform %>
+      <p>
+        <strong><%= l(:label_project_workflow_map_scope) %>:</strong>
+        <%= project_workflow_state_tag(uniform) %>
+        <em>(<%= l(:label_role_plural) %>: <%= @map.roles.map(&:name).join(', ') %>)</em>
+        <%= project_workflow_map_edit_link(@project, @tracker, @map.roles.first, uniform) %>
+      </p>
+    <% else %>
+      <p><strong><%= l(:label_project_workflow_map_scope) %>:</strong></p>
+      <ul class="project-workflow-map-scopes">
+        <% @map.role_states.each do |role_state| %>
+          <li>
+            <%= role_state.role.name %>:
+            <%= project_workflow_state_tag(role_state.state) %>
+            <%= project_workflow_map_edit_link(@project, @tracker, role_state.role, role_state.state) %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <%# The state that most needs saying. A project with its own *empty*
+        workflow permits no transition at all, and an empty status list with no
+        explanation is indistinguishable from a broken plugin. %>
+    <% if @map.role_states.any? { |role_state| role_state.state == :own_empty } %>
+      <p class="project-workflow-map-empty">
+        <em><%= l(:text_project_workflow_map_own_empty) %></em>
+      </p>
+    <% end %>
+
+    <p><em><%= l(:text_project_workflow_map_authority) %></em></p>
+
+    <h4><%= l(:label_project_workflow_map_from_here) %></h4>
+    <% if @map.outgoing.empty? %>
+      <p class="nodata"><%= l(:text_project_workflow_map_no_outgoing) %></p>
+    <% else %>
+      <div class="autoscroll">
+        <table class="list project-workflow-map-transitions">
+          <thead>
+            <tr>
+              <th><%= l(:label_new_statuses_allowed) %></th>
+              <th><%= l(:label_project_workflow_compare_condition) %></th>
+              <% if multiple_roles %><th><%= l(:label_role) %></th><% end %>
+              <th><%= l(:label_project_workflow_map_available) %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @map.outgoing.each do |edge| %>
+              <tr>
+                <td class="name">
+                  <%= project_workflow_status_label(edge.new_status, edge.new_status_id) %>
+                </td>
+                <td><%= project_workflow_map_conditions_label(edge.conditions) %></td>
+                <% if multiple_roles %>
+                  <td><%= project_workflow_map_roles_label(edge.roles) %></td>
+                <% end %>
+                <td><%= project_workflow_map_availability_tag(edge) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+
+    <h4><%= l(:label_project_workflow_map_leads_here) %></h4>
+    <% if @map.incoming.empty? %>
+      <p class="nodata"><%= l(:text_project_workflow_map_no_incoming) %></p>
+    <% else %>
+      <div class="autoscroll">
+        <table class="list project-workflow-map-incoming">
+          <thead>
+            <tr>
+              <th><%= l(:label_current_status) %></th>
+              <th><%= l(:label_project_workflow_compare_condition) %></th>
+              <% if multiple_roles %><th><%= l(:label_role) %></th><% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <% @map.incoming.each do |edge| %>
+              <tr>
+                <td class="name">
+                  <%= project_workflow_status_label(edge.old_status, edge.old_status_id) %>
+                </td>
+                <td><%= project_workflow_map_conditions_label(edge.conditions) %></td>
+                <% if multiple_roles %>
+                  <td><%= project_workflow_map_roles_label(edge.roles) %></td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  <% end %>
+</div>

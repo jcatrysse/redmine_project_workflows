@@ -69,6 +69,19 @@ nothing had ever tested.
   generic one does not, and the other way round, for one tracker and role.
 - **Who last changed a workflow, and when**, on the project tab and in the
   inventory, kept separately from when the decision was taken.
+- On the issue form, a **Workflow for this issue** panel beside Redmine's own
+  status help icon: which of the three states governs the reader — per role,
+  because a role can be overridden while the next inherits — what the workflow
+  lets this issue move to, what leads into its current status, and, for anything
+  the workflow permits but the status list is not offering, the reason. Redmine's
+  own sentence where Redmine has one (an open subtask, a blocking issue, a closed
+  parent), the plugin's where the reason is who the reader is. Loaded when it is
+  opened, so an ordinary issue edit costs nothing extra.
+- Redmine's own status help icon on that form needed no change and is now
+  covered by specs: the statuses it lists are the project's own effective
+  workflow, never another project's. It is invisible until an administrator fills
+  in **Administration → Issue statuses → Description**, which the README now
+  says.
 
 ### Settings
 

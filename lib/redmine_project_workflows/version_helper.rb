@@ -71,12 +71,18 @@ module RedmineProjectWorkflows
       content_tag(:span, body, class: 'expander icon icon-expanded', onclick: 'toggleRowGroup(this);')
     end
 
+    # The body of a link or a button carrying one of core's icons, drawn the way
+    # the host draws icons: an SVG sprite on 6.0 and later, the label alone
+    # behind the CSS class on 5.1.
+    def project_workflows_icon_body(icon, label)
+      project_workflows_svg_icons? ? sprite_icon(icon, label) : label
+    end
+
     # A link carrying one of core's icons, drawn the way the host draws icons:
     # an SVG sprite on 6.0 and later, a background image behind the CSS class on
     # 5.1. The class is set either way -- core keeps it on 7.0 too, for spacing.
     def project_workflows_icon_link(icon, label, path)
-      body = project_workflows_svg_icons? ? sprite_icon(icon, label) : label
-      link_to(body, path, class: "icon icon-#{icon}")
+      link_to(project_workflows_icon_body(icon, label), path, class: "icon icon-#{icon}")
     end
   end
 end

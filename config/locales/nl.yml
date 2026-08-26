@@ -87,3 +87,20 @@ nl:
   text_project_workflow_bulk_unsaved: Er is nog niets opgeslagen. Druk op Opslaan om deze wijzigingen door te voeren.
   label_project_workflow_comparison: Workflowvergelijking
   text_project_workflow_compare_unreachable_field: Minstens één verschil hieronder betreft een veld dat dit tracker niet meer aanbiedt; de eigen matrix van het project kan het dus niet tonen of wijzigen. Een systeembeheerder kan zo'n regel via Beheer verwijderen.
+  label_project_workflow_map: Workflow voor dit issue
+  label_project_workflow_map_scope: Welke workflow geldt
+  label_project_workflow_map_from_here: Statuswijzigingen die hier zijn toegestaan
+  label_project_workflow_map_leads_here: Statussen die naar deze leiden
+  label_project_workflow_map_available: Nu beschikbaar
+  text_project_workflow_map_authority: Dit is wat de workflow toestaat. De statuslijst op het formulier blijft bepalen wat u op dit moment mag doen; elk verschil tussen de twee wordt hieronder uitgelegd.
+  text_project_workflow_map_no_outgoing: Deze workflow staat vanaf hier geen enkele statuswijziging toe.
+  text_project_workflow_map_no_incoming: Deze workflow staat geen enkele statuswijziging naar deze status toe.
+  text_project_workflow_map_no_roles: U hebt in dit project geen rol die aan een workflow deelneemt, dus is er geen statuswijziging toegestaan.
+  text_project_workflow_map_own_empty: Dit project heeft een eigen workflow voor deze tracker en rol, en die bevat geen enkele regel, dus is er geen statuswijziging toegestaan. Dat is een bewuste keuze en geen fout.
+  text_project_workflow_map_requires_author: Alleen de auteur van het issue mag deze wijziging maken.
+  text_project_workflow_map_requires_assignee: Alleen de toegewezen persoon mag deze wijziging maken.
+  text_project_workflow_map_requires_author_or_assignee: Alleen de auteur of de toegewezen persoon mag deze wijziging maken.
+  text_project_workflow_map_unavailable: Momenteel niet beschikbaar voor dit issue.
+  label_project_workflow_map_condition_author: Alleen wanneer de gebruiker de auteur is
+  label_project_workflow_map_condition_assignee: Alleen wanneer de gebruiker de toegewezen persoon is
+  label_project_workflow_map_condition_author_or_assignee: Alleen wanneer de gebruiker de auteur of de toegewezen persoon is

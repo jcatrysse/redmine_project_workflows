@@ -61,7 +61,7 @@ task description seems to ask for it.
   `db/schema.rb` and wipes the plugin's migration bookkeeping, after which
   `VERSION=0` silently does nothing.
 - **INV-9 A Deface override that does not match is a build failure.** The
-  **thirteen** view overrides — in eleven files under
+  **fourteen** view overrides — in twelve files under
   `lib/redmine_project_workflows/overrides/` — are the plugin's only hold on
   Redmine's screens, and an unmatched selector produces no error, just a
   missing project selector. `spec/integration/deface_overrides_spec.rb` asserts

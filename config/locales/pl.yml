@@ -90,3 +90,20 @@ pl:
   text_project_workflow_bulk_unsaved: Nic nie zostało jeszcze zapisane. Naciśnij Zapisz, aby zastosować te zmiany.
   label_project_workflow_comparison: Porównanie przepływów pracy
   text_project_workflow_compare_unreachable_field: Co najmniej jedna różnica poniżej dotyczy pola, którego ten typ zagadnienia już nie udostępnia, więc własna macierz projektu nie może go pokazać ani zmienić. Administrator systemu może usunąć taką regułę w Administracji.
+  label_project_workflow_map: Przepływ pracy dla tego zagadnienia
+  label_project_workflow_map_scope: Który przepływ pracy obowiązuje
+  label_project_workflow_map_from_here: Zmiany statusu dozwolone z tego miejsca
+  label_project_workflow_map_leads_here: Statusy, które prowadzą do tego
+  label_project_workflow_map_available: Dostępne teraz
+  text_project_workflow_map_authority: To jest to, na co pozwala przepływ pracy. O tym, co możesz zrobić w tej chwili, decyduje lista statusów w formularzu; każda różnica między nimi jest wyjaśniona poniżej.
+  text_project_workflow_map_no_outgoing: Ten przepływ pracy nie pozwala na żadną zmianę statusu z tego miejsca.
+  text_project_workflow_map_no_incoming: Ten przepływ pracy nie pozwala na żadną zmianę statusu na ten status.
+  text_project_workflow_map_no_roles: Nie masz w tym projekcie żadnej roli biorącej udział w przepływie pracy, więc żadna zmiana statusu nie jest dozwolona.
+  text_project_workflow_map_own_empty: Ten projekt ma własny przepływ pracy dla tego typu zagadnienia i tej roli, i nie zawiera on żadnej reguły, więc żadna zmiana statusu nie jest dozwolona. Jest to świadoma konfiguracja, a nie błąd.
+  text_project_workflow_map_requires_author: Tylko autor zagadnienia może dokonać tej zmiany.
+  text_project_workflow_map_requires_assignee: Tylko osoba przypisana może dokonać tej zmiany.
+  text_project_workflow_map_requires_author_or_assignee: Tylko autor lub osoba przypisana może dokonać tej zmiany.
+  text_project_workflow_map_unavailable: Obecnie niedostępne dla tego zagadnienia.
+  label_project_workflow_map_condition_author: Tylko gdy użytkownik jest autorem
+  label_project_workflow_map_condition_assignee: Tylko gdy użytkownik jest osobą przypisaną
+  label_project_workflow_map_condition_author_or_assignee: Tylko gdy użytkownik jest autorem lub osobą przypisaną
