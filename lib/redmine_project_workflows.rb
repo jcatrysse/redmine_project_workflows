@@ -17,6 +17,8 @@ require_relative 'redmine_project_workflows/patches/workflow_permission_patch'
 require_relative 'redmine_project_workflows/patches/workflow_rule_patch'
 require_relative 'redmine_project_workflows/patches/workflows_helper_patch'
 require_relative 'redmine_project_workflows/patches/project_patch'
+require_relative 'redmine_project_workflows/patches/role_patch'
+require_relative 'redmine_project_workflows/patches/tracker_patch'
 
 module RedmineProjectWorkflows
   def self.load_deface_overrides!
@@ -43,6 +45,8 @@ module RedmineProjectWorkflows
     prepend_once(WorkflowRule.singleton_class, Patches::WorkflowRulePatch)
     prepend_once(WorkflowsHelper, Patches::WorkflowsHelperPatch)
     prepend_once(Project, Patches::ProjectPatch)
+    prepend_once(Role, Patches::RolePatch)
+    prepend_once(Tracker, Patches::TrackerPatch)
   end
 
   def self.prepend_once(target, patch)

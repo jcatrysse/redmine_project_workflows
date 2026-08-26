@@ -125,6 +125,72 @@ module RedmineProjectWorkflows
         )
       end
 
+      # Core's WorkflowRule.copy, extended to the projects.
+      #
+      # Deliberately *not* folded into .copy_one. The administration copy screen
+      # falls through to core's .copy whenever no project is selected, and that
+      # has to stay generic-only: "copy the generic workflow" is not "copy every
+      # project's workflow as well". Role#copy_workflow_rules and
+      # Tracker#copy_workflow_rules -- the two places that mean "duplicate this
+      # role/tracker entirely" -- call this instead (claude F03).
+      def copy_with_projects(source_tracker, source_role, target_trackers, target_roles)
+        unless source_tracker.is_a?(Tracker) || source_role.is_a?(Role)
+          raise ArgumentError,
+                "source_tracker or source_role must be specified, given: " \
+                "#{source_tracker.class.name} and #{source_role.class.name}"
+        end
+
+        target_trackers = Array.wrap(target_trackers).compact
+        target_roles = Array.wrap(target_roles).compact
+        target_trackers = Tracker.sorted.to_a if target_trackers.empty?
+        target_roles = Role.all.select(&:consider_workflow?) if target_roles.empty?
+
+        transaction do
+          target_trackers.each do |target_tracker|
+            target_roles.each do |target_role|
+              copy_one_with_projects(
+                source_tracker || target_tracker,
+                source_role || target_role,
+                target_tracker,
+                target_role
+              )
+            end
+          end
+        end
+      end
+
+      # One (tracker, role) pair, generic rules and every project's, plus the
+      # scopes that make the project rules visible to the resolver. Without the
+      # scopes the copied rows would be ignored and the copy would silently be
+      # an inheriting workflow (INV-3).
+      def copy_one_with_projects(source_tracker, source_role, target_tracker, target_role)
+        return false if source_tracker == target_tracker && source_role == target_role
+
+        ([nil] + project_ids_with_rules(source_tracker, source_role)).each do |project_id|
+          copy_one_for_project(
+            project_id, project_id,
+            source_tracker, source_role, target_tracker, target_role
+          )
+        end
+        RedmineProjectWorkflows::Services::ScopeWriter.copy_scopes(
+          source_tracker_id: source_tracker.id,
+          source_role_id: source_role.id,
+          target_tracker_id: target_tracker.id,
+          target_role_id: target_role.id
+        )
+        true
+      end
+
+      # The projects that have rules of their own for this (tracker, role),
+      # either kind of rule. IS NOT NULL is an explicit project predicate, which
+      # is what INV-4 asks for; what it must not be is absent.
+      def project_ids_with_rules(tracker, role)
+        where(tracker_id: tracker.id, role_id: role.id)
+          .where.not(project_id: nil)
+          .distinct
+          .pluck(:project_id)
+      end
+
       def copy_one(source_tracker, source_role, target_tracker, target_role)
         copy_one_for_project(nil, nil, source_tracker, source_role, target_tracker, target_role)
       end

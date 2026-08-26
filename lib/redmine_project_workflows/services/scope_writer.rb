@@ -70,6 +70,36 @@ module RedmineProjectWorkflows
         end
       end
 
+      # Duplicating a role or a tracker duplicates the decisions along with the
+      # rules (claude F03). Called from WorkflowRule.copy_one_with_projects,
+      # which has just copied the rows.
+      #
+      # The source is mirrored exactly, a scope with no rules included: that is
+      # an own *empty* workflow, and leaving it out would silently return the
+      # copy to inheritance (INV-3). Combinations the target already has are
+      # left alone, audit columns and all -- core only ever calls this on a role
+      # or tracker it has just created, so there is nothing there to disturb,
+      # and repeating it is a no-op rather than a fresh decision.
+      def self.copy_scopes(source_tracker_id:, source_role_id:, target_tracker_id:, target_role_id:, user: User.current)
+        ProjectWorkflowScope::RULE_TYPES.flat_map do |rule_type|
+          project_ids = ProjectWorkflowScope.where(
+            tracker_id: source_tracker_id, role_id: source_role_id, rule_type: rule_type
+          ).distinct.pluck(:project_id)
+          next [] if project_ids.empty?
+
+          create_scopes(
+            missing_combinations(
+              project_ids: project_ids,
+              tracker_ids: [target_tracker_id],
+              role_ids: [target_role_id],
+              rule_type: rule_type
+            ),
+            rule_type,
+            user
+          )
+        end
+      end
+
       # Action one: give these projects their own workflow.
       #
       # Only combinations that currently inherit are touched, so pressing the
