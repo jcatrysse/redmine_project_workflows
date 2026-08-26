@@ -87,7 +87,7 @@ all eight locale files; and version-conditional code was already behind
   entries reordered newest-first.
 - **The declared minimum moved from Redmine 5.0 to 5.1.** Nothing had ever tested
   5.0 and the README said so. Logged as an open choice with the default in place.
-- **`.rubocop_todo.yml`: 198 offences in 21 files down to 50 in 8**, annotated by
+- **`.rubocop_todo.yml`: 198 offences in 21 files down to 48 in 8**, annotated by
   hand rather than generated and left. The file's own header names the three
   groups the rest falls into: the four patch files whose method bodies are core's
   (refactoring them for a metric destroys the property that lets you diff them
@@ -107,13 +107,13 @@ all eight locale files; and version-conditional code was already behind
 | Plugin suite, 5.1-stable + PostgreSQL 16 | 484 examples, 0 failures |
 | Plugin suite, 6.1-stable + PostgreSQL 16 | 484 examples, 0 failures |
 | Plugin suite, 7.0-stable + PostgreSQL 16 | 484 examples, 0 failures |
-| RuboCop | 82 files, no offences, with a todo a third of its former size |
+| RuboCop | 82 files, no offences. The todo is 48 offences in 8 files, down from 198 in 21, and every remaining entry carries a reason |
 | `node dev/check-bulk-js.mjs` | **32** checks, all ok (was 16) |
 | Migration reversibility up → 0 → up | clean on 7.0, run **before** the suite |
 | `dev/check-backfill.sh` | passes on 7.0 + PostgreSQL |
 | Locale parity | eight files, **74** keys each (was 53) |
 | Independent review | run in a **fresh subagent**, twice — for WP6 and for WP7. First session where the mechanism was available. Both sets of findings are fixed; see below |
-| CI | run **45 green on all nine cells plus RuboCop** for commit `f65dc48`, and run **47** for the review fixes at the head. Runs 36 through 43 were green too; **44 reads "cancelled" because 45 superseded it** — that is the concurrency group, not a failure |
+| CI | run **45 green on all nine cells plus RuboCop** for commit `f65dc48`. Runs 36 through 43 were green too; **44 reads "cancelled" because 45 superseded it** — that is the concurrency group, not a failure. The runs for the two commits after `f65dc48` were still in flight when this file was written — **check the head's run first** |
 | New specs against the old code | measured, twelve-plus-five-row table below |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done by
@@ -161,7 +161,8 @@ nothing said so; the 403/404 documentation was wrong in three places; and two ne
 specs passed for the wrong reason. One finding was declined with a reason.
 
 **WP7.** No blockers, and the reviewer confirmed by *running* it that both
-headline lint numbers were true (198 in 21 files before, 50 in 8 after) and that
+headline lint numbers were true (198 in 21 files before, 50 in 8 after — 48 once
+its own findings were fixed) and that
 none of the 244 autocorrected offences changed behaviour — it walked every
 semantically-loaded rewrite, including `each_value` on
 `ActionController::Parameters` across all three Rails versions. Six findings were
@@ -213,14 +214,17 @@ good are already written down there:
 3. **Lazily, from an action of its own.** The issue form gets a link and runs no
    extra query; the resolver's hot path is untouched (G6).
 
-CI run 45 is green on all nine cells for the branch head, so there is nothing to
-check first — start with the work package. (If a later run reads "cancelled",
-that is the concurrency group superseding it after the next push; read the
-*head's* run.)
+**Check the head's CI run first.** Run 45 is green on all nine cells for
+`f65dc48`; the two commits after it (STATE.md, and the WP7 review fixes) were
+still in flight when this file was written. Everything in them ran locally on all
+three Redmine versions first, and neither changes behaviour — the review fixes are
+prose, one line rewrap and one comment — but read the *head's* run rather than the
+newest completed one. A run reading "cancelled" is the concurrency group
+superseding it after the next push.
 
 ## Known traps
 
-Everything below cost time at least once. The first eleven are new this session.
+Everything below cost time at least once. The first fifteen are new this session.
 
 - **A new controller action is 403 for everybody until `init.rb` names it in a
   permission.** Administrators included, and the symptom is a forbidden page
@@ -253,6 +257,15 @@ Everything below cost time at least once. The first eleven are new this session.
   `execute` returns an adapter result object, so a migration that wraps a raw
   `INSERT ... SELECT` prints the elapsed time and nothing else. A README that
   promises the operator a number has to be checked against the migration.
+- **Redmine's plugin migration task defaults to *development*.** It is
+  `=> :environment`, so `rake redmine:plugins:migrate` with no `RAILS_ENV`
+  migrates the wrong database and prints output that looks like success. Every
+  migrate command in user-facing documentation needs `RAILS_ENV=production`, and
+  CI cannot catch its absence because CI sets `RAILS_ENV: test` job-wide.
+- **Migrations reverse in the order they were applied.** `VERSION=0` runs 005's
+  down, then 004's, and so on — so `project_workflow_scopes` is dropped *before*
+  migration 001 deletes the project rules. Do not describe a down sequence from
+  reading one migration.
 - **A documented query count is worth measuring, not estimating.** `docs/design.md`
   said the settings tab costs four collection queries; it is six. The
   constant-cost property was right and the number was not — so state the property
@@ -264,6 +277,16 @@ Everything below cost time at least once. The first eleven are new this session.
   `issues/_issue_status_description` — byte-identical in 5.1, 6.1 and 7.0 apart
   from `sprite_icon` arriving at 6.0. `IssueStatus#description` is a real core
   column on all three.
+- **A `rubocop -a` autocorrect can *create* the offence you then grandfather.**
+  `Layout/MultilineOperationIndentation` re-aligned a 101-character line in core's
+  copied body to 125, and the todo entry written straight afterwards explained it
+  away as "keeping core's shape" — the exact opposite of what had happened. Read
+  what an autocorrect did before annotating what it left.
+- **Redmine 6.1 emits a `to_time` deprecation warning from its own `time_tag`**
+  whenever `@project` is set, via `User#time_to_date`. WP6's audit line is the
+  first thing in the plugin to call `authoring`, so the warning now appears once
+  in the 6.1 suite output. It is core's, not the plugin's; core hits the same path
+  on `repositories/_changeset`. Do not chase it.
 - **`rubocop -a` over a grandfathered codebase is a 244-offence diff through the
   writers and the query services.** Safe cops only, and run the whole suite
   afterwards on more than one version before believing it. Then regenerate the
