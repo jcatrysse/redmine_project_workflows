@@ -73,6 +73,95 @@ module RedmineProjectWorkflows
         end
       end
 
+      # The honesty clause: whether Redmine's own status list is offering a move
+      # right now, and if not, why not.
+      #
+      # A class of its own because it is the one part of the answer that is about
+      # the *issue and the reader* rather than about the rules -- who they are,
+      # what the issue's subtasks and parent are doing -- and because it holds the
+      # two memos that make asking core cost one answer each.
+      class Availability
+        def initialize(issue:, user:)
+          @issue = issue
+          @user = user
+        end
+
+        # The order matters: the reader's identity comes first, because a move
+        # only the author may make is withheld from everybody else whatever the
+        # state of the issue's subtasks. Then core's own two reasons, in core's
+        # own words, so the sentence beside the map is the sentence beside the
+        # warning icon on the same form.
+        def for(new_status_id, new_status, conditions)
+          return [true, nil] if offered_status_ids.include?(new_status_id)
+          return [false, identity_reason(conditions)] unless conditions_met?(conditions)
+
+          reason =
+            if new_status.nil? then nil
+            elsif new_status.is_closed? then closable_warning
+            else reopenable_warning
+            end
+          [false, reason || I18n.t(:text_project_workflow_map_unavailable)]
+        end
+
+        private
+
+        # Exactly the status list's own population, asked of the same object the
+        # form rendered -- not recomputed from the rules, which is the whole
+        # point of the clause.
+        def offered_status_ids
+          @offered_status_ids ||= @issue.new_statuses_allowed_to(@user).to_set(&:id)
+        end
+
+        def conditions_met?(conditions)
+          return true if conditions.include?('always')
+          return true if conditions.include?('author') && author?
+          return true if conditions.include?('assignee') && assignee?
+
+          false
+        end
+
+        def identity_reason(conditions)
+          author = conditions.include?('author')
+          assignee = conditions.include?('assignee')
+          key =
+            if author && assignee then :text_project_workflow_map_requires_author_or_assignee
+            elsif author then :text_project_workflow_map_requires_author
+            else :text_project_workflow_map_requires_assignee
+            end
+          I18n.t(key)
+        end
+
+        def author?
+          @issue.author == @user
+        end
+
+        # The same test core makes, the group case included: an issue assigned to
+        # a group is assigned to its members for this purpose.
+        def assignee?
+          assigned_to_id = @issue.assigned_to_id
+          return false if assigned_to_id.blank?
+
+          @user.id == assigned_to_id || @user.group_ids.include?(assigned_to_id)
+        end
+
+        # Core populates Issue#transition_warning as a *side effect* of
+        # answering, and the second call overwrites what the first left there, so
+        # each answer is captured as it is given. defined? rather than ||=
+        # because nil -- no warning -- is the common answer and has to be
+        # remembered too.
+        def closable_warning
+          return @closable_warning if defined?(@closable_warning)
+
+          @closable_warning = @issue.closable? ? nil : @issue.transition_warning
+        end
+
+        def reopenable_warning
+          return @reopenable_warning if defined?(@reopenable_warning)
+
+          @reopenable_warning = @issue.reopenable? ? nil : @issue.transition_warning
+        end
+      end
+
       # +issue+ is the issue as the form has it -- saved or not. +tracker+
       # defaults to its own; the caller passes the form's when the reader has
       # changed it, having matched it against the project's trackers first
@@ -204,19 +293,28 @@ module RedmineProjectWorkflows
       end
 
       # One relation per population the reader's roles resolve to: the project's
-      # own rows for the roles it answers for, the generic rows for the rest. Both
-      # name a project_id, nil included (INV-4).
+      # own rows for the roles it answers for, the generic rows for the rest.
       def population_scopes(role_ids)
         resolver = Resolver.new(project_id: @issue.project_id, tracker_id: @tracker.id,
                                 role_ids: role_ids)
         own_role_ids = resolver.overridden_role_ids_for(WorkflowTransition)
         generic_role_ids = role_ids - own_role_ids
 
-        base = WorkflowTransition.where(tracker_id: @tracker.id)
         scopes = []
-        scopes << base.where(project_id: @issue.project_id, role_id: own_role_ids) if own_role_ids.any?
-        scopes << base.where(project_id: nil, role_id: generic_role_ids) if generic_role_ids.any?
+        scopes << population(@issue.project_id, own_role_ids) if own_role_ids.any?
+        scopes << population(nil, generic_role_ids) if generic_role_ids.any?
         scopes
+      end
+
+      # INV-4, made structural rather than merely true: this is the only place a
+      # relation on +workflows+ is built here, and it cannot be built without
+      # naming a project_id -- nil for the generic rows, an id for a project's
+      # own. A shared base relation carrying only the tracker would have been
+      # shorter and would have left a relation lying around that mixes both
+      # populations if anything ever executed it.
+      def population(project_id, role_ids)
+        WorkflowTransition.where(project_id: project_id, tracker_id: @tracker.id,
+                                 role_id: role_ids)
       end
 
       # One query for every status the rows name. 0 is core's "new issue" node
@@ -248,6 +346,12 @@ module RedmineProjectWorkflows
         sort_edges(edges, direction)
       end
 
+      # The honesty clause, which is the one part of this that reasons about the
+      # issue and the reader rather than about the rules.
+      def availability
+        @availability ||= Availability.new(issue: @issue, user: @user)
+      end
+
       def in_direction?(direction, old_status_id, new_status_id)
         direction == :outgoing ? old_status_id == from_status_id : new_status_id == from_status_id
       end
@@ -272,7 +376,7 @@ module RedmineProjectWorkflows
         roles = entry[:role_ids].filter_map { |role_id| roles_by_id[role_id]&.role }.sort
         available, reason =
           if direction == :outgoing
-            availability(new_status_id, statuses[new_status_id], conditions)
+            availability.for(new_status_id, statuses[new_status_id], conditions)
           else
             [nil, nil]
           end
@@ -293,80 +397,6 @@ module RedmineProjectWorkflows
         return ['always'] if expanded.include?('always')
 
         CONDITIONS.select { |condition| expanded.include?(condition) }
-      end
-
-      # --- the honesty clause --------------------------------------------------
-
-      # Whether the dropdown offers this move now, and if not, why not.
-      #
-      # The order matters: the reader's identity comes first, because an edge
-      # that only the author may take is withheld from everybody else whatever
-      # the state of the issue's subtasks. Then core's own two reasons, in core's
-      # own words, so the sentence beside the map is the sentence beside the
-      # warning icon on the same form.
-      def availability(new_status_id, new_status, conditions)
-        return [true, nil] if offered_status_ids.include?(new_status_id)
-        return [false, identity_reason(conditions)] unless conditions_met?(conditions)
-
-        reason =
-          if new_status.nil? then nil
-          elsif new_status.is_closed? then closable_warning
-          else reopenable_warning
-          end
-        [false, reason || I18n.t(:text_project_workflow_map_unavailable)]
-      end
-
-      # Exactly the dropdown's population, asked of the same object the form
-      # rendered -- not recomputed from the rules, which is the whole point.
-      def offered_status_ids
-        @offered_status_ids ||= @issue.new_statuses_allowed_to(@user).to_set(&:id)
-      end
-
-      def conditions_met?(conditions)
-        return true if conditions.include?('always')
-        return true if conditions.include?('author') && author?
-        return true if conditions.include?('assignee') && assignee?
-
-        false
-      end
-
-      def identity_reason(conditions)
-        author = conditions.include?('author')
-        assignee = conditions.include?('assignee')
-        key =
-          if author && assignee then :text_project_workflow_map_requires_author_or_assignee
-          elsif author then :text_project_workflow_map_requires_author
-          else :text_project_workflow_map_requires_assignee
-          end
-        I18n.t(key)
-      end
-
-      def author?
-        @issue.author == @user
-      end
-
-      # The same test core makes: the group case included, because an issue
-      # assigned to a group is assigned to its members for this purpose.
-      def assignee?
-        assigned_to_id = @issue.assigned_to_id
-        return false if assigned_to_id.blank?
-
-        @user.id == assigned_to_id || @user.group_ids.include?(assigned_to_id)
-      end
-
-      # Core populates Issue#transition_warning as a side effect of answering,
-      # and the second call overwrites the first, so each answer is captured as
-      # it is given.
-      def closable_warning
-        return @closable_warning if defined?(@closable_warning)
-
-        @closable_warning = @issue.closable? ? nil : @issue.transition_warning
-      end
-
-      def reopenable_warning
-        return @reopenable_warning if defined?(@reopenable_warning)
-
-        @reopenable_warning = @issue.reopenable? ? nil : @issue.transition_warning
       end
 
       # Deterministic on every database and every seed: the order core's own
