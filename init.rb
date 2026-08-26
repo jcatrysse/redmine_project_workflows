@@ -8,6 +8,18 @@ Redmine::Plugin.register :redmine_project_workflows do
   version '0.0.3'
   requires_redmine version_or_higher: '5.0'
 
+  # WP5. The plugin's first setting, and the reason it has a settings screen at
+  # all: a row or column action on an administration matrix can write a great
+  # many rules from one click, and how many is "many" depends on the
+  # installation. Above this number the action asks first; 0 asks every time.
+  #
+  # The same number is the fallback in
+  # RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD,
+  # which is what answers for a settings hash saved before this key existed.
+  # spec/plugin_conventions_spec.rb asserts the two agree.
+  settings default: { 'bulk_confirm_threshold' => '50' },
+           partial: 'settings/redmine_project_workflows'
+
   # WP4. Both permissions map projects#settings, because that is the action the
   # settings tab is rendered from: without it a role that may read its own
   # project's workflow could not open the page the tab lives on. Redmine's own

@@ -2,6 +2,7 @@
 
 require_relative 'redmine_project_workflows/current'
 require_relative 'redmine_project_workflows/version_helper'
+require_relative 'redmine_project_workflows/bulk_actions_helper'
 require_relative 'redmine_project_workflows/services/resolver'
 require_relative 'redmine_project_workflows/services/transition_query'
 require_relative 'redmine_project_workflows/services/permission_query'

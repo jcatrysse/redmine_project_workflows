@@ -58,3 +58,10 @@ fr:
   text_project_workflow_readonly_generic: Ce projet hérite du workflow générique pour ce tracker et ce rôle. Il est affiché ci-dessous à titre de référence ; donnez au projet son propre workflow pour le modifier.
   text_project_workflow_readonly_own: Ceci est le workflow propre au projet. Le modifier demande la permission de gérer le workflow de ce projet.
   notice_project_workflow_not_own: Ce projet hérite du workflow générique pour ce tracker et ce rôle ; rien n'a donc été enregistré. Donnez d'abord au projet son propre workflow.
+  label_project_workflow_bulk_row: 'Mettre toute la ligne "%{name}" à %{value}'
+  label_project_workflow_bulk_column: 'Mettre toute la colonne "%{name}" à %{value}'
+  text_project_workflow_bulk_confirm: 'Cette action modifie %{count} règle(s) de workflow. Continuer ?'
+  text_project_workflow_bulk_selection: 'Une cellule de cette matrice représente %{count} workflow(s) : %{trackers} tracker(s) × %{roles} rôle(s) × %{scopes} portée(s) de workflow.'
+  text_project_workflow_bulk_legend: '"%{no_change}" signifie que les workflows représentés par une cellule ne disent pas tous la même chose ; à l''enregistrement, chacun reste tel quel. Une action de ligne ou de colonne réglée sur "%{no_change}" remet chaque cellule de cette ligne ou de cette colonne à la valeur avec laquelle la page a été ouverte.'
+  label_project_workflow_bulk_confirm_threshold: 'Demander confirmation lorsqu''une action de ligne ou de colonne modifie plus de'
+  text_project_workflow_bulk_confirm_threshold: 'Nombre de règles de workflow. Une action de ligne ou de colonne qui en modifierait davantage demande d''abord confirmation. 0 demande toujours.'

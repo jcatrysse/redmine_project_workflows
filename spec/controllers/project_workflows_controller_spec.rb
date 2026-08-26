@@ -437,6 +437,42 @@ describe ProjectWorkflowsController, type: :controller do
       end
     end
 
+    # WP5. The row and column actions come from the same two overrides on core's
+    # own workflows/_form, so the project matrix gets them without a screen of
+    # its own -- but a cell here is exactly one workflow, so there is nothing for
+    # "no change" to mean and it is not offered.
+    it 'offers the row and column actions on a matrix it may edit' do
+      give_own_workflow(project, tracker, role)
+
+      get :transitions, params: transitions_params
+
+      expect(response.body).to include(
+        %(data-project-workflow-target="table.transitions-always .new-status-#{assigned.id}:not(:disabled)")
+      )
+      expect(response.body).to include('data-project-workflow-multiplier="1"')
+      expect(response.body).not_to include('data-project-workflow-value="no_change"')
+    end
+
+    # The read-only grid is the plugin's own partial, not core's, so the actions
+    # are not in it -- and must not be: there is nothing here to change.
+    it 'offers no row or column action while the project inherits' do
+      generic_transition(new_status, assigned)
+
+      get :transitions, params: transitions_params
+
+      expect(response.body).not_to include('project-workflow-bulk-action')
+    end
+
+    # A cell of a project matrix is one workflow, so the sentence that explains
+    # a mixed cell would be explaining something that cannot happen here.
+    it 'does not explain a mixed cell on a matrix that cannot have one' do
+      give_own_workflow(project, tracker, role)
+
+      get :transitions, params: transitions_params
+
+      expect(response.body).not_to include('project-workflow-bulk-note')
+    end
+
     it 'draws the collapsible legend the way the host draws icons' do
       give_own_workflow(project, tracker, role)
 

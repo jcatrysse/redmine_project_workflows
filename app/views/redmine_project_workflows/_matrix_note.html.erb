@@ -1,0 +1,26 @@
+<%#
+  What one cell of this matrix stands for, and what "no change" means (WP5).
+
+  Rendered above the matrix on the administration screens, where a selection
+  covers several trackers, roles and projects at once and a single click can
+  therefore write a great many rules. A project's own matrix is one tracker,
+  one role and one project by construction, so there is nothing to say and
+  nothing is shown.
+
+  Rendered from the scope panel rather than from an anchor of its own: the panel
+  is already inserted directly above the matrix on both administration screens,
+  and this belongs in the same place. Unlike the panel it does not depend on a
+  project being selected -- core's own "no change" cells appear for a selection
+  of several trackers or roles alone.
+%>
+<% selection_size = project_workflow_selection_size %>
+<% if selection_size > 1 %>
+  <p class="project-workflow-bulk-note">
+    <%= l(:text_project_workflow_bulk_selection,
+          count: selection_size,
+          trackers: Array(@trackers).size,
+          roles: Array(@roles).size,
+          scopes: project_workflow_selection_scopes) %>
+    <em><%= l(:text_project_workflow_bulk_legend, no_change: l(:label_no_change_option)) %></em>
+  </p>
+<% end %>

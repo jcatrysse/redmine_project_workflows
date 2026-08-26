@@ -1,0 +1,50 @@
+<%#
+  The one function the row and column actions call (WP5).
+
+  Deliberately small and dependency-free: this repository has no way to test
+  JavaScript, so anything clever here would ship untested. It reads what to do
+  from data attributes the helper wrote, changes only the controls whose value
+  would actually differ, and asks first when that would touch more workflow
+  rules than the plugin setting allows.
+
+  A <select> is what a mixed cell renders as, so both kinds of control are
+  handled: "no change" means the select's own no-change option, and for a
+  checkbox it means the value the page was opened with.
+%>
+<%= javascript_tag do %>
+function projectWorkflowBulkApply(link) {
+  var group = link.parentNode;
+  var value = link.getAttribute('data-project-workflow-value');
+  var controls = document.querySelectorAll(group.getAttribute('data-project-workflow-target'));
+  var pending = [];
+
+  for (var i = 0; i < controls.length; i++) {
+    var control = controls[i];
+    if (control.disabled) { continue; }
+    if (control.type === 'checkbox') {
+      var checked = (value === 'no_change') ? control.defaultChecked : (value === '1');
+      if (control.checked !== checked) { pending.push([control, checked]); }
+    } else if (control.tagName === 'SELECT' &&
+               control.querySelector('option[value="' + value + '"]') &&
+               control.value !== value) {
+      pending.push([control, value]);
+    }
+  }
+  if (pending.length === 0) { return; }
+
+  var threshold = parseInt(group.getAttribute('data-project-workflow-threshold'), 10);
+  var rules = pending.length * parseInt(group.getAttribute('data-project-workflow-multiplier'), 10);
+  if (!isNaN(threshold) && rules > threshold) {
+    var question = group.getAttribute('data-project-workflow-confirm').replace('%{count}', rules);
+    if (!window.confirm(question)) { return; }
+  }
+
+  for (var j = 0; j < pending.length; j++) {
+    var target = pending[j][0];
+    if (target.type === 'checkbox') { target.checked = pending[j][1]; }
+    else { target.value = pending[j][1]; }
+    if (window.jQuery) { window.jQuery(target).trigger('change'); }
+    else { target.dispatchEvent(new Event('change', { bubbles: true })); }
+  }
+}
+<% end %>

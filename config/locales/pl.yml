@@ -61,3 +61,10 @@ pl:
   text_project_workflow_readonly_generic: Ten projekt dziedziczy ogólny przepływ pracy dla tego typu zagadnienia i roli. Poniżej pokazano go dla odniesienia; nadaj projektowi własny przepływ pracy, aby go zmienić.
   text_project_workflow_readonly_own: To jest własny przepływ pracy projektu. Jego zmiana wymaga uprawnienia do zarządzania przepływem pracy tego projektu.
   notice_project_workflow_not_own: Ten projekt dziedziczy ogólny przepływ pracy dla tego typu zagadnienia i roli, więc nic nie zostało zapisane. Najpierw nadaj projektowi własny przepływ pracy.
+  label_project_workflow_bulk_row: 'Ustaw cały wiersz "%{name}" na %{value}'
+  label_project_workflow_bulk_column: 'Ustaw całą kolumnę "%{name}" na %{value}'
+  text_project_workflow_bulk_confirm: 'To zmieni %{count} reguł(y) przepływu pracy. Kontynuować?'
+  text_project_workflow_bulk_selection: 'Jedna komórka tej macierzy odpowiada %{count} przepływom pracy: %{trackers} typ(y) zagadnienia × %{roles} rol(e) × %{scopes} zakres(y) przepływu pracy.'
+  text_project_workflow_bulk_legend: '"%{no_change}" oznacza, że przepływy pracy reprezentowane przez komórkę nie mówią tego samego; przy zapisie każdy z nich pozostaje bez zmian. Akcja wiersza lub kolumny ustawiona na "%{no_change}" przywraca każdej komórce w tym wierszu lub tej kolumnie wartość, z którą strona została otwarta.'
+  label_project_workflow_bulk_confirm_threshold: 'Pytaj o potwierdzenie, gdy akcja wiersza lub kolumny zmieni więcej niż'
+  text_project_workflow_bulk_confirm_threshold: 'Liczba reguł przepływu pracy. Akcja wiersza lub kolumny, która zmieniłaby więcej, najpierw poprosi o potwierdzenie. 0 pyta zawsze.'

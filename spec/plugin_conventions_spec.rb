@@ -75,6 +75,28 @@ describe RedmineProjectWorkflows do
     end
   end
 
+  # WP5. The plugin's first setting. Redmine defines it from the register block,
+  # so a setting declared in the wrong place would simply not exist -- and the
+  # threshold would silently be the helper's fallback for everybody.
+  it 'registers the bulk confirmation threshold as a plugin setting' do
+    plugin = Redmine::Plugin.find(:redmine_project_workflows)
+
+    expect(plugin).to be_configurable
+    expect(plugin.settings[:partial]).to eq('settings/redmine_project_workflows')
+    expect(Setting.available_settings).to have_key('plugin_redmine_project_workflows')
+    expect(Setting.plugin_redmine_project_workflows).to have_key('bulk_confirm_threshold')
+  end
+
+  # The number is written down twice on purpose -- once as the setting's default
+  # and once as the fallback for a settings hash saved before the key existed --
+  # so this is the assertion that the two never drift apart.
+  it 'declares the same default the helper falls back to' do
+    declared = Redmine::Plugin.find(:redmine_project_workflows).settings[:default]
+
+    expect(declared['bulk_confirm_threshold'].to_i)
+      .to eq(RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD)
+  end
+
   # Reading a workflow is a read action, so it goes on working in a closed
   # project; managing one is not, so it stops there.
   it 'marks viewing as a read action and managing as a write' do

@@ -15,6 +15,8 @@ covered by CI only.
 - A **Workflow** tab in project settings, so a project can run its own workflow
   without a system administrator — behind two permissions.
 - A **Workflow inventory** answering which projects have taken a workflow over.
+- Row and column actions on every transition matrix, which reach the mixed cells
+  Redmine's own check-all toggle skips.
 - Optimised SQL performance for bulk workflow transition/permission updates.
 
 ## Installation
@@ -80,6 +82,33 @@ Three things are worth knowing:
   members in any project, so they go on following the generic workflow. A system
   administrator can still give a project its own workflow for them from
   **Administration → Workflow**.
+
+### Filling a matrix in fewer clicks
+
+Every row and every column of a transition matrix carries three actions next to
+its name: **Yes**, **No** and **(No change)**. They set that whole row or column
+at once.
+
+Redmine's own check-all toggle is still there and still does exactly what it did.
+What it never reached is a cell whose value differs across the selection you are
+editing: such a cell renders as a dropdown rather than a checkbox, and a toggle
+that selects checkboxes skips precisely the cells with the manual work in them.
+The three actions reach both kinds of cell.
+
+**(No change)** appears only where a cell can hold it — that is, when the
+selection covers more than one workflow. It puts every cell in the row or column
+back to the value the page was opened with, which is what a mixed cell means:
+leave each of those workflows as it is. A sentence above the matrix says how many
+workflows one cell stands for, so you can see how much a single click is about to
+write.
+
+## Settings
+
+**Administration → Plugins → Project Workflows → Configure** has one setting:
+
+- **Ask before a row or column action changes more than** — a number of workflow
+  rules, 50 by default. A row or column action that would change more than that
+  asks for confirmation first; `0` asks every time.
 
 ## Maintenance
 

@@ -4,6 +4,7 @@ module RedmineProjectWorkflows
   module Patches
     module WorkflowsHelperPatch
       include RedmineProjectWorkflows::VersionHelper
+      include RedmineProjectWorkflows::BulkActionsHelper
 
       GlobalWorkflowProject = Struct.new(:id, :name)
 
@@ -90,6 +91,11 @@ module RedmineProjectWorkflows
             check_box_tag(tag_name, "1", transition_count != 0,
                           :class => "old-status-#{old_status.try(:id) || 0} new-status-#{new_status.id}")
         else
+          # The same classes as a checkbox cell (claude F06). Core's own toggle
+          # cannot reach a select whatever it is called -- it selects on
+          # input[type=checkbox] -- but the plugin's row and column actions
+          # select on the class alone, so one selector reaches both kinds of
+          # cell and the mixed ones stop being the cells bulk editing skips.
           select_tag(
             tag_name,
             options_for_select(
@@ -99,17 +105,21 @@ module RedmineProjectWorkflows
                 [l(:label_no_change_option), "no_change"]
               ],
               "no_change"
-            )
+            ),
+            :class => "old-status-#{old_status.try(:id) || 0} new-status-#{new_status.id}"
           )
         end
       end
 
       private
 
+      # How many workflows one cell of the matrix stands for. Core computes
+      # @roles.size * @trackers.size; the plugin adds the scopes the selection
+      # covers. Kept under core's name because that is what core's two cell
+      # helpers ask for, and answered by the module that also renders the row and
+      # column actions, so the two can never disagree about the size of a cell.
       def workflow_permissions_matrix_size
-        project_multiplier = @projects_for_update.present? ? @projects_for_update.size : 1
-        project_multiplier += 1 if @global_selected && @projects_for_update.present?
-        @roles.size * @trackers.size * project_multiplier
+        project_workflow_selection_size
       end
 
       def normalize_workflow_objects(name, objects)

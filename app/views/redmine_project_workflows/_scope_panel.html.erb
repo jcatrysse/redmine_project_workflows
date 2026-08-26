@@ -1,13 +1,18 @@
 <%#
   The three actions of INV-3, above the matrix.
 
-  Rendered only when the selection contains at least one real project: the
-  generic workflow has no scope, so for an administrator who does not use the
-  plugin these screens look exactly as they did before.
+  The panel itself renders only when the selection contains at least one real
+  project: the generic workflow has no scope, so for an administrator who does
+  not use the plugin these screens keep showing no scope at all.
 
   The state is a text label first; colour only supports it, and "own empty
   workflow" is a deliberate configuration, not an error.
 %>
+<%# What a cell of this matrix stands for, above everything else: it applies to
+    a selection of several trackers or roles as well, not only to one that named
+    a project, so it sits outside the panel's own condition. %>
+<%= render partial: 'redmine_project_workflows/matrix_note' %>
+
 <% state = @project_workflow_scope_state %>
 <% if state && state.any? %>
   <%# 'all' stays 'all': expanding it would put every project id in the link. %>

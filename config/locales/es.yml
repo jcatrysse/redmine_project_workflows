@@ -58,3 +58,10 @@ es:
   text_project_workflow_readonly_generic: Este proyecto hereda el flujo de trabajo genérico para este tipo y perfil. Se muestra abajo como referencia; dé al proyecto su propio flujo de trabajo para cambiarlo.
   text_project_workflow_readonly_own: Este es el flujo de trabajo propio del proyecto. Cambiarlo requiere el permiso para gestionar el flujo de trabajo de este proyecto.
   notice_project_workflow_not_own: Este proyecto hereda el flujo de trabajo genérico para este tipo y perfil, por lo que no se guardó nada. Dé primero al proyecto su propio flujo de trabajo.
+  label_project_workflow_bulk_row: 'Poner toda la fila "%{name}" en %{value}'
+  label_project_workflow_bulk_column: 'Poner toda la columna "%{name}" en %{value}'
+  text_project_workflow_bulk_confirm: 'Esto cambia %{count} regla(s) de flujo de trabajo. ¿Continuar?'
+  text_project_workflow_bulk_selection: 'Una celda de esta matriz representa %{count} flujo(s) de trabajo: %{trackers} tipo(s) × %{roles} perfil(es) × %{scopes} ámbito(s) de flujo de trabajo.'
+  text_project_workflow_bulk_legend: '"%{no_change}" significa que los flujos de trabajo que representa una celda no dicen todos lo mismo; al guardar, cada uno queda como está. Una acción de fila o de columna puesta en "%{no_change}" devuelve cada celda de esa fila o columna al valor con el que se abrió la página.'
+  label_project_workflow_bulk_confirm_threshold: 'Pedir confirmación cuando una acción de fila o de columna cambie más de'
+  text_project_workflow_bulk_confirm_threshold: 'Número de reglas de flujo de trabajo. Una acción de fila o de columna que cambiaría más que esto pide confirmación primero. 0 pregunta siempre.'

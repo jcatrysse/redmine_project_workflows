@@ -1,0 +1,21 @@
+<%#
+  The plugin's settings screen (WP5).
+
+  One setting so far: how much a single row or column action on a workflow
+  matrix may change before it asks. Rendered by Redmine inside its own
+  box.tabular.settings, so the markup is core's -- a label, a field and an
+  em.info -- and the plugin adds no styling of its own.
+
+  The field shows the number that is actually in force, not an empty box, so an
+  administrator who saves this page without touching it keeps what was there.
+%>
+<p>
+  <label for="settings_bulk_confirm_threshold">
+    <%= l(:label_project_workflow_bulk_confirm_threshold) %>
+  </label>
+  <%= text_field_tag 'settings[bulk_confirm_threshold]',
+                     settings['bulk_confirm_threshold'].presence ||
+                       RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD,
+                     id: 'settings_bulk_confirm_threshold', size: 6 %>
+  <em class="info"><%= l(:text_project_workflow_bulk_confirm_threshold) %></em>
+</p>

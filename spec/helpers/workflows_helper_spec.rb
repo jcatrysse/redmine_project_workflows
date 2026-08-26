@@ -81,4 +81,167 @@ describe WorkflowsHelper, type: :helper do
       expect(html).not_to include(I18n.t(:label_project_workflow_count_inherits, count: 0))
     end
   end
+
+  # WP5 / claude F06. Core puts a check-all toggle in every row and column
+  # header of a transition grid, and it selects on input[type=checkbox] -- so it
+  # never reached the cells a mixed selection renders as a <select>, which are
+  # exactly the cells with the manual work in them. The classes make one
+  # class-based selector reach both kinds of cell; the actions below are what
+  # uses it.
+  describe 'a cell the selection disagrees about' do
+    it 'carries the same row and column classes as a checkbox cell' do
+      html = helper.transition_tag(1, status, new_status, 'always')
+
+      expect(html).to include('<select')
+      expect(html).to include("old-status-#{status.id} new-status-#{new_status.id}")
+    end
+
+    it 'is a checkbox again once every workflow in the selection agrees' do
+      html = helper.transition_tag(2, status, new_status, 'always')
+
+      expect(html).to include('type="checkbox"')
+      expect(html).to include("old-status-#{status.id} new-status-#{new_status.id}")
+    end
+  end
+
+  # WP5. How much one cell stands for. Core counts roles times trackers; the
+  # plugin adds the scopes the selection covers, and both cell helpers and the
+  # row and column actions answer from the same method, so they cannot disagree
+  # about whether a cell is mixed.
+  describe '#project_workflow_selection_size' do
+    it 'counts trackers, roles and the projects in the selection' do
+      expect(helper.project_workflow_selection_size).to eq(2)
+    end
+
+    it 'counts the generic workflow as one more scope' do
+      helper.instance_variable_set(:@global_selected, true)
+
+      expect(helper.project_workflow_selection_size).to eq(3)
+    end
+
+    it 'is one for a selection that named no project at all' do
+      helper.instance_variable_set(:@projects_for_update, [])
+      helper.instance_variable_set(:@global_selected, true)
+
+      expect(helper.project_workflow_selection_size).to eq(1)
+    end
+
+    # Not reachable from the screens -- the controller always sets both -- but a
+    # zero here would make every empty cell look like a full one, so it answers
+    # rather than raising.
+    it 'survives a view that set neither list' do
+      helper.instance_variable_set(:@roles, nil)
+      helper.instance_variable_set(:@trackers, nil)
+      helper.instance_variable_set(:@projects_for_update, nil)
+
+      expect(helper.project_workflow_selection_size).to eq(0)
+    end
+  end
+
+  describe '#project_workflow_bulk_actions' do
+    it 'names the column it acts on, in that grid alone' do
+      html = helper.project_workflow_bulk_actions('new', 'author', new_status.id, new_status.name)
+
+      expect(html).to include("table.transitions-author .new-status-#{new_status.id}:not(:disabled)")
+      expect(html).to include(ERB::Util.html_escape(I18n.t(:general_text_Yes)))
+      expect(html).to include(ERB::Util.html_escape(I18n.t(:general_text_No)))
+    end
+
+    it 'names the row it acts on' do
+      html = helper.project_workflow_bulk_actions('old', 'always', 0, 'New issue')
+
+      expect(html).to include('table.transitions-always .old-status-0:not(:disabled)')
+    end
+
+    # Every action says what it does, in words, on the link itself: the visible
+    # label is one word and the title is the whole sentence.
+    it 'says what each action does' do
+      html = helper.project_workflow_bulk_actions('old', 'always', status.id, status.name)
+
+      expect(html).to include(ERB::Util.html_escape(
+                                I18n.t(:label_project_workflow_bulk_row, name: status.name,
+value: I18n.t(:general_text_Yes))
+                              ))
+      expect(html.scan('aria-label').size).to eq(html.scan('project-workflow-bulk-action').size)
+    end
+
+    it 'offers no change while a cell stands for more than one workflow' do
+      html = helper.project_workflow_bulk_actions('new', 'always', new_status.id, new_status.name)
+
+      expect(html).to include('data-project-workflow-value="no_change"')
+      expect(html).to include('data-project-workflow-multiplier="2"')
+    end
+
+    # One workflow per cell is the project matrices' case, by construction. A
+    # cell there cannot be mixed, so an action offering "no change" would name a
+    # state the matrix can never be in.
+    it 'leaves no change out when a cell is one workflow' do
+      helper.instance_variable_set(:@projects_for_update, [project])
+
+      html = helper.project_workflow_bulk_actions('new', 'always', new_status.id, new_status.name)
+
+      # The function itself mentions no_change whatever the page does, so this
+      # asks about the actions rather than about the whole answer.
+      expect(html).not_to include('data-project-workflow-value="no_change"')
+      expect(html).to include('data-project-workflow-multiplier="1"')
+    end
+
+    it 'writes the function once however many rows and columns ask for it' do
+      html = (1..3).map { |i| helper.project_workflow_bulk_actions('new', 'always', i, "S#{i}") }.join
+
+      expect(html.scan('function projectWorkflowBulkApply').size).to eq(1)
+      expect(html.scan('project-workflow-bulk"').size).to eq(3)
+    end
+  end
+
+  # WP5. The threshold above which a row or column action asks first. The
+  # setting is a free-text field, and a settings hash saved before the key
+  # existed does not carry it at all, so anything but a plain number falls back.
+  describe '#project_workflow_bulk_confirm_threshold' do
+    after { Setting.clear_cache }
+
+    def with_setting(value)
+      Setting.plugin_redmine_project_workflows = { 'bulk_confirm_threshold' => value }
+    end
+
+    it 'uses the number an administrator set' do
+      with_setting('7')
+
+      expect(helper.project_workflow_bulk_confirm_threshold).to eq(7)
+    end
+
+    it 'takes zero to mean ask every time' do
+      with_setting('0')
+
+      expect(helper.project_workflow_bulk_confirm_threshold).to eq(0)
+    end
+
+    it 'falls back when the field was cleared' do
+      with_setting('')
+
+      expect(helper.project_workflow_bulk_confirm_threshold)
+        .to eq(RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD)
+    end
+
+    it 'falls back when the field holds something that is not a number' do
+      with_setting('lots')
+
+      expect(helper.project_workflow_bulk_confirm_threshold)
+        .to eq(RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD)
+    end
+
+    it 'falls back for a settings hash saved before the key existed' do
+      Setting.plugin_redmine_project_workflows = {}
+
+      expect(helper.project_workflow_bulk_confirm_threshold)
+        .to eq(RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD)
+    end
+
+    it 'reaches the action as the number the browser has to compare against' do
+      with_setting('9')
+
+      expect(helper.project_workflow_bulk_actions('new', 'always', new_status.id, new_status.name))
+        .to include('data-project-workflow-threshold="9"')
+    end
+  end
 end

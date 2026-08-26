@@ -16,7 +16,7 @@ describe WorkflowsController, type: :controller do
   let(:role)    { roles(:roles_001) }
   let(:tracker) { trackers(:trackers_001) }
 
-  # There are eleven overrides across ten files, and each needs an assertion
+  # There are thirteen overrides across eleven files, and each needs an assertion
   # that only *it* can satisfy. `include('project_id[]')` was not one: the
   # selector and the hidden field both render that name, so either could have
   # stopped matching without the suite noticing.
@@ -251,6 +251,87 @@ describe WorkflowsController, type: :controller do
       else
         expect(spans).to all(satisfy { |inner| inner.exclude?('<svg') })
       end
+    end
+  end
+
+  # WP5 / claude F06 / INV-9. The row and column actions, which are two overrides
+  # on core's own workflows/_form -- the partial the project matrices render as
+  # well, so one pair serves both screens. Each assertion is one only that
+  # override can satisfy: the column action's selector names a new status and
+  # the row action's an old one, and only the row override can produce
+  # .old-status-0, which is the "new issue" row.
+  describe 'the row and column actions' do
+    before do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: ['global'], used_statuses_only: '0' }
+    end
+
+    it 'reaches every column of every transition grid' do
+      status = issue_statuses(:issue_statuses_002)
+
+      expect(response).to have_http_status(:ok)
+      %w[always author assignee].each do |name|
+        expect(response.body).to include(
+          %(data-project-workflow-target="table.transitions-#{name} .new-status-#{status.id}:not(:disabled)")
+        )
+      end
+    end
+
+    it 'reaches the rows, the "new issue" row included' do
+      expect(response.body).to include(
+        'data-project-workflow-target="table.transitions-always .old-status-0:not(:disabled)"'
+      )
+      expect(response.body).to include(ERB::Util.html_escape(
+                                         I18n.t(:label_project_workflow_bulk_row, name: I18n.t(:label_issue_new),
+                                                                                  value: I18n.t(:general_text_Yes))
+                                       ))
+    end
+
+    # The function the actions call, written once however many rows, columns and
+    # grids the page has.
+    it 'writes the function once for the whole page' do
+      expect(response.body.scan('function projectWorkflowBulkApply').size).to eq(1)
+    end
+
+    it 'carries the confirmation threshold the plugin setting holds' do
+      expect(response.body).to include(
+        %(data-project-workflow-threshold="#{RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD}")
+      )
+    end
+  end
+
+  # WP5. How much one cell stands for, and what "no change" means, above the
+  # matrix. It says something only when a cell stands for more than one
+  # workflow -- which is the case core's own no-change cells appear in.
+  describe 'the note above the matrix' do
+    let(:other_tracker) { trackers(:trackers_002) }
+
+    it 'says how many workflows one cell stands for' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
+                           project_id: ['global'], used_statuses_only: '0' }
+
+      expect(response.body).to include(ERB::Util.html_escape(
+                                         I18n.t(:text_project_workflow_bulk_selection, count: 2, trackers: 2, roles: 1,
+scopes: 1)
+                                       ))
+      expect(response.body).to include(ERB::Util.html_escape(
+                                         I18n.t(:text_project_workflow_bulk_legend,
+                                                no_change: I18n.t(:label_no_change_option))
+                                       ))
+    end
+
+    it 'stays quiet when a cell is one workflow' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: ['global'], used_statuses_only: '0' }
+
+      expect(response.body).not_to include('project-workflow-bulk-note')
+    end
+
+    it 'reaches the field permissions page as well' do
+      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
+                                  project_id: ['global'] }
+
+      expect(response.body).to include('project-workflow-bulk-note')
     end
   end
 end
