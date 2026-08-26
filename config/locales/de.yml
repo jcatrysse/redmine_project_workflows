@@ -60,7 +60,7 @@ de:
   notice_project_workflow_not_own: Dieses Projekt erbt den allgemeinen Workflow für diesen Tracker und diese Rolle, daher wurde nichts gespeichert. Geben Sie dem Projekt zuerst einen eigenen Workflow.
   label_project_workflow_bulk_row: 'Ganze Zeile "%{name}" auf %{value} setzen'
   label_project_workflow_bulk_column: 'Ganze Spalte "%{name}" auf %{value} setzen'
-  text_project_workflow_bulk_confirm: 'Dies ändert %{count} Workflow-Regel(n). Fortfahren?'
+  text_project_workflow_bulk_confirm: 'Diese Aktion betrifft %{count} Workflow-Regel(n). Fortfahren?'
   text_project_workflow_bulk_selection: 'Eine Zelle dieser Matrix steht für %{count} Workflow(s): %{trackers} Tracker × %{roles} Rolle(n) × %{scopes} Workflow-Bereich(e).'
   text_project_workflow_bulk_legend: '"%{no_change}" bedeutet, dass die Workflows, für die eine Zelle steht, nicht alle dasselbe sagen; beim Speichern bleibt jeder davon unverändert. Eine Zeilen- oder Spaltenaktion mit "%{no_change}" setzt jede Zelle dieser Zeile oder Spalte auf den Wert zurück, mit dem die Seite geöffnet wurde.'
   label_project_workflow_bulk_confirm_threshold: 'Bestätigung verlangen, wenn eine Zeilen- oder Spaltenaktion mehr ändert als'

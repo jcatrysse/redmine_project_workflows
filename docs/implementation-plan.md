@@ -20,7 +20,7 @@
 | WP2 | Correctness at the core seams | **done** |
 | WP3 | Summary and inventory | **done** |
 | WP4 | Project settings tab and permissions | **done** |
-| WP5 | Bulk editing in the matrix | not started |
+| WP5 | Bulk editing in the matrix | **done** |
 | WP6 | Compare, audit, undo | not started |
 | WP7 | Documentation, locales, release | not started |
 
@@ -198,6 +198,18 @@ same rows for one project.
   action would touch more than a configured number of workflows.
 - Keyboard operation, visible focus and `aria-label`s from the start.
   "Unchanged" gets clearer wording and a legend.
+
+**Done, with one correction and one deferral.** The first bullet's premise does
+not hold: the classes are necessary and are now on the mixed cell, but core's
+toggle selects on `input[type=checkbox]:not(:disabled).new-status-N` and nothing
+of that shape can match a `<select>`. Core's toggle is therefore left exactly as
+it was and the plugin adds three actions of its own, which select on the class
+alone and reach both kinds of control. "Unchanged" reuses core's own
+`label_no_change_option` so that the cell and the action on it read the same; the
+clearer wording is the legend. The **field-permissions** matrix keeps only core's
+`»` copy control — its cells are four-valued rather than yes or no, and core has
+no row or column toggles there to repair. Recorded as open choice 1 in
+`docs/DECISIONS.md`, with A (leave it) as the default in place.
 
 ## WP6 — Compare, audit, undo
 

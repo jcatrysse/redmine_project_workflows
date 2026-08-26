@@ -6,193 +6,207 @@
 
 ## Current position
 
-- **Work package:** WP0, WP1, WP2, WP3 and WP4 are **done**. WP5 is next and has
-  not been started. WP0..WP7 are specified in `docs/implementation-plan.md`.
+- **Work package:** WP0, WP1, WP2, WP3, WP4 and WP5 are **done**. WP6 is next and
+  has not been started. WP0..WP7 are specified in `docs/implementation-plan.md`.
 - **What exists:** the plugin as shipped in 0.0.3, the WP0 repairs, the scope
   model from WP1, the core seams from WP2, WP3's per-scope summary page and
-  inventory, and — as of this session — a **Workflow tab in project settings**,
-  so a project can run its own workflow without a system administrator. Two
-  permissions gate it.
+  inventory, WP4's Workflow tab in project settings, and — as of this session —
+  **row and column actions on every transition matrix**, plus the plugin's first
+  setting and the settings screen that implies.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. This session started on
-  `claude/docs-review-su98z4`, which the environment had prescribed; nothing was
+  `claude/docs-review-9ny8n3`, which the environment had prescribed; nothing was
   committed there.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open choices:** none. WP4's two were both answered **A** by Jan on
-  2026-08-26 and have moved up in `docs/DECISIONS.md`: `Issue#project=` keeps
-  core's behaviour (finding G03), and the project screen goes on offering only
-  the roles that have members in the project.
-- **Open findings:** 4, unchanged in number. `claude` F06 (row and column bulk
-  actions skip mixed cells, WP5), `external` F11 (the README understates the
+- **Open choices:** one, not urgent, recorded in `docs/DECISIONS.md` under
+  "Open — for Jan": whether the **field-permissions** matrix should get row and
+  column actions too. It has none today and never had core toggles to repair; its
+  cells are four-valued rather than yes or no. We continued with A, leave it.
+- **Open findings:** 3, down from 4. `external` F11 (the README understates the
   operational risks, WP7), G02 (a cross-project bulk tracker change is an N+1,
-  WP6) and G03 — which WP4 examined and deliberately left as core behaves, with
-  its `Resolution:` line now saying so and the decision recorded as open choice
-  1. One more is marked wont-fix (G04).
-  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` lists them, plus
-  one line from `TEMPLATE.md` that is not a finding.
+  WP6) and G03 (`Issue#project=`, examined in WP4 and deliberately left as core
+  behaves). `claude` F06 is now **fixed** — see below; its `Resolution:` line says
+  what the finding got half right. One more is marked wont-fix (G04).
+  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` lists them, plus one
+  line from `TEMPLATE.md` that is not a finding.
 - **`spec/characterization/`:** still **gone**, since WP3. The convention stands
   and is written down in `dev/README.md`: a defect that is found but not yet
   fixed is pinned there first.
 
 ## What this session produced
 
-**A project can manage its own workflow.** Two permissions under the issue
-tracking module — `view_project_workflow` and `manage_project_workflow` — and a
-**Workflow** tab in project settings. This is the only place in the plugin where
-a non-administrator writes workflow data, so it carries the heaviest
-authorization coverage: anonymous, a member with neither permission, somebody
-who is not a member at all, view-only reading and being refused a write,
-manage-only writing, the same user on a project the permission does not cover,
-an administrator, and the module switched off.
+**A whole row or column of a transition matrix, in one click.** Every row and
+every column header now carries three actions next to its name — **Yes**, **No**
+and core's own *(No change)* — on the administration screens and on a project's
+own matrix alike, because both render core's `workflows/_form` partial.
 
-**The tab is the list; a matrix edits one combination.** One line per tracker the
-project has enabled and role somebody holds in it, with the state in words
-(*Own workflow*, *Own empty workflow*, *Inherits the generic workflow*), the
-number of rules the project holds itself, and the actions that would change it.
-Clicking the number opens that combination's matrix. The administration screens
-edit a whole selection at once and need a third "no change" state in every cell
-for it; one combination per matrix here keeps every cell a plain yes or no, and
-bulk editing across combinations is WP5's subject anyway.
+**Finding F06 was half right, and the half that was wrong mattered.** The finding
+said that giving a mixed cell the same CSS classes as a checkbox cell would make
+core's own row and column toggles reach it. The classes were indeed missing and
+are now there — but core's toggle selects on
+`input[type=checkbox]:not(:disabled).new-status-N`, and nothing of that shape can
+ever match a `<select>`, whatever it is called. So core's toggle is left exactly
+as it was, and the plugin adds actions of its own that select on the class alone
+and therefore reach both kinds of control. The classes are what lets one selector
+serve both, which is why they were still worth adding.
 
-**The generic workflow is the read-only reference.** A combination the project
-has not taken over renders the generic rules as **disabled checkboxes** — which
-is exactly how core already draws a cell that cannot be changed, and exactly
-what applies to that project until it takes over (INV-5). So you can see what
-you would be copying before you copy it. Once the project has a scope the grid
-is core's own `workflows/_form` partial, rendered unchanged, so the project
-matrix cannot drift from the administration one.
+**Three actions rather than a toggle**, because toggling is not the same as
+setting and setting a whole row to No is the case with the clicking in it.
+*(No change)* restores the value the control was rendered with — a mixed cell's
+own no-change option, a checkbox's `defaultChecked` — which is exactly what a
+mixed cell means. It is offered only where a cell can hold it: a project matrix
+is one workflow per cell by construction, so a third state there would name
+something the matrix cannot be in.
 
-**Saving while the project still inherits is refused.** `TransitionWriter` and
-`PermissionWriter` create the scope a project write implies, so accepting such a
-save would turn "save" into "enable" — on a screen that never offered an
-editable grid. The three actions of INV-3 stay the only way to take a workflow
-over. The response is a warning and the same screen again, and nothing is
-written.
+**Links, not a select that applies on `change`.** A select acting on its own
+change event fires once per step when a keyboard user arrows through it, so it
+would apply values nobody asked for and prompt for confirmation on the way past.
+Links are one tab stop each, they keep the browser's own focus ring — Redmine's
+stylesheet removes the outline on form controls and on two tab buttons, never on
+`a`, on any supported version — and each carries the whole sentence in `title`
+and `aria-label`. The function they call is written once per page, from whichever
+header renders first, because the transitions page renders the same grid three
+times.
 
-**INV-7, structurally rather than by checking.** The project is named by the path
-and by nothing else; `authorize` runs before any other callback; the writers are
-always called with `[@project.id]`; and the tracker and role are matched against
-lists built from the project — the trackers it has enabled, the roles somebody
-holds in it — rather than queried, because `Project.where(id: ['1e5'])` resolves
-to project 1 and the shape of an id is therefore not something to rely on.
-Anything not on those lists is a 404.
+**How much a click is about to write, said out loud.** Above the matrix, on both
+administration screens, a sentence giving the number of workflows one cell stands
+for and explaining *(No change)*. It comes from the scope panel's anchor rather
+than one of its own, and unlike the panel it does not wait for a project to be
+selected: core's own no-change cells appear for a selection of several trackers or
+roles alone. A project matrix says nothing, because one cell there is one
+workflow.
 
-**The tab is not a Deface override**, so the override count stays **eleven**
-(INV-9). It overrides `project_settings_tabs`: the tab list is data, so adding to
-it is an append with no anchor to go stale. Its entry names the *controller
-action* it leads to rather than a permission, because two permissions reach the
-screen and somebody who may manage a workflow must see the tab without also
-holding the permission to view it — Redmine's `allowed_to?` takes either shape.
+**And a confirmation, behind the plugin's first setting.** *Ask before a row or
+column action changes more than* — 50 workflow rules by default, 0 to ask every
+time, under **Administration → Plugins → Project Workflows → Configure**. The
+browser counts only the controls whose value would actually change and multiplies
+by the workflows one cell stands for, so an action that changes nothing never
+asks. The same number is the helper's fallback for a settings hash an
+administrator saved before the key existed, and a spec asserts the two agree.
 
-**Where that override attaches was a real bug, and Jan caught it.** It was
-`ProjectsHelper.prepend`. Many Redmine plugins take `project_settings_tabs` over
-with a classic alias chain, and `alias_method` resolves the name through
-`ProjectsHelper.ancestors` — which, with something prepended there, *starts* at
-the prepended module. The neighbour therefore copies **our** method into its
-`_without_` alias, and that copy, now owned by `ProjectsHelper`, has no `super`
-to reach: core's own method drops out and every project's settings page raises
-`NoMethodError`. `redmine_ai_triage` measured exactly this (its K-29) with
-`redmine_itil_priority` installed beside it. The override now goes into
-`ProjectsController._helpers` via `ProjectsController.helper` — beside
-`ProjectsHelper`, never inside it — which is immune by construction in either
-load order, where merely applying later would have fixed one order and left the
-trap for the other. Both load orders are in the suite, and the one that aliases
-*after* this plugin has applied is the one that fails with the real error the
-moment the override goes back inside `ProjectsHelper`.
+**One cell size, one owner.** `workflow_permissions_matrix_size` — the plugin's
+replacement for core's `@roles.size * @trackers.size` — is now a one-line
+delegation to `BulkActionsHelper#project_workflow_selection_size`, which the row
+and column actions ask as well. A cell and the actions on it can no longer
+disagree about whether that cell is mixed.
 
-**So the plugin now patches no method of `ProjectsController` at all.** The tab's
-rows moved from a patched `#settings` into
-`ProjectWorkflowsHelper#project_workflow_settings_rows`, memoised per project for
-the length of the render. One seam fewer of exactly the kind above, and a helper
-runs whenever the view does — including when `#update` re-renders the settings
-page after a failed save, which no longer needs handling of its own.
+**Two more Deface overrides: thirteen in eleven files** (INV-9), counted in
+`CLAUDE.md`, `docs/design.md` and the spec's own comment. Both anchor on a header
+*cell* of core's `workflows/_form` — the only `td` with a style attribute and the
+only one with `class="name"` — rather than on the toggle expression, which 5.1
+writes as a bare `link_to_function` and 6.0 and later as
+`toggle_checkboxes_link`. Deface renames an attribute whose value contains ERB,
+so the column header is matched as `td[data-erb-style]`.
 
-**Two repairs found on the way.**
-
-1. `spec/models/project_statuses_spec.rb` was passing on `projects_trackers`
-   rows another spec file happened to leave in the database, and one of its
-   assertions — that the generic status is *absent* from a project's rolled-up
-   list — is only true for a project with no descendants, because a scope on a
-   parent says nothing about its children (INV-6). It now declares the fixture
-   and uses a leaf project. **The third spec in this project found to be passing
-   for a reason it never stated.**
-2. Locale parity was checked by hand at the end of every session until now. It
-   is `spec/locales_spec.rb`: all eight files parse, and each carries exactly the
-   keys `en.yml` carries.
+**The gate the suite cannot run, run anyway.** The actions are JavaScript and
+this repository has no JS test harness, which is the main reason the function has
+no event wiring of its own. `dev/check-bulk-js.mjs` closes the gap outside the
+suite: a hand-built DOM, the function extracted from the partial, and sixteen
+checks — both kinds of control, the disabled diagonal left alone, *(No change)*
+as a restore, a control without that option untouched, the count in the
+confirmation, a refused confirmation changing nothing, a threshold of zero, and
+an action that would change nothing neither asking nor firing. It needs node and
+nothing else, it is documented in `dev/README.md`, and it is **not** in CI.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | 384 examples, 0 failures |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | 384 examples, 0 failures |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | 384 examples, 0 failures |
-| RuboCop | 77 files, no offences |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | 419 examples, 0 failures |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | 419 examples, 0 failures |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | 419 examples, 0 failures |
+| RuboCop | 80 files, no offences |
 | `zeitwerk:check` | "All is good!" on 5.1, 6.1 and 7.0 |
-| Migration reversibility up → 0 → up | clean on 7.0, asserted by reading the schema back in a **separate process** after each step. WP4 changes no migration |
+| `node dev/check-bulk-js.mjs` | 16 checks, all ok |
+| Migration reversibility up → 0 → up | clean on 7.0, run **before** the suite. WP5 changes no migration |
 | Backfill (`dev/check-backfill.sh`) | passes on 7.0 + PostgreSQL |
-| Locale parity | now a spec, green on all three hosts: eight files, 45 keys each |
+| Locale parity | eight files, 52 keys each (was 45) |
 | Independent review | run in this context rather than a fresh one — see "Known traps" |
 | New specs against the old code | see below |
-| CI | **run 30 is green on all nine cells plus RuboCop**, on the branch head `778d974` — Redmine 5.1, 6.1 and 7.0 × PostgreSQL, MySQL and MariaDB. (A run reading "cancelled" is the concurrency group superseding it after the next push — not a failure, and easy to misread.) |
+| CI | **not yet run for WP5** at the time of writing: the branch head was pushed at the end of the session, so the next session should read the run for it before anything else |
 
-**The "fails on the old code" checks, run rather than assumed.** Each was done
-by putting one thing back and leaving the rest of WP4 in place:
+**The "fails on the old code" checks, run rather than assumed.** Each was done by
+putting one thing back and leaving the rest of WP5 in place, against the full
+suite on 7.0:
 
 | Reverted | Fails |
 | --- | --- |
-| the `project_module` block in `init.rb` (the two permissions) | 47 examples |
-| `patches/projects_helper_patch.rb` (the tab entry) | 3 |
-| `patches/projects_controller_patch.rb` (the tab's rows) | 7 |
-| the refusal to save while the project inherits | 2 |
-| `ProjectOptions.roles` widened past the project's members | 9 |
-| the tab override moved back to `ProjectsHelper.prepend` | 2 — the structural assertion, and the later-neighbour alias chain, which fails with the production error `super: no superclass method 'project_settings_tabs'` |
+| the two Deface overrides on `workflows/_form` | 5 examples |
+| the classes on a mixed cell | 1 |
+| the note above the matrix | 2 |
+| the plugin setting in `init.rb` | 38 |
+| the guard that offers "no change" only where a cell can hold it | 2 |
+| the cell size computed as core does, ignoring the scopes | 8 |
+| the settings partial | 2 |
 
-The 96 new examples cover authorization (nine cases), the tracker and role
-intersection (four, including an id of the wrong shape and an unknown rule
-type), both matrices read-only and editable, both saves, all three INV-3
-actions, the `back_url` round trip including one pointing off the installation,
-INV-6 (a scope on the parent project is not the child's), the used-statuses
-filter both ways, and the rendered page — that all three transition grids are
-submitted, which is the thing that would silently drop author and assignee rules
-if the form ever lost them, and that the two new version-conditional icon shapes
-come out right on both sides of the 5.1 → 6.0 break.
+The 35 new examples cover the two anchors (each with an assertion only it can
+satisfy — `.new-status-N` for the column action, `.old-status-0` for the row),
+the classes on both kinds of cell, the cell-size arithmetic including a view that
+set no lists at all, the three actions and their titles, "no change" offered and
+withheld, the function written once per page, the threshold read from the setting
+and its four fallbacks, the note shown and withheld on both administration
+screens and on a project matrix, the actions absent from a read-only project
+matrix, and the settings screen: the field, a save, a saved value shown back,
+administrator-only and anonymous.
 
 ## Exact next step
 
-Start **WP5** from `docs/implementation-plan.md`: bulk editing in the matrix. In
-outline:
+Start **WP6** from `docs/implementation-plan.md`: compare, audit, undo. Read the
+work package first — in outline it is a comparison of a project's workflow with
+the generic one, the audit columns the scope table already carries, and an undo
+before save. Finding **G02** (a cross-project bulk tracker change is an N+1) is
+scheduled for WP6 and should be read with it; `docs/DECISIONS.md` records why WP2
+left it alone, and that reasoning is what WP6 has to overturn or confirm.
 
-1. `claude` F06 — mixed-value cells get the same CSS classes and data attributes
-   as ordinary checkboxes, so Redmine's own row and column toggles reach them.
-   Read the finding first; it names the classes.
-2. Explicit per-row and per-column actions **Yes / No / Unchanged**. Toggling is
-   not the same as setting to No, and setting to No is the case that needs it.
-3. The size of the selection shown above the matrix, and a confirmation once an
-   action would touch more than a configured number of workflows. That threshold
-   is a new plugin setting — the plugin has none today, so `init.rb` gains a
-   `settings` block and `Setting.define_plugin_setting` starts applying.
-4. Keyboard operation, visible focus and `aria-label`s from the start;
-   "Unchanged" gets clearer wording and a legend.
-
-WP5 touches the administration matrices, which the project matrices now share
-`workflows/_form` with — so anything done to that partial's markup has to be
-checked on **both** screens. WP7 should also read `redmine_ai_triage`'s
-`docs/` for the neighbour-plugin traps it has already collected; the settings-tab
-one turned out to apply here verbatim, and it is unlikely to be the only one. `spec/controllers/project_workflows_controller_spec.rb`
-has the assertion that all three grids are submitted; keep it passing.
+Before writing anything: **read the CI run for the branch head**. WP5 was pushed
+at the end of this session and the matrix had not reported yet. Nine cells plus
+RuboCop.
 
 ## Known traps
 
-Everything below cost time at least once. The first eight are new this session.
+Everything below cost time at least once. The first nine are new this session.
 
+- **`git checkout -- .` in a scratch script destroys uncommitted work.** A
+  "revert one thing and see the suite go red" script that restores with
+  `git checkout` restores to **HEAD**, not to what you had. Three files' worth of
+  WP5 was silently rolled back that way, and a second script then made its
+  backup from the damaged tree. **Commit first, then run revert experiments**
+  against the commit; and never let such a script touch anything but the file it
+  reverted.
+- **Deface renames an attribute whose value contains ERB.**
+  `style="width:<%= ... %>"` is matched as `td[data-erb-style]`, not `td[style]`.
+  A selector that does not match produces no error and no output, so the anchor
+  looked plausible and simply did nothing until the spec asked for it.
+- **A `<select>` that acts on its own `change` event is an accessibility trap.**
+  Arrow keys on a closed select fire `change` per step in every major browser, so
+  a keyboard user applies every value on the way to the one they wanted. This is
+  why the row and column actions are links.
+- **Redmine's administration screens are behind sudo mode, in the suite too.**
+  `Redmine::Configuration['sudo_mode']` is true by default, and
+  `SettingsController` declares `require_sudo_mode :index, :edit, :plugin`. A
+  spec that logs in as administrator gets the password form instead of the page
+  unless it also sets `@request.session[:sudo_timestamp] = Time.now.to_i`.
+- **`Setting.plugin_<id>` is cached on the class.** A spec that writes it needs
+  `after { Setting.clear_cache }`, or the next example inherits the value even
+  though the row was rolled back.
+- **`dev/sync.sh` deletes what it did not copy.** A throwaway spec written
+  directly into the host's `plugins/` directory is gone after the next sync.
+  Write it in the working tree, or copy it in again after every sync.
+- **The bulk script mentions `no_change` whatever the page offers.** An assertion
+  that "no change is not offered" has to ask about
+  `data-project-workflow-value="no_change"`, not about the string in the page.
+- **Redmine's stylesheet removes the focus outline only on form controls and on
+  `button.tab-left`/`button.tab-right`** — never on `a`, on 5.1, 6.1 or 7.0. So a
+  link-based control keeps a visible focus ring with no CSS of the plugin's own.
+- **`Array(relation).size` copies the records; `relation.size` does not.**
+  `ActiveRecord::Relation#to_a` returns `records.dup`, and the matrix asks for the
+  cell size once per cell — 126 copies of every project on the installation for a
+  selection of "all".
 - **Never extend `project_settings_tabs` with `ProjectsHelper.prepend`.** A
   neighbouring plugin's alias chain resolves the name through
   `ProjectsHelper.ancestors`, copies the prepended method, and loses its `super`
   — core's own tabs vanish and the settings page raises `NoMethodError` for every
   project. `ProjectsController.helper(Mod)` instead: beside `ProjectsHelper`,
-  never inside it. Same reasoning applies to any core helper method that other
-  plugins are known to alias-chain. This is now a row in CLAUDE.md's
-  forbidden-constructs table.
+  never inside it. This is a row in CLAUDE.md's forbidden-constructs table.
 - **Redmine renders every settings tab's partial on every visit.**
   `showTab` only hides and shows what is already in the page, so a tab's content
   is built whether or not anybody clicks it, and it has to be cheap.
@@ -216,11 +230,10 @@ Everything below cost time at least once. The first eight are new this session.
   status is absent" assertable at all.
 - **`git` in a Bash call may not be the repository you think.**
   `.redmine/<version>-<db>` is a git checkout of Redmine. A `cd` earlier in a
-  compound command does not reliably persist to the next tool call, and a
-  `git stash pop` that lands in the host's checkout says "No stash entries
-  found" while your work is still stashed in the plugin's. Use absolute paths,
-  and check `git stash list` in `/home/user/redmine_project_workflows` before
-  believing anything is lost.
+  compound command does not reliably persist to the next tool call — and
+  sometimes it does, which is worse. Use absolute paths, and check
+  `git stash list` in `/home/user/redmine_project_workflows` before believing
+  anything is lost.
 - **`dev/run.sh` runs the whole spec directory even when given one file.** It
   passes the directory *and* your argument to rspec. To run one file, call
   `bundle exec rspec plugins/redmine_project_workflows/spec/<path>` inside the
@@ -326,7 +339,9 @@ Everything below cost time at least once. The first eight are new this session.
   is that CSS icons became SVG sprites — now five things the plugin renders: the
   multiselect toggle, the workflow summary's empty cell, an icon link, a
   collapsible fieldset's legend, and a table row-group expander. All five go
-  through `RedmineProjectWorkflows::VersionHelper`.
+  through `RedmineProjectWorkflows::VersionHelper`. `app/helpers/workflows_helper.rb`
+  and `app/views/workflows/_form.html.erb`, on the other hand, are byte-identical
+  between 6.1 and 7.0 and differ from 5.1 only in how the toggle link is written.
 - **A fixture-based spec can pass for the wrong reason.** `projects_002` has no
   member for `users_002`.
 - **`safe_attributes=` sets `project_id` before `tracker_id`**, on purpose. This
@@ -339,12 +354,17 @@ Everything below cost time at least once. The first eight are new this session.
   rule makes `Issue.create!` fail in a spec that arranges the rule first.
 - **`rails-ujs` is loaded on all three versions**, so `link_to ..., method:
   :post, data: { confirm: ... }` works. Worth re-checking if a future Redmine
-  drops it: the plugin's three INV-3 actions are all such links.
+  drops it: the plugin's three INV-3 actions are all such links. The row and
+  column actions do not depend on it — they are `link_to_function` with an
+  `onclick`, and their confirmation is `window.confirm` in the plugin's own
+  function.
 - **The independent review ran in this context, not a fresh one.** The execution
-  environment for this session forbade spawning subagents, as it did for WP3, and
-  `CLAUDE.md` asks for a fresh one "if a subagent mechanism is available". Treat
-  WP3 **and WP4** as having had a weaker review pass than WP2, and let the next
-  review session look at both.
+  environment for this session forbade spawning subagents, as it did for WP3 and
+  WP4, and `CLAUDE.md` asks for a fresh one "if a subagent mechanism is
+  available". Treat WP3, WP4 **and WP5** as having had a weaker review pass than
+  WP2, and let the next review session look at all three. The review did find
+  three things this time — the relation copy above, a `%{count}` replaced only
+  once, and a confirmation that said "changes" where it means "affects".
 
 ## Development environment (rebuild from scratch in a fresh session)
 
@@ -378,6 +398,9 @@ dev/sync.sh .redmine/7.0-stable-postgresql
 (cd .redmine/7.0-stable-postgresql && RAILS_ENV=test RBENV_VERSION=3.3.6 \
   PATH="/opt/rbenv/shims:$PATH" bundle exec rspec \
   plugins/redmine_project_workflows/spec/controllers/project_workflows_controller_spec.rb)
+
+# the JavaScript gate the suite cannot run (node only, not in CI)
+node dev/check-bulk-js.mjs
 
 # lint (rubocop's binaries are not on PATH by default in this container)
 PATH="/opt/rbenv/versions/3.3.6/bin:$PATH" \

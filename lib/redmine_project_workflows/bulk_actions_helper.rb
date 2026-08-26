@@ -65,7 +65,11 @@ module RedmineProjectWorkflows
     # workflow when that is selected too. Never zero -- a selection that named no
     # project at all is the generic workflow alone, which is what core shows.
     def project_workflow_selection_scopes
-      scopes = Array(@projects_for_update).size
+      # #size rather than Array(...).size: on the administration screens with
+      # "all" selected this is a relation, already loaded by the project
+      # selector above the matrix, and #size then reads its length while
+      # Array() would copy it -- once per cell of the matrix.
+      scopes = @projects_for_update ? @projects_for_update.size : 0
       scopes += 1 if @global_selected || scopes.zero?
       scopes
     end

@@ -117,9 +117,41 @@
 | 2026-08-26 | WP4 | The forbidden-constructs table in `CLAUDE.md` gains a row for a module `include`d into a controller | Every public instance method of a controller is an action, so such a module makes its methods routable and unauthorized. It has come up twice now — `WorkflowsControllerProjectSelection` in WP3, and `ProjectWorkflowsHelper` in WP4, where the fix was `helper` rather than `include`. |
 | 2026-08-26 | WP4 | The tab override lands in `ProjectsController._helpers`, and the specs assert both halves | The behavioural half is a neighbour alias chain in miniature, in both load orders; the one that aliases *after* this plugin has applied is the one that fails, with the real error — `super: no superclass method 'project_settings_tabs'` — the moment the override goes back inside `ProjectsHelper`. The structural half asserts the arrangement itself, so a refactor fails in the suite rather than on somebody's settings page. |
 | 2026-08-26 | WP4 | The narrowing this accepts is stated rather than left implicit | The tab now reaches `projects/settings` through `ProjectsController` only. A plugin rendering that view from a controller of its own would not see it — and would not see core's own tabs either, since the view reads `@project` straight from `ProjectsController`. |
+| 2026-08-26 | WP5 | Core's check-all toggle is left exactly as it was, and the plugin adds three actions of its own | The premise of finding F06 — that the same classes on a mixed cell would make core's toggles reach it — turns out to be half the answer. The classes are needed and are now there, but core's selector is `input[type=checkbox]:not(:disabled).new-status-N`, and nothing that shape can ever match a `<select>`. Rewriting core's toggle to select on the class alone would also have to define "toggle" for a three-valued control, which is exactly the question the explicit actions answer. |
+| 2026-08-26 | WP5 | The row and column actions are links calling one function, not a select that applies on `change` | A select acting on its own `change` event fires once per step when a keyboard user arrows through it, so it would apply values nobody asked for and prompt for confirmation on the way past. That is a known accessibility trap, and this repository has no way to test JavaScript, so the version with no event subtleties is the one to ship. Cost: three tab stops per row and column instead of one. |
+| 2026-08-26 | WP5 | Two Deface overrides on core's `workflows/_form`, anchored on the header *cells* | The toggle expression itself is not usable as an anchor: 5.1 writes it as a bare `link_to_function` and 6.0 and later as `toggle_checkboxes_link`. The two cells are identical on all three, and anchoring on the cell puts the actions after the status name. The count goes from eleven overrides in ten files to thirteen in eleven, in `CLAUDE.md`, `docs/design.md` and the spec's comment. |
+| 2026-08-26 | WP5 | The function is emitted once from the first row or column header, not from an anchor of its own | The transitions page renders the same grid three times, so a per-grid script would be written three times; an anchor carrying nothing but a script would be a fourth thing to go stale (INV-9). |
+| 2026-08-26 | WP5 | "No change" is offered only where a cell can hold it | With one workflow per cell — every project matrix, and an administration selection of one tracker and one role — there is nothing to disagree, so the option would name a state the matrix cannot be in. |
+| 2026-08-26 | WP5 | Core's `label_no_change_option` is reused rather than a clearer label of the plugin's own | The option in the cell and the action on the row would otherwise read differently for the same thing, in eight languages, and core's label is already translated everywhere. The clearer wording is a legend above the matrix instead, which is what the work package asked for. |
+| 2026-08-26 | WP5 | `workflow_permissions_matrix_size` becomes a one-line delegation to `BulkActionsHelper#project_workflow_selection_size` | The cell helpers and the actions on a cell must not be able to disagree about whether it is mixed. Behaviour is unchanged for every case the old expression covered, and it now answers rather than raising when a view set neither list. |
+| 2026-08-26 | WP5 | The selection note is rendered from the scope panel's anchor, and does not wait for a project to be selected | It belongs directly above the matrix, which is where the panel already is, so it needs no anchor of its own. Unlike the panel it shows for a generic-only selection of several trackers or roles, because that is a selection core's own no-change cells appear in — the first deliberate change to what an administrator who does not use the plugin sees, along with the actions themselves. |
+| 2026-08-26 | WP5 | The confirmation threshold is a plugin setting, defaulting to 50 workflow rules | "Many" depends on the installation. 0 means ask every time. The browser counts only the controls whose value would actually change, so an action that changes nothing never asks. |
+| 2026-08-26 | WP5 | The threshold's default is written down twice, with a spec asserting the two agree | `init.rb` declares it as the setting's default; `BulkActionsHelper` falls back to it for a settings hash an administrator saved before the key existed. Removing the duplication would mean requiring the plugin's lib before `Redmine::Plugin.register`, which reorders init.rb for a constant. |
+| 2026-08-26 | WP5 | The settings screen has a spec of its own | A partial Redmine cannot find raises on the administration page and a field name that does not match what core writes back saves nothing while looking as though it did; neither is visible from any other spec. It also asserts the screen is administrator-only, because the plugin is what created it. |
 
 ## Open — for Jan
 
-*(Nothing open. Items land here with their options, a plain-language
-explanation of each and a recommendation, while the build continues on the
-safest default. WP4's two were answered A on 2026-08-26 and have moved up.)*
+*(Items land here with their options, a plain-language explanation of each and a
+recommendation, while the build continues on the safest default. WP4's two were
+answered A on 2026-08-26 and have moved up.)*
+
+**1. Should the field-permissions matrix get row and column actions too?**
+WP5's brief, and finding F06, are about the transitions matrix: that is where
+core has row and column toggles and where they skipped the mixed cells. The
+field-permissions matrix has no such toggles at all, and its cells are not yes or
+no but four values — blank, read-only, required, and no change — so an action
+there is "set this row to *read-only*" rather than "set it to Yes". It does have
+core's own `»` control, which copies one cell's value across the rest of its row.
+
+- **A) Leave it as it is for now.** The transitions matrix is the one with the
+  clicking in it, and the `»` control already covers the common case of "the
+  same from here on".
+- **B) Add the same three-actions treatment, with the four values.** Two more
+  Deface anchors (core keeps this table inline in its own view rather than in a
+  partial, and the project screen has a copy of it), plus classes on the cells,
+  which they do not have today.
+
+- **Recommendation:** A for now, and B as a small work package of its own once
+  somebody has actually wanted it — the shape of the control should follow a
+  real complaint rather than symmetry with the other matrix.
+- **Urgent?** no — we continued with A. Nothing in WP6 or WP7 depends on it.

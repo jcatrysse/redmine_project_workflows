@@ -248,7 +248,9 @@ the repeats inside a project but not across projects. Recorded as finding G02.
 
 ## Views
 
-Eleven Deface overrides in ten files, all on admin screens:
+Thirteen Deface overrides in eleven files. Eleven are on the administration
+screens; the last two are on `workflows/_form`, which the project matrices
+render as well, so one pair serves both:
 
 | View | Anchor | Adds |
 | --- | --- | --- |
@@ -263,6 +265,8 @@ Eleven Deface overrides in ten files, all on admin screens:
 | `workflows/index` | the `title [l(:label_workflow)` expression (**surround**) | the link to the inventory above the heading, the project selector below it |
 | `workflows/index` | the count cell's url hash | the project selection, carried into the link |
 | `workflows/_action_menu` | `div.contextual` (bottom) | the link to the inventory |
+| `workflows/_form` | the column header (`td[data-erb-style]`, bottom) | the column's three actions |
+| `workflows/_form` | the row header (`td.name`, bottom) | the row's three actions |
 
 The summary page's count cell is a *surround* on one side and a *replace* on the
 other because the two halves belong on either side of core's heading, and
@@ -275,13 +279,61 @@ The scope panel renders only when the selection contains at least one real
 project. An administrator who does not use the plugin sees core's screens
 unchanged.
 
-All eight anchors exist verbatim in Redmine 5.1, 6.1 and 7.0, and
+All ten anchors exist verbatim in Redmine 5.1, 6.1 and 7.0, and
 `workflows/edit`, `permissions` and `copy` are byte-identical between 6.1 and
-7.0. `spec/integration/deface_overrides_spec.rb` asserts that each override
+7.0. The two on `workflows/_form` are header *cells* rather than the toggle
+expression inside them, because 5.1 writes that toggle as a bare
+`link_to_function` and 6.0 and later as `toggle_checkboxes_link` — while the two
+cells are identical on all three, and anchoring on the cell puts the actions
+after the status name, where they read as belonging to it. Deface renames an
+attribute whose value contains ERB, which is why the column header is matched as
+`td[data-erb-style]`. `spec/integration/deface_overrides_spec.rb` asserts that each override
 actually reaches the rendered page (**INV-9**), with an assertion that only
 that override can satisfy — the selector and the hidden field both render
 `project_id[]`, so a shared assertion would have let either of them stop
 matching unnoticed.
+
+### Bulk editing a matrix
+
+Core puts a check-all/uncheck-all toggle in every row and column header of a
+transition grid, selecting on `input[type=checkbox]:not(:disabled).new-status-N`.
+A cell whose value differs across the selection is not a checkbox but a
+`<select>` carrying a third, "no change" option — so the toggle silently skipped
+exactly the cells with the manual work in them (finding claude F06). No selector
+of the shape core uses can match a `<select>`, whatever classes it is given, so
+the plugin does two things: the mixed cell gets the same `old-status-N
+new-status-N` classes a checkbox cell has, and each row and column header gets
+three actions of the plugin's own, which select on the class alone and therefore
+reach both kinds of control. Core's toggle is left exactly as it was.
+
+Three actions, not a toggle: **Yes**, **No** and core's own no-change label.
+Toggling is not the same as setting, and setting a whole row to No is the case
+with the clicking in it. No change restores the value the control was rendered
+with — for a mixed cell its own no-change option, for a checkbox its
+`defaultChecked` — which is what a mixed cell means, and it is offered only where
+a cell can hold it: a project matrix is one workflow per cell by construction
+(WP4), so a third state there would name something the matrix cannot be in.
+
+They are links calling one small function, not a select that applies on change: a
+`<select>` acting on its own `change` event fires once per step when a keyboard
+user arrows through it, which would apply values nobody asked for and prompt for
+confirmation on the way past. Links are one tab stop each, they keep the
+browser's own focus ring — Redmine's stylesheet removes the outline on form
+controls and on two tab buttons, never on `a`, on any supported version — and
+they carry the whole sentence in `title` and `aria-label`. The function is
+written once per page, from whichever header renders first, because the
+transitions page renders the same grid three times and an anchor of its own
+carrying nothing but a script would be one more thing to go stale.
+
+How many workflows one cell stands for is the plugin's answer to core's
+`@roles.size * @trackers.size`, multiplied by the scopes the selection covers.
+`BulkActionsHelper` owns it and core's two cell helpers ask the same method, so
+a cell and the actions on it cannot disagree about whether it is mixed. A
+sentence above the matrix gives the number and explains no change, on both
+administration screens, whenever a cell stands for more than one workflow. It is
+rendered from the scope panel's anchor rather than one of its own, and unlike the
+panel it does not wait for a project to be selected: core's own no-change cells
+appear for a selection of several trackers or roles alone.
 
 The **inventory** is not a Deface override either: it is a screen of the
 plugin's own, at `/project_workflow_inventories`, listing one row per (project,
@@ -334,6 +386,18 @@ helper runs whenever the view does -- including when `#update` re-renders the
 settings page after a failed save. The rows are `Services::InventoryQuery` over a
 single project, so the tab costs four collection queries whatever the number of
 trackers and roles, and never one per row.
+
+## Settings
+
+One plugin setting, `bulk_confirm_threshold`: the number of workflow rules a
+single row or column action may change before it asks for confirmation. 50 by
+default, 0 to ask every time. The number is written down twice on purpose — as
+the setting's default in `init.rb` and as `BulkActionsHelper`'s fallback, which is
+what answers for a settings hash an administrator saved before the key existed —
+and `spec/plugin_conventions_spec.rb` asserts the two agree. The browser does the
+counting, from the multiplier and the threshold the helper writes into the
+action's data attributes, and it counts only the controls whose value would
+actually change.
 
 ## Supported versions
 

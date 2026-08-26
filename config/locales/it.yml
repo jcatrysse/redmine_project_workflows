@@ -60,7 +60,7 @@ it:
   notice_project_workflow_not_own: Questo progetto eredita il workflow generico per questo tracker e ruolo, quindi non è stato salvato nulla. Dai prima al progetto un workflow proprio.
   label_project_workflow_bulk_row: 'Imposta tutta la riga "%{name}" su %{value}'
   label_project_workflow_bulk_column: 'Imposta tutta la colonna "%{name}" su %{value}'
-  text_project_workflow_bulk_confirm: 'Questa azione modifica %{count} regola/e del workflow. Continuare?'
+  text_project_workflow_bulk_confirm: 'Questa azione riguarda %{count} regola/e del workflow. Continuare?'
   text_project_workflow_bulk_selection: 'Una cella di questa matrice rappresenta %{count} workflow: %{trackers} tracker × %{roles} ruolo/i × %{scopes} ambito/i del workflow.'
   text_project_workflow_bulk_legend: '"%{no_change}" significa che i workflow rappresentati da una cella non dicono tutti la stessa cosa; al salvataggio ognuno resta come è. Un''azione di riga o di colonna impostata su "%{no_change}" riporta ogni cella di quella riga o colonna al valore con cui la pagina è stata aperta.'
   label_project_workflow_bulk_confirm_threshold: 'Chiedi conferma quando un''azione di riga o di colonna modifica più di'

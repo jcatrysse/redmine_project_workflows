@@ -48,6 +48,24 @@ defaults to Redmine 5.1 on PostgreSQL, under `.redmine/` in this repository.
 The plugin is copied rather than symlinked: the specs resolve
 `config/environment` relative to their own real path, which a symlink breaks.
 
+### The one gate the suite cannot run
+
+The row and column actions on a workflow matrix (WP5) are JavaScript, and the
+suite is RSpec against a real Redmine: it can assert the markup the actions are
+made of, and does, but it cannot run them. `dev/check-bulk-js.mjs` is the other
+half — a hand-built DOM, the function extracted from
+`app/views/redmine_project_workflows/_bulk_script.html.erb`, and the sixteen
+things it has to get right.
+
+```sh
+node dev/check-bulk-js.mjs
+```
+
+It needs only node, no Redmine and no database, and it is **not** in CI, which
+runs Ruby only. Run it by hand whenever that function changes. Keeping the
+function small enough for this to be sufficient is the reason it has no event
+wiring of its own.
+
 ## Continuous integration
 
 `.github/workflows/specs.yml` runs the same scripts across Redmine 5.1 / 6.1 /

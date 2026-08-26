@@ -35,7 +35,7 @@ function projectWorkflowBulkApply(link) {
   var threshold = parseInt(group.getAttribute('data-project-workflow-threshold'), 10);
   var rules = pending.length * parseInt(group.getAttribute('data-project-workflow-multiplier'), 10);
   if (!isNaN(threshold) && rules > threshold) {
-    var question = group.getAttribute('data-project-workflow-confirm').replace('%{count}', rules);
+    var question = group.getAttribute('data-project-workflow-confirm').replace(/%\{count\}/g, rules);
     if (!window.confirm(question)) { return; }
   }
 
