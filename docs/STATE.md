@@ -42,7 +42,8 @@
 
 A fixing session against **`docs/review/findings/2026-08-26-codex.md`** — a
 review run by ChatGPT Codex on `db381fc`, read-only, no suite run. Two findings,
-one major and one minor. Both are now **fixed**, in one commit, `7ff8293`.
+one major and one minor. Both are now **fixed**, in `7ff8293` and its three
+follow-ups; the head of `claude/dev` is `4db60dd`.
 
 ### The defect, which was one defect and not two
 
@@ -153,13 +154,13 @@ gates this session. What it did produce, each of which became an example:
 | Migration up → 0 → up | clean on the 7.0 host, run **before** its suite. This session adds no migration |
 | Locale parity | eight files, **92** keys each (was 91) |
 | MySQL / MariaDB | **not run** — no such server and no `mysqld` in this container. Three of the nine cells are unverified locally; CI covers them |
-| CI | **not yet observed for `7ff8293`.** The push landed; the next session should read the run for that commit before anything else |
+| CI | see below — the head moved four times this session and the concurrency group cancels a superseded run, so read the run for the **head**, `4db60dd` |
 
 ## Exact next step
 
-**Read CI for `7ff8293`, then it is Jan's turn again.**
+**Read CI for `4db60dd`, then it is Jan's turn again.**
 
-1. **Check CI on the head.** `7ff8293` is pushed to `claude/dev` and its run had
+1. **Check CI on the head.** `4db60dd` is pushed to `claude/dev` and its run had
    not finished when this session ended. Nine cells plus RuboCop; the three
    **MySQL and MariaDB** cells are the ones nothing in this container can run, and
    the change touches parameter parsing rather than SQL, so they are unlikely to
