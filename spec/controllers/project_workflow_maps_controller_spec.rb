@@ -263,6 +263,20 @@ describe ProjectWorkflowMapsController, type: :controller do
       expect(response.body).to match(%r{href="[^"]*/workflows/edit\?[^"]*project_id(%5B%5D|\[\])=#{project.id}})
     end
 
+    # The standalone page is what a browser without JavaScript lands on, and it
+    # is navigated to rather than opened over the form, so it needs a way back.
+    # The modal has none: it is closed, not left.
+    it 'offers a way back from the standalone page but not from the modal' do
+      generic_transition(new_status, assigned)
+      issue = an_issue
+
+      get :show, params: { issue_id: issue.id }
+      expect(response.body).to include(issue_path(issue))
+
+      get :show, params: { issue_id: issue.id }, xhr: true, format: :js
+      expect(response.body).not_to include('contextual')
+    end
+
     it 'answers the JavaScript request by filling core own modal' do
       generic_transition(new_status, assigned)
       issue = an_issue

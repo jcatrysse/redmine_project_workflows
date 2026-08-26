@@ -31,6 +31,12 @@
 <% if modal %>
   <h3 class="title"><%= l(:label_project_workflow_map) %></h3>
 <% else %>
+  <%# A way back, on the standalone page only: the modal is closed rather than
+      navigated away from, and Redmine floats .contextual, so it has to come
+      before the heading. An unsaved issue has nothing to link to. %>
+  <% unless @issue.new_record? %>
+    <div class="contextual"><%= link_to l(:button_back), issue_path(@issue) %></div>
+  <% end %>
   <%= title l(:label_project_workflow_map) %>
 <% end %>
 
