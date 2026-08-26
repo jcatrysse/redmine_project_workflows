@@ -112,7 +112,7 @@ takes either shape.
 | Locale parity | now a spec, green on all three hosts: eight files, 45 keys each |
 | Independent review | run in this context rather than a fresh one — see "Known traps" |
 | New specs against the old code | see below |
-| CI | **run 26 is green on all nine cells plus RuboCop**, on `9559eab` — Redmine 5.1, 6.1 and 7.0 × PostgreSQL, MySQL and MariaDB. Run 27 covers the two examples added after it; check it |
+| CI | **run 28 is green on all nine cells plus RuboCop**, on the branch head `aeb994e` — Redmine 5.1, 6.1 and 7.0 × PostgreSQL, MySQL and MariaDB. (Run 27 reads "cancelled": the concurrency group cancels a run when the next push supersedes it. Not a failure, and easy to misread.) |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done
 by putting one thing back and leaving the rest of WP4 in place:
@@ -223,6 +223,9 @@ Everything below cost time at least once. The first eight are new this session.
 - **`dev/setup.sh` does not drop the test database.** It runs `db:create`, a
   no-op when the database is already there. Deleting `.redmine` is not the same
   as starting clean.
+- **A CI run marked "cancelled" is usually the concurrency group, not a failure.**
+  Pushing again supersedes the run in flight. Read the *head's* run, not the
+  newest completed one.
 - **A failing gate in this container is worth reproducing before believing it.**
 - **`rails runner` without `RAILS_ENV=test` boots development and dies on a
   missing `listen` gem.** Every command against a host needs `RAILS_ENV=test` in
