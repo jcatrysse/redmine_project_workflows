@@ -42,6 +42,26 @@ module RedmineProjectWorkflows
         select_tag("permissions[#{status.id}][#{name}]", options_for_select(options, selected), html_options)
       end
 
+      # The state of the current selection, as text. Three states have to stay
+      # tellable apart (INV-3), and "own empty workflow" is a valid, deliberate
+      # configuration -- so it is named in words rather than marked as a
+      # problem. No colour, and no markup Redmine does not already use.
+      def project_workflow_scope_state_tag(state)
+        text =
+          case state.state
+          when :inherits then l(:label_project_workflow_state_inherits)
+          when :own then l(:label_project_workflow_state_own)
+          when :own_empty then l(:label_project_workflow_state_own_empty)
+          else
+            [
+              l(:label_project_workflow_count_own, count: state.own),
+              l(:label_project_workflow_count_own_empty, count: state.own_empty),
+              l(:label_project_workflow_count_inherits, count: state.inheriting)
+            ].join(', ')
+          end
+        content_tag(:span, text, class: "project-workflow-scope-state #{state.state}")
+      end
+
       def transition_tag(transition_count, old_status, new_status, name)
         tag_name = "transitions[#{old_status.try(:id) || 0}][#{new_status.id}][#{name}]"
         if old_status == new_status

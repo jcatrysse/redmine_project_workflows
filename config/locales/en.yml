@@ -3,3 +3,38 @@ en:
   error_workflow_copy_source_project: Please select a source tracker, role, and project.
   error_workflow_copy_target: Please select target trackers, roles, and projects.
   error_workflow_copy_target_project: One or more selected target projects do not exist.
+  label_project_workflow_scope: Workflow for the selected projects
+  label_project_workflow_state_inherits: Inherits the generic workflow
+  label_project_workflow_state_own: Own workflow
+  label_project_workflow_state_own_empty: Own empty workflow
+  label_project_workflow_count_own:
+    one: "%{count} own workflow"
+    other: "%{count} own workflows"
+  label_project_workflow_count_own_empty:
+    one: "%{count} own empty workflow"
+    other: "%{count} own empty workflows"
+  label_project_workflow_count_inherits:
+    one: "%{count} inherits the generic workflow"
+    other: "%{count} inherit the generic workflow"
+  button_project_workflow_enable_copy: Give own workflow (copy of the generic one)
+  button_project_workflow_enable_empty: Give own empty workflow
+  button_project_workflow_clear: Empty this workflow
+  button_project_workflow_inherit: Return to the generic workflow
+  text_project_workflow_scope_help: An own workflow replaces the generic one; it is never added to it. An own empty workflow permits nothing.
+  text_project_workflow_enable_copy_confirm: Give this project its own workflow, starting as a copy of the generic one? This affects %{count} combination(s) of project, tracker and role.
+  text_project_workflow_enable_empty_confirm: Give this project its own, empty workflow? Nothing will be permitted until you add rules. This affects %{count} combination(s) of project, tracker and role.
+  text_project_workflow_clear_confirm: Remove every rule from this workflow? The project keeps its own workflow, but it will permit nothing.
+  text_project_workflow_inherit_confirm: Return to the generic workflow? The project's own rules are deleted.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} workflow copied from the generic one."
+    other: "%{count} workflows copied from the generic one."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} own empty workflow created."
+    other: "%{count} own empty workflows created."
+  notice_project_workflow_inherited:
+    one: "%{count} workflow returned to the generic one."
+    other: "%{count} workflows returned to the generic one."
+  notice_project_workflow_emptied:
+    one: "%{count} workflow emptied."
+    other: "%{count} workflows emptied."
+  notice_project_workflow_scope_unchanged: Nothing had to be changed.

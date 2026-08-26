@@ -11,7 +11,36 @@ require 'rspec/rails'
 # nothing in a real installation, and a green suite would say otherwise.
 # spec/plugin_conventions_spec.rb asserts the boot did apply them.
 
+# Small helpers for the scope table (ADR-001). They read as the three states of
+# INV-3 so that a spec says what it is arranging rather than which rows it is
+# inserting.
+module ProjectWorkflowScopeHelpers
+  # "This project runs its own workflow for this tracker and role." Rules are a
+  # separate matter: a scope without rules is an own *empty* workflow.
+  def give_own_workflow(project, tracker, role, rule_type = ProjectWorkflowScope::TRANSITIONS)
+    ProjectWorkflowScope.create!(
+      project_id: id_of(project),
+      tracker_id: id_of(tracker),
+      role_id: id_of(role),
+      rule_type: rule_type
+    )
+  end
+
+  def own_workflow?(project, tracker, role, rule_type = ProjectWorkflowScope::TRANSITIONS)
+    ProjectWorkflowScope.exists?(
+      project_id: id_of(project), tracker_id: id_of(tracker),
+      role_id: id_of(role), rule_type: rule_type
+    )
+  end
+
+  def id_of(object)
+    object.respond_to?(:id) ? object.id : object
+  end
+end
+
 RSpec.configure do |config|
+  config.include ProjectWorkflowScopeHelpers
+
   fixtures_dir = File.expand_path('../../../test/fixtures', __dir__)
 
   # rspec-rails older versions (Redmine 5.1 setups)
@@ -31,6 +60,7 @@ RSpec.configure do |config|
     WorkflowTransition.delete_all
     WorkflowPermission.delete_all
     WorkflowRule.delete_all if defined?(WorkflowRule)
+    ProjectWorkflowScope.delete_all if defined?(ProjectWorkflowScope)
   end
 
   # Rails resets CurrentAttributes around a request through the executor, which

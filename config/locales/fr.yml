@@ -3,3 +3,38 @@ fr:
   error_workflow_copy_source_project: Veuillez sélectionner un tracker, un rôle et un projet source.
   error_workflow_copy_target: Veuillez sélectionner des trackers, rôles et projets cibles.
   error_workflow_copy_target_project: Un ou plusieurs des projets cibles sélectionnés n'existent pas.
+  label_project_workflow_scope: Workflow pour les projets sélectionnés
+  label_project_workflow_state_inherits: Hérite du workflow générique
+  label_project_workflow_state_own: Workflow propre
+  label_project_workflow_state_own_empty: Workflow propre vide
+  label_project_workflow_count_own:
+    one: "%{count} workflow propre"
+    other: "%{count} workflows propres"
+  label_project_workflow_count_own_empty:
+    one: "%{count} workflow propre vide"
+    other: "%{count} workflows propres vides"
+  label_project_workflow_count_inherits:
+    one: "%{count} hérite du workflow générique"
+    other: "%{count} héritent du workflow générique"
+  button_project_workflow_enable_copy: Donner un workflow propre (copie du générique)
+  button_project_workflow_enable_empty: Donner un workflow propre vide
+  button_project_workflow_clear: Vider ce workflow
+  button_project_workflow_inherit: Revenir au workflow générique
+  text_project_workflow_scope_help: Un workflow propre remplace le workflow générique ; il ne s'y ajoute jamais. Un workflow propre vide n'autorise rien.
+  text_project_workflow_enable_copy_confirm: Donner à ce projet son propre workflow, en partant d'une copie du générique ? Cela concerne %{count} combinaison(s) de projet, tracker et rôle.
+  text_project_workflow_enable_empty_confirm: Donner à ce projet son propre workflow, vide ? Rien ne sera autorisé tant que vous n'aurez pas ajouté de règles. Cela concerne %{count} combinaison(s) de projet, tracker et rôle.
+  text_project_workflow_clear_confirm: Supprimer toutes les règles de ce workflow ? Le projet conserve son propre workflow, mais celui-ci n'autorisera rien.
+  text_project_workflow_inherit_confirm: Revenir au workflow générique ? Les règles propres du projet sont supprimées.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} workflow copié depuis le générique."
+    other: "%{count} workflows copiés depuis le générique."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} workflow propre vide créé."
+    other: "%{count} workflows propres vides créés."
+  notice_project_workflow_inherited:
+    one: "%{count} workflow revenu au générique."
+    other: "%{count} workflows revenus au générique."
+  notice_project_workflow_emptied:
+    one: "%{count} workflow vidé."
+    other: "%{count} workflows vidés."
+  notice_project_workflow_scope_unchanged: Rien n'avait à être modifié.

@@ -3,6 +3,10 @@
 module RedmineProjectWorkflows
   module Patches
     module WorkflowRulePatch
+      # The two STI classes a workflow rule can be. Anything else is not a rule
+      # type the plugin knows how to copy.
+      COPYABLE_TYPES = %w[WorkflowTransition WorkflowPermission].freeze
+
       def copy_for_project(source_project_id, target_project_id, source_tracker, source_role, target_trackers, target_roles)
         unless (source_tracker.nil? || source_tracker.is_a?(Tracker)) &&
             (source_role.nil? || source_role.is_a?(Role)) &&
@@ -87,6 +91,38 @@ module RedmineProjectWorkflows
           )
         end
         true
+      end
+
+      # Copies the generic rules of one (tracker, role) into one project, for one
+      # kind of rule only -- taking over a project's transitions must not drag
+      # its field permissions along (ADR-001, separate scopes per rule type).
+      #
+      # Written as INSERT ... SELECT, like core's own copy_one and like
+      # #copy_one_for_project above: every column value comes from a row that is
+      # already in the table, so no request parameter reaches one. The four
+      # arguments are ids resolved from the database and an STI class name
+      # checked against a server-built list, which is what INV-2 asks of a write
+      # that does not go through the two writers.
+      def copy_generic_to_project(target_project_id, tracker_id, role_id, sti_type)
+        raise ArgumentError, "unknown workflow rule type #{sti_type.inspect}" unless COPYABLE_TYPES.include?(sti_type)
+
+        target_project_id = Integer(target_project_id)
+        tracker_id = Integer(tracker_id)
+        role_id = Integer(role_id)
+
+        connection.insert(
+          "INSERT INTO #{WorkflowRule.table_name}" \
+            " (tracker_id, role_id, old_status_id, new_status_id," \
+             " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, project_id)" \
+            " SELECT tracker_id, role_id, old_status_id, new_status_id," \
+                    " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type," \
+                    " #{connection.quote(target_project_id)}" \
+              " FROM #{WorkflowRule.table_name}" \
+              " WHERE project_id IS NULL" \
+              " AND tracker_id = #{connection.quote(tracker_id)}" \
+              " AND role_id = #{connection.quote(role_id)}" \
+              " AND type = #{connection.quote(sti_type)}"
+        )
       end
 
       def copy_one(source_tracker, source_role, target_tracker, target_role)

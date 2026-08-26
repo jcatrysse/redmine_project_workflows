@@ -130,6 +130,12 @@ jobs:
           test "$leftover" = "[]"
           bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
 
+      # Also before the suite, and for the same reason: the check takes the
+      # scope table down and up again to prove the backfill still turns an
+      # installation from before ADR-001 into the same behaviour it had.
+      - name: Scope backfill reproduces the implicit model
+        run: dev/check-backfill.sh "$REDMINE_DIR"
+
       # Redmine pushes each plugin's lib/ into the main Zeitwerk autoloader with
       # eager loading, so a misnamed constant only breaks in production.
       - name: Zeitwerk compliance

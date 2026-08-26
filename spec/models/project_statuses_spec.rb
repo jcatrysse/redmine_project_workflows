@@ -18,6 +18,7 @@ describe Project, type: :model do
     other_project.enabled_modules << EnabledModule.new(name: 'issue_tracking') if other_project.enabled_modules.empty?
     project.trackers << tracker unless project.trackers.include?(tracker)
     other_project.trackers << tracker unless other_project.trackers.include?(tracker)
+    ProjectWorkflowScope.delete_all
   end
 
   it 'returns only statuses from global workflows when no project overrides exist' do
@@ -47,8 +48,9 @@ describe Project, type: :model do
     expect(status_ids).not_to include(project_status.id)
   end
 
-  it 'returns project-specific statuses for overridden roles' do
+  it 'returns project-specific statuses for scoped roles' do
     WorkflowTransition.delete_all
+    give_own_workflow(project, tracker, role)
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,

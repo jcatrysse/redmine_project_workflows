@@ -3,3 +3,41 @@ pl:
   error_workflow_copy_source_project: Wybierz źródłowy tracker, rolę i projekt.
   error_workflow_copy_target: Wybierz docelowe typy zgłoszeń, role i projekty.
   error_workflow_copy_target_project: Co najmniej jeden z wybranych projektów docelowych nie istnieje.
+  label_project_workflow_scope: Przepływ pracy dla wybranych projektów
+  label_project_workflow_state_inherits: Dziedziczy ogólny przepływ pracy
+  label_project_workflow_state_own: Własny przepływ pracy
+  label_project_workflow_state_own_empty: Własny pusty przepływ pracy
+  # Redmine's I18n applies only the one/other forms to Polish, so the plural
+  # entries put the number after the noun: "wlasne przeplywy pracy: 3" reads
+  # correctly for every count, where "3 przeplywow pracy" does not.
+  label_project_workflow_count_own:
+    one: "%{count} własny przepływ pracy"
+    other: "własne przepływy pracy: %{count}"
+  label_project_workflow_count_own_empty:
+    one: "%{count} własny pusty przepływ pracy"
+    other: "własne puste przepływy pracy: %{count}"
+  label_project_workflow_count_inherits:
+    one: "%{count} dziedziczy ogólny przepływ pracy"
+    other: "dziedziczy ogólny przepływ pracy: %{count}"
+  button_project_workflow_enable_copy: Nadaj własny przepływ pracy (kopia ogólnego)
+  button_project_workflow_enable_empty: Nadaj własny pusty przepływ pracy
+  button_project_workflow_clear: Opróżnij ten przepływ pracy
+  button_project_workflow_inherit: Wróć do ogólnego przepływu pracy
+  text_project_workflow_scope_help: Własny przepływ pracy zastępuje ogólny; nigdy się do niego nie dodaje. Własny pusty przepływ pracy nie pozwala na nic.
+  text_project_workflow_enable_copy_confirm: "Nadać temu projektowi własny przepływ pracy, zaczynając od kopii ogólnego? Liczba objętych kombinacji projektu, typu zagadnienia i roli: %{count}."
+  text_project_workflow_enable_empty_confirm: "Nadać temu projektowi własny, pusty przepływ pracy? Nic nie będzie dozwolone, dopóki nie dodasz reguł. Liczba objętych kombinacji projektu, typu zagadnienia i roli: %{count}."
+  text_project_workflow_clear_confirm: Usunąć wszystkie reguły z tego przepływu pracy? Projekt zachowa własny przepływ pracy, ale nie będzie on pozwalał na nic.
+  text_project_workflow_inherit_confirm: Wrócić do ogólnego przepływu pracy? Własne reguły projektu zostaną usunięte.
+  notice_project_workflow_enabled_copy:
+    one: "Skopiowano %{count} przepływ pracy z ogólnego."
+    other: "Liczba przepływów pracy skopiowanych z ogólnego: %{count}."
+  notice_project_workflow_enabled_empty:
+    one: "Utworzono %{count} własny pusty przepływ pracy."
+    other: "Liczba utworzonych własnych pustych przepływów pracy: %{count}."
+  notice_project_workflow_inherited:
+    one: "Przywrócono %{count} przepływ pracy do ogólnego."
+    other: "Liczba przepływów pracy przywróconych do ogólnego: %{count}."
+  notice_project_workflow_emptied:
+    one: "Opróżniono %{count} przepływ pracy."
+    other: "Liczba opróżnionych przepływów pracy: %{count}."
+  notice_project_workflow_scope_unchanged: Nie było nic do zmiany.

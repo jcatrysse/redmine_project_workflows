@@ -3,3 +3,38 @@ es:
   error_workflow_copy_source_project: Seleccione un rastreador, un rol y un proyecto de origen.
   error_workflow_copy_target: Seleccione rastreadores, roles y proyectos de destino.
   error_workflow_copy_target_project: Uno o varios de los proyectos de destino seleccionados no existen.
+  label_project_workflow_scope: Flujo de trabajo para los proyectos seleccionados
+  label_project_workflow_state_inherits: Hereda el flujo de trabajo genérico
+  label_project_workflow_state_own: Flujo de trabajo propio
+  label_project_workflow_state_own_empty: Flujo de trabajo propio vacío
+  label_project_workflow_count_own:
+    one: "%{count} flujo de trabajo propio"
+    other: "%{count} flujos de trabajo propios"
+  label_project_workflow_count_own_empty:
+    one: "%{count} flujo de trabajo propio vacío"
+    other: "%{count} flujos de trabajo propios vacíos"
+  label_project_workflow_count_inherits:
+    one: "%{count} hereda el flujo de trabajo genérico"
+    other: "%{count} heredan el flujo de trabajo genérico"
+  button_project_workflow_enable_copy: Dar flujo de trabajo propio (copia del genérico)
+  button_project_workflow_enable_empty: Dar flujo de trabajo propio vacío
+  button_project_workflow_clear: Vaciar este flujo de trabajo
+  button_project_workflow_inherit: Volver al flujo de trabajo genérico
+  text_project_workflow_scope_help: Un flujo de trabajo propio sustituye al genérico; nunca se le añade. Un flujo de trabajo propio vacío no permite nada.
+  text_project_workflow_enable_copy_confirm: ¿Dar a este proyecto su propio flujo de trabajo, partiendo de una copia del genérico? Afecta a %{count} combinación(es) de proyecto, tipo y perfil.
+  text_project_workflow_enable_empty_confirm: ¿Dar a este proyecto su propio flujo de trabajo, vacío? No se permitirá nada hasta que añada reglas. Afecta a %{count} combinación(es) de proyecto, tipo y perfil.
+  text_project_workflow_clear_confirm: ¿Eliminar todas las reglas de este flujo de trabajo? El proyecto conserva su flujo propio, pero no permitirá nada.
+  text_project_workflow_inherit_confirm: ¿Volver al flujo de trabajo genérico? Se eliminan las reglas propias del proyecto.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} flujo de trabajo copiado del genérico."
+    other: "%{count} flujos de trabajo copiados del genérico."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} flujo de trabajo propio vacío creado."
+    other: "%{count} flujos de trabajo propios vacíos creados."
+  notice_project_workflow_inherited:
+    one: "%{count} flujo de trabajo devuelto al genérico."
+    other: "%{count} flujos de trabajo devueltos al genérico."
+  notice_project_workflow_emptied:
+    one: "%{count} flujo de trabajo vaciado."
+    other: "%{count} flujos de trabajo vaciados."
+  notice_project_workflow_scope_unchanged: No hubo nada que cambiar.

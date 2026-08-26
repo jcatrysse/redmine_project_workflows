@@ -2,19 +2,10 @@
 
 module RedmineProjectWorkflows
   module Services
+    # The field-permissions half of the resolver. Like TransitionQuery, it
+    # replaces core's lookup instead of falling back to it: core queries
+    # workflows without a project_id predicate (INV-4).
     class PermissionQuery
-      # Returns true when any project has permission overrides for this
-      # tracker/role combination. See TransitionQuery.override_active? for
-      # the rationale behind this system-wide check.
-      def self.override_active?(tracker_id:, role_ids:)
-        return false if tracker_id.blank? || role_ids.blank?
-
-        WorkflowPermission.where(
-          tracker_id: tracker_id,
-          role_id: role_ids
-        ).where.not(project_id: nil).exists?
-      end
-
       def self.rules_for(issue:, user:, old_status_id:)
         roles = issue.send(:roles_for_workflow, user)
         return [] if roles.empty?

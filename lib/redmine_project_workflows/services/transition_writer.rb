@@ -26,6 +26,18 @@ module RedmineProjectWorkflows
         return if transitions.empty?
 
         WorkflowTransition.transaction do
+          # A project write records the decision along with the rules; a generic
+          # write (project_id nil) has no scope to record. Existing scopes are
+          # left alone, and none is ever removed here -- see ScopeWriter.
+          if project_id
+            ScopeWriter.ensure_scopes(
+              project_ids: [project_id],
+              tracker_ids: trackers.map(&:id),
+              role_ids: roles.map(&:id),
+              rule_type: ProjectWorkflowScope::TRANSITIONS
+            )
+          end
+
           scope = WorkflowTransition.where(
             tracker_id: trackers.map(&:id),
             role_id: roles.map(&:id),

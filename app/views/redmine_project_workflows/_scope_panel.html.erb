@@ -1,0 +1,49 @@
+<%#
+  The three actions of INV-3, above the matrix.
+
+  Rendered only when the selection contains at least one real project: the
+  generic workflow has no scope, so for an administrator who does not use the
+  plugin these screens look exactly as they did before.
+
+  The state is a text label first; colour only supports it, and "own empty
+  workflow" is a deliberate configuration, not an error.
+%>
+<% state = @project_workflow_scope_state %>
+<% if state && state.any? %>
+  <%# 'all' stays 'all': expanding it would put every project id in the link. %>
+  <% selected_project_values = @all_selected ? ['all'] : Array(@selected_projects).map { |project| project.id.to_s } %>
+  <% selection = { project_id: selected_project_values,
+                   tracker_id: @trackers.map(&:id),
+                   role_id: @roles.map(&:id),
+                   rule_type: rule_type,
+                   used_statuses_only: params[:used_statuses_only] } %>
+  <div class="box project-workflow-scope">
+    <p>
+      <strong><%= l(:label_project_workflow_scope) %>:</strong>
+      <%= project_workflow_scope_state_tag(state) %>
+    </p>
+    <p>
+      <% if state.enable_possible? %>
+        <%= link_to l(:button_project_workflow_enable_copy),
+                    project_workflow_scopes_path(selection.merge(source: 'copy')),
+                    method: :post,
+                    data: { confirm: l(:text_project_workflow_enable_copy_confirm, count: state.inheriting) } %>
+        <%= link_to l(:button_project_workflow_enable_empty),
+                    project_workflow_scopes_path(selection.merge(source: 'empty')),
+                    method: :post,
+                    data: { confirm: l(:text_project_workflow_enable_empty_confirm, count: state.inheriting) } %>
+      <% end %>
+      <% if state.scoped? %>
+        <%= link_to l(:button_project_workflow_clear),
+                    clear_project_workflow_scopes_path(selection),
+                    method: :post,
+                    data: { confirm: l(:text_project_workflow_clear_confirm) } %>
+        <%= link_to l(:button_project_workflow_inherit),
+                    project_workflow_scopes_path(selection),
+                    method: :delete,
+                    data: { confirm: l(:text_project_workflow_inherit_confirm) } %>
+      <% end %>
+    </p>
+    <p class="project-workflow-scope-help"><em><%= l(:text_project_workflow_scope_help) %></em></p>
+  </div>
+<% end %>

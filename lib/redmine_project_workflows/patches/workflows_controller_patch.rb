@@ -13,6 +13,7 @@ module RedmineProjectWorkflows
       def edit
         return unless @trackers.present? && @roles.present? && @statuses.any?
 
+        @project_workflow_scope_state = scope_state_for(ProjectWorkflowScope::TRANSITIONS)
         workflows = WorkflowTransition.
           where(role_id: @roles.map(&:id), tracker_id: @trackers.map(&:id), project_id: workflow_project_ids).
           preload(:old_status, :new_status)
@@ -51,6 +52,7 @@ module RedmineProjectWorkflows
       def permissions
         return unless @roles.present? && @trackers.present?
 
+        @project_workflow_scope_state = scope_state_for(ProjectWorkflowScope::PERMISSIONS)
         @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
           [field, l("field_" + field.sub(/_id$/, ''))]
         end
@@ -139,6 +141,7 @@ module RedmineProjectWorkflows
                 @target_roles
               )
             end
+            record_scopes_for_copy(resolved_target_project_ids)
           end
           flash[:notice] = l(:notice_successful_update)
           redirect_to copy_workflows_path(
@@ -226,6 +229,39 @@ module RedmineProjectWorkflows
         ids = selected_projects.map(&:id)
         ids << nil if @global_selected
         ids
+      end
+
+      # A copy that lands in a project has to record the decision as well, or the
+      # resolver ignores every row it just wrote (INV-3). copy_for_project moves
+      # both kinds of rule, so both rule types are considered -- but a scope is
+      # created only where the target now *has* rules, because an empty
+      # transitions scope would stop every issue in the project from changing
+      # status. A targeted pair that already carried rules without a scope gets
+      # one too; that is a repair, not an over-reach, and it can only happen to
+      # a pair the operator named.
+      def record_scopes_for_copy(target_project_ids)
+        RedmineProjectWorkflows::Services::ScopeWriter.ensure_scopes_for_copy(
+          project_ids: target_project_ids.compact,
+          tracker_ids: @target_trackers.map(&:id),
+          role_ids: @target_roles.map(&:id),
+          user: User.current
+        )
+      end
+
+      # The state of the three INV-3 actions for the current selection, used by
+      # the panel above the matrix. Built here rather than in the view so that
+      # the view does no querying and the state can be asserted in a controller
+      # spec.
+      #
+      # Only real projects have scopes: the generic workflow is the one thing
+      # that cannot be inherited or emptied, so 'global' contributes nothing.
+      def scope_state_for(rule_type)
+        RedmineProjectWorkflows::Services::ScopeState.new(
+          project_ids: selected_projects.map(&:id),
+          tracker_ids: @trackers.map(&:id),
+          role_ids: @roles.map(&:id),
+          rule_type: rule_type
+        )
       end
 
       # The population the matrix screens read. Without plugin parameters that

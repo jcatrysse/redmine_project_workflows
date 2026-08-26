@@ -40,7 +40,9 @@ to be distinguishable, and only two of them have rows:
 | Has its own workflow | present | one or more | only the project rules |
 | Has its own **empty** workflow | present | none | nothing — no transition is allowed |
 
-A **scope** records the decision itself:
+A **scope** records the decision itself. The table exists as of WP1; the
+`rule_type` values are the strings `ProjectWorkflowScope::TRANSITIONS` and
+`::PERMISSIONS`:
 
 ```
 project_workflow_scopes
@@ -65,11 +67,18 @@ should not force you to take over its field permissions as well.
 
 They must never mean the same thing in the database (**INV-3**):
 
-| Action | Scope | Rules |
-| --- | --- | --- |
-| Enable a project's own workflow | created | copied from generic, or none — the operator chooses, copy preselected |
-| Return to inheritance | deleted | deleted |
-| Empty the matrix | kept | deleted |
+| Action | Scope | Rules | Implemented by |
+| --- | --- | --- | --- |
+| Enable a project's own workflow | created | copied from generic, or none — the operator chooses, copy preselected | `ScopeWriter.enable` |
+| Return to inheritance | deleted | deleted | `ScopeWriter.return_to_inheritance` |
+| Empty the matrix | kept | deleted | `ScopeWriter.clear_rules` |
+
+`ScopeWriter` is the only place that creates or removes a scope. "Enable" acts
+only on the combinations that currently inherit, so pressing it twice does not
+discard what the first press produced. Saving a project matrix goes on calling
+`ScopeWriter.ensure_scopes`, which creates a scope where there is none and never
+removes one — deleting the last rule of a project leaves the scope standing,
+which is exactly what makes the empty state expressible.
 
 "Enable" defaults to copying because a scope **replaces**: an empty scope means
 no transition is permitted at all, and arriving there by accident would freeze
@@ -121,7 +130,7 @@ projects. Each one is either handled or deliberately left alone.
 
 | Core code | Concern | Treatment |
 | --- | --- | --- |
-| `Issue#new_statuses_allowed_to` | which transitions a user may make | replaced by the plugin when a scope applies |
+| `Issue#new_statuses_allowed_to` | which transitions a user may make | **always** replaced by the plugin, inheritance included — core's own query carries no `project_id` predicate, so falling back to it would let one project read another's rules (INV-4). The body is core's, byte-identical in 5.1, 6.1 and 7.0, with the two project-blind lookups replaced |
 | `Issue#workflow_rule_by_attribute` | field permissions | same |
 | `Project#rolled_up_statuses` | fills the status filter and the status report | project-aware, and **no role filter** — core has none either, and adding one empties the list for projects without members |
 | `Tracker#issue_status_ids` | whether a status survives a tracker change | left as a global union on purpose: narrowing it to generic rules would strip a status from an issue in a project whose own workflow uses it. The two call sites in `Issue` are made project-aware instead |
@@ -131,17 +140,23 @@ projects. Each one is either handled or deliberately left alone.
 
 ## Views
 
-Five Deface overrides, all on admin screens:
+Seven Deface overrides, all on admin screens:
 
 | View | Anchor | Adds |
 | --- | --- | --- |
-| `workflows/edit` | `div.autoscroll` | hidden `project_id[]` fields |
+| `workflows/edit` | `div.autoscroll` (top) | hidden `project_id[]` fields |
+| `workflows/edit` | `div.autoscroll` (before) | the scope panel: state and the three actions |
 | `workflows/edit` | the `submit_tag l(:button_edit)` expression | the project selector |
-| `workflows/permissions` | `div.autoscroll` | hidden `project_id[]` fields |
+| `workflows/permissions` | `div.autoscroll` (top) | hidden `project_id[]` fields |
+| `workflows/permissions` | `div.autoscroll` (before) | the scope panel |
 | `workflows/permissions` | the `submit_tag l(:button_edit)` expression | the project selector |
 | `workflows/copy` | the `source_role_id` / `target_role_ids` select expressions | source and target project selectors |
 
-All five anchors exist verbatim in Redmine 5.1, 6.1 and 7.0, and
+The scope panel renders only when the selection contains at least one real
+project. An administrator who does not use the plugin sees core's screens
+unchanged.
+
+All seven anchors exist verbatim in Redmine 5.1, 6.1 and 7.0, and
 `workflows/edit`, `permissions` and `copy` are byte-identical between 6.1 and
 7.0. `spec/integration/deface_overrides_spec.rb` asserts that each override
 actually reaches the rendered page (**INV-9**).

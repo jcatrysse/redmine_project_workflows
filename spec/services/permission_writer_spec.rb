@@ -253,4 +253,36 @@ describe RedmineProjectWorkflows::Services::PermissionWriter do
       ).not_to exist
     end
   end
+
+  # WP1: see the transitions writer -- a project write records the decision.
+  describe 'the scope a project write records' do
+    it 'creates one for each tracker and role it wrote' do
+      described_class.replace_permissions_for_project_id(
+        project.id, [tracker], [role], { status.id.to_s => { 'due_date' => 'required' } }
+      )
+
+      expect(own_workflow?(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)).to be(true)
+      expect(own_workflow?(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)).to be(false)
+    end
+
+    it 'creates none for a generic write' do
+      described_class.replace_permissions_for_project_id(
+        nil, [tracker], [role], { status.id.to_s => { 'due_date' => 'required' } }
+      )
+
+      expect(ProjectWorkflowScope.count).to eq(0)
+    end
+
+    it 'survives a save that clears every rule' do
+      described_class.replace_permissions_for_project_id(
+        project.id, [tracker], [role], { status.id.to_s => { 'due_date' => 'required' } }
+      )
+      described_class.replace_permissions_for_project_id(
+        project.id, [tracker], [role], { status.id.to_s => { 'due_date' => '' } }
+      )
+
+      expect(WorkflowPermission.where(project_id: project.id)).to be_empty
+      expect(own_workflow?(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)).to be(true)
+    end
+  end
 end

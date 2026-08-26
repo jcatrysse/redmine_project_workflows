@@ -21,7 +21,16 @@ describe RedmineProjectWorkflows::Services::TransitionQuery do
 
 
 
-  it 'returns false when only global transitions exist' do
+  it 'ignores a project row when the project has no scope' do
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: project_status.id,
+      project_id: project.id,
+      author: false,
+      assignee: false
+    )
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,
@@ -32,14 +41,17 @@ describe RedmineProjectWorkflows::Services::TransitionQuery do
       assignee: false
     )
 
-    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(false)
+    issue = Issue.new(project: project, tracker: tracker, status: old_status, author: user)
+    statuses = described_class.allowed_statuses(
+      issue: issue, user: user, initial_status: old_status, author: true, assignee: false
+    )
+
+    expect(statuses).to eq([global_status])
   end
 
-  it 'returns false when no transitions exist at all' do
-    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(false)
-  end
-
-  it 'detects overrides when they exist on another project for the same tracker and role' do
+  # INV-4. Core's own query names no project_id, so it would read this project's
+  # rows together with the neighbour's; the plugin's never does.
+  it 'never reads another project rows' do
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,
@@ -49,24 +61,46 @@ describe RedmineProjectWorkflows::Services::TransitionQuery do
       author: false,
       assignee: false
     )
-
-    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(true)
-  end
-  it 'detects project overrides for transitions' do
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,
       old_status_id: old_status.id,
-      new_status_id: project_status.id,
-      project_id: project.id,
+      new_status_id: global_status.id,
+      project_id: nil,
       author: false,
       assignee: false
     )
 
-    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(true)
+    issue = Issue.new(project: project, tracker: tracker, status: old_status, author: user)
+    statuses = described_class.allowed_statuses(
+      issue: issue, user: user, initial_status: old_status, author: true, assignee: false
+    )
+
+    expect(statuses).to eq([global_status])
   end
 
-  it 'prefers project transitions over global ones for overridden roles' do
+  it 'allows nothing for a scope without rules' do
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: global_status.id,
+      project_id: nil,
+      author: false,
+      assignee: false
+    )
+    give_own_workflow(project, tracker, role)
+
+    issue = Issue.new(project: project, tracker: tracker, status: old_status, author: user)
+    statuses = described_class.allowed_statuses(
+      issue: issue, user: user, initial_status: old_status, author: true, assignee: false
+    )
+
+    expect(statuses).to eq([])
+  end
+
+  it 'prefers project transitions over global ones for scoped roles' do
+    give_own_workflow(project, tracker, role)
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,

@@ -19,6 +19,7 @@ describe Issue, type: :model do
     member.save!
 
     WorkflowTransition.where(tracker_id: tracker.id, role_id: role.id).delete_all
+    ProjectWorkflowScope.delete_all
   end
 
   it 'uses only global transitions for new issues in projects without overrides' do
@@ -50,6 +51,7 @@ describe Issue, type: :model do
   end
 
   it 'prefers project-specific transitions over global ones for new issues' do
+    give_own_workflow(project, tracker, role)
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,
@@ -80,7 +82,8 @@ describe Issue, type: :model do
   describe '#workflow_rule_by_attribute' do
     let(:status) { issue_statuses(:issue_statuses_001) }
 
-    it 'returns project-specific permission rules when overrides exist' do
+    it 'returns project-specific permission rules when the project has a scope' do
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
       WorkflowPermission.create!(
         tracker_id: tracker.id,
         role_id: role.id,

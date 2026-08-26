@@ -13,7 +13,9 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
   let(:global_status) { issue_statuses(:issue_statuses_002) }
   let(:project_status) { issue_statuses(:issue_statuses_003) }
 
-  it 'returns global statuses when no project overrides exist' do
+  before { ProjectWorkflowScope.delete_all }
+
+  it 'returns global statuses when the project has no scope' do
     WorkflowTransition.delete_all
     WorkflowTransition.create!(
       tracker_id: tracker.id,
@@ -44,8 +46,9 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
     expect(status_ids).not_to include(project_status.id)
   end
 
-  it 'prefers project statuses over global ones for overridden roles' do
+  it 'prefers project statuses over global ones for scoped roles' do
     WorkflowTransition.delete_all
+    give_own_workflow(project, tracker, role)
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,

@@ -15,5 +15,9 @@ module RedmineProjectWorkflows
     # {custom_field_id => [role_id, ...]} for the issue custom fields that are
     # not visible to everyone. One query per request instead of one per issue.
     attribute :invisible_custom_field_role_map
+
+    # {[project_id, tracker_id, rule_type] => [role_id, ...]} -- which roles a
+    # project answers for itself. See Services::Resolver.scoped_role_ids.
+    attribute :scoped_role_ids
   end
 end

@@ -21,6 +21,16 @@ module RedmineProjectWorkflows
         return if permissions.empty?
 
         WorkflowPermission.transaction do
+          # See TransitionWriter: a project write records the decision too.
+          if project_id
+            ScopeWriter.ensure_scopes(
+              project_ids: [project_id],
+              tracker_ids: trackers.map(&:id),
+              role_ids: roles.map(&:id),
+              rule_type: ProjectWorkflowScope::PERMISSIONS
+            )
+          end
+
           scope = WorkflowPermission.where(
             tracker_id: trackers.map(&:id),
             role_id: roles.map(&:id),

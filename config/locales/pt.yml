@@ -3,3 +3,38 @@ pt:
   error_workflow_copy_source_project: Selecione um rastreador, uma função e um projeto de origem.
   error_workflow_copy_target: Selecione rastreadores, papéis e projetos de destino.
   error_workflow_copy_target_project: Um ou mais projetos de destino selecionados não existem.
+  label_project_workflow_scope: Fluxo de trabalho para os projetos selecionados
+  label_project_workflow_state_inherits: Herda o fluxo de trabalho genérico
+  label_project_workflow_state_own: Fluxo de trabalho próprio
+  label_project_workflow_state_own_empty: Fluxo de trabalho próprio vazio
+  label_project_workflow_count_own:
+    one: "%{count} fluxo de trabalho próprio"
+    other: "%{count} fluxos de trabalho próprios"
+  label_project_workflow_count_own_empty:
+    one: "%{count} fluxo de trabalho próprio vazio"
+    other: "%{count} fluxos de trabalho próprios vazios"
+  label_project_workflow_count_inherits:
+    one: "%{count} herda o fluxo de trabalho genérico"
+    other: "%{count} herdam o fluxo de trabalho genérico"
+  button_project_workflow_enable_copy: Dar fluxo de trabalho próprio (cópia do genérico)
+  button_project_workflow_enable_empty: Dar fluxo de trabalho próprio vazio
+  button_project_workflow_clear: Esvaziar este fluxo de trabalho
+  button_project_workflow_inherit: Voltar ao fluxo de trabalho genérico
+  text_project_workflow_scope_help: Um fluxo de trabalho próprio substitui o genérico; nunca é acrescentado a ele. Um fluxo de trabalho próprio vazio não permite nada.
+  text_project_workflow_enable_copy_confirm: Dar a este projeto o seu próprio fluxo de trabalho, a partir de uma cópia do genérico? Afeta %{count} combinação(ões) de projeto, tipo e perfil.
+  text_project_workflow_enable_empty_confirm: Dar a este projeto o seu próprio fluxo de trabalho, vazio? Nada será permitido até que adicione regras. Afeta %{count} combinação(ões) de projeto, tipo e perfil.
+  text_project_workflow_clear_confirm: Remover todas as regras deste fluxo de trabalho? O projeto mantém o seu fluxo próprio, mas este não permitirá nada.
+  text_project_workflow_inherit_confirm: Voltar ao fluxo de trabalho genérico? As regras próprias do projeto são eliminadas.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} fluxo de trabalho copiado do genérico."
+    other: "%{count} fluxos de trabalho copiados do genérico."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} fluxo de trabalho próprio vazio criado."
+    other: "%{count} fluxos de trabalho próprios vazios criados."
+  notice_project_workflow_inherited:
+    one: "%{count} fluxo de trabalho devolvido ao genérico."
+    other: "%{count} fluxos de trabalho devolvidos ao genérico."
+  notice_project_workflow_emptied:
+    one: "%{count} fluxo de trabalho esvaziado."
+    other: "%{count} fluxos de trabalho esvaziados."
+  notice_project_workflow_scope_unchanged: Não havia nada a alterar.

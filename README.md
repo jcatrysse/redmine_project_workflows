@@ -7,9 +7,7 @@ Generic rules (`project_id = NULL`) behave exactly like Redmine core, while proj
 
 The specs pass on Redmine 5.1, 6.1 and 7.0, against PostgreSQL 16, MySQL and MariaDB.
 Redmine 5.1 with PostgreSQL is the combination in day-to-day use; the others are
-covered by CI only. Note that on Redmine 6.0 and later the project selector does
-not render the SVG sprite that core's JavaScript expects, which raises a
-TypeError during page initialisation; see `spec/characterization`.
+covered by CI only.
 
 ## Features
 
@@ -30,9 +28,19 @@ TypeError during page initialisation; see `spec/characterization`.
 
 1. Go to **Administration → Workflow**.
 2. Select Role, Tracker, and Project.
-   - **Generic** project means generic workflows, for all projects
-   - Selecting a project activates project override mode for that project.
-3. Select the Generic project to manage rules shared across all projects.
+   - **Generic** means the workflow every project uses unless it overrides it.
+   - Selecting a real project shows that project's own workflow.
+3. A project has its own workflow only once you give it one. The panel above the
+   matrix says which of three states the selection is in and offers the three
+   actions that move between them:
+   - **Inherits the generic workflow** — nothing is stored for this project.
+   - **Own workflow** — only the project's own rules apply; the generic ones do
+     not. A project workflow *replaces*, it never adds.
+   - **Own empty workflow** — the project has its own workflow and it permits
+     nothing. This is a deliberate state, not an error.
+
+   Giving a project its own workflow starts from a copy of the generic one by
+   default, because an empty one would allow no transition at all.
 
 ## Development
 

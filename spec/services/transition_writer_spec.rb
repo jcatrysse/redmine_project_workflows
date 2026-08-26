@@ -181,4 +181,51 @@ describe RedmineProjectWorkflows::Services::TransitionWriter do
       ).not_to exist
     end
   end
+
+  # WP1: a project write records the decision along with the rules (INV-3), and
+  # a generic write has no decision to record.
+  describe 'the scope a project write records' do
+    it 'creates one for each tracker and role it wrote' do
+      described_class.replace_transitions_for_project_id(
+        project.id, [tracker], [role],
+        { status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
+      )
+
+      expect(own_workflow?(project, tracker, role)).to be(true)
+    end
+
+    it 'creates none for a generic write' do
+      described_class.replace_transitions_for_project_id(
+        nil, [tracker], [role],
+        { status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
+      )
+
+      expect(ProjectWorkflowScope.count).to eq(0)
+    end
+
+    # INV-3 again: clearing the last rule is not the same as returning the
+    # project to the generic workflow, so the scope stays.
+    it 'survives a save that removes every rule' do
+      described_class.replace_transitions_for_project_id(
+        project.id, [tracker], [role],
+        { status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
+      )
+      described_class.replace_transitions_for_project_id(
+        project.id, [tracker], [role],
+        { status.id.to_s => { new_status.id.to_s => { 'always' => '0' } } }
+      )
+
+      expect(WorkflowTransition.where(project_id: project.id)).to be_empty
+      expect(own_workflow?(project, tracker, role)).to be(true)
+    end
+
+    it 'creates none when the whole submission was rejected' do
+      described_class.replace_transitions_for_project_id(
+        project.id, [tracker], [role],
+        { status.id.to_s => { new_status.id.to_s => { 'sometimes' => '1' } } }
+      )
+
+      expect(ProjectWorkflowScope.count).to eq(0)
+    end
+  end
 end

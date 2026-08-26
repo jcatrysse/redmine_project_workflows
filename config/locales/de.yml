@@ -3,3 +3,38 @@ de:
   error_workflow_copy_source_project: Bitte wählen Sie einen Quell-Tracker, eine Rolle und ein Projekt aus.
   error_workflow_copy_target: Bitte wählen Sie Ziel-Tracker, Rollen und Projekte aus.
   error_workflow_copy_target_project: Ein oder mehrere ausgewählte Zielprojekte existieren nicht.
+  label_project_workflow_scope: Workflow für die ausgewählten Projekte
+  label_project_workflow_state_inherits: Erbt den allgemeinen Workflow
+  label_project_workflow_state_own: Eigener Workflow
+  label_project_workflow_state_own_empty: Eigener leerer Workflow
+  label_project_workflow_count_own:
+    one: "%{count} eigener Workflow"
+    other: "%{count} eigene Workflows"
+  label_project_workflow_count_own_empty:
+    one: "%{count} eigener leerer Workflow"
+    other: "%{count} eigene leere Workflows"
+  label_project_workflow_count_inherits:
+    one: "%{count} erbt den allgemeinen Workflow"
+    other: "%{count} erben den allgemeinen Workflow"
+  button_project_workflow_enable_copy: Eigenen Workflow geben (Kopie des allgemeinen)
+  button_project_workflow_enable_empty: Eigenen leeren Workflow geben
+  button_project_workflow_clear: Diesen Workflow leeren
+  button_project_workflow_inherit: Zurück zum allgemeinen Workflow
+  text_project_workflow_scope_help: Ein eigener Workflow ersetzt den allgemeinen; er wird ihm nie hinzugefügt. Ein eigener leerer Workflow erlaubt nichts.
+  text_project_workflow_enable_copy_confirm: Diesem Projekt einen eigenen Workflow geben, als Kopie des allgemeinen? Dies betrifft %{count} Kombination(en) aus Projekt, Tracker und Rolle.
+  text_project_workflow_enable_empty_confirm: Diesem Projekt einen eigenen, leeren Workflow geben? Bis Sie Regeln hinzufügen, ist nichts erlaubt. Dies betrifft %{count} Kombination(en) aus Projekt, Tracker und Rolle.
+  text_project_workflow_clear_confirm: Alle Regeln aus diesem Workflow entfernen? Das Projekt behält seinen eigenen Workflow, dieser erlaubt dann aber nichts.
+  text_project_workflow_inherit_confirm: Zurück zum allgemeinen Workflow? Die eigenen Regeln des Projekts werden gelöscht.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} Workflow vom allgemeinen kopiert."
+    other: "%{count} Workflows vom allgemeinen kopiert."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} eigener leerer Workflow angelegt."
+    other: "%{count} eigene leere Workflows angelegt."
+  notice_project_workflow_inherited:
+    one: "%{count} Workflow auf den allgemeinen zurückgesetzt."
+    other: "%{count} Workflows auf den allgemeinen zurückgesetzt."
+  notice_project_workflow_emptied:
+    one: "%{count} Workflow geleert."
+    other: "%{count} Workflows geleert."
+  notice_project_workflow_scope_unchanged: Es musste nichts geändert werden.

@@ -3,3 +3,38 @@ it:
   error_workflow_copy_source_project: Seleziona un tracker, un ruolo e un progetto sorgente.
   error_workflow_copy_target: Seleziona tracker, ruoli e progetti di destinazione.
   error_workflow_copy_target_project: Uno o più progetti di destinazione selezionati non esistono.
+  label_project_workflow_scope: Workflow per i progetti selezionati
+  label_project_workflow_state_inherits: Eredita il workflow generico
+  label_project_workflow_state_own: Workflow proprio
+  label_project_workflow_state_own_empty: Workflow proprio vuoto
+  label_project_workflow_count_own:
+    one: "%{count} workflow proprio"
+    other: "%{count} workflow propri"
+  label_project_workflow_count_own_empty:
+    one: "%{count} workflow proprio vuoto"
+    other: "%{count} workflow propri vuoti"
+  label_project_workflow_count_inherits:
+    one: "%{count} eredita il workflow generico"
+    other: "%{count} ereditano il workflow generico"
+  button_project_workflow_enable_copy: Assegna un workflow proprio (copia del generico)
+  button_project_workflow_enable_empty: Assegna un workflow proprio vuoto
+  button_project_workflow_clear: Svuota questo workflow
+  button_project_workflow_inherit: Torna al workflow generico
+  text_project_workflow_scope_help: Un workflow proprio sostituisce quello generico; non vi si aggiunge mai. Un workflow proprio vuoto non permette nulla.
+  text_project_workflow_enable_copy_confirm: Assegnare a questo progetto un workflow proprio, partendo da una copia del generico? Riguarda %{count} combinazione/i di progetto, tracker e ruolo.
+  text_project_workflow_enable_empty_confirm: Assegnare a questo progetto un workflow proprio vuoto? Nulla sarà permesso finché non aggiungi delle regole. Riguarda %{count} combinazione/i di progetto, tracker e ruolo.
+  text_project_workflow_clear_confirm: Rimuovere tutte le regole da questo workflow? Il progetto mantiene il proprio workflow, ma non permetterà nulla.
+  text_project_workflow_inherit_confirm: Tornare al workflow generico? Le regole proprie del progetto vengono eliminate.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} workflow copiato dal generico."
+    other: "%{count} workflow copiati dal generico."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} workflow proprio vuoto creato."
+    other: "%{count} workflow propri vuoti creati."
+  notice_project_workflow_inherited:
+    one: "%{count} workflow riportato al generico."
+    other: "%{count} workflow riportati al generico."
+  notice_project_workflow_emptied:
+    one: "%{count} workflow svuotato."
+    other: "%{count} workflow svuotati."
+  notice_project_workflow_scope_unchanged: Non c'era nulla da cambiare.

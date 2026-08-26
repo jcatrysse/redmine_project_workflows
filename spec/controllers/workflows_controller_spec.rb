@@ -930,4 +930,45 @@ describe WorkflowsController, type: :controller do
 
     expect(response).to have_http_status(:not_found)
   end
+
+  # WP1: a copy that lands in a project must record the decision too, or the
+  # resolver ignores every row it just wrote (INV-3).
+  describe 'the copy screen and scopes' do
+    before do
+      WorkflowRule.delete_all
+      ProjectWorkflowScope.delete_all
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: nil,
+                                 old_status_id: old_status.id, new_status_id: new_status.id)
+    end
+
+    def duplicate_to(target_project_id)
+      post :duplicate, params: {
+        source_tracker_id: tracker.id.to_s, source_role_id: role.id.to_s,
+        source_project_id: 'global',
+        target_tracker_ids: [target_tracker.id.to_s], target_role_ids: [target_role.id.to_s],
+        target_project_ids: [target_project_id]
+      }
+    end
+
+    it 'gives the target project a scope for what it copied' do
+      duplicate_to(project.id.to_s)
+
+      expect(WorkflowTransition.where(project_id: project.id, tracker_id: target_tracker.id,
+                                      role_id: target_role.id).count).to eq(1)
+      expect(own_workflow?(project, target_tracker, target_role,
+                           ProjectWorkflowScope::TRANSITIONS)).to be(true)
+      # Nothing was copied into the permissions matrix, and an empty scope there
+      # is not the same as no scope.
+      expect(own_workflow?(project, target_tracker, target_role,
+                           ProjectWorkflowScope::PERMISSIONS)).to be(false)
+    end
+
+    it 'creates no scope when the copy targets the generic workflow' do
+      duplicate_to('global')
+
+      expect(WorkflowTransition.where(project_id: nil, tracker_id: target_tracker.id,
+                                      role_id: target_role.id).count).to eq(1)
+      expect(ProjectWorkflowScope.count).to eq(0)
+    end
+  end
 end

@@ -16,7 +16,7 @@
 | Package | Title | Status |
 | --- | --- | --- |
 | WP0 | Immediate repairs | **done** |
-| WP1 | Scopes: table, model, resolver, backfill | not started |
+| WP1 | Scopes: table, model, resolver, backfill | **done** |
 | WP2 | Correctness at the core seams | not started |
 | WP3 | Summary and inventory | not started |
 | WP4 | Project settings tab and permissions | not started |
@@ -81,6 +81,22 @@ inverted: an empty scope allows no transition, and a project rule no longer
 silently converts the whole tracker/role to project control without a scope
 saying so.
 
+**Done.** `spec/characterization/override_semantics_spec.rb` is gone; its
+examples are inverted in `spec/models/override_semantics_spec.rb`, joined by two
+new ones for the empty state and for INV-6. Two things came out differently from
+the plan:
+
+1. **The unique index on the scope table ships here, not in WP2.** It is part of
+   the table `design.md` specifies, and the backfill has to produce unique rows
+   anyway. WP2's remaining index work is the one on `workflows` itself.
+2. **The core fallback had to go entirely.** The plan said the resolver would
+   decide on scopes; narrowing `override_active?` from "any project anywhere" to
+   "this project" would then have sent every inheriting project through core's
+   own query — which carries no `project_id` predicate and would have handed it
+   other projects' rules. `Issue#new_statuses_allowed_to` and
+   `#workflow_rule_by_attribute` are now always answered by the plugin. See
+   `DECISIONS.md`.
+
 ## WP2 — Correctness at the core seams
 
 - `Project#rolled_up_statuses` loses the role filter and computes effective
@@ -92,9 +108,9 @@ saying so.
   see its `Resolution:` for why the obvious fix is the wrong one)*
 - `WorkflowRule.copy` carries project rules and their scopes, so copying a role
   or tracker produces a working copy. *(claude F03)*
-- Unique index on the scope table. For the workflow rows themselves: an
-  idempotency test, and a unique index only where the canonical key is
-  unambiguous, with a cleanup step first. *(external F06)*
+- ~~Unique index on the scope table~~ — delivered in WP1's migration. For the
+  workflow rows themselves: an idempotency test, and a unique index only where
+  the canonical key is unambiguous, with a cleanup step first. *(external F06)*
 - Walk the remaining core queries against `workflows` (default data loader,
   status deletion) and record the outcome in `design.md`.
 

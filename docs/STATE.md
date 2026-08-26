@@ -6,131 +6,177 @@
 
 ## Current position
 
-- **Work package:** WP0 is **done**. WP1 is next and has not been started.
-  WP0..WP7 are specified in `docs/implementation-plan.md`.
-- **What exists:** the plugin as shipped in 0.0.3, a reproducible multi-version
-  test harness, the agent framework, and — as of this session — the six WP0
-  repairs. The data model is still unchanged: `workflows.project_id` and
-  nothing else. The scope table does not exist yet, so the central defect
-  (a project that inherits cannot be told apart from one with a deliberately
-  empty workflow) is still there. That is WP1.
+- **Work package:** WP0 and WP1 are **done**. WP2 is next and has not been
+  started. WP0..WP7 are specified in `docs/implementation-plan.md`.
+- **What exists:** the plugin as shipped in 0.0.3, the WP0 repairs, and — as of
+  this session — the scope model. `project_workflow_scopes` exists, is
+  backfilled, and is the only thing that decides whether a project runs its own
+  workflow. The central defect is fixed: a project that inherits and a project
+  with a deliberately empty workflow are now different rows, not the same
+  absence of rows.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. This session started on
-  `claude/docs-review-7d85xt`, which the environment had prescribed; nothing was
-  committed there. All work is on `claude/dev`.
+  `claude/docs-review-giaqq0`, which the environment had prescribed; nothing was
+  committed there.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open findings:** 10 of 16. Six were closed in WP0 (claude F04, F05;
-  external F02, F03, F05, F09). Every remaining one is scheduled into a work
-  package.
-- **Open choices:** none. Jan answered both of WP0's on 2026-08-26, keeping the
-  `CLAUDE.md` correction about `to_prepare` and keeping
-  `ActiveSupport::CurrentAttributes` as the request-scoped cache. Both were
-  already the implemented default, so nothing changed in the code.
-- **`spec/characterization/`:** four examples left, down from nine. They belong
-  to WP2 (`Tracker#issue_status_ids`, `Project#rolled_up_statuses`, the used
-  statuses filter) and WP3 (the summary page count). The plan is finished when
-  the directory is empty.
+- **Open choices:** none.
+- **`spec/characterization/`:** one file, four examples, all in
+  `known_issues_spec.rb`. They belong to WP2 (`Tracker#issue_status_ids`,
+  `Project#rolled_up_statuses`, the used-statuses filter) and WP3 (the summary
+  page count). The plan is finished when the directory is empty.
 
 ## What this session produced
 
-Six repairs, and two corrections to what the plan asked for.
+**The scope table.** `project_workflow_scopes` holds one row per (project,
+tracker, role, rule type). Its presence is the decision to run an own workflow;
+its absence is inheritance. Existing installations are backfilled — every
+(project, tracker, role) that had rules gets a scope of the matching type — so
+behaviour after the migration is the behaviour before it.
 
-**The repairs.** The project selector renders the SVG sprite core has expected
-since 6.0, so the workflow page's JavaScript no longer aborts on 6.x and 7.0.
-`duplicate` decides on the plugin's parameters rather than on a resolved
-project list, so "copy to the generic workflow only" stops falling through to
-core and ignoring the chosen source project. `load_project_options` renders
-nothing and reports what it rejected, so an invalid project id is a translated
-validation error or a clean 404 instead of a `DoubleRenderError`. Both writers
-whitelist rule names, cell values, field names and status ids against
-server-built lists, which restores validations core had and the plugin's
-routing had removed from the generic write path as well. `Thread.current` is
-gone. Patches are applied where a reload actually reaches them.
+**The resolver decides on scopes.** `Resolver`, `TransitionQuery`,
+`PermissionQuery` and `StatusListQuery` now ask the scope table, never "do any
+rows exist". The lookup is cached per request in
+`RedmineProjectWorkflows::Current`, keyed by (project, tracker, rule type), so
+an issue list of one tracker in one project costs one query rather than one per
+issue.
 
-**The two corrections**, both found by reading the host source and then booting
-it, and both recorded in the findings files and in `docs/DECISIONS.md`:
+**The three actions of INV-3**, in `ScopeWriter` and reachable from the two
+admin matrices through a panel above the grid: give the project its own workflow
+(a copy of the generic one, or empty), empty the matrix (the scope stays), and
+return to inheritance (scope and rules both go). The panel names the state in
+words — *Own workflow*, *Own empty workflow*, *Inherits the generic workflow* —
+and renders nothing at all when only the generic workflow is selected, so an
+administrator who does not use the plugin sees core's screens unchanged.
 
-1. **`config.to_prepare` is a silent no-op in a Redmine plugin's `init.rb`.**
-   `Rails::Application::Configuration#to_prepare` only appends to
-   `config.to_prepare_blocks`, and the `:add_to_prepare_blocks` initializer has
-   already consumed that array by the time Redmine's `PluginLoader` loads any
-   `init.rb` — which it does from inside a `to_prepare` block of its own. The
-   change was written as the plan asked, and a freshly booted 7.0 then reported
-   every patch missing while the suite stayed green, because `spec_helper.rb`
-   re-applied them itself. `apply_patches` is now called in the body of
-   `init.rb`, which *is* the reload window. `CLAUDE.md`'s forbidden-constructs
-   table prescribed the broken form and has been corrected.
-2. **Redmine 7.0 no longer bundles `request_store`.** The review called the
-   `Thread.current` branch dead code on that premise; on 7.0 it was the only
-   path the cache ever took. The cache is now
-   `RedmineProjectWorkflows::Current`, an `ActiveSupport::CurrentAttributes`
-   subclass, which Rails resets around every request on all three versions.
+**Two things came out differently from what the plan assumed.**
 
-**One defect nobody had found.** Dropping rejected entries before the delete
-rather than only before the insert also fixed this: a transitions cell whose
-three rules were all left at "no change" arrived at the writer as an empty rule
-hash, which still contributed to the delete predicate and then inserted
-nothing. "Leave this as it is" removed the transition. There is a regression
-test.
+1. **The fallback to core had to go entirely, not be narrowed.** The plan said
+   `override_active?` would become a lookup on the current project. Doing only
+   that would have sent every *inheriting* project through core's own query —
+   which carries no `project_id` predicate and would therefore have handed it
+   the rules of every other project. The old system-wide check was the only
+   thing hiding that. `Issue#new_statuses_allowed_to` and
+   `#workflow_rule_by_attribute` are now always answered by the plugin; both
+   core bodies are byte-identical across 5.1, 6.1 and 7.0, so reproducing them
+   is safe, and `override_active?` is gone from both query services.
+2. **The unique index on the scope table shipped here, not in WP2.** It is part
+   of the table `design.md` specifies and the backfill has to produce unique
+   rows anyway. WP2's remaining index work is the one on `workflows` itself.
+
+**One gap WP1 would otherwise have opened.** Once rules alone stop meaning
+"this project overrides", the copy screen's `duplicate` action writes rows that
+the resolver ignores. It now records a scope for what it copied — and only where
+the target actually has rules, because an empty *transitions* scope would stop
+every issue in that project from changing status. WP2 still owns the
+role/tracker copy path (`WorkflowRule.copy`).
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | 103 examples, 0 failures |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | 103 examples, 0 failures |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | 103 examples, 0 failures |
-| RuboCop | 43 files, no offences |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | 173 examples, 0 failures |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | 173 examples, 0 failures |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | 173 examples, 0 failures |
+| RuboCop | 54 files, no offences |
 | `zeitwerk:check` | "All is good!" on 5.1, 6.1 and 7.0 |
 | Migration reversibility up → 0 → up | clean on 5.1, 6.1 and 7.0, run before the suite |
-| New specs against the old code (`HEAD~1`) | 21 fail, including every inverted characterization example |
-| Patches installed by the host boot | verified with `rails runner` on 5.1 and 7.0, with `spec_helper`'s fallback removed |
-| CI, all nine cells + RuboCop | green on `35090347` (run 3) and again on `27229bd` (run 6), the branch head |
+| Backfill (`dev/check-backfill.sh`) | passes on 5.1, 6.1 and 7.0, run before the suite |
+| New specs against the old decision rule | 8 fail — see below |
+| Locale keys resolve, `en` and `nl` checked by hand | verified with `I18n.t` on a booted host, including the counted forms |
 
-MySQL and MariaDB could not be run locally: no server for either is available
-in this container and the packages could not be installed. CI covered those six
-cells and they are green, so the WP0 code is verified on all nine.
+**The failing-on-old-code check was made precise.** Reverting the whole of
+`lib/` produced noise (missing methods). Instead only the pre-ADR-001 *decision
+rule* was put back — `overridden_role_ids_for` asking `model.where(project_id:,
+tracker_id:, role_id:)` and `StatusListQuery` doing the same — leaving the rest
+of WP1 in place. Eight examples fail, and they are exactly the ones that state
+the three-state model: the two "ignores a project row when the project has no
+scope", the two "allows nothing for a scope without rules", "keeps the generic
+workflow when a project rule exists without a scope", "allows no transition at
+all when the scope is left without rules", "tells an empty own workflow apart
+from inheritance", and the resolver cache invalidation.
 
-Runs 4 and 5 show `cancelled` in the Actions list. That is the workflow's own
-`concurrency: cancel-in-progress` superseding a run when the next commit is
-pushed, not a failure — three small follow-up commits went out in quick
-succession. Run 6, on the branch head, is green. Batch such commits next time
-so the history reads cleanly.
+MySQL and MariaDB could not be run locally: no server for either is available in
+this container and the packages could not be installed. CI covers those six
+cells. **CI has not yet been observed green for this commit** — the push
+happened at the end of the session; the next session should check the run before
+building on it.
 
 ## Exact next step
 
-Start **WP1** from `docs/implementation-plan.md`: the `project_workflow_scopes`
-table, the model, the resolver rewrite and the backfill. This is the package
-everything after it depends on, and it is the one that fixes the defect the
-whole scope model exists for.
+Start **WP2** from `docs/implementation-plan.md`, and finish
+`spec/characterization/` while doing it. In order:
 
-Order within it: migration and backfill first (reversible, tested up → down →
-up **before** the suite runs), then `ProjectWorkflowScope`, then teach
-`Resolver`, `TransitionQuery`, `PermissionQuery` and `StatusListQuery` to decide
-on scopes instead of on row existence, then the writers, then the three actions
-in the admin screens. Finish by inverting the override-semantics examples in
-`spec/characterization/override_semantics_spec.rb`.
+1. `Project#rolled_up_statuses` loses the role filter and computes effective
+   statuses per project across the tree, then unions (external F08). This
+   inverts the `known_issues_spec.rb` example about member-less projects.
+2. The two `Issue` call sites that consult `Tracker#issue_status_ids` become
+   project-aware; the tracker method itself stays a global union (claude F02 —
+   read its `Resolution:` for why the obvious fix is wrong). Inverts the
+   `issue_status_ids` example.
+3. `WorkflowRule.copy` carries project rules **and their scopes**, so copying a
+   role or tracker produces a working copy (claude F03). The copy *screen* was
+   already handled in WP1; this is the role/tracker duplication path in core.
+4. The used-statuses filter in `WorkflowsController#find_statuses` — still row
+   based, still the last matrix query that ignores scopes. Inverts the
+   "used statuses filter" example.
+5. Index and idempotency work on `workflows` itself (external F06). The scope
+   table's unique index is already in place.
+6. Walk the remaining core queries against `workflows` (default data loader,
+   status deletion) and record the outcome in `design.md`.
 
 ## Known traps
 
-- **`Rails.application.config.to_prepare` in `init.rb` never runs.** See above.
-  Redmine loads `init.rb` from inside a `to_prepare` block, so the body of the
-  file is the hook. This one cost a whole review cycle to catch, because the
-  suite stayed green.
+Everything below cost time at least once. The first five are new this session.
+
+- **A migration's effect is invisible to the process that ran it.**
+  `connection.table_exists?` still answered `true` after `drop_table` in the
+  same `rails runner`, so a check written in one process proved nothing.
+  `dev/check-backfill.sh` therefore runs each step — migrate, seed, migrate
+  down, migrate up, assert — as its own process.
+- **PostgreSQL will not cast a text literal to a timestamp inside a `SELECT`
+  list.** `INSERT ... SELECT 'value', '2026-...'` fails with a
+  `DatatypeMismatch` where the same literal in a `VALUES` list is accepted. The
+  backfill uses `CURRENT_TIMESTAMP`, which every supported adapter spells the
+  same way and which Rails has already put in UTC.
+- **A spec that fails while creating a project poisons the database for later
+  runs.** `projects_trackers` is not in any spec's fixture list, so rows for a
+  project that was created and never destroyed survive; the `projects` sequence
+  then hands the same id to the next run and `Project.create!` dies on
+  `projects_trackers_unique`. If specs start failing that way, delete the
+  orphans: `DELETE FROM projects_trackers pt WHERE NOT EXISTS (SELECT 1 FROM
+  projects p WHERE p.id = pt.project_id)`.
+- **Redmine's I18n applies only the `one`/`other` plural forms to Polish.**
+  `few:` and `many:` entries are silently ignored, so a Polish plural has to be
+  phrased in a way that works for every count above one; `pl.yml` puts the
+  number after the noun for exactly that reason.
+- **A YAML value containing `": "` needs quoting.** The Polish rewrite above
+  broke the file until the two affected lines were quoted. `ruby -ryaml -e
+  'YAML.unsafe_load_file(ARGV[0])'` over `config/locales/*.yml` catches it.
+- **The Bash tool's working directory persists between calls.** A `cd` into
+  `.redmine/<version>` earlier in a session makes the next `python3` edit rewrite
+  the *host's* file rather than the plugin's. Prefix edits with an explicit
+  `cd /home/user/redmine_project_workflows &&`, or check `git status` afterwards.
+- **`dev/run.sh` always runs the whole spec directory.** Extra arguments are
+  appended to `plugins/redmine_project_workflows/spec`, and a path argument has
+  to be written relative to the *host* root
+  (`plugins/redmine_project_workflows/spec/...`), not the plugin root.
+- **`Rails.application.config.to_prepare` in `init.rb` never runs.** Redmine
+  loads `init.rb` from inside a `to_prepare` block, so the body of the file is
+  the hook.
 - **Never let `spec/spec_helper.rb` apply the patches itself.** The fallback
-  that did was removed for exactly that reason: it hid a change that left the
-  plugin doing nothing in a real installation.
+  that did was removed because it hid a change that left the plugin doing
+  nothing in a real installation.
 - **Redmine 7.0 has no `request_store`.** Use
   `RedmineProjectWorkflows::Current` for anything request-scoped, and reset it
   in specs — the Rails executor does not wrap an RSpec example, so
   `spec_helper` resets it before each one.
 - **The plugin is copied into the Redmine host, not symlinked.** The specs
   resolve `config/environment` relative to their own real path; through a
-  symlink that lands outside the host and every spec fails to load with
-  `cannot load such file -- /home/config/environment`. `dev/sync.sh` copies.
-- **Run the migration reversibility check before the suite.** Rails'
-  `maintain_test_schema` reloads `db/schema.rb` when the suite starts and wipes
-  the plugin's migration bookkeeping; after that `VERSION=0` silently does
-  nothing and proves nothing.
+  symlink that lands outside the host and every spec fails to load.
+  `dev/sync.sh` copies.
+- **Run the migration checks before the suite.** Rails' `maintain_test_schema`
+  reloads `db/schema.rb` when the suite starts and wipes the plugin's migration
+  bookkeeping; after that `VERSION=0` silently does nothing and proves nothing.
+  This applies to `dev/check-backfill.sh` too.
 - **`render_404` does not abort the action.** It renders and returns `false`.
   In a `before_action` Rails halts the chain, so core gets away with it; inside
   an action it does not, and the next render raises `DoubleRenderError`.
@@ -150,9 +196,12 @@ in the admin screens. Finish by inverting the override-semantics examples in
   empty status list that looks like a plugin bug. Create the second project in
   the spec rather than reusing a fixture whose memberships you have not read.
 - **Rails casts oddly in `where(id:)`.** `Project.where(id: ['1e5'])` returns
-  project 1, and `'01'` resolves to project 1 too. Both controllers therefore
-  check the *shape* of a project id (`/\A\d+\z/`) before querying, and compare
-  the resolved ids back against the strings that were sent.
+  project 1, and `'01'` resolves to project 1 too. Every controller therefore
+  checks the *shape* of an id (`/\A\d+\z/`) before querying, and compares the
+  resolved ids back against the strings that were sent.
+- **A workflow rule can make an issue invalid.** A generic `due_date required`
+  rule makes `Issue.create!` fail in a spec that arranges the rule before
+  creating the issue. Create the issue first, or use `Issue.new`.
 
 ## Development environment (rebuild from scratch in a fresh session)
 
@@ -170,17 +219,21 @@ dev/setup.sh 5.1-stable postgresql 3.2.6
 dev/setup.sh 6.1-stable postgresql 3.3.6
 dev/setup.sh 7.0-stable postgresql 3.3.6
 
+# the two migration gates, BEFORE the suite
+dev/check-backfill.sh .redmine/7.0-stable-postgresql 3.3.6
+
 # sync the working tree and run the suite
 RUBY_VERSION=3.3.6 dev/run.sh .redmine/7.0-stable-postgresql
 
 # lint (rubocop's binaries are not on PATH by default in this container)
 PATH="/opt/rbenv/versions/3.3.6/bin:$PATH" \
+  BUNDLE_GEMFILE=.github/lint/Gemfile bundle install
+PATH="/opt/rbenv/versions/3.3.6/bin:$PATH" \
   BUNDLE_GEMFILE=.github/lint/Gemfile bundle exec rubocop
 ```
 
 Ruby per version: 5.1 → 3.2, 6.1 and 7.0 → 3.3. `dev/README.md` has the
-prerequisites and the MySQL variant. `dev/setup.sh` and `dev/run.sh` now put
-rbenv's *shims* on `PATH` rather than assuming that finding `rbenv` is enough.
+prerequisites and the MySQL variant.
 
 ## Carrying on
 

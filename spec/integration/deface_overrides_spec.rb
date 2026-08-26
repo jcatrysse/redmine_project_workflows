@@ -37,6 +37,61 @@ describe WorkflowsController, type: :controller do
     expect(response.body).to include('target_project_ids')
   end
 
+  # WP1 / INV-9. The scope panel is anchored on div.autoscroll, the same element
+  # the hidden project fields use. It renders only when a real project is
+  # selected: the generic workflow has no scope, so an administrator who does
+  # not use the plugin keeps core's screens unchanged.
+  describe 'the scope panel' do
+    let(:project) { projects(:projects_001) }
+
+    it 'reaches the transitions page when a project is selected' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: [project.id.to_s], used_statuses_only: '0' }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('project-workflow-scope')
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_state_inherits)))
+      expect(response.body).to include('project_workflow_scopes')
+    end
+
+    it 'reaches the field permissions page when a project is selected' do
+      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
+                                  project_id: [project.id.to_s] }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('project-workflow-scope')
+      expect(response.body).to include('project_workflow_scopes')
+    end
+
+    it 'offers the two enable actions while the project inherits' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: [project.id.to_s], used_statuses_only: '0' }
+
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_enable_copy)))
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_enable_empty)))
+      expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inherit)))
+    end
+
+    it 'offers the empty and inherit actions once the project has a scope' do
+      give_own_workflow(project, tracker, role)
+
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: [project.id.to_s], used_statuses_only: '0' }
+
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_state_own_empty)))
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_clear)))
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inherit)))
+    end
+
+    it 'stays out of the way when only the generic workflow is selected' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: ['global'], used_statuses_only: '0' }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include('project-workflow-scope')
+    end
+  end
+
   # WP0 / claude F04. Since Redmine 6.0 core renders sprite_icon('') inside
   # every .toggle-multiselect span, and toggleMultiSelectIconInit() calls
   # updateSVGIcon($(this).find('svg')[0], iconType) for each of them. A span

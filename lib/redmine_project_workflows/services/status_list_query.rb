@@ -2,6 +2,11 @@
 
 module RedmineProjectWorkflows
   module Services
+    # Which statuses appear anywhere in the workflow of a project, per tracker.
+    #
+    # Which of the two populations a (tracker, role) reads comes from the scope
+    # table, never from whether rule rows exist. A project with a scope and no
+    # rules contributes nothing, which is what an empty workflow means.
     class StatusListQuery
       def self.status_ids_for_project(project:, trackers:, role_ids: nil)
         new(project: project, trackers: trackers, role_ids: role_ids).status_ids
@@ -39,10 +44,11 @@ module RedmineProjectWorkflows
       def build_scopes(role_ids)
         base_scope = WorkflowTransition.where('old_status_id <> new_status_id')
         tracker_ids = @trackers.map(&:id)
-        overrides = WorkflowTransition.where(
+        overrides = ProjectWorkflowScope.where(
           project_id: @project&.id,
           tracker_id: tracker_ids,
-          role_id: role_ids
+          role_id: role_ids,
+          rule_type: ProjectWorkflowScope::TRANSITIONS
         ).distinct.pluck(:tracker_id, :role_id)
 
         overridden_role_ids_by_tracker = Hash.new { |hash, key| hash[key] = [] }

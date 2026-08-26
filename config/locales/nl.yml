@@ -3,3 +3,38 @@ nl:
   error_workflow_copy_source_project: Selecteer een brontracker, rol en project.
   error_workflow_copy_target: Selecteer doeltrackers, rollen en projecten.
   error_workflow_copy_target_project: Een of meer geselecteerde doelprojecten bestaan niet.
+  label_project_workflow_scope: Workflow voor de geselecteerde projecten
+  label_project_workflow_state_inherits: Erft de algemene workflow
+  label_project_workflow_state_own: Eigen workflow
+  label_project_workflow_state_own_empty: Eigen lege workflow
+  label_project_workflow_count_own:
+    one: "%{count} eigen workflow"
+    other: "%{count} eigen workflows"
+  label_project_workflow_count_own_empty:
+    one: "%{count} eigen lege workflow"
+    other: "%{count} eigen lege workflows"
+  label_project_workflow_count_inherits:
+    one: "%{count} erft de algemene workflow"
+    other: "%{count} erven de algemene workflow"
+  button_project_workflow_enable_copy: Eigen workflow geven (kopie van de algemene)
+  button_project_workflow_enable_empty: Eigen lege workflow geven
+  button_project_workflow_clear: Deze workflow leegmaken
+  button_project_workflow_inherit: Terug naar de algemene workflow
+  text_project_workflow_scope_help: Een eigen workflow vervangt de algemene; hij wordt er nooit aan toegevoegd. Een eigen lege workflow staat niets toe.
+  text_project_workflow_enable_copy_confirm: Dit project een eigen workflow geven, als kopie van de algemene? Dit betreft %{count} combinatie(s) van project, tracker en rol.
+  text_project_workflow_enable_empty_confirm: Dit project een eigen, lege workflow geven? Er is niets toegestaan tot u regels toevoegt. Dit betreft %{count} combinatie(s) van project, tracker en rol.
+  text_project_workflow_clear_confirm: Alle regels uit deze workflow verwijderen? Het project houdt zijn eigen workflow, maar die staat niets toe.
+  text_project_workflow_inherit_confirm: Terug naar de algemene workflow? De eigen regels van het project worden verwijderd.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} workflow gekopieerd van de algemene."
+    other: "%{count} workflows gekopieerd van de algemene."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} eigen lege workflow aangemaakt."
+    other: "%{count} eigen lege workflows aangemaakt."
+  notice_project_workflow_inherited:
+    one: "%{count} workflow teruggezet naar de algemene."
+    other: "%{count} workflows teruggezet naar de algemene."
+  notice_project_workflow_emptied:
+    one: "%{count} workflow leeggemaakt."
+    other: "%{count} workflows leeggemaakt."
+  notice_project_workflow_scope_unchanged: Er hoefde niets gewijzigd te worden.

@@ -2,20 +2,13 @@
 
 module RedmineProjectWorkflows
   module Services
+    # The transitions half of the resolver: which statuses an issue may move to.
+    #
+    # This replaces IssueStatus.new_statuses_allowed rather than falling back to
+    # it. Core's query carries no project_id predicate, so it reads generic and
+    # project rows together and would hand a project its neighbours' rules
+    # (INV-4). Every scope built here names a project_id, nil included.
     class TransitionQuery
-      # Returns true when any project has overrides for this tracker/role
-      # combination. When true, the plugin path must be used instead of
-      # Redmine's native code because the native queries do not filter on
-      # project_id and would return contaminated results.
-      def self.override_active?(tracker_id:, role_ids:)
-        return false if tracker_id.blank? || role_ids.blank?
-
-        WorkflowTransition.where(
-          tracker_id: tracker_id,
-          role_id: role_ids
-        ).where.not(project_id: nil).exists?
-      end
-
       def self.allowed_statuses(issue:, user:, initial_status:, author:, assignee:)
         tracker = issue.tracker
         return [] unless tracker

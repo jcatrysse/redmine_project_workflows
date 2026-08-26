@@ -19,49 +19,55 @@ describe RedmineProjectWorkflows::Services::PermissionQuery do
 
 
 
-  it 'returns false when only global permissions exist' do
+  def global_rule(rule = 'required')
     WorkflowPermission.create!(
-      tracker_id: tracker.id,
-      role_id: role.id,
-      old_status_id: status.id,
-      field_name: 'subject',
-      rule: 'readonly',
-      project_id: nil
+      tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,
+      field_name: 'subject', rule: rule, project_id: nil
+    )
+  end
+
+  def rules_for(target = project)
+    issue = Issue.new(project: target, tracker: tracker, status: status, author: user)
+    described_class.rules_for(issue: issue, user: user, old_status_id: status.id)
+  end
+
+  it 'ignores a project row when the project has no scope' do
+    global_rule
+    WorkflowPermission.create!(
+      tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,
+      field_name: 'subject', rule: 'readonly', project_id: project.id
     )
 
-    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(false)
+    expect(rules_for.map(&:rule)).to eq(['required'])
   end
 
-  it 'returns false when no permissions exist at all' do
-    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(false)
-  end
-
-  it 'detects permission overrides when they exist on another project for the same tracker and role' do
+  # INV-4: a neighbour's rows are never part of this project's answer.
+  it 'never reads another project rows' do
+    global_rule
     WorkflowPermission.create!(
-      tracker_id: tracker.id,
-      role_id: role.id,
-      old_status_id: status.id,
-      field_name: 'subject',
-      rule: 'readonly',
-      project_id: projects(:projects_002).id
+      tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,
+      field_name: 'subject', rule: 'readonly', project_id: projects(:projects_002).id
     )
 
-    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(true)
-  end
-  it 'detects project overrides for permissions' do
-    WorkflowPermission.create!(
-      tracker_id: tracker.id,
-      role_id: role.id,
-      old_status_id: status.id,
-      field_name: 'subject',
-      rule: 'readonly',
-      project_id: project.id
-    )
-
-    expect(described_class.override_active?(tracker_id: tracker.id, role_ids: [role.id])).to be(true)
+    expect(rules_for.map(&:rule)).to eq(['required'])
   end
 
-  it 'returns project rules when overrides exist' do
+  it 'applies no rule at all for a permissions scope without rules' do
+    global_rule
+    give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+
+    expect(rules_for).to eq([])
+  end
+
+  it 'is not affected by a transitions scope' do
+    global_rule
+    give_own_workflow(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)
+
+    expect(rules_for.map(&:rule)).to eq(['required'])
+  end
+
+  it 'returns project rules for a scoped role' do
+    give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
     WorkflowPermission.create!(
       tracker_id: tracker.id,
       role_id: role.id,
