@@ -113,7 +113,7 @@ all eight locale files; and version-conditional code was already behind
 | `dev/check-backfill.sh` | passes on 7.0 + PostgreSQL |
 | Locale parity | eight files, **74** keys each (was 53) |
 | Independent review | run in a **fresh subagent**, twice — for WP6 and for WP7. First session where the mechanism was available. Both sets of findings are fixed; see below |
-| CI | run **45 green on all nine cells plus RuboCop** for commit `f65dc48`. Runs 36 through 43 were green too; **44 reads "cancelled" because 45 superseded it** — that is the concurrency group, not a failure. The runs for the two commits after `f65dc48` were still in flight when this file was written — **check the head's run first** |
+| CI | run **48 green on all ten jobs — nine cells plus RuboCop** — on commit `6a3dbdd`, every cell through the migration reversibility, backfill, zeitwerk and spec gates. Runs 43, 45 and 46 were green too; **44 and 47 read "cancelled" because the next push superseded them** — that is the concurrency group, not a failure |
 | New specs against the old code | measured, twelve-plus-five-row table below |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done by
@@ -214,13 +214,10 @@ good are already written down there:
 3. **Lazily, from an action of its own.** The issue form gets a link and runs no
    extra query; the resolver's hot path is untouched (G6).
 
-**Check the head's CI run first.** Run 45 is green on all nine cells for
-`f65dc48`; the two commits after it (STATE.md, and the WP7 review fixes) were
-still in flight when this file was written. Everything in them ran locally on all
-three Redmine versions first, and neither changes behaviour — the review fixes are
-prose, one line rewrap and one comment — but read the *head's* run rather than the
-newest completed one. A run reading "cancelled" is the concurrency group
-superseding it after the next push.
+**Nothing to check first.** CI run 48 is green on all ten jobs for commit
+`6a3dbdd`, and the only commit after it is the line above recording that. (A run
+reading "cancelled" is the concurrency group superseding it after the next push;
+read the *head's* run, not the newest completed one.)
 
 ## Known traps
 
