@@ -19,6 +19,12 @@
   committed there.
 - **`main`:** unchanged. Jan asks for the merge himself.
 - **Open choices:** none.
+- **Open findings:** 8 of 16. WP1 closed external F01 (an empty project override
+  cannot be represented — the finding the whole scope model exists for) and
+  external F07 (the hot-path override check is system-wide and badly indexed).
+  External F06's scope-table half is done; its `workflows` half stays in WP2.
+  External F04's `Resolution:` pointed at WP1 and now points at WP2, where the
+  plan and the characterization file always put it.
 - **`spec/characterization/`:** one file, four examples, all in
   `known_issues_spec.rb`. They belong to WP2 (`Tracker#issue_status_ids`,
   `Project#rolled_up_statuses`, the used-statuses filter) and WP3 (the summary
