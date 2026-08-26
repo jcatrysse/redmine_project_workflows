@@ -96,6 +96,7 @@ task description seems to ask for it.
 | `render_404` (or any render) without a `performed?` guard after it | it renders and returns `false`; execution continues into a second render | `return if performed?` |
 | English text pasted into a non-English locale file | it reads as translated and never gets fixed | leave the key out, or mark it |
 | a new Deface anchor without a spec asserting it matches | INV-9 | add the assertion in the same commit |
+| a module `include`d into a controller with any public method | every public instance method of a controller is an **action**, so it becomes routable and unauthorized | make every method `private`, or make it a helper and `helper Mod` it in |
 
 ## Working rules
 

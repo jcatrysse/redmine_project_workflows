@@ -111,6 +111,7 @@
 | 2026-08-26 | WP4 | A scope action carries a `back_url` from the tab and none from a matrix | So an action taken on the tab comes back to the tab and one taken on a matrix stays on that matrix. Redmine's `redirect_back_or_default` validates the value, so a crafted one falls back to the matrix. |
 | 2026-08-26 | WP4 | `spec/models/project_statuses_spec.rb` now declares the `projects_trackers` fixture, and its scoped-roles example moved to a leaf project | It was passing on whatever the previous spec file had left in that table, and its assertion — that the generic status is *absent* — is only true for a project with no descendants, because a scope on a parent says nothing about its children (INV-6). The third spec in this project found to be passing for a reason it never stated. |
 | 2026-08-26 | WP4 | Locale parity is a spec now, not a hand check | `spec/locales_spec.rb` asserts that all eight files parse and carry exactly the same keys. It was checked by hand at the end of every session until now, which is precisely the kind of gate that eventually gets skipped. |
+| 2026-08-26 | WP4 | The forbidden-constructs table in `CLAUDE.md` gains a row for a module `include`d into a controller | Every public instance method of a controller is an action, so such a module makes its methods routable and unauthorized. It has come up twice now — `WorkflowsControllerProjectSelection` in WP3, and `ProjectWorkflowsHelper` in WP4, where the fix was `helper` rather than `include`. |
 
 ## Open — for Jan
 
