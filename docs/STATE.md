@@ -20,10 +20,9 @@
   found the local branch 36 commits behind the remote after checkout, and worked
   against WP4-era files for one tool call before noticing.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open choices:** **one**. WP7 raised the declared minimum Redmine version from
-  5.0 to 5.1; the options and a recommendation are in `docs/DECISIONS.md` under
-  "Open — for Jan". Not urgent, and it is in place already. WP8's renderer
-  question was answered **C** and has moved up.
+- **Open choices:** **none.** WP7's (the declared minimum Redmine version) was
+  answered **A** — keep 5.1 — and WP8's renderer question **C**; both have moved
+  up in `docs/DECISIONS.md`.
 - **Open findings:** **2**, both left deliberately: G02 (a cross-project bulk
   tracker change is two queries per project where core is one — WP6 confirmed
   WP2's reasoning rather than overturning it) and G03 (`Issue#project=`, which
@@ -189,9 +188,15 @@ returns the adapter's result object.
 ## Exact next step
 
 **WP8** — the status help and the transition map on the issue form. Jan asked for
-it in a session of its own, and the renderer question is settled: **option C**,
-the local "from here" view, a `table.list` of *from → to → condition*, **no
-drawing**. `docs/implementation-plan.md`'s WP8 section is the route and
+it in a session of its own, and both of its open questions are settled: the
+renderer is **option C** — the local "from here" view, a `table.list` of
+*from → to → condition*, **no drawing** — and the panel must **say which of the
+three states it is describing**, per role, with a permission-gated link to where
+that workflow is edited. Jan added the second one after reading the spec; it is
+the first thing somebody debugging *why can I not close this issue* needs, and the
+*own empty workflow* case is the one where it stops being a convenience, because
+an empty status dropdown with no explanation is indistinguishable from a broken
+plugin. `docs/implementation-plan.md`'s WP8 section is the route and
 `docs/design.md`'s "Telling the end user what the workflow is (WP8)" is the
 target. Read both before starting; the three things that decide whether it is any
 good are already written down there:
@@ -213,6 +218,11 @@ good are already written down there:
    reason — core's own `transition_warning` sentence where core has one.
 3. **Lazily, from an action of its own.** The issue form gets a link and runs no
    extra query; the resolver's hot path is untouched (G6).
+4. **Name the workflow, in the plugin's existing words.** *Own workflow*, *Own
+   empty workflow*, *Inherits the generic workflow* (INV-3) — the same three the
+   settings tab, the inventory and the comparison screen use, because a fourth
+   phrasing for the same states would make two screens look like they describe
+   different mechanisms.
 
 **Nothing to check first.** CI run 48 is green on all ten jobs for commit
 `6a3dbdd`, and the only commit after it is the line above recording that. (A run
