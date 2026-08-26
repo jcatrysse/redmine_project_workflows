@@ -125,7 +125,7 @@ exactly how this kind of thing hides. All five now declare the fixture.
 | Locale parity | all eight files carry all 34 keys, none missing and none extra; every file parses |
 | Independent review | run in this context rather than a fresh one — see "Known traps" |
 | New specs against the old code | see below |
-| CI | **not yet run for WP3** — the commit is being pushed now |
+| CI | **run 24 is green on all nine cells plus RuboCop**, on the branch head `e459218` — Redmine 5.1, 6.1 and 7.0 × PostgreSQL, MySQL and MariaDB |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done
 by putting one thing back and leaving the rest of WP3 in place:
