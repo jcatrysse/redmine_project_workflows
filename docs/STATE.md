@@ -133,7 +133,7 @@ page after a failed save, which no longer needs handling of its own.
 | Locale parity | now a spec, green on all three hosts: eight files, 45 keys each |
 | Independent review | run in this context rather than a fresh one — see "Known traps" |
 | New specs against the old code | see below |
-| CI | run 28 was green on all nine cells plus RuboCop for `aeb994e`; the tab-attachment fix landed after it, so **check the run on the current head**. (A run reading "cancelled" is the concurrency group superseding it after the next push — not a failure, and easy to misread.) |
+| CI | **run 30 is green on all nine cells plus RuboCop**, on the branch head `778d974` — Redmine 5.1, 6.1 and 7.0 × PostgreSQL, MySQL and MariaDB. (A run reading "cancelled" is the concurrency group superseding it after the next push — not a failure, and easy to misread.) |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done
 by putting one thing back and leaving the rest of WP4 in place:
