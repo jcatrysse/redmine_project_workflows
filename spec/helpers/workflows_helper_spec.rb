@@ -44,4 +44,41 @@ describe WorkflowsHelper, type: :helper do
 
     expect(html).to include('type="checkbox"')
   end
+
+  # WP1. Three states have to stay tellable apart (INV-3), and a mixed selection
+  # names only the states it actually contains -- a zero count is noise.
+  describe '#project_workflow_scope_state_tag' do
+    def state_for(projects)
+      RedmineProjectWorkflows::Services::ScopeState.new(
+        project_ids: projects, tracker_ids: [tracker], role_ids: [role],
+        rule_type: ProjectWorkflowScope::TRANSITIONS
+      )
+    end
+
+    before do
+      WorkflowRule.delete_all
+      ProjectWorkflowScope.delete_all
+    end
+
+    it 'names a uniform selection in words' do
+      give_own_workflow(project, tracker, role)
+
+      expect(helper.project_workflow_scope_state_tag(state_for([project])))
+        .to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_state_own_empty)))
+    end
+
+    it 'leaves a zero count out of a mixed selection' do
+      give_own_workflow(project, tracker, role)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
+                                 old_status_id: status.id, new_status_id: new_status.id)
+      give_own_workflow(other_project, tracker, role)
+
+      html = helper.project_workflow_scope_state_tag(state_for([project, other_project]))
+
+      expect(html).to include(I18n.t(:label_project_workflow_count_own, count: 1))
+      expect(html).to include(I18n.t(:label_project_workflow_count_own_empty, count: 1))
+      # Nothing in this selection inherits, so nothing says so.
+      expect(html).not_to include(I18n.t(:label_project_workflow_count_inherits, count: 0))
+    end
+  end
 end

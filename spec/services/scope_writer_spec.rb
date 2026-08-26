@@ -150,6 +150,14 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       expect(WorkflowTransition.where(project_id: nil).count).to eq(1)
     end
 
+    it 'records who emptied it' do
+      give_own_workflow(project, tracker, role)
+
+      call(:clear_rules, user: users(:users_002))
+
+      expect(ProjectWorkflowScope.first.updated_by_id).to eq(users(:users_002).id)
+    end
+
     # Emptying a matrix the project does not own would read as a change while
     # leaving it inheriting -- exactly the confusion the scope table ends.
     it 'does nothing when the project has no scope' do

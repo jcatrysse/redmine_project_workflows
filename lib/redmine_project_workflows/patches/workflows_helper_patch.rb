@@ -53,11 +53,14 @@ module RedmineProjectWorkflows
           when :own then l(:label_project_workflow_state_own)
           when :own_empty then l(:label_project_workflow_state_own_empty)
           else
-            [
-              l(:label_project_workflow_count_own, count: state.own),
-              l(:label_project_workflow_count_own_empty, count: state.own_empty),
-              l(:label_project_workflow_count_inherits, count: state.inheriting)
-            ].join(', ')
+            # A mixed selection names only the states it actually contains --
+            # "0 own empty workflows" is noise, not information.
+            {
+              label_project_workflow_count_own: state.own,
+              label_project_workflow_count_own_empty: state.own_empty,
+              label_project_workflow_count_inherits: state.inheriting
+            }.reject { |_key, count| count.zero? }
+             .map { |key, count| l(key, count: count) }.join(', ')
           end
         content_tag(:span, text, class: "project-workflow-scope-state #{state.state}")
       end

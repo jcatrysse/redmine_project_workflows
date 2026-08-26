@@ -83,6 +83,17 @@ describe WorkflowsController, type: :controller do
       expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inherit)))
     end
 
+    # 'all' has to stay 'all' in the action links: expanding it would put every
+    # project id into the URL.
+    it 'keeps the whole-selection keyword in its links' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: ['all'], used_statuses_only: '0' }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('project-workflow-scope')
+      expect(response.body).to match(/project_workflow_scopes\?[^"']*project_id(%5B%5D|\[\])=all/)
+    end
+
     it 'stays out of the way when only the generic workflow is selected' do
       get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
                            project_id: ['global'], used_statuses_only: '0' }

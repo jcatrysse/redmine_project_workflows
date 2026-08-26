@@ -89,6 +89,17 @@ describe RedmineProjectWorkflows::Services::ScopeState do
     expect(state.state).to eq(:own_empty)
   end
 
+  it 'names only the states a mixed selection actually contains' do
+    give_own_workflow(project, tracker, role)
+    project_rule(project)
+    give_own_workflow(other, tracker, role)
+
+    result = state(projects: [project, other])
+
+    expect(result.state).to eq(:mixed)
+    expect([result.own, result.own_empty, result.inheriting]).to eq([1, 1, 0])
+  end
+
   it 'counts the other rule type separately' do
     give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
 
