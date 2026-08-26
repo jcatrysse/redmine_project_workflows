@@ -6,232 +6,299 @@
 
 ## Current position
 
-- **Work package:** WP0 through **WP7** are **done**. **WP8** is the only one
-  left, and Jan asked for it in a session of its own. All of them are in
-  `docs/implementation-plan.md`, which runs WP0..WP8.
+- **Work package:** WP0 through **WP8** are **done**. `docs/implementation-plan.md`
+  runs WP0..WP8 and every row of its table now reads *done*. The plan's own
+  Definition of Done is met: `spec/characterization/` is empty, a project
+  administrator can give their project its own workflow and see at a glance which
+  projects deviate, and the README describes what the plugin actually does.
 - **What exists:** the plugin at **0.1.0** — the scope model (WP1), the core
   seams (WP2), the per-scope summary page and inventory (WP3), the Workflow tab
   in project settings behind two permissions (WP4), row and column actions on
   every transition matrix (WP5), an audit trail, a project-versus-generic
-  comparison screen and a counter with undo (WP6), and as of this session the
-  documentation, locale and release pass (WP7).
+  comparison screen and a counter with undo (WP6), the documentation, locale and
+  release pass (WP7), and as of this session the **workflow panel on the issue
+  form** (WP8).
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. It overrides whatever name the
-  environment gives a session. **Pull before you start** — a previous session
-  found the local branch 36 commits behind the remote after checkout, and worked
-  against WP4-era files for one tool call before noticing.
+  environment gives a session — this one started on `claude/docs-review-k1nd4o`
+  and checked out `claude/dev` before touching anything. **Pull before you
+  start**, and note that the *local* ref can be stale even when the remote is
+  current: this session found local `claude/dev` on a five-commit divergent
+  history while `origin/claude/dev` was the real head. `git checkout -B claude/dev
+  origin/claude/dev` is the safe form.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open choices:** **none.** WP7's (the declared minimum Redmine version) was
-  answered **A** — keep 5.1 — and WP8's renderer question **C**; both have moved
-  up in `docs/DECISIONS.md`.
-- **Open findings:** **2**, both left deliberately: G02 (a cross-project bulk
-  tracker change is two queries per project where core is one — WP6 confirmed
-  WP2's reasoning rather than overturning it) and G03 (`Issue#project=`, which
-  behaves as core does). F11 is **fixed** by WP7 and carries a `Resolution:` line
-  saying what it got right and what another package had already done. One more is
-  wont-fix (G04). `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` lists
-  them, plus one line from `TEMPLATE.md` that is not a finding.
+- **Open choices:** **two**, both logged in `docs/DECISIONS.md` under
+  "Open — for Jan", both with a safe default already in place. Neither blocks
+  anything: (1) does WP8 go inside the 0.1.0 changelog entry or does the plugin
+  become 0.2.0, and (2) the six non-`en`/`nl` locale files are fully translated
+  where `CLAUDE.md` says they only carry the keys — which is the rule?
+- **Open findings:** **2**, both left deliberately and unchanged by this session:
+  G02 (a cross-project bulk tracker change is two queries per project where core
+  is one) and G03 (`Issue#project=`, which behaves as core does).
+  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` lists them, plus one
+  line from `TEMPLATE.md` that is not a finding.
 - **`spec/characterization/`:** still **gone**, since WP3. The convention stands
   and is written down in `dev/README.md`: a defect that is found but not yet
   fixed is pinned there first.
 
 ## What this session produced
 
-### WP6 — compare, audit, undo
+### WP8 — the workflow panel on the issue form
 
-**Who last changed this workflow.** The scope table has carried
-`created_by_id`/`updated_by_id` since WP1 and nothing maintained them on the
-ordinary edit path: `ScopeWriter.ensure_scopes`, which every project matrix save
-goes through, deliberately left an existing scope alone. `touch_scopes` is the
-stamp, called *before* the create so a row inserted by the same call is not
-stamped twice; the copy screen stamps too. The two halves stay apart on purpose —
-`created_*` records who decided the project runs its own workflow, `updated_*`
-who last changed the rules. The sentence on screen is core's own `authoring`
-helper with `label_updated_time_by`, so it needed **no locale key of its own**.
+Six commits, `4f2c3cf` through `6bc67c1`.
 
-**A project's workflow against the generic one.** `Services::WorkflowComparison`,
-a `compare` action, a screen, and links from the settings tab, either matrix
-header and the administration inventory — all three built by one helper. The unit
-of comparison is **core's grid, not the stored row**: `WorkflowsController#edit`
-partitions transitions with `reject { author || assignee }`, `select(&:author)`
-and `select(&:assignee)`, so a row with both flags set is in two grids at once.
-Field permissions carry each side's rules as a **list**, because two rows for the
-same (status, field) that disagree are possible and picking one would make the
-page depend on the order the database returned them.
+**The half that was already true, and now has proof.** Redmine core ships a
+status help icon on the issue form on all three supported versions: an
+`icon-help` link opening `#issue_statuses_description`, a `<dl>` of status name
+and `IssueStatus#description`. It lists `@allowed_statuses`, which is
+`Issue#new_statuses_allowed_to` — the method this plugin replaces in full — so it
+was **already** describing the project's own effective workflow. WP8's job there
+was specs (`spec/integration/issue_status_help_spec.rb`: it must never name a
+status only another project's rules reach, INV-4) and a README paragraph pointing
+administrators at *Administration → Issue statuses → Description*, because the
+icon is invisible until somebody fills those in.
 
-**A counter and an undo.** WP5's actions already changed only the screen; nothing
-on the page said so. There is now a region above the matrix with the count, the
-workflow rules it costs, an Undo and the sentence that nothing is saved until
-Save is pressed. The undo is a **stack** and restores the value each control held
-*before the action* — not the value the page was opened with, which is what "no
-change" already means. No new Deface anchor, so the **INV-9 count stays at
-thirteen in eleven files**.
+**The half that is new.** `Services::TransitionMapQuery`,
+`ProjectWorkflowMapsController`, two Deface overrides on `issues/_attributes`,
+and a `table.list` panel — option **C**, the local "from here" view, no drawing.
+It says three things, in the order somebody debugging *why can I not close this
+issue* needs them:
 
-### WP7 — documentation, locales, release
+1. **Which of the three states of INV-3 governs the reader**, in the plugin's
+   existing words, **per role** — because resolution is per role and what the
+   form shows is the union — with a link to where that workflow is changed,
+   gated on the very action the target authorizes. A combination the project
+   inherits sends an administrator to *Administration → Workflow* instead,
+   pre-filled, because the generic workflow is the one that governs there.
+2. **What the workflow allows from here**, with what each move requires and
+   whether the status list is offering it *now*.
+3. **What leads into the current status.**
 
-Four of six bullets were real work. **Two were already true and the plan says so
-rather than claiming them:** the terminology (*Generic workflow*, *Own workflow*,
-*Inherits the generic workflow*) is what WP3, WP4 and WP5 used as they went, in
-all eight locale files; and version-conditional code was already behind
-`VersionHelper`.
+**No permission of its own, and a controller of its own for that reason.** The
+panel reveals the workflow governing an issue the reader is already looking at,
+so `Issue.visible` is the whole authorization for a saved issue and the project
+plus `add_issues` for the new-issue form. Every action on
+`ProjectWorkflowsController` is behind `view_project_workflow`, and requiring
+that here would hide the panel from the people it is for.
 
-- **The README** gained *What to know before you install it* (F11, and more than
-  it listed), a section on what a selection of several projects does when you save
-  — F11's one remaining gap, and the case that writes the most rules from one
-  click — and *Upgrading and uninstalling*, which is the part with teeth: what the
-  backfill does, and that `VERSION=0` **deletes every project-specific rule**
-  before dropping the column, deliberately, because dropping the column with
-  those rows still there would leave stock Redmine reading each of them as a
-  *generic* rule.
-- **0.1.0**, with a CHANGELOG that reads as a release rather than a diff, and the
-  entries reordered newest-first.
-- **The declared minimum moved from Redmine 5.0 to 5.1.** Nothing had ever tested
-  5.0 and the README said so. Logged as an open choice with the default in place.
-- **`.rubocop_todo.yml`: 198 offences in 21 files down to 48 in 8**, annotated by
-  hand rather than generated and left. The file's own header names the three
-  groups the rest falls into: the four patch files whose method bodies are core's
-  (refactoring them for a metric destroys the property that lets you diff them
-  against a real checkout), `insert_all`/`update_all` in the writers (INV-2 — the
-  writer *is* the validation), and three single offences where the cop's fix would
-  be wrong. One was worth fixing rather than excluding:
-  `TransitionWriter.transition_row` took seven positional parameters ending in two
-  booleans, and is now keyword arguments.
-- **A new gate:** `init.rb`'s version and the newest `CHANGELOG.md` heading are
-  asserted to agree. Reverting the version bump alone left the suite green, which
-  is exactly the drift worth catching.
+**The honesty clause is the part that decides whether this helps or hurts.**
+`new_statuses_allowed_to` does more than read the workflow — it drops closed
+statuses for an issue that cannot be closed, open ones for one that cannot be
+reopened, and filters the author and assignee variants by who the reader is. So
+the panel shows those edges *and* marks them withheld, with the reason: core's
+own `Issue#transition_warning` sentence where core has one, the plugin's where
+the reason is the reader's identity. `Services::TransitionMapQuery::Availability`
+is that clause, in a class of its own.
+
+**The one thing that made this more than a convenience, found by probing rather
+than reasoning.** `new_statuses_allowed_to` appends the issue's own status to its
+answer *only when the workflow permitted something*. So a project with its own
+**empty** workflow does not give the reader an empty dropdown — it gives them
+**no status control at all**, because `issues/_attributes` renders the select
+only `if @allowed_statuses.present?` and otherwise falls back to a plain
+`<p><label>Status</label> New</p>`. No select, no help icon, no modal, nothing
+anywhere on the form saying why.
+
+The first version of the Deface override anchored on `f.select :status_id`, which
+lives *inside* that `if`. So the panel was unreachable in exactly the case it
+exists for, and three documents said the opposite. Fixed in `0a8b9bc` with a
+second override on core's `l(:field_status)` expression — unique in the file and
+byte-identical on 5.1, 6.1 and 7.0. **The independent review then found the wider
+trigger:** the same branch is taken on a plain generic workflow with **no plugin
+scope anywhere**, for any status with nothing leading out of it. A terminal
+*Closed* does it. So that branch is not a plugin corner at all; it is where a
+reader is most likely to want the panel.
+
+**INV-9 count: 13 → 15**, in twelve files. Updated in `CLAUDE.md`,
+`docs/design.md` and the spec's own comment, as the invariant requires.
+
+### What the independent review caught
+
+Run in a **fresh subagent**, against a pristine copy of the first WP8 commit in
+three private hosts of its own — which is why it could confirm the reported
+numbers by running them rather than trusting them. Worth reading before the next
+one, because the pattern repeats: **it reproduced things rather than reasoning
+about them, and that is where all six findings came from.**
+
+- The **blocker** was the override defect above, which had already been fixed by
+  the time the review landed — but it found the wider trigger the fix happens to
+  cover and the documents did not mention.
+- The one **real latent** finding, fixed the *other way round* from the fix
+  suggested. `TransitionMapQuery` took a `tracker:`, queried the edges for it,
+  and still read the status and the status list off the issue — consistent only
+  because the controller applied the form's tracker before calling. The reviewer
+  demonstrated a map whose edges and whose "offered now" column described two
+  different trackers. Moving the assignment *into* the query would have closed
+  it; the argument is **gone** instead, because a query object that mutates its
+  argument is worse. The only tracker the map can describe is now the issue's.
+- Four **minors**, all real: a row naming a deleted status sorted into core's
+  "new issue" slot ahead of every real status (`position_of` returned -1 for any
+  nil record — and its comment said -1 meant the new-issue node, so the comment
+  was wrong about its own code); the override's comment gave the global
+  new-issue form as its example of "no project yet", where core in fact
+  preselects one so the link does render; the single "open this workflow" link in
+  the roles-agree branch had no note saying why the first role is enough; and the
+  query-count example grew the number of *statuses* under **one** role, so it
+  never exercised the two-population split it was meant to guard.
+- One item for Jan rather than code: the six non-`en`/`nl` locale files are fully
+  translated where `CLAUDE.md` says they only carry the keys. Logged with the
+  trade — unreviewed translation presented as translation is a different risk
+  from an obviously-missing key.
+
+**What the review confirmed by running it**, and is therefore worth not
+re-deriving: twelve authorization probes, none of which widened a scope with any
+request parameter; a twelve-arrangement differential between the map's
+"available" edges and `new_statuses_allowed_to` with **zero** discrepancies once
+the tracker is applied; that `get :edit` costs **62 queries with the override
+loaded and 62 with the override file removed**, which is the G6 claim; that
+core's `issues/_issue_status_description` contains no nested `<div>`, so the
+spec's modal-extracting regex really does capture the whole modal; and that the
+API, PDF, JSON, XML, CSV and bulk-edit paths never render `issues/_attributes`,
+so nothing there regressed.
+
+**What it could not run, and did not claim:** MySQL and MariaDB. There is no such
+host on disk in this container and no `mysqld` binary. Three of the nine CI cells
+are therefore unverified locally for WP8; CI covers them.
+
+### What the QA pass added on its own
+
+Seven failure modes had no test, written down first and then checked one by one:
+an issue assigned to a **group** the reader belongs to (core treats that as
+assigned to them, so an assignee-only move is on offer — needs
+`Setting.issue_group_assignment`, which is cached on the class); a reader who is
+**both** author and assignee; a row naming a **deleted** status; a **tracker
+change the form has made**, asserted against the status list itself rather than
+against a status the spec chose; an issue in an **archived** project (404,
+because `Issue.visible` restricts a read permission to active or closed
+projects — not 403, which is what the new-issue path gives); an issue in a
+**closed** project (still described, because reading a workflow is a read
+action); and the `update_issue_form` round trip — `edit_issue_path(issue,
+format: 'js')`, which is what core's status and tracker selects post to.
+
+### Two invariant repairs in my own code
+
+- **INV-4 made structural rather than merely true.** The edge query built a
+  shared base relation carrying only the tracker and added a `project_id` to each
+  population derived from it. Never executed on its own, so the invariant held —
+  but only by accident of nobody having had a reason to execute it. One method
+  builds a relation on `workflows` there now, and it cannot be called without
+  naming a `project_id`.
+- **The class crossed RuboCop's length limit**, and the limit was crossed by
+  comments explaining a mixed-concern class. Extracting `Availability` was the
+  right fix rather than a new `.rubocop_todo.yml` entry.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | 484 examples, 0 failures |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | 484 examples, 0 failures |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | 484 examples, 0 failures |
-| RuboCop | 82 files, no offences. The todo is 48 offences in 8 files, down from 198 in 21, and every remaining entry carries a reason |
-| `node dev/check-bulk-js.mjs` | **32** checks, all ok (was 16) |
-| Migration reversibility up → 0 → up | clean on 7.0, run **before** the suite |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **566 examples, 0 failures** (was 484) |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **566 examples, 0 failures** |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **566 examples, 0 failures** |
+| RuboCop | 91 files, no offences, and **no new `.rubocop_todo.yml` entry** — the one offence WP8 produced was fixed by extracting a class, not excluded |
+| `zeitwerk:check` | passes on all three hosts |
+| Migration up → 0 → up | clean, run **before** the suites, and verified by inspection afterwards: `workflows.project_id` absent and no `project_workflow_*` table left behind. WP8 adds no migration |
 | `dev/check-backfill.sh` | passes on 7.0 + PostgreSQL |
-| Locale parity | eight files, **74** keys each (was 53) |
-| Independent review | run in a **fresh subagent**, twice — for WP6 and for WP7. First session where the mechanism was available. Both sets of findings are fixed; see below |
-| CI | run **48 green on all ten jobs — nine cells plus RuboCop** — on commit `6a3dbdd`, every cell through the migration reversibility, backfill, zeitwerk and spec gates. Runs 43, 45 and 46 were green too; **44 and 47 read "cancelled" because the next push superseded them** — that is the concurrency group, not a failure |
-| New specs against the old code | measured, twelve-plus-five-row table below |
+| `node dev/check-bulk-js.mjs` | 32 checks, all ok |
+| Locale parity | eight files, **91** keys each (was 74) |
+| Independent review | run in a **fresh subagent**, against a pristine copy of the commit in three hosts of its own. Six findings, all acted on; see above |
+| The map's query cost | **five**, measured on all three versions, and the same five for a workflow three times the size. The example asserts six as the ceiling |
+| CI | **not yet run for WP8.** The last green run is 48, on `6a3dbdd`, which is pre-WP8. Six commits have been pushed since |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done by
 putting one file back to its state before the commit and leaving the rest in
-place, against the full suite on 7.0. The working tree was **committed first**, so
-the restore afterwards is exact.
+place, against the full suite on 7.0. The working tree was **committed first**,
+so the restore afterwards is exact.
 
 | Reverted | Fails |
 | --- | --- |
-| `services/scope_writer.rb` (the audit stamp) | 5 |
-| `services/inventory_query.rb` (the audit pair in the cell) | 19 |
-| `helpers/project_workflows_helper.rb` | 37 |
-| the inventory's index view | 1 |
-| the settings tab partial | 1 |
-| `services/workflow_comparison.rb` | the suite does not load |
-| `views/project_workflows/compare.html.erb` | 6 |
-| `init.rb` (the permission mapping) | 10 |
-| `config/routes.rb` | 29 |
-| `_matrix_header.html.erb` | 1 |
-| `_bulk_undo.html.erb` | 22 |
-| `_matrix_note.html.erb` | 2 |
-| the review fixes: `workflow_comparison.rb` / `scope_writer.rb` | 8 / 1 |
-| the review fixes: controller / view / helper | 3 / 3 / 3 |
+| `services/transition_map_query.rb` | the suite does not load |
+| `controllers/project_workflow_maps_controller.rb` | the suite does not load |
+| `helpers/project_workflow_maps_helper.rb` | the suite does not load |
+| `patches/issues_controller_patch.rb` | the suite does not load |
+| `config/routes.rb` | 28 |
+| `views/project_workflow_maps/_map.html.erb` | 13 |
+| `views/project_workflow_maps/show.html.erb` | 13 |
+| `version_helper.rb` (the icon-body extraction) | 8 |
+| the Deface override, first version | 3 |
+| `views/project_workflow_maps/show.js.erb` | 1 |
+| the override fix (`0a8b9bc`) — the second anchor removed | 1, and it is the example written against the defect |
+| the `position_of` fix — reverted to `-1` for any nil | 1, and it is the dangling-status ordering example |
 
-Two WP7 changes revert **without** failing, and that is the right answer:
-`init.rb`'s version bump (nothing asserted it — which is why WP7 added the
-assertion, and setting the version to 0.9.9 now fails with *"init.rb declares
-0.9.9; CHANGELOG.md's newest entry is 0.1.0"*) and `transition_row`'s conversion
-to keyword arguments, which is a pure refactor the existing writer specs already
-cover.
-
-### What the two independent reviews caught
-
-Worth reading before the next one, because the pattern repeats.
-
-**WP6.** Seven of thirteen findings were real, and the most important was
-**latent, not red**: the field-permissions comparison built its map with `to_h`
-over an unordered `pluck`, so two rows for the same (status, field) that disagree
-made the page depend on which row came back last — the same installation
-comparing differently on PostgreSQL and on MySQL, with nine green CI cells hiding
-it. Also: the copy screen never stamped the audit columns; the compare page
-counted distinct keys where the settings tab counts rows; two `COUNT(*)` queries
-were redundant; a difference can name a field no project screen can change and
-nothing said so; the 403/404 documentation was wrong in three places; and two new
-specs passed for the wrong reason. One finding was declined with a reason.
-
-**WP7.** No blockers, and the reviewer confirmed by *running* it that both
-headline lint numbers were true (198 in 21 files before, 50 in 8 after — 48 once
-its own findings were fixed) and that
-none of the 244 autocorrected offences changed behaviour — it walked every
-semantically-loaded rewrite, including `each_value` on
-`ActionController::Parameters` across all three Rails versions. Six findings were
-real, and **three were in the one section that tells an operator how to destroy
-data**: the uninstall instruction described the down migrations in the wrong
-order (the scope table goes *before* the rule delete — migrations reverse in the
-order they were applied), it omitted `RAILS_ENV` from every migrate command, and
-Redmine's plugin task defaults to **development**, so the realistic outcome was an
-operator destroying nothing in production while watching migration output say
-otherwise. Also: the plugin's biggest install-time behaviour change — routing
-core's own `replace_transitions` / `replace_permissions` through the writers,
-which narrows what a *generic* save accepts on every installation — was in
-neither the README nor the CHANGELOG; a `.rubocop_todo.yml` annotation excused a
-long line the autocorrect had itself created; another filed
-`workflow_rule_patch.rb` under INV-2 when that file uses `connection.insert` and
-is not a writer at all; and F11 ended up marked both fixed and open. All six are
-fixed.
-
-The QA pass caught one before the reviewer: the draft README said the backfill
-reports how many scopes it created. It does not — `say_with_time` prints a row
-tally only when its block returns an integer, and a raw `INSERT ... SELECT`
-returns the adapter's result object.
+The `Availability` extraction and the removal of the `tracker:` argument are
+refactors of code the 34 examples in `spec/services/transition_map_query_spec.rb`
+already cover, so neither is expected to fail on the old code — and the second
+one carries an example asserting the argument is now refused.
 
 ## Exact next step
 
-**WP8** — the status help and the transition map on the issue form. Jan asked for
-it in a session of its own, and both of its open questions are settled: the
-renderer is **option C** — the local "from here" view, a `table.list` of
-*from → to → condition*, **no drawing** — and the panel must **say which of the
-three states it is describing**, per role, with a permission-gated link to where
-that workflow is edited. Jan added the second one after reading the spec; it is
-the first thing somebody debugging *why can I not close this issue* needs, and the
-*own empty workflow* case is the one where it stops being a convenience, because
-an empty status dropdown with no explanation is indistinguishable from a broken
-plugin. `docs/implementation-plan.md`'s WP8 section is the route and
-`docs/design.md`'s "Telling the end user what the workflow is (WP8)" is the
-target. Read both before starting; the three things that decide whether it is any
-good are already written down there:
+**Watch CI, and then it is Jan's turn.** There is no WP9. Concretely:
 
-1. **Do not rebuild the status help icon.** Redmine core already ships it, on 5.1,
-   6.1 and 7.0 — `issues/_attributes.html.erb` renders an `icon-help` link
-   opening `#issue_statuses_description`, a `<dl>` of status name and
-   `IssueStatus#description`. It lists `@allowed_statuses`, which is
-   `Issue#new_statuses_allowed_to`, the method this plugin replaces in full, so it
-   is **already** describing the project's own effective workflow. WP8's job there
-   is specs (INV-4: it must never name a status only another project's rules
-   reach) and a README paragraph pointing administrators at *Administration →
-   Issue statuses → Description*, because the icon is invisible until somebody
-   fills those in.
-2. **The map must not contradict the dropdown.** `new_statuses_allowed_to` also
-   drops closed statuses for a blocked issue or one with open subtasks, open ones
-   for a subtask of a closed parent, and filters the author and assignee variants
-   by identity. An edge the map shows and the dropdown withholds carries the
-   reason — core's own `transition_warning` sentence where core has one.
-3. **Lazily, from an action of its own.** The issue form gets a link and runs no
-   extra query; the resolver's hot path is untouched (G6).
-4. **Name the workflow, in the plugin's existing words.** *Own workflow*, *Own
-   empty workflow*, *Inherits the generic workflow* (INV-3) — the same three the
-   settings tab, the inventory and the comparison screen use, because a fourth
-   phrasing for the same states would make two screens look like they describe
-   different mechanisms.
-
-**Nothing to check first.** CI run 48 is green on all ten jobs for commit
-`6a3dbdd`, and the only commit after it is the line above recording that. (A run
-reading "cancelled" is the concurrency group superseding it after the next push;
-read the *head's* run, not the newest completed one.)
+1. **Read the CI run for `6bc67c1`** — nine matrix cells plus RuboCop. It has not
+   run yet for any WP8 commit, and MySQL and MariaDB are the three cells nothing
+   in this session could exercise locally. If a cell is red, that is the next
+   session's whole job. (A run reading "cancelled" is the concurrency group
+   superseding it after the next push; read the *head's* run, not the newest
+   completed one.)
+2. **Nothing else is queued.** WP0..WP8 are done, `spec/characterization/` is
+   empty, and the two open findings are deliberate. The plugin is ready for Jan
+   to review the branch and ask for the merge.
+3. If Jan wants more, the candidates already written down are: the **layered SVG
+   diagram** (option A in `docs/DECISIONS.md`, which is exactly WP8's data with a
+   layout pass added, so it is an increment rather than a gamble); the **issue
+   show page**, deliberately out of WP8's scope because the reader there may not
+   be able to change anything; **row and column actions on the field-permissions
+   matrix** (option B, declined the day it was raised, still available); and
+   finding **G02**, if the cross-project bulk tracker change ever matters in
+   practice.
 
 ## Known traps
 
-Everything below cost time at least once. The first fifteen are new this session.
+Everything below cost time at least once. The first eleven are new this session.
+
+- **A Deface anchor inside an `<% if %>` renders nothing in the `else` branch,
+  and nothing says so.** Core's `issues/_attributes` draws the status control two
+  ways, and the second — a plain label — is what `@allowed_statuses.present?`
+  being false produces. Anchor on the *branch you need*, both of them if the
+  feature has to survive both, and write the assertion so that it can only pass
+  in the branch it is about. Read the whole surrounding conditional before
+  choosing an anchor.
+- **`new_statuses_allowed_to` returns `[]`, not `[current_status]`, when the
+  workflow permits nothing.** `statuses << initial_status unless statuses.empty?`
+  — the initial status is appended only when something else was found. So an own
+  empty workflow, *and* any dead-end status on a stock installation, removes the
+  status select from the form entirely rather than emptying it.
+- **A query object that takes a parameter it does not use for everything is a
+  contract waiting to be broken.** WP8's map took a `tracker:` for its edge query
+  and read the status and the dropdown off the issue. Consistent only because one
+  caller reconciled them first. If two inputs must agree, take one.
+- **`position_of`-style helpers that answer on nil conflate two nils.** A missing
+  record can be core's `old_status_id = 0` pseudo-status *or* a row naming a
+  deleted status. Tell them apart by the id, not by the record being absent.
+- **`Role.anonymous.consider_workflow?` is false; `Role.non_member`'s is true.**
+  So "a reader with no workflow role" is an anonymous visitor, not a non-member —
+  a non-member of a public project gets *Non member*, which does take part.
+- **A `first_or_create!` on `Member` finds the fixture's member and ignores your
+  roles.** `users_003` is already a member of `projects_001` as *Developer*. Read
+  the fixture, or arrange against the role the user actually holds.
+- **`Group.generate!` is a Redmine test helper, not available under RSpec**, and
+  a group cannot hold an issue unless `Setting.issue_group_assignment` is on —
+  which is cached on the class, so an example that sets it must clear the cache
+  again.
+- **`WorkflowTransition` validates its status associations**, so a row naming a
+  nonexistent status cannot be created through the model. Create it against a
+  real status and `delete_all` the status afterwards.
+- **A route helper's output is HTML-escaped in the page.** `expect(body).to
+  include(some_path)` fails on any path with two query parameters, because `&`
+  renders as `&amp;`. Wrap the expectation in `ERB::Util.html_escape`.
+- **`rspec` and `rubocop` are not on the PATH until their bundle is installed in
+  this container**, and `bundle exec rspec` from the wrong directory reports
+  "command not found: rspec" rather than a path error — which reads like a broken
+  gem and is a wrong `cwd`.
+- **`rm -f some/spec.rb` from the wrong directory silently removes nothing.** Two
+  throwaway probe specs survived into a suite run and a RuboCop run that way, and
+  the only symptom was a file count one higher than expected (92 rather than 91)
+  and an example count one higher. If a number is off by one, look for a probe.
+
+Everything from here down is carried forward from earlier sessions.
 
 - **A new controller action is 403 for everybody until `init.rb` names it in a
   permission.** Administrators included, and the symptom is a forbidden page
@@ -491,3 +558,8 @@ Prompt for the next session:
 ```
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
+
+There is no WP9. If the CI run for `6bc67c1` is green on all ten jobs, the
+honest answer to "carry on" is that the plan is finished and the branch is
+waiting on Jan — say so rather than inventing work. The "Exact next step"
+section above lists what he could ask for next if he wants more.
