@@ -128,6 +128,7 @@
 | 2026-08-26 | WP5 | The confirmation threshold is a plugin setting, defaulting to 50 workflow rules | "Many" depends on the installation. 0 means ask every time. The browser counts only the controls whose value would actually change, so an action that changes nothing never asks. |
 | 2026-08-26 | WP5 | The threshold's default is written down twice, with a spec asserting the two agree | `init.rb` declares it as the setting's default; `BulkActionsHelper` falls back to it for a settings hash an administrator saved before the key existed. Removing the duplication would mean requiring the plugin's lib before `Redmine::Plugin.register`, which reorders init.rb for a constant. |
 | 2026-08-26 | WP5 | The settings screen has a spec of its own | A partial Redmine cannot find raises on the administration page and a field name that does not match what core writes back saves nothing while looking as though it did; neither is visible from any other spec. It also asserts the screen is administrator-only, because the plugin is what created it. |
+| 2026-08-26 | WP5 | The legend is two sentences, and only the first goes on the field-permissions page | That page renders core's own no-change cells, so what a mixed cell means belongs there; the row and column actions do not exist on it, so explaining them there would describe a control that is not on the page. |
 
 ## Open — for Jan
 

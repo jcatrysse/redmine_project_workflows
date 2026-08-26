@@ -62,6 +62,7 @@ de:
   label_project_workflow_bulk_column: 'Ganze Spalte "%{name}" auf %{value} setzen'
   text_project_workflow_bulk_confirm: 'Diese Aktion betrifft %{count} Workflow-Regel(n). Fortfahren?'
   text_project_workflow_bulk_selection: 'Eine Zelle dieser Matrix steht für %{count} Workflow(s): %{trackers} Tracker × %{roles} Rolle(n) × %{scopes} Workflow-Bereich(e).'
-  text_project_workflow_bulk_legend: '"%{no_change}" bedeutet, dass die Workflows, für die eine Zelle steht, nicht alle dasselbe sagen; beim Speichern bleibt jeder davon unverändert. Eine Zeilen- oder Spaltenaktion mit "%{no_change}" setzt jede Zelle dieser Zeile oder Spalte auf den Wert zurück, mit dem die Seite geöffnet wurde.'
+  text_project_workflow_bulk_legend: '"%{no_change}" bedeutet, dass die Workflows, für die eine Zelle steht, nicht alle dasselbe sagen; beim Speichern bleibt jeder davon unverändert.'
+  text_project_workflow_bulk_legend_actions: 'Eine Zeilen- oder Spaltenaktion mit "%{no_change}" setzt jede Zelle dieser Zeile oder Spalte auf den Wert zurück, mit dem die Seite geöffnet wurde.'
   label_project_workflow_bulk_confirm_threshold: 'Bestätigung verlangen, wenn eine Zeilen- oder Spaltenaktion mehr ändert als'
   text_project_workflow_bulk_confirm_threshold: 'Anzahl der Workflow-Regeln. Eine Zeilen- oder Spaltenaktion, die mehr als dies ändern würde, fragt zuerst nach einer Bestätigung. 0 fragt immer.'

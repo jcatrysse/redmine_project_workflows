@@ -330,7 +330,10 @@ How many workflows one cell stands for is the plugin's answer to core's
 `BulkActionsHelper` owns it and core's two cell helpers ask the same method, so
 a cell and the actions on it cannot disagree about whether it is mixed. A
 sentence above the matrix gives the number and explains no change, on both
-administration screens, whenever a cell stands for more than one workflow. It is
+administration screens, whenever a cell stands for more than one workflow — with
+the half of it that describes the row and column actions only on the transitions
+page, because the field-permissions matrix renders core's no-change cells but has
+no such actions. It is
 rendered from the scope panel's anchor rather than one of its own, and unlike the
 panel it does not wait for a project to be selected: core's own no-change cells
 appear for a selection of several trackers or roles alone.

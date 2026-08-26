@@ -62,6 +62,7 @@ it:
   label_project_workflow_bulk_column: 'Imposta tutta la colonna "%{name}" su %{value}'
   text_project_workflow_bulk_confirm: 'Questa azione riguarda %{count} regola/e del workflow. Continuare?'
   text_project_workflow_bulk_selection: 'Una cella di questa matrice rappresenta %{count} workflow: %{trackers} tracker × %{roles} ruolo/i × %{scopes} ambito/i del workflow.'
-  text_project_workflow_bulk_legend: '"%{no_change}" significa che i workflow rappresentati da una cella non dicono tutti la stessa cosa; al salvataggio ognuno resta come è. Un''azione di riga o di colonna impostata su "%{no_change}" riporta ogni cella di quella riga o colonna al valore con cui la pagina è stata aperta.'
+  text_project_workflow_bulk_legend: '"%{no_change}" significa che i workflow rappresentati da una cella non dicono tutti la stessa cosa; al salvataggio ognuno resta come è.'
+  text_project_workflow_bulk_legend_actions: 'Un''azione di riga o di colonna impostata su "%{no_change}" riporta ogni cella di quella riga o colonna al valore con cui la pagina è stata aperta.'
   label_project_workflow_bulk_confirm_threshold: 'Chiedi conferma quando un''azione di riga o di colonna modifica più di'
   text_project_workflow_bulk_confirm_threshold: 'Numero di regole del workflow. Un''azione di riga o di colonna che ne modificherebbe di più chiede prima conferma. 0 chiede sempre.'

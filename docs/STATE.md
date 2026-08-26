@@ -73,7 +73,9 @@ for and explaining *(No change)*. It comes from the scope panel's anchor rather
 than one of its own, and unlike the panel it does not wait for a project to be
 selected: core's own no-change cells appear for a selection of several trackers or
 roles alone. A project matrix says nothing, because one cell there is one
-workflow.
+workflow, and the half of the legend that describes the row and column actions is
+left off the field-permissions page, which renders core's no-change cells but has
+no such actions.
 
 **And a confirmation, behind the plugin's first setting.** *Ask before a row or
 column action changes more than* — 50 workflow rules by default, 0 to ask every
@@ -119,7 +121,7 @@ nothing else, it is documented in `dev/README.md`, and it is **not** in CI.
 | `node dev/check-bulk-js.mjs` | 16 checks, all ok |
 | Migration reversibility up → 0 → up | clean on 7.0, run **before** the suite. WP5 changes no migration |
 | Backfill (`dev/check-backfill.sh`) | passes on 7.0 + PostgreSQL |
-| Locale parity | eight files, 52 keys each (was 45) |
+| Locale parity | eight files, 53 keys each (was 45) |
 | Independent review | run in this context rather than a fresh one — see "Known traps" |
 | New specs against the old code | see below |
 | CI | **not yet run for WP5** at the time of writing: the branch head was pushed at the end of the session, so the next session should read the run for it before anything else |

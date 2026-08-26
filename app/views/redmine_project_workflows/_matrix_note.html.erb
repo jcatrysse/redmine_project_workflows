@@ -7,6 +7,11 @@
   one role and one project by construction, so there is nothing to say and
   nothing is shown.
 
+  The sentence about row and column actions is only for the matrix that has
+  them: the field-permissions matrix renders core's own "no change" cells but no
+  row or column actions, so there it would explain a control that is not on the
+  page. Locals: rule_type.
+
   Rendered from the scope panel rather than from an anchor of its own: the panel
   is already inserted directly above the matrix on both administration screens,
   and this belongs in the same place. Unlike the panel it does not depend on a
@@ -21,6 +26,11 @@
           trackers: Array(@trackers).size,
           roles: Array(@roles).size,
           scopes: project_workflow_selection_scopes) %>
-    <em><%= l(:text_project_workflow_bulk_legend, no_change: l(:label_no_change_option)) %></em>
+    <em>
+      <%= l(:text_project_workflow_bulk_legend, no_change: l(:label_no_change_option)) %>
+      <% if rule_type == ProjectWorkflowScope::TRANSITIONS %>
+        <%= l(:text_project_workflow_bulk_legend_actions, no_change: l(:label_no_change_option)) %>
+      <% end %>
+    </em>
   </p>
 <% end %>

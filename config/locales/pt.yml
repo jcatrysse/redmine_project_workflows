@@ -62,6 +62,7 @@ pt:
   label_project_workflow_bulk_column: 'Definir toda a coluna "%{name}" para %{value}'
   text_project_workflow_bulk_confirm: 'Esta ação afeta %{count} regra(s) de fluxo de trabalho. Continuar?'
   text_project_workflow_bulk_selection: 'Uma célula desta matriz representa %{count} fluxo(s) de trabalho: %{trackers} tipo(s) × %{roles} perfil(is) × %{scopes} âmbito(s) de fluxo de trabalho.'
-  text_project_workflow_bulk_legend: '"%{no_change}" significa que os fluxos de trabalho representados por uma célula não dizem todos o mesmo; ao guardar, cada um fica como está. Uma ação de linha ou de coluna definida como "%{no_change}" devolve cada célula dessa linha ou coluna ao valor com que a página foi aberta.'
+  text_project_workflow_bulk_legend: '"%{no_change}" significa que os fluxos de trabalho representados por uma célula não dizem todos o mesmo; ao guardar, cada um fica como está.'
+  text_project_workflow_bulk_legend_actions: 'Uma ação de linha ou de coluna definida como "%{no_change}" devolve cada célula dessa linha ou coluna ao valor com que a página foi aberta.'
   label_project_workflow_bulk_confirm_threshold: 'Pedir confirmação quando uma ação de linha ou de coluna alterar mais de'
   text_project_workflow_bulk_confirm_threshold: 'Número de regras de fluxo de trabalho. Uma ação de linha ou de coluna que alterasse mais do que isto pede primeiro confirmação. 0 pergunta sempre.'

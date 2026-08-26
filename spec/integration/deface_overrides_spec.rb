@@ -306,18 +306,20 @@ describe WorkflowsController, type: :controller do
   describe 'the note above the matrix' do
     let(:other_tracker) { trackers(:trackers_002) }
 
+    def escaped(key)
+      ERB::Util.html_escape(I18n.t(key, no_change: I18n.t(:label_no_change_option)))
+    end
+
     it 'says how many workflows one cell stands for' do
       get :edit, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
                            project_id: ['global'], used_statuses_only: '0' }
 
-      expect(response.body).to include(ERB::Util.html_escape(
-                                         I18n.t(:text_project_workflow_bulk_selection, count: 2, trackers: 2, roles: 1,
-scopes: 1)
-                                       ))
-      expect(response.body).to include(ERB::Util.html_escape(
-                                         I18n.t(:text_project_workflow_bulk_legend,
-                                                no_change: I18n.t(:label_no_change_option))
-                                       ))
+      sentence = I18n.t(:text_project_workflow_bulk_selection,
+                        count: 2, trackers: 2, roles: 1, scopes: 1)
+
+      expect(response.body).to include(ERB::Util.html_escape(sentence))
+      expect(response.body).to include(escaped(:text_project_workflow_bulk_legend))
+      expect(response.body).to include(escaped(:text_project_workflow_bulk_legend_actions))
     end
 
     it 'stays quiet when a cell is one workflow' do
@@ -327,11 +329,17 @@ scopes: 1)
       expect(response.body).not_to include('project-workflow-bulk-note')
     end
 
-    it 'reaches the field permissions page as well' do
+    # Core renders "no change" cells on the field permissions page too, so the
+    # sentence explaining them belongs there -- but that page has no row or
+    # column actions, so the sentence about those must not follow it there.
+    it 'reaches the field permissions page, without explaining a control it has not got' do
       get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
                                   project_id: ['global'] }
 
       expect(response.body).to include('project-workflow-bulk-note')
+      expect(response.body).to include(escaped(:text_project_workflow_bulk_legend))
+      expect(response.body).not_to include(escaped(:text_project_workflow_bulk_legend_actions))
+      expect(response.body).not_to include('project-workflow-bulk-action')
     end
   end
 end
