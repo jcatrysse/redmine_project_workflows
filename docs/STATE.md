@@ -162,7 +162,7 @@ the issue hot path.
 | Plugin suite, 5.1-stable + PostgreSQL 16 | 238 examples, 0 failures |
 | Plugin suite, 6.1-stable + PostgreSQL 16 | 238 examples, 0 failures |
 | Plugin suite, 7.0-stable + PostgreSQL 16 | 238 examples, 0 failures |
-| CI, all nine cells + RuboCop | green on `775c956`, `5a5e0d3`, `c382b3f` and `9e2a530` (runs 12–15). Runs 16, 17 and 18 failed the backfill gate on the three **MariaDB** cells and passed the other six — one cause, the `DELETE` alias described below, present in all three commits. `3e50f84` fixes it; its run (19) was cancelled by `concurrency: cancel-in-progress` when the next commit landed, so the confirming run is 20 on `f216a8d` |
+| CI, all nine cells + RuboCop | green on `775c956`, `5a5e0d3`, `c382b3f` and `9e2a530` (runs 12–15). Runs 16, 17 and 18 failed the backfill gate on the three **MariaDB** cells and passed the other six — one cause, the `DELETE` alias described below, present in all three commits. `3e50f84` fixes it; runs 19 and 20 were cancelled by `concurrency: cancel-in-progress` as later commits landed, and **run 21 on the branch head `de68531` is green on all nine cells plus RuboCop** |
 | RuboCop | 61 files, no offences |
 | Independent review | run in a fresh context on the WP2 diff; every finding either fixed or recorded with its reason |
 | `zeitwerk:check` | "All is good!" on 5.1, 6.1 and 7.0 |
