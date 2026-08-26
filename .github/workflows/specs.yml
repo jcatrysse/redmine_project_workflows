@@ -11,6 +11,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: RuboCop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: .github/lint
+      - name: RuboCop
+        run: bundle exec rubocop --format github
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/.github/lint/Gemfile
+
   rspec:
     name: Redmine ${{ matrix.redmine }} / ${{ matrix.db }}
     runs-on: ubuntu-latest
@@ -96,6 +111,30 @@ jobs:
 
       - name: Set up Redmine host and plugin
         run: dev/setup.sh "${{ matrix.redmine }}" "$DB"
+
+      # Before the suite, deliberately: maintain_test_schema reloads db/schema.rb
+      # when the suite starts and wipes the plugin's migration bookkeeping, after
+      # which VERSION=0 silently does nothing and this check proves nothing.
+      - name: Plugin migrations are reversible (up -> 0 -> up)
+        working-directory: ${{ env.REDMINE_DIR }}
+        run: |
+          set -e
+          bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
+          bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows VERSION=0
+          leftover=$(bundle exec rails runner '
+            c = ActiveRecord::Base.connection
+            tables = c.tables.grep(/project_workflow/)
+            cols   = c.column_exists?(:workflows, :project_id) ? ["workflows.project_id"] : []
+            puts (tables + cols).inspect')
+          echo "plugin traces after VERSION=0: $leftover"
+          test "$leftover" = "[]"
+          bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
+
+      # Redmine pushes each plugin's lib/ into the main Zeitwerk autoloader with
+      # eager loading, so a misnamed constant only breaks in production.
+      - name: Zeitwerk compliance
+        working-directory: ${{ env.REDMINE_DIR }}
+        run: bundle exec rails zeitwerk:check
 
       - name: Run specs
         run: dev/run.sh "$REDMINE_DIR" --format progress

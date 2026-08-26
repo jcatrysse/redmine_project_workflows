@@ -60,7 +60,7 @@ describe WorkflowsController, type: :controller do
       core_would_give = WorkflowTransition.where(tracker_id: empty.rolled_up_trackers.map(&:id))
                                           .where('old_status_id <> new_status_id').count
       expect(empty.rolled_up_statuses.to_a).to eq([])
-      expect(core_would_give).to be > 0
+      expect(core_would_give).to be_positive
     end
   end
 

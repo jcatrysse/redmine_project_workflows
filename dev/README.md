@@ -51,7 +51,23 @@ The plugin is copied rather than symlinked: the specs resolve
 ## Continuous integration
 
 `.github/workflows/specs.yml` runs the same scripts across Redmine 5.1 / 6.1 /
-7.0 and PostgreSQL / MySQL / MariaDB on every push and pull request.
+7.0 and PostgreSQL / MySQL / MariaDB on every push and pull request, plus three
+gates per cell:
+
+1. **Migration reversibility** (up -> 0 -> up), deliberately *before* the suite:
+   `maintain_test_schema` reloads `db/schema.rb` when the suite starts and wipes
+   the plugin's migration bookkeeping, after which `VERSION=0` silently does
+   nothing and the check proves nothing.
+2. **`zeitwerk:check`** — Redmine pushes each plugin's `lib/` into the main
+   autoloader with eager loading, so a misnamed constant only breaks in
+   production.
+3. **RuboCop**, once, in its own job.
+
+Locally:
+
+```sh
+BUNDLE_GEMFILE=.github/lint/Gemfile bundle exec rubocop
+```
 
 ## Spec layout
 

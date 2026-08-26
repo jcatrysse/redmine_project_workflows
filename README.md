@@ -34,6 +34,16 @@ TypeError during page initialisation; see `spec/characterization`.
    - Selecting a project activates project override mode for that project.
 3. Select the Generic project to manage rules shared across all projects.
 
+## Development
+
+Working on this plugin with an AI coding agent? Start with
+[`CLAUDE.md`](CLAUDE.md) — it carries the invariants, the quality gates and the
+branch discipline — and [`docs/STATE.md`](docs/STATE.md), which is where the
+project keeps its memory between sessions. [`docs/design.md`](docs/design.md)
+explains how the plugin decides which workflow applies;
+[`docs/implementation-plan.md`](docs/implementation-plan.md) is the route from
+here. Reviews run through [`docs/review/`](docs/review/README.md).
+
 ## Testing
 
 The plugin includes an RSpec test suite. Run it from your Redmine root with:
