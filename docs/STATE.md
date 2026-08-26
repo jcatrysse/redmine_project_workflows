@@ -166,6 +166,7 @@ the issue hot path.
 | Migration reversibility up → 0 → up | clean on 5.1, 6.1 and 7.0, on freshly built hosts, before any suite ran — and asserted to leave no plugin table, no `workflows.project_id` and no plugin index behind |
 | Backfill (`dev/check-backfill.sh`) | passes on 5.1, 6.1 and 7.0 against PostgreSQL, and on 7.0 against MariaDB 10.11 |
 | Plugin suite, 7.0-stable + **MariaDB 10.11** | 238 examples, 0 failures — the first local run against MariaDB in this project |
+| Plugin suite, 5.1-stable + **MariaDB 10.11** | 238 examples, 0 failures, backfill gate green — Rails 6.1 on MariaDB, which is where the review's two "probable" concerns lived (the grouped `count` in the duplicate sweep, and boolean group keys) |
 | Migration reversibility on MariaDB | up → 0 → up clean, and `VERSION=0` leaves no table, column or index behind on InnoDB too |
 | `rake redmine_project_workflows:deduplicate_workflow_rules` | discovered by the plugin loader and runs on all three |
 | New specs against the old code | see below |
