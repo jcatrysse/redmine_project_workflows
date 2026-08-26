@@ -152,10 +152,28 @@
 | 2026-08-26 | WP6 | The undo region stays visible once anything has happened; the undo *link* is what comes and goes | The last undo's own confirmation is the sentence the reader most needs, and hiding the region to signal an empty stack would take it away with them. |
 | 2026-08-26 | WP6 | Every action of `ProjectWorkflowsController` is asserted to be named by a permission | Adding `compare` without touching `init.rb` produced a 403 for everybody, administrators included, and no "unmapped action" error anywhere. A structural assertion cannot go stale the way a list of action names would. |
 | 2026-08-26 | WP6 | Finding G02 stays open, with WP2's reasoning confirmed rather than overturned | The request cache keyed by (project, tracker) is the narrowest key that can be correct; a per-`Tracker` memo is the project-blind cache INV-4 forbids. Collapsing the repeats across projects would put a query on every single-issue save to save one on a bulk move. |
+| 2026-08-26 | WP7 | The release is **0.1.0**, and the CHANGELOG is reordered newest-first | 0.0.3 → 0.1.0 rather than 0.0.4: a new table, a migration with a backfill, two new permissions, three new screens and a changed answer to "does this project override" is not a patch release. Newest-first is what every other changelog does and what a reader checking "what changed since I installed it" needs. |
+| 2026-08-26 | WP7 | The terminology bullet needed no work, and the plan says so rather than claiming it | *Generic workflow*, *Own workflow*, *Inherits the generic workflow* are what WP3, WP4 and WP5 used as they went. Same for "version-conditional code in one helper": `VersionHelper` already owns all five differences. A work package that reports work it did not do is worse than one that reports less. |
+| 2026-08-26 | WP7 | `.rubocop_todo.yml` is annotated by hand, and anything added to it needs a reason | A generated list says which cop is off in which file and nothing about whether that is debt or a decision, and this one is almost entirely decisions — core's own method bodies, and `insert_all` in the writers, which INV-2 requires. 198 offences in 21 files became 50 in 8; the file's header names the three groups the rest fall into. |
+| 2026-08-26 | WP7 | `TransitionWriter.transition_row` takes keyword arguments | The one `Metrics/ParameterLists` offence worth fixing rather than excluding: seven positional parameters ending in two booleans, so `transition_row(a, b, c, d, e, false, false)` put the author and assignee flags in an order nothing at the call site named, and swapping them writes a workflow permitting the opposite of what was asked for. |
 
 ## Open — for Jan
 
-*(Nothing open. WP8's one was answered **C** on 2026-08-26 and has moved up, as
-were WP4's two and WP5's one. Items land here with their options, a
-plain-language explanation of each and a recommendation, while the build
-continues on the safest default.)*
+- **Choice:** WP7 raised the declared minimum Redmine version from **5.0** to
+  **5.1**. Keep it?
+- **Options:**
+  A) **Keep 5.1** (what is in place). Redmine refuses to load the plugin on 5.0.
+     CI has never tested 5.0 and the README openly said so, so this stops the
+     plugin claiming something nothing checks — on an alpha that rewrites
+     workflow data, which is where a wrong claim costs the most.
+  B) **Put 5.0 back** and go on warning that it is untested. Anyone still on 5.0
+     can install it and find out; nothing about the plugin changes.
+- **Recommendation:** **A.** Redmine 5.0 has been out of support for a while, the
+  plugin has never run on it, and an install it cannot vouch for is exactly the
+  install that generates a bug report nobody can reproduce. It is one line in
+  `init.rb` to revert, and the CHANGELOG flags it as breaking either way.
+- **Urgent?** no — it only matters to somebody on 5.0, and it is in place already.
+
+*(WP8's one was answered **C** on 2026-08-26 and has moved up, as were WP4's two
+and WP5's one. Items land here with their options, a plain-language explanation
+of each and a recommendation, while the build continues on the safest default.)*

@@ -24,31 +24,29 @@ module RedmineProjectWorkflows
         status_id = initial_status&.id || 0
         workflow_scope = WorkflowTransition.where(tracker_id: tracker.id, old_status_id: status_id)
         unless author && assignee
-          if author || assignee
-            workflow_scope = workflow_scope.where("author = ? OR assignee = ?", author, assignee)
-          else
-            workflow_scope = workflow_scope.where(author: false, assignee: false)
-          end
+          workflow_scope = if author || assignee
+                             workflow_scope.where('author = ? OR assignee = ?', author, assignee)
+                           else
+                             workflow_scope.where(author: false, assignee: false)
+                           end
         end
 
         scopes = []
         if overridden_role_ids.any?
           scopes << workflow_scope.where(project_id: issue.project_id, role_id: overridden_role_ids)
         end
-        if global_role_ids.any?
-          scopes << workflow_scope.where(project_id: nil, role_id: global_role_ids)
-        end
+        scopes << workflow_scope.where(project_id: nil, role_id: global_role_ids) if global_role_ids.any?
         return [] if scopes.empty?
 
         combined_scope = scopes.shift
         scopes.each { |scope| combined_scope = combined_scope.or(scope) }
 
-        IssueStatus.
-          joins(:workflow_transitions_as_new_status).
-          where(WorkflowTransition.table_name => { id: combined_scope.select(:id) }).
-          distinct.
-          to_a.
-          sort
+        IssueStatus
+          .joins(:workflow_transitions_as_new_status)
+          .where(WorkflowTransition.table_name => { id: combined_scope.select(:id) })
+          .distinct
+          .to_a
+          .sort
       end
     end
   end

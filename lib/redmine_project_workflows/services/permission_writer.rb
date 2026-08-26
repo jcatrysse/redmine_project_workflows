@@ -110,7 +110,7 @@ module RedmineProjectWorkflows
           next unless rule_by_field.respond_to?(:each)
 
           rule_by_field.each do |field, rule|
-            next unless rule.present?
+            next if rule.blank?
 
             trackers.each do |tracker|
               roles.each do |role|

@@ -20,9 +20,7 @@ module RedmineProjectWorkflows
         if overridden_role_ids.any?
           scopes << base_scope.where(project_id: issue.project_id, role_id: overridden_role_ids)
         end
-        if global_role_ids.any?
-          scopes << base_scope.where(project_id: nil, role_id: global_role_ids)
-        end
+        scopes << base_scope.where(project_id: nil, role_id: global_role_ids) if global_role_ids.any?
         return [] if scopes.empty?
 
         combined_scope = scopes.shift
@@ -35,11 +33,10 @@ module RedmineProjectWorkflows
           tracker_id: trackers.map(&:id),
           role_id: roles.map(&:id),
           project_id: project_ids
-        ).inject({}) do |hash, rule|
+        ).each_with_object({}) do |rule, hash|
           hash[rule.old_status_id] ||= {}
           hash[rule.old_status_id][rule.field_name] ||= []
           hash[rule.old_status_id][rule.field_name] << rule.rule
-          hash
         end
       end
     end

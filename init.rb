@@ -5,8 +5,12 @@ Redmine::Plugin.register :redmine_project_workflows do
   author 'Jan Catrysse'
   description 'Project workflows for Redmine'
   url 'https://github.com/jcatrysse/redmine_project_workflows'
-  version '0.0.3'
-  requires_redmine version_or_higher: '5.0'
+  version '0.1.0'
+  # 5.1 rather than 5.0: CI runs 5.1, 6.1 and 7.0 and nothing has ever tested
+  # 5.0, so declaring it was a claim with nothing behind it. Raising the floor
+  # refuses an install the plugin cannot vouch for, which for an alpha that
+  # rewrites workflow data is the safer direction. Reverting it is this one line.
+  requires_redmine version_or_higher: '5.1'
 
   # WP5. The plugin's first setting, and the reason it has a settings screen at
   # all: a row or column action on an administration matrix can write a great

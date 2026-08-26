@@ -26,9 +26,9 @@ module RedmineProjectWorkflows
         return if invalid_project_selection?
 
         @project_workflow_selection = summary_selection_param_values
-        @workflow_counts = WorkflowTransition.
-          where(project_id: workflow_project_ids).
-          group(:tracker_id, :role_id).count
+        @workflow_counts = WorkflowTransition
+                           .where(project_id: workflow_project_ids)
+                           .group(:tracker_id, :role_id).count
       end
 
       # Core's own edit runs without a project_id predicate, which would mix the
@@ -38,9 +38,9 @@ module RedmineProjectWorkflows
         return unless @trackers.present? && @roles.present? && @statuses.any?
 
         @project_workflow_scope_state = scope_state_for(ProjectWorkflowScope::TRANSITIONS)
-        workflows = WorkflowTransition.
-          where(role_id: @roles.map(&:id), tracker_id: @trackers.map(&:id), project_id: workflow_project_ids).
-          preload(:old_status, :new_status)
+        workflows = WorkflowTransition
+                    .where(role_id: @roles.map(&:id), tracker_id: @trackers.map(&:id), project_id: workflow_project_ids)
+                    .preload(:old_status, :new_status)
         @workflows = {}
         @workflows['always'] = workflows.select { |workflow| !workflow.author && !workflow.assignee }
         @workflows['author'] = workflows.select(&:author)
@@ -53,8 +53,8 @@ module RedmineProjectWorkflows
         if project_context?
           if @roles.present? && @trackers.present? && params[:transitions]
             transitions = params[:transitions].deep_dup
-            transitions.each do |_old_status_id, transitions_by_new_status|
-              transitions_by_new_status.each do |_new_status_id, transition_by_rule|
+            transitions.each_value do |transitions_by_new_status|
+              transitions_by_new_status.each_value do |transition_by_rule|
                 transition_by_rule.reject! { |_rule, transition| transition == 'no_change' }
               end
             end
@@ -68,7 +68,8 @@ module RedmineProjectWorkflows
             end
             flash[:notice] = l(:notice_successful_update)
           end
-          redirect_to edit_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers, role_id: @roles, used_statuses_only: params[:used_statuses_only])
+          redirect_to edit_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers,
+                                          role_id: @roles, used_statuses_only: params[:used_statuses_only])
         else
           super
         end
@@ -81,7 +82,7 @@ module RedmineProjectWorkflows
 
         @project_workflow_scope_state = scope_state_for(ProjectWorkflowScope::PERMISSIONS)
         @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
-          [field, l("field_" + field.sub(/_id$/, ''))]
+          [field, l("field_#{field.delete_suffix('_id')}")]
         end
         @custom_fields = @trackers.map(&:custom_fields).flatten.uniq.sort
         @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
@@ -111,7 +112,8 @@ module RedmineProjectWorkflows
             end
             flash[:notice] = l(:notice_successful_update)
           end
-          redirect_to permissions_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers, role_id: @roles, used_statuses_only: params[:used_statuses_only])
+          redirect_to permissions_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers,
+                                                 role_id: @roles, used_statuses_only: params[:used_statuses_only])
         else
           super
         end
@@ -133,9 +135,9 @@ module RedmineProjectWorkflows
         source_project_id = params[:source_project_id].presence
         resolved_target_project_ids, invalid_target_project_ids = validated_target_project_ids
         if params[:source_tracker_id].blank? || params[:source_role_id].blank? ||
-          (@source_tracker.nil? && @source_role.nil?) ||
-          (source_project_id.present? && !%w[any global].include?(source_project_id) &&
-            (!source_project_id.to_s.match?(/\A\d+\z/) || !Project.exists?(source_project_id.to_i)))
+           (@source_tracker.nil? && @source_role.nil?) ||
+           (source_project_id.present? && %w[any global].exclude?(source_project_id) &&
+             (!source_project_id.to_s.match?(/\A\d+\z/) || !Project.exists?(source_project_id.to_i)))
           @source_project_id = nil
           flash.now[:error] = l(:error_workflow_copy_source_project)
           render :copy
@@ -264,7 +266,7 @@ module RedmineProjectWorkflows
       # The role filter is core's own, kept as it is: the question is which
       # statuses the workflow uses, not which the selected roles use.
       def find_statuses
-        @used_statuses_only = (params[:used_statuses_only] == '0' ? false : true)
+        @used_statuses_only = params[:used_statuses_only] != '0'
         if @trackers && @used_statuses_only
           status_ids = RedmineProjectWorkflows::Services::StatusListQuery.status_ids_for_pairs(
             pairs: workflow_project_ids.product(@trackers.map(&:id)),

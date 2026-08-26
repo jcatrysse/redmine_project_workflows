@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 #
 # Guards that every Deface override still matches its anchor in the host
 # Redmine's views. A silently unmatched override produces no error, only a

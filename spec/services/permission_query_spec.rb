@@ -17,8 +17,6 @@ describe RedmineProjectWorkflows::Services::PermissionQuery do
     member.save!
   end
 
-
-
   def global_rule(rule = 'required')
     WorkflowPermission.create!(
       tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,

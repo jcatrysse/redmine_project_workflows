@@ -22,7 +22,7 @@
 | WP4 | Project settings tab and permissions | **done** |
 | WP5 | Bulk editing in the matrix | **done** |
 | WP6 | Compare, audit, undo | **done** |
-| WP7 | Documentation, locales, release | not started |
+| WP7 | Documentation, locales, release | **done** |
 | WP8 | Status help and the transition map on the issue form | not started |
 
 ---
@@ -276,6 +276,45 @@ one on a bulk move. Left open, with its reasoning now twice-examined.
 - Version-conditional code consolidated into one helper.
 - Version bump, CHANGELOG, and an upgrade note about the backfill.
 - Work down `.rubocop_todo.yml` where the fix is mechanical and safe.
+
+**Done.** Four of the six as written; two were already true and are recorded here
+rather than pretended:
+
+1. **The terminology was already fixed.** *Generic workflow*, *Own workflow* and
+   *Inherits the generic workflow* are what WP3, WP4 and WP5 used as they went,
+   in all eight locale files. Nothing to change. (`label_project_workflows_global`
+   is the one place the *key* still says "global" where its value says "Generic";
+   renaming a key across eight files and the code to fix a name no user sees is
+   not worth the churn.)
+2. **Version-conditional code was already in one helper.** All five things that
+   differ across the 5.1 → 6.0 SVG-sprite break go through
+   `RedmineProjectWorkflows::VersionHelper`; a grep for `respond_to?` outside it
+   finds only duck-typing on request parameters.
+
+The four that were real:
+
+3. **The README's `What to know before you install it`** — F11, and more than it
+   listed. Plus a section on what a selection of several projects does when you
+   save, which is the case that writes the most rules from one click, and an
+   **Upgrading and uninstalling** section: what the backfill does, and that
+   `VERSION=0` deletes every project-specific rule.
+4. **0.1.0, with a CHANGELOG that reads as a release rather than a diff**, and
+   the entries reordered newest-first.
+5. **The declared minimum moved from Redmine 5.0 to 5.1.** Nothing had ever
+   tested 5.0 and the README said so, which is a strange thing to declare and
+   then warn about. Refusing an install the plugin cannot vouch for is the safer
+   direction for an alpha that rewrites workflow data; it is one line to revert.
+6. **`.rubocop_todo.yml`: 198 offences in 21 files down to 50 in 8**, and the
+   file is annotated by hand rather than generated and left. What remains is
+   three groups, each named in the file's own header: the four patch files whose
+   method bodies are core's (refactoring them for a metric would destroy the
+   property that lets you diff them against a real checkout), `insert_all` and
+   `update_all` in the writers (INV-2 — the writer *is* the validation), and
+   three single offences where the cop's fix would be wrong. One offence turned
+   out to be worth fixing rather than excluding:
+   `TransitionWriter.transition_row` took seven positional parameters ending in
+   two booleans, which is exactly the shape `Metrics/ParameterLists` exists to
+   catch, and is now keyword arguments.
 
 ---
 

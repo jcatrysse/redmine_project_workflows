@@ -19,8 +19,6 @@ describe RedmineProjectWorkflows::Services::TransitionQuery do
     member.save!
   end
 
-
-
   it 'ignores a project row when the project has no scope' do
     WorkflowTransition.create!(
       tracker_id: tracker.id,

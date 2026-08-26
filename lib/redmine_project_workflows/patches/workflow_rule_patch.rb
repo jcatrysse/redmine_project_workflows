@@ -20,12 +20,13 @@ module RedmineProjectWorkflows
         author assignee field_name rule type
       ].freeze
 
-      def copy_for_project(source_project_id, target_project_id, source_tracker, source_role, target_trackers, target_roles)
+      def copy_for_project(source_project_id, target_project_id, source_tracker, source_role, target_trackers,
+                           target_roles)
         unless (source_tracker.nil? || source_tracker.is_a?(Tracker)) &&
-            (source_role.nil? || source_role.is_a?(Role)) &&
-            (source_tracker.is_a?(Tracker) || source_role.is_a?(Role))
+               (source_role.nil? || source_role.is_a?(Role)) &&
+               (source_tracker.is_a?(Tracker) || source_role.is_a?(Role))
           raise ArgumentError,
-                "source_tracker or source_role must be specified as a tracker/role, given: " \
+                'source_tracker or source_role must be specified as a tracker/role, given: ' \
                 "#{source_tracker.class.name} and #{source_role.class.name}"
         end
 
@@ -46,7 +47,7 @@ module RedmineProjectWorkflows
           resolved_source_tracker = source_tracker || target_tracker
           resolved_source_role = source_role || target_role
           if resolved_source_tracker == target_tracker && resolved_source_role == target_role &&
-              source_project_id == target_project_id
+             source_project_id == target_project_id
             skipped_pairs << [target_tracker, target_role]
             next
           end
@@ -71,11 +72,12 @@ module RedmineProjectWorkflows
         end
       end
 
-      def copy_one_for_project(source_project_id, target_project_id, source_tracker, source_role, target_tracker, target_role, delete_existing: true)
+      def copy_one_for_project(source_project_id, target_project_id, source_tracker, source_role, target_tracker,
+                               target_role, delete_existing: true)
         unless source_tracker.is_a?(Tracker) && !source_tracker.new_record? &&
-          source_role.is_a?(Role) && !source_role.new_record? &&
-          target_tracker.is_a?(Tracker) && !target_tracker.new_record? &&
-          target_role.is_a?(Role) && !target_role.new_record?
+               source_role.is_a?(Role) && !source_role.new_record? &&
+               target_tracker.is_a?(Tracker) && !target_tracker.new_record? &&
+               target_role.is_a?(Role) && !target_role.new_record?
 
           raise ArgumentError, 'arguments can not be nil or unsaved objects'
         end
@@ -86,21 +88,21 @@ module RedmineProjectWorkflows
         target_project_value = target_project_id ? connection.quote(target_project_id) : 'NULL'
 
         return false if source_tracker == target_tracker && source_role == target_role &&
-          source_project_id == target_project_id
+                        source_project_id == target_project_id
 
         transaction do
           if delete_existing
             where(tracker_id: target_tracker.id, role_id: target_role.id, project_id: target_project_id).delete_all
           end
           connection.insert(
-            "INSERT INTO #{WorkflowRule.table_name}" \
-              " (tracker_id, role_id, old_status_id, new_status_id," \
-               " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, project_id)" \
-              " SELECT #{target_tracker.id}, #{target_role.id}, old_status_id, new_status_id," \
-                      " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, #{target_project_value}" \
-                " FROM #{WorkflowRule.table_name}" \
-                " WHERE tracker_id = #{source_tracker.id} AND role_id = #{source_role.id}" \
-                " AND project_id #{source_project_condition}"
+            "INSERT INTO #{WorkflowRule.table_name} " \
+            '(tracker_id, role_id, old_status_id, new_status_id, ' \
+            "author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, project_id) " \
+            "SELECT #{target_tracker.id}, #{target_role.id}, old_status_id, new_status_id, " \
+            "author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, #{target_project_value} " \
+            "FROM #{WorkflowRule.table_name} " \
+            "WHERE tracker_id = #{source_tracker.id} AND role_id = #{source_role.id} " \
+            "AND project_id #{source_project_condition}"
           )
         end
         RedmineProjectWorkflows::Services::Resolver.reset_cache!
@@ -125,17 +127,17 @@ module RedmineProjectWorkflows
         role_id = Integer(role_id)
 
         connection.insert(
-          "INSERT INTO #{WorkflowRule.table_name}" \
-            " (tracker_id, role_id, old_status_id, new_status_id," \
-             " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, project_id)" \
-            " SELECT tracker_id, role_id, old_status_id, new_status_id," \
-                    " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type," \
-                    " #{connection.quote(target_project_id)}" \
-              " FROM #{WorkflowRule.table_name}" \
-              " WHERE project_id IS NULL" \
-              " AND tracker_id = #{connection.quote(tracker_id)}" \
-              " AND role_id = #{connection.quote(role_id)}" \
-              " AND type = #{connection.quote(sti_type)}"
+          "INSERT INTO #{WorkflowRule.table_name} " \
+          '(tracker_id, role_id, old_status_id, new_status_id, ' \
+          "author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, project_id) " \
+          'SELECT tracker_id, role_id, old_status_id, new_status_id, ' \
+          "author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, " \
+          "#{connection.quote(target_project_id)} " \
+          "FROM #{WorkflowRule.table_name} " \
+          'WHERE project_id IS NULL ' \
+          "AND tracker_id = #{connection.quote(tracker_id)} " \
+          "AND role_id = #{connection.quote(role_id)} " \
+          "AND type = #{connection.quote(sti_type)}"
         )
         RedmineProjectWorkflows::Services::Resolver.reset_cache!
       end
@@ -151,7 +153,7 @@ module RedmineProjectWorkflows
       def copy_with_projects(source_tracker, source_role, target_trackers, target_roles)
         unless source_tracker.is_a?(Tracker) || source_role.is_a?(Role)
           raise ArgumentError,
-                "source_tracker or source_role must be specified, given: " \
+                'source_tracker or source_role must be specified, given: ' \
                 "#{source_tracker.class.name} and #{source_role.class.name}"
         end
 
@@ -195,15 +197,15 @@ module RedmineProjectWorkflows
         transaction do
           where(tracker_id: target_tracker.id, role_id: target_role.id).delete_all
           connection.insert(
-            "INSERT INTO #{WorkflowRule.table_name}" \
-              " (tracker_id, role_id, old_status_id, new_status_id," \
-               " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, project_id)" \
-              " SELECT #{connection.quote(target_tracker.id)}, #{connection.quote(target_role.id)}," \
-                      " old_status_id, new_status_id, author, assignee, field_name," \
-                      " #{connection.quote_column_name 'rule'}, type, project_id" \
-                " FROM #{WorkflowRule.table_name}" \
-                " WHERE tracker_id = #{connection.quote(source_tracker.id)}" \
-                " AND role_id = #{connection.quote(source_role.id)}"
+            "INSERT INTO #{WorkflowRule.table_name} " \
+            '(tracker_id, role_id, old_status_id, new_status_id, ' \
+            "author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, project_id) " \
+            "SELECT #{connection.quote(target_tracker.id)}, #{connection.quote(target_role.id)}, " \
+            'old_status_id, new_status_id, author, assignee, field_name, ' \
+            "#{connection.quote_column_name 'rule'}, type, project_id " \
+            "FROM #{WorkflowRule.table_name} " \
+            "WHERE tracker_id = #{connection.quote(source_tracker.id)} " \
+            "AND role_id = #{connection.quote(source_role.id)}"
           )
         end
         RedmineProjectWorkflows::Services::ScopeCopier.copy_scopes(

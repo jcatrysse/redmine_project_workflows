@@ -122,11 +122,11 @@ module RedmineProjectWorkflows
 
             trackers.each do |tracker|
               roles.each do |role|
-                if always_enabled
-                  rows << transition_row(old_status_id, new_status_id, tracker.id, role.id, project_id, false, false)
-                end
+                key = { old_status_id: old_status_id, new_status_id: new_status_id,
+                        tracker_id: tracker.id, role_id: role.id, project_id: project_id }
+                rows << transition_row(**key, author: false, assignee: false) if always_enabled
                 if author_enabled || assignee_enabled
-                  rows << transition_row(old_status_id, new_status_id, tracker.id, role.id, project_id, author_enabled, assignee_enabled)
+                  rows << transition_row(**key, author: author_enabled, assignee: assignee_enabled)
                 end
               end
             end
@@ -135,7 +135,13 @@ module RedmineProjectWorkflows
         rows
       end
 
-      def self.transition_row(old_status_id, new_status_id, tracker_id, role_id, project_id, author, assignee)
+      # Keyword arguments rather than seven positional ones, the last two of
+      # which are booleans: `transition_row(a, b, c, d, e, false, false)` puts
+      # the author and assignee flags in an order nothing at the call site
+      # names, and getting them the wrong way round writes a workflow that
+      # permits the opposite of what was asked for.
+      def self.transition_row(old_status_id:, new_status_id:, tracker_id:, role_id:, project_id:,
+                              author:, assignee:)
         {
           old_status_id: old_status_id,
           new_status_id: new_status_id,
@@ -171,7 +177,7 @@ module RedmineProjectWorkflows
       end
 
       def self.transition_enabled?(value)
-        value == '1' || value == true
+        ['1', true].include?(value)
       end
     end
   end

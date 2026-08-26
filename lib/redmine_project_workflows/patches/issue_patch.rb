@@ -10,7 +10,7 @@ module RedmineProjectWorkflows
       # query replaced by a project-scoped one -- it is byte-identical in
       # Redmine 5.1, 6.1 and 7.0, and spec/models/issue_workflow_spec.rb holds
       # it to core's answers wherever no scope applies.
-      def workflow_rule_by_attribute(user=nil)
+      def workflow_rule_by_attribute(user = nil)
         return @workflow_rule_by_attribute if @workflow_rule_by_attribute && user.nil?
 
         roles = roles_for_workflow(user || User.current)
@@ -23,10 +23,9 @@ module RedmineProjectWorkflows
           old_status_id: status_id
         )
         if workflow_permissions.any?
-          workflow_rules = workflow_permissions.inject({}) do |hash, permission|
+          workflow_rules = workflow_permissions.each_with_object({}) do |permission, hash|
             hash[permission.field_name] ||= {}
             hash[permission.field_name][permission.role_id] = permission.rule
-            hash
           end
           fields_with_roles = invisible_custom_field_role_map
           roles.each do |role|
@@ -91,25 +90,25 @@ module RedmineProjectWorkflows
       # #tracker= above: this decides whether the issue *keeps* its status
       # across a tracker change, and a status that only another role's workflow
       # uses is still the issue's status. Core has no role filter here either.
-      def new_statuses_allowed_to(user=User.current, include_default=false)
+      def new_statuses_allowed_to(user = User.current, include_default = false)
         initial_status = nil
         if new_record?
           # nop
         elsif tracker_id_changed?
-          if Tracker.where(id: tracker_id_was, default_status_id: status_id_was).any?
-            initial_status = default_status
-          elsif effective_status_ids_for(tracker).include?(status_id_was)
-            initial_status = IssueStatus.find_by_id(status_id_was)
-          else
-            initial_status = default_status
-          end
+          initial_status = if Tracker.where(id: tracker_id_was, default_status_id: status_id_was).any?
+                             default_status
+                           elsif effective_status_ids_for(tracker).include?(status_id_was)
+                             IssueStatus.find_by_id(status_id_was)
+                           else
+                             default_status
+                           end
         else
           initial_status = status_was
         end
 
         initial_assigned_to_id = assigned_to_id_changed? ? assigned_to_id_was : assigned_to_id
         assignee_transitions_allowed = initial_assigned_to_id.present? &&
-          (user.id == initial_assigned_to_id || user.group_ids.include?(initial_assigned_to_id))
+                                       (user.id == initial_assigned_to_id || user.group_ids.include?(initial_assigned_to_id))
 
         statuses = []
         statuses += RedmineProjectWorkflows::Services::TransitionQuery.allowed_statuses(
@@ -134,7 +133,6 @@ module RedmineProjectWorkflows
         statuses
       end
 
-
       private
 
       # The project-aware stand-in for core's Tracker#issue_status_ids at the
@@ -154,12 +152,12 @@ module RedmineProjectWorkflows
       end
 
       def compute_invisible_custom_field_role_map
-        IssueCustomField.where(visible: false).joins(:roles).pluck(:id, 'role_id').each_with_object({}) do |(field_id, role_id), map|
+        IssueCustomField.where(visible: false).joins(:roles).pluck(:id,
+                                                                   'role_id').each_with_object({}) do |(field_id, role_id), map|
           map[field_id] ||= []
           map[field_id] << role_id
         end
       end
-
     end
   end
 end

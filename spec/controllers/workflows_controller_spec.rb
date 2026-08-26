@@ -370,7 +370,6 @@ describe WorkflowsController, type: :controller do
     expect(status_ids).to include(new_status.id, project_status.id, other_project_status.id)
   end
 
-
   it 'returns 404 for unknown project ids' do
     get :edit, params: {
       role_id: [role.id],

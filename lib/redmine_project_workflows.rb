@@ -33,7 +33,7 @@ module RedmineProjectWorkflows
 
     files.each do |file|
       require file
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "[redmine_project_workflows] error loading #{file}: #{e.class} #{e.message}"
       raise
     end

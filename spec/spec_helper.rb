@@ -52,9 +52,7 @@ RSpec.configure do |config|
   end
 
   # keep compatibility across rspec-rails versions
-  if config.respond_to?(:use_transactional_fixtures=)
-    config.use_transactional_fixtures = true
-  end
+  config.use_transactional_fixtures = true if config.respond_to?(:use_transactional_fixtures=)
 
   config.before(:suite) do
     WorkflowTransition.delete_all
