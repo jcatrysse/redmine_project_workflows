@@ -130,9 +130,39 @@
 | 2026-08-26 | WP5 | The threshold's default is written down twice, with a spec asserting the two agree | `init.rb` declares it as the setting's default; `BulkActionsHelper` falls back to it for a settings hash an administrator saved before the key existed. Removing the duplication would mean requiring the plugin's lib before `Redmine::Plugin.register`, which reorders init.rb for a constant. |
 | 2026-08-26 | WP5 | The settings screen has a spec of its own | A partial Redmine cannot find raises on the administration page and a field name that does not match what core writes back saves nothing while looking as though it did; neither is visible from any other spec. It also asserts the screen is administrator-only, because the plugin is what created it. |
 | 2026-08-26 | WP5 | The legend is two sentences, and only the first goes on the field-permissions page | That page renders core's own no-change cells, so what a mixed cell means belongs there; the row and column actions do not exist on it, so explaining them there would describe a control that is not on the page. |
+| 2026-08-26 | WP8 | The status-description icon on the issue form is **not** rebuilt — core already has it | `issues/_attributes.html.erb` renders an `icon-help` link and an `#issue_statuses_description` modal on 5.1, 6.1 and 7.0, listing `@allowed_statuses` with `IssueStatus#description`. That list is `Issue#new_statuses_allowed_to`, which this plugin replaces, so it is already the project's own effective workflow. WP8 adds specs (INV-4: it must never name another project's status) and a README paragraph, not a second icon for the same job. |
+| 2026-08-26 | WP8 | The transition map is the plugin's own icon and modal, beside core's, not an extension of core's | Core's modal renders only when at least one available status has a description filled in, so extending it would make the map disappear on an installation that has never used that field. |
+| 2026-08-26 | WP8 | The map's content is loaded lazily, into core's `#ajax-modal` | Rendering it inline would put a transitions query on every issue form, new and edit, for a panel most visitors never open (G6). |
+| 2026-08-26 | WP8 | The map shows the workflow, and says so; the status dropdown stays the authority | `new_statuses_allowed_to` also drops closed statuses for a blocked issue or one with open subtasks, open ones for a subtask of a closed parent, and filters the author and assignee variants by identity. An edge the map draws and the dropdown withholds carries the reason — core's own `transition_warning` sentence where core has one. A map that silently disagrees with the dropdown earns a support ticket per edge. |
+| 2026-08-26 | WP8 | The map is drawn for the user's **own** roles in that project | Those are exactly the roles the dropdown reflects, and explaining the dropdown is the whole purpose. A whole-installation view of every role already exists, on the administration screens and in the inventory. |
+| 2026-08-26 | WP8 | Out of scope: the bulk-edit form, the issue show page, and editing a description from the map | A bulk selection spans projects and trackers, so one map would be a lie about most of it. The show page is worth doing and is a scope of its own — its reader may have no permission to change anything. |
 
 ## Open — for Jan
 
-*(Nothing open. Items land here with their options, a plain-language explanation
-of each and a recommendation, while the build continues on the safest default.
-WP4's two and WP5's one were all answered A on 2026-08-26 and have moved up.)*
+- **Choice:** How should WP8 draw the "flowchart" of possible status changes?
+- **Options:**
+  A) **A layered diagram, drawn as SVG in the page** — boxes for statuses, arrows
+     for the transitions, laid out left to right from *new issue*, which is what
+     Jira shows. It is the thing you asked for, and it is the most work: the
+     plugin has to compute the layout itself, cope with long status names and
+     with both Redmine themes, and it still needs a plain table beside it because
+     a screen reader cannot read a drawing.
+  B) **A read-only version of the workflow grid you already know** — the same
+     tick-box matrix as the administration screen, greyed out, for this issue's
+     project, tracker and your roles. Nearly free to build, impossible to get
+     wrong, readable by anything — and it is a table, not a picture.
+  C) **Only the local view: "from here"** — the status the issue is in, the
+     statuses it can move to, what each move requires (anyone, only the author,
+     only the assignee), and which statuses can lead into this one. No picture and
+     no overview, but it answers the question somebody editing an issue actually
+     has.
+- **Recommendation:** **C first, then A on top of it.** C is the part that earns
+  its keep on an issue form and it is a prerequisite for A anyway — A is C's data
+  with a layout pass added — so building C first means the feature is useful one
+  commit in and the drawing is an increment rather than a gamble. B is the
+  fallback if A turns out to fight the themes.
+- **Urgent?** no — WP8 is not started, and WP6 is next in the plan either way.
+
+*(Items land here with their options, a plain-language explanation of each and a
+recommendation, while the build continues on the safest default. WP4's two and
+WP5's one were all answered A on 2026-08-26 and have moved up.)*

@@ -402,6 +402,123 @@ counting, from the multiplier and the threshold the helper writes into the
 action's data attributes, and it counts only the controls whose value would
 actually change.
 
+## Telling the end user what the workflow is (WP8)
+
+An issue's status dropdown lists the statuses the workflow permits and says
+nothing about why. With per-project workflows that gap gets worse rather than
+better: two projects on the same tracker now offer different choices, and the
+person editing the issue has no way to see which rules govern them. This section
+is the target for WP8; nothing in it is built yet.
+
+### What Redmine already does — do not rebuild it
+
+**Core already ships a status help icon on the issue form**, on 5.1, 6.1 and 7.0
+alike. `issues/_attributes.html.erb` renders, next to the status select:
+
+- an `icon-help` link (a `sprite_icon('help', …)` from 6.0, a CSS icon on 5.1)
+  labelled `label_open_issue_statuses_description`;
+- opening core's own `#issue_statuses_description` modal — a `<dl>` of status
+  name and `IssueStatus#description`, where clicking a name *applies* that
+  status to the form;
+- and the current status's description as the select's own `title` tooltip.
+
+`IssueStatus#description` is a real core column on every supported version — a
+255-character string an administrator fills in at *Administration → Issue
+statuses*. The icon renders **only** when at least one of the available statuses
+has one, which is why an installation that has never filled them in concludes
+the feature does not exist.
+
+Two consequences for this plugin:
+
+1. **The first half of the requirement is already met, and this plugin is what
+   makes it correct.** The modal lists `@allowed_statuses`, which is
+   `Issue#new_statuses_allowed_to` — a method the plugin *replaces* in full. So
+   the help icon already describes the project's own effective workflow rather
+   than the generic one. That is worth a spec of its own (INV-4: the icon must
+   never name a status another project's rules reach) and a paragraph in the
+   README, not new code.
+2. **What is missing is the map.** Nothing in core draws the transitions as a
+   graph, and nothing in core says *why* a status is absent from the dropdown.
+
+### The transition map
+
+A second icon beside core's, opening a modal of the plugin's own: **the workflow
+this issue is actually governed by.** Two parts, because they answer two
+different questions.
+
+**From here.** The local view, and the one an end user wants: the current status,
+the statuses it may move to, and per edge the condition core stores on it —
+unconditional, *only as author*, *only as assignee* — together with which of the
+user's own roles grants it. Plus the statuses that can reach the current one, so
+"how did this issue get here" is answerable.
+
+**The whole map.** Every status in the effective workflow for this issue's
+project, tracker and the user's roles, and every transition between them,
+including core's `old_status_id = 0` row — the *new issue* pseudo-status, which
+is where a Jira-style diagram starts.
+
+### The map must not contradict the dropdown
+
+This is the part that decides whether the feature helps or hurts.
+`new_statuses_allowed_to` does more than read the workflow: it drops closed
+statuses when `closable?` is false (an open subtask, a blocking issue) and open
+ones when `reopenable?` is false (a closed parent), and it filters the author and
+assignee variants by who the current user actually is. A map drawn from the
+workflow rows alone therefore shows edges the dropdown does not offer.
+
+So the map states which it is showing. An edge the workflow permits but this
+issue and this user cannot take now is drawn as permitted **and** marked with the
+reason — the same sentence core puts in `Issue#transition_warning` where core has
+one. The dropdown stays the authority for "what may I do this minute"; the map
+answers "what does this workflow allow, and why is that not on offer". Anything
+less honest is worse than no map, because it invites a support ticket per edge.
+
+### How it is drawn
+
+Server-side, lazily: the issue form gets a link and runs no extra query, and the
+modal's content comes from an action of the plugin's own. The resolver's hot path
+(**INV-6**, **G6**) is untouched — an ordinary issue edit costs exactly what it
+costs today.
+
+The renderer is an open choice (`DECISIONS.md`), because a layered graph is real
+work and the cheap options are not obviously worse:
+
+- **A layered inline SVG** — nodes placed by distance from *new issue*, edges as
+  arrowed paths. What the requirement asks for; needs a layering pass, a
+  barycentric ordering pass to keep crossings down, and a plan for long status
+  names and for both Redmine themes. Always accompanied by the table below, never
+  replaced by it — an SVG graph is not readable by a screen reader whatever is
+  put in its `aria` attributes.
+- **A read-only grid** — core's own workflow matrix, disabled, for this one
+  (project, tracker, role) triple. Nearly free, entirely core markup, perfectly
+  accessible, and not a flowchart.
+- **The local view alone** — "from here" and nothing else. Cheapest, answers the
+  question that is actually asked on an issue form, and drops the overview a
+  manager wants.
+
+Whatever is chosen, the accessible representation is a `table.list` of
+*from → to → condition*, which is also the fallback where SVG cannot render.
+
+### Scope, authorization and cost
+
+| Decision | Why |
+| --- | --- |
+| The single-issue form, new and edit — `issues/_form` through `issues/_attributes` | one issue, one project, one tracker: one map that is true |
+| **Not** the bulk-edit form | a selection can span projects and trackers, so one map would be a lie about most of the selection |
+| **Not** the issue show page in WP8 | worth doing, and a scope of its own — the reader there may have no permission to change anything |
+| Authorization: the issue through `Issue.visible`, or for an unsaved issue the project plus `add_issues` | the map reveals the workflow governing an issue the user is already looking at, so it needs no permission of its own |
+| The tracker comes from the issue; on the new-issue form it arrives as a parameter and is **matched against the project's own trackers** | **INV-7** — no request parameter may widen the scope, and Rails resolves `where(id: ['1e5'])` to record 1 |
+| The roles are the user's own roles in that project | the dropdown reflects exactly those, and the map's whole job is to explain the dropdown |
+| One scope lookup plus one transitions query, both carrying an explicit `project_id` | **INV-4** |
+
+The anchor is core's `f.select :status_id` expression in
+`issues/_attributes.html.erb`, which is byte-identical in 5.1, 6.1 and 7.0 — the
+help icon beside it is *not*, because 6.0 replaced its CSS icon with a sprite.
+That override raises the count of **INV-9** overrides, which is written down in
+`CLAUDE.md`, in this document and in the spec's own comment, and it needs an
+assertion in `spec/integration/deface_overrides_spec.rb` that only it can
+satisfy.
+
 ## Supported versions
 
 | Redmine | Rails | Ruby used in CI |

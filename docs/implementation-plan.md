@@ -1,4 +1,4 @@
-# Implementation plan — WP0..WP7
+# Implementation plan — WP0..WP8
 
 > Work in this order. Each package is one commit (or a small run of them) on
 > `claude/dev`, green at every commit. `docs/design.md` describes the target;
@@ -23,6 +23,7 @@
 | WP5 | Bulk editing in the matrix | **done** |
 | WP6 | Compare, audit, undo | not started |
 | WP7 | Documentation, locales, release | not started |
+| WP8 | Status help and the transition map on the issue form | not started |
 
 ---
 
@@ -238,13 +239,78 @@ Out of scope: workflow templates, rectangle and drag selection.
 
 ---
 
+## WP8 — Status help and the transition map on the issue form
+
+New requirement, raised 2026-08-26: *when editing an issue a clickable info icon
+shows the meaning of every available status, and — as Jira does — a flowchart of
+the possible status changes.* `design.md` carries the target; this is the route.
+
+**The first half already exists in Redmine, and this plugin is what makes it
+correct.** `issues/_attributes.html.erb` renders an `icon-help` link next to the
+status select on 5.1, 6.1 and 7.0, opening core's `#issue_statuses_description`
+modal: a `<dl>` of status name and `IssueStatus#description`, each name clickable
+to apply that status. It lists `@allowed_statuses`, which is
+`Issue#new_statuses_allowed_to` — the method this plugin replaces in full — so it
+already describes the project's own effective workflow. It renders only when at
+least one available status has a description, which is why an installation that
+has never filled them in believes the feature is absent. So this half is:
+
+- a spec asserting the modal names the project's own statuses and **never** a
+  status only another project's rules reach (INV-4), on all three versions;
+- a spec asserting an empty own workflow yields no modal rather than the generic
+  list;
+- a README paragraph pointing administrators at *Administration → Issue statuses
+  → Description*, because the icon is invisible until they use it.
+
+**The second half is new.** `Services::TransitionMapQuery`: for one (project,
+tracker, role ids) triple, the effective transitions as nodes and edges, each
+edge carrying its condition — unconditional, author-only, assignee-only — and
+core's `old_status_id = 0` *new issue* pseudo-status as the entry node. One scope
+lookup and one transitions query, both with an explicit `project_id` (INV-4).
+
+Then:
+
+- The plugin's own controller action, loaded lazily into core's `#ajax-modal` so
+  an ordinary issue edit runs no extra query (G6). Authorization: the issue
+  through `Issue.visible`, or for an unsaved issue the project plus `add_issues`.
+  The tracker on the new-issue form arrives as a parameter and is matched against
+  the project's own trackers, never queried (INV-7).
+- One Deface override on core's `f.select :status_id` expression — byte-identical
+  in 5.1, 6.1 and 7.0, unlike the help icon beside it, which 6.0 turned into a
+  sprite. The INV-9 count rises, in `CLAUDE.md`, `design.md` and the spec's
+  comment, with an assertion in `spec/integration/deface_overrides_spec.rb` that
+  only this override can satisfy.
+- The renderer, per the answer to the open choice in `DECISIONS.md`: layered
+  inline SVG, a read-only grid, or the local "from here" view alone. Whichever is
+  chosen, a `table.list` of *from → to → condition* is the accessible
+  representation and the no-SVG fallback, never omitted.
+- The honesty clause from `design.md`: the map says what the workflow allows, the
+  dropdown stays the authority for what may be done now, and an edge the
+  dropdown withholds carries the reason — core's own `transition_warning`
+  sentence where core has one.
+- Strings in `en` and `nl` by hand, the other six locale files carrying the keys.
+
+Out of scope: the bulk-edit form (a selection spans projects and trackers, so one
+map would be a lie about most of it), the issue show page (worth doing, and a
+scope of its own — the reader there may not be able to change anything), and
+editing a status description from the map.
+
+**Done when** a project with its own workflow shows a map that matches its own
+matrix, an inheriting project shows the generic one, neither can see the other's,
+and the specs above are green on all nine CI cells.
+
+---
+
 ## Sequencing
 
 WP0 is independent. WP1 gates everything after it. WP3 needs WP1's scopes to
 report anything true; WP4 needs WP1 and reuses WP3's state labels. WP5 touches
 different files from WP4 and can run alongside it. WP6 needs WP1 (audit
-columns) and WP3 (where the compare view is reached from). WP7 comes last,
-after all strings exist.
+columns) and WP3 (where the compare view is reached from). WP8 needs WP1 (it
+resolves a scope like everything else) and nothing later, so it may be built
+before WP6 or after it; it is numbered last because it arrived last, not because
+it depends on WP7. WP7 comes last of all,
+after all strings exist — including WP8's.
 
 ## Definition of done
 
