@@ -119,6 +119,23 @@ describe RedmineProjectWorkflows do
     end
   end
 
+  # WP7. The version lives in init.rb and the release notes live in CHANGELOG.md,
+  # and nothing but a habit kept them agreeing. Bumping one and forgetting the
+  # other ships a plugin whose own changelog describes a different release, which
+  # nobody notices until somebody asks what version they are running.
+  #
+  # The declared minimum Redmine version needs no assertion of its own: it is
+  # checked by the nine-cell matrix itself. Raise it above a version CI runs and
+  # `Redmine::Plugin.register` raises on that cell before a single example loads.
+  it 'declares the same version its changelog most recently describes' do
+    declared = Redmine::Plugin.find(:redmine_project_workflows).version
+    changelog = File.read(File.expand_path('../CHANGELOG.md', __dir__))
+    newest = changelog[/^## (\S+)/, 1]
+
+    expect(newest).to eq(declared),
+                      "init.rb declares #{declared}; CHANGELOG.md's newest entry is #{newest}"
+  end
+
   # Reading a workflow is a read action, so it goes on working in a closed
   # project; managing one is not, so it stops there.
   it 'marks viewing as a read action and managing as a write' do
