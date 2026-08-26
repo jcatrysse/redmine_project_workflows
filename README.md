@@ -254,8 +254,11 @@ you are, it says so: *Only the author of the issue may make this change.*
 your tracker and role permits nothing at all, and Redmine's response to that is
 not an empty dropdown — it is *no status control on the form whatsoever*, with
 nothing to say why. That is a deliberate configuration and not a fault, and this
-panel is the only place that says so; the link to it is there even when the
-dropdown is not.
+panel is the only place that says so.
+
+Redmine does the same thing without this plugin, for any status with nothing
+leading out of it — a terminal *Closed*, most often. So the link is there
+whenever the status list is not, which is where it is needed most.
 
 It costs nothing until you open it: the form gets a link, and the panel is
 loaded when you click it.

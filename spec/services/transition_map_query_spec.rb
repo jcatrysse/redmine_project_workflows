@@ -403,24 +403,76 @@ describe RedmineProjectWorkflows::Services::TransitionMapQuery do
     issue = issue_in(new_status)
 
     issue.tracker = other_tracker
-    map = described_class.new(issue: issue, user: user, tracker: other_tracker).result
+    map = described_class.new(issue: issue, user: user).result
     offered = issue.new_statuses_allowed_to(user).map(&:id) - [map.status_id]
 
     expect(map.outgoing.select(&:available).map(&:new_status_id).sort).to eq(offered.sort)
     expect(map.outgoing.map(&:new_status)).to eq([resolved])
   end
 
+  # The contract the honesty clause rests on, asserted rather than left to a
+  # caller's discipline. An earlier version took a `tracker:` argument, queried
+  # the edges for it and still read the status and the status list off the issue,
+  # so handing it a tracker the issue was not carrying produced a map whose edges
+  # and whose "offered now" column described two different trackers. There is no
+  # such argument now, so the only tracker the map can describe is the issue's.
+  it 'describes the issue own tracker and takes no other' do
+    other_tracker = trackers(:trackers_002)
+    project.trackers << other_tracker unless project.trackers.include?(other_tracker)
+    transition(new_status, assigned)
+    WorkflowTransition.create!(tracker_id: other_tracker.id, role_id: role.id, project_id: nil,
+                               old_status_id: new_status.id, new_status_id: resolved.id)
+    issue = issue_in(new_status)
+
+    expect { described_class.new(issue: issue, user: user, tracker: other_tracker) }
+      .to raise_error(ArgumentError)
+    expect(map_for(issue).outgoing.map(&:new_status)).to eq([assigned])
+  end
+
+  # C. A nil status record is core's "new issue" node when its id is 0 and a row
+  # naming a deleted status otherwise. Only the first belongs at the top of the
+  # table; the second sorted there too, ahead of every real status, because the
+  # sort told them apart by being nil rather than by their id.
+  it 'sorts a dangling status last, not into the new issue slot' do
+    orphan = IssueStatus.create!(name: 'Transition map spec orphan')
+    transition(new_status, orphan)
+    orphan_id = orphan.id
+    IssueStatus.where(id: orphan_id).delete_all
+    transition(new_status, assigned)
+    transition(new_status, resolved)
+
+    map = map_for(issue_in(new_status))
+
+    expect(map.outgoing.map(&:new_status_id)).to eq([assigned.id, resolved.id, orphan_id])
+  end
+
   # G6. The cost is behind a link, but it still has to be a fixed number of
-  # queries rather than one per role or per status.
+  # queries rather than one per role, per status or per edge.
+  #
+  # **Five**, measured rather than estimated, and the same five on 5.1, 6.1 and
+  # 7.0: the scope lookup, the "does this project hold a rule of its own" lookup
+  # that tells `own` from `own_empty`, the edges around this status, the statuses
+  # those edges name, and -- inside `new_statuses_allowed_to` -- the status list's
+  # own query, which is part of the answer because the panel refuses to
+  # recompute it. Six leaves room for a host that asks one more; anything
+  # materially above it means something has started asking per row.
   it 'costs a fixed number of queries whatever the size of the workflow' do
+    # Two roles in *different* states, so the arrangement exercises the split
+    # population_scopes exists for -- the project's own rows for one role and the
+    # generic rows for the other -- rather than only growing the number of
+    # statuses under one role.
+    Member.where(project: project, user: user).first.update!(role_ids: [role.id, second_role.id])
     give_own_workflow(project, tracker, role)
     [assigned, resolved, closed].each do |status|
       transition(new_status, status, project_id: project.id)
       transition(status, new_status, project_id: project.id)
+      transition(new_status, status, role_id: second_role.id)
     end
     issue = issue_in(new_status)
-    # The dropdown is part of the answer and costs what it costs; force the
-    # fixtures and the associations the map does not pay for.
+    # A memoised `let` referenced for the first time inside the counted block
+    # would add its own SELECTs and look exactly like an N+1, so everything the
+    # arrangement needs is forced first -- and the request cache is cleared, so
+    # the count is a cold one.
     issue.new_statuses_allowed_to(user)
     RedmineProjectWorkflows::Current.reset
 
@@ -428,6 +480,34 @@ describe RedmineProjectWorkflows::Services::TransitionMapQuery do
     counter = ->(_name, _start, _finish, _id, payload) { counted += 1 unless payload[:name] == 'SCHEMA' }
     ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') { map_for(issue) }
 
-    expect(counted).to be <= 8
+    expect(counted).to be <= 6
+  end
+
+  # ... and the same five for a workflow twice the size, which is the property
+  # the number is standing in for.
+  it 'costs the same for a workflow twice as large' do
+    Member.where(project: project, user: user).first.update!(role_ids: [role.id, second_role.id])
+    give_own_workflow(project, tracker, role)
+    small = count_queries_for([assigned])
+    large = count_queries_for([assigned, resolved, closed])
+
+    expect(large).to eq(small)
+  end
+
+  def count_queries_for(statuses)
+    WorkflowTransition.delete_all
+    statuses.each do |status|
+      transition(new_status, status, project_id: project.id)
+      transition(status, new_status, project_id: project.id)
+      transition(new_status, status, role_id: second_role.id)
+    end
+    issue = issue_in(new_status)
+    issue.new_statuses_allowed_to(user)
+    RedmineProjectWorkflows::Current.reset
+
+    counted = 0
+    counter = ->(_name, _start, _finish, _id, payload) { counted += 1 unless payload[:name] == 'SCHEMA' }
+    ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') { map_for(issue) }
+    counted
   end
 end

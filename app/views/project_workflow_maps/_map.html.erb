@@ -68,6 +68,10 @@
         <strong><%= l(:label_project_workflow_map_scope) %>:</strong>
         <%= project_workflow_state_tag(uniform) %>
         <em>(<%= l(:label_role_plural) %>: <%= @map.roles.map(&:name).join(', ') %>)</em>
+        <%# One link, for the first role, because the states agree: whichever
+            role it opens shows a matrix in the state this sentence just named.
+            A link per role would be four links saying the same thing. The
+            branch below does link each role, because there they differ. %>
         <%= project_workflow_map_edit_link(@project, @tracker, @map.roles.first, uniform) %>
       </p>
     <% else %>

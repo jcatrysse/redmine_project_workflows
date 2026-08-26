@@ -28,8 +28,11 @@ class ProjectWorkflowMapsController < ApplicationController
   before_action :find_tracker
 
   def show
+    # No tracker argument: the query reads everything off the one issue, and
+    # +find_tracker+ has already applied the form's tracker to it. See the
+    # query's own initialize for why that is not a parameter.
     @map = RedmineProjectWorkflows::Services::TransitionMapQuery.new(
-      issue: @issue, user: User.current, tracker: @tracker
+      issue: @issue, user: User.current
     ).result
 
     respond_to do |format|

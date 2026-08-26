@@ -471,6 +471,27 @@ describe IssuesController, type: :controller do
     expect(response.body).to include(ERB::Util.html_escape(path))
   end
 
+  # And the case that makes the second override more than a plugin corner: core
+  # renders no select for **any** status with nothing leading out of it, on a
+  # plain generic workflow with no plugin scope anywhere. `new_statuses_allowed_to`
+  # appends the issue's own status only when the workflow permitted something, so
+  # a dead-end status empties @allowed_statuses on a stock installation too --
+  # and that is where somebody is most likely to want the panel, because there is
+  # nothing else on the form to explain it.
+  it 'injects the link at a dead end in the generic workflow, with no scope anywhere' do
+    dead_end = issue_statuses(:issue_statuses_005)
+    issue = Issue.create!(project: project, tracker: tracker, status: dead_end,
+                          author_id: 2, subject: 'deface override spec')
+
+    get :edit, params: { id: issue.id }
+
+    expect(ProjectWorkflowScope.count).to eq(0)
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include('id="issue_status_id"')
+    path = issue_workflow_map_path(issue, tracker_id: tracker.id)
+    expect(response.body).to include(ERB::Util.html_escape(path))
+  end
+
   # ... and it must not double up where core *does* render the select, which is
   # what a second anchor on the same page would produce.
   it 'injects the link exactly once where core renders the select' do

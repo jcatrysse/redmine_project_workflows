@@ -76,9 +76,10 @@ nothing had ever tested.
   the workflow permits but the status list is not offering, the reason. Redmine's
   own sentence where Redmine has one (an open subtask, a blocking issue, a closed
   parent), the plugin's where the reason is who the reader is. The link is there
-  even when Redmine renders no status control at all, which is what an own empty
-  workflow produces. Loaded when it is opened, so an ordinary issue edit costs
-  nothing extra.
+  even when Redmine renders no status control at all — which an own empty
+  workflow produces, and so does a plain generic workflow at any status with
+  nothing leading out of it. Loaded when it is opened, so an ordinary issue edit
+  costs nothing extra.
 - Redmine's own status help icon on that form needed no change and is now
   covered by specs: the statuses it lists are the project's own effective
   workflow, never another project's. It is invisible until an administrator fills

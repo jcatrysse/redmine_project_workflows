@@ -666,8 +666,17 @@ dropdown: it gives them **no status control at all**, because
 otherwise falls back to `<p><label>Status</label> New</p>`. No select, no help
 icon, no modal, and nothing anywhere on the form saying why.
 
+**And it is not only the empty-workflow case.** The same thing happens on a
+plain generic workflow with no scope anywhere, for any status with nothing
+leading out of it for the reader's roles — a terminal *Closed*, most obviously.
+So the branch is not a plugin corner at all: it is where a reader is *most*
+likely to want the panel, because nothing else on the form explains it. That is
+why the link is anchored in **both** branches of core's `if`, and why the
+INV-9 count is fifteen rather than fourteen.
+
 Measured rather than assumed, on all three versions:
-`spec/integration/issue_status_help_spec.rb`. It is the strongest argument for
+`spec/integration/issue_status_help_spec.rb` and the `IssuesController` group in
+`spec/integration/deface_overrides_spec.rb`. It is the strongest argument for
 the panel, and the reason the panel's own sentence about the empty case is not
 optional.
 

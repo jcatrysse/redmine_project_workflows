@@ -165,6 +165,9 @@
 | 2026-08-26 | WP8 | **Two** Deface overrides on `issues/_attributes`, not one | Caught by a probe, not by reasoning: core renders the status control two ways, and the second — a plain label instead of a select — is exactly what an own **empty** workflow produces, because `new_statuses_allowed_to` appends the issue's own status only when the workflow permitted something. A single anchor on `f.select :status_id` therefore withheld the panel in the one case the panel exists for. INV-9 count 13 → 15. |
 | 2026-08-26 | WP8 | An **incoming** edge carries no availability | It ends at the status the issue is already in, so it is history rather than an action, and asking would answer "yes" for every one of them — the status list always offers the current status back. |
 
+| 2026-08-26 | WP8 | `TransitionMapQuery` takes **no** `tracker:` argument | Raised by the fresh-subagent review as a latent contract hole, and the fix went the other way from the one suggested. The query took a tracker, queried the edges for it, and still read the status and the status list off the issue -- consistent only because the controller had applied the form's tracker first. Handing it a tracker the issue was not carrying produced a map whose edges and whose "offered now" column described two different trackers, which is the exact contradiction the class exists to prevent; the reviewer demonstrated it. Moving the assignment *into* the query would have fixed it too, but a query object that mutates its argument is worse: reading everything from the one issue makes the contradiction unrepresentable instead of merely unlikely. |
+| 2026-08-26 | WP8 | A row naming a **deleted** status sorts last, not first | `position_of` returned -1 for any nil status record, which is right for core's "new issue" node and wrong for a row whose status has been removed -- it sorted ahead of every real status. Told apart by the **id** now (0 is the node), not by being nil. |
+
 ## Open — for Jan
 
 - **Choice:** WP8 is a user-visible feature added after the CHANGELOG already
@@ -181,6 +184,22 @@
 - **Urgent?** no — we continued with A. Switching to B later is one line in
   `init.rb` and one heading in `CHANGELOG.md`, and `spec/plugin_conventions_spec.rb`
   asserts the two agree, so it cannot be done by halves.
+
+- **Choice:** `CLAUDE.md` says `en` and `nl` are written by hand and *"the other
+  six locale files carry the keys so nothing falls back silently"*. In fact
+  de, es, fr, it, pl and pt are **fully translated**, and have been since before
+  WP8 — WP8 followed the file, not the rule. Which is the rule?
+- **Options:**
+  A) Keep translating all eight, and change `CLAUDE.md` to say so. *(what the
+     files do today, and what WP8 did)*
+  B) Keep the rule as written and stop adding translations to the six, leaving
+     new keys in English there and marked as untranslated.
+- **Recommendation:** **A**, with a caveat you should know: it is unreviewed
+  machine translation presented as translation, which is a different risk from an
+  obviously-untranslated key — a wrong word in Polish reads as a decision rather
+  than as a gap. If that trade is not one you want, B is honest and cheap.
+- **Urgent?** no — we continued with A, which is what the existing files do.
+  Raised by the fresh-subagent review of WP8.
 
 *(WP7's one was answered **A** on 2026-08-26 and has moved up, as were WP8's
 renderer choice (**C**), WP4's two and WP5's one. Items land here with their

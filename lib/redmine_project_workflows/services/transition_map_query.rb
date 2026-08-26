@@ -162,14 +162,29 @@ module RedmineProjectWorkflows
         end
       end
 
-      # +issue+ is the issue as the form has it -- saved or not. +tracker+
-      # defaults to its own; the caller passes the form's when the reader has
-      # changed it, having matched it against the project's trackers first
-      # (INV-7).
-      def initialize(issue:, user:, tracker: nil)
+      # +issue+ is the issue as the form has it -- saved or not -- and it is the
+      # *only* source of what is described: the tracker, the status the map is
+      # drawn from and the status list it is compared against all come off this
+      # one object.
+      #
+      # There is deliberately no +tracker:+ parameter. An earlier version took
+      # one, queried the edges for it, and still read the status and the status
+      # list off the issue -- which lined up only because the controller had
+      # already applied the form's tracker to the issue before calling. Handing
+      # this a tracker the issue was not carrying produced a map whose edges and
+      # whose "offered now" column described two different trackers, which is
+      # exactly the contradiction the class exists to prevent. Reading everything
+      # from one object makes that unrepresentable rather than merely unlikely.
+      #
+      # The caller that wants the form's tracker described therefore assigns it
+      # to the issue first, having matched it against the project's own trackers
+      # (INV-7). ProjectWorkflowMapsController#find_tracker is that caller, and
+      # its comment says why the assignment is the same reconciliation core's own
+      # form performs.
+      def initialize(issue:, user:)
         @issue = issue
         @user = user
-        @tracker = tracker || issue.tracker
+        @tracker = issue.tracker
       end
 
       def result
@@ -406,15 +421,20 @@ module RedmineProjectWorkflows
         edges.sort_by do |edge|
           status = direction == :outgoing ? edge.new_status : edge.old_status
           status_id = direction == :outgoing ? edge.new_status_id : edge.old_status_id
-          [position_of(status), status_id]
+          [position_of(status, status_id), status_id]
         end
       end
 
-      # -1 sorts core's "new issue" node first. A status whose position is null
-      # -- which the column allows -- sorts after the ones that have one rather
-      # than raising on a nil comparison.
-      def position_of(status)
-        return -1 if status.nil?
+      # -1 sorts core's "new issue" node first, where the matrix puts it -- and
+      # it is told from the other nil by its **id**, not by being nil. Both are
+      # nil records: id 0 is that node, and any other id is a row naming a status
+      # that no longer exists, which belongs at the end rather than ahead of every
+      # real status. A status whose position is null -- which the column allows --
+      # sorts after the ones that have one rather than raising on a nil
+      # comparison.
+      def position_of(status, status_id)
+        return -1 if status.nil? && status_id.to_i.zero?
+        return Float::INFINITY if status.nil?
 
         status.position || Float::INFINITY
       end

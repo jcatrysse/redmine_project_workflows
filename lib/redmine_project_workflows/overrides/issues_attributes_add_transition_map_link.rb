@@ -36,8 +36,10 @@ module RedmineProjectWorkflows
     # statuses, this one describes the rules that decide which statuses are
     # offered at all.
     #
-    # The helper renders nothing when the form has no project or no tracker yet,
-    # which is the global new-issue form before either has been chosen.
+    # The helper renders nothing when the form has no project or no tracker to
+    # describe. Not the global new-issue form, which was the example given here
+    # and is wrong: core preselects a project there, so the link does render.
+    # It is the guard for a form whose project select has not resolved to one.
     #
     # INV-9: `spec/integration/deface_overrides_spec.rb` asserts each of these
     # against the real rendered issue form on every supported version, with an
