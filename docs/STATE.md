@@ -25,15 +25,15 @@
   the remote is current: `git checkout -B claude/dev origin/claude/dev` is the
   safe form.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open choices:** **one**, new this session, and it blocks nothing — what the
-  copy screen should do when no target project is selected (finding C01, below).
-  It is written out with options and a recommendation under "Open — for Jan" in
-  `docs/DECISIONS.md`.
-- **Open findings:** **three**, all deliberate. `G02` and `G03` from the earlier
-  runs (both recorded with the reasoning for leaving them), and `C01` from this
-  session, which is waiting on Jan rather than on code. Everything else across
+- **Open choices:** **none.** This session raised one — what the copy screen
+  should do when no target project is selected (finding C01) — and Jan answered
+  **B** the same day. It is implemented, and the row has moved up into
+  "Decided (Jan)" in `docs/DECISIONS.md`.
+- **Open findings:** **two**, both deliberate: `G02` and `G03` from the earlier
+  runs, each recorded with the reasoning for leaving it. Everything else across
   every findings file is closed. To check for yourself:
-  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`.
+  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` (one further hit is
+  a line in `TEMPLATE.md`, which is not a finding).
 - **`spec/characterization/`:** still **gone**, since WP3. The convention stands
   and is written down in `dev/README.md`: a defect that is found but not yet
   fixed is pinned there first.
@@ -95,12 +95,12 @@ locale files — parallel to `error_workflow_copy_target_project`, and deliberat
 not merged with it, because "you selected nothing" and "what you selected is
 gone" send an administrator to look at different things.
 
-### The finding this session raised and did **not** fix
+### The finding this session raised, reported, and then fixed on Jan's answer
 
 **C01**, in `docs/review/findings/2026-08-26-copy-form-observations.md`. Found
-while widening the guard, confirmed, major, and left open on purpose:
+while widening the guard, confirmed, major. It was reported rather than fixed —
 `CLAUDE.md` says an out-of-scope defect goes into a findings file, not into the
-diff.
+diff — and **Jan answered B the same day**, so it is fixed too, in `a559b6a`.
 
 Selecting **no target project at all** on the copy screen sends the request to
 core, which rewrites the **generic** workflow — the one every project that has
@@ -111,12 +111,20 @@ never reached on this path, because a `multiple` select with nothing selected
 submits no parameter. Nothing regressed — this is Redmine's behaviour and the
 plugin inherited it — but the plugin's form is what makes the slip easy.
 
-Three options, written out in `docs/DECISIONS.md` under "Open — for Jan":
-refuse the request (safest, but a bare core-shaped copy request stops working);
-preselect *Generic* in the target selector (nothing that works today breaks, and
-the destructive default becomes visible); or leave it. The recommendation is the
-second, then the first once Jan is sure nothing in his installation posts a bare
-copy request.
+**Jan chose B:** the target project control preselects *Generic* when nothing
+else is selected, so the form always submits a target and the copy that runs is
+the copy the form shows. One local on `_copy_project_selector.html.erb`
+(`default_global`), passed by the target selector's override only.
+
+Two consequences worth knowing. **Option A is now largely moot but still
+available:** with a target always submitted, every submission from the plugin's
+own form carries project context and is validated by `#duplicate` rather than
+handed to core — so the only way left to reach core's generic rewrite is a
+hand-built request carrying no plugin parameter at all, or deliberately clearing
+the control with ctrl-click. And the **source** project control is deliberately
+unchanged: blank there already means the generic workflow, it destroys nothing,
+and the source tracker and role beside it are blank-by-default as well, which is
+core's own convention for "not chosen yet".
 
 ### The review roles, and one that could not run
 
@@ -145,26 +153,29 @@ gates this session. What it did produce, each of which became an example:
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **582 examples, 0 failures** (was 566; 16 added) |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **582 examples, 0 failures**, and again with `--seed 777` |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **582 examples, 0 failures**, and again with `--seed 4242` |
-| Fails on the old code | **12 of the 16 new examples**, run rather than assumed: the patch file restored to its `db381fc` state with `git show db381fc:<path> > <path>`, the block run, then `git checkout -- <path>`. Ten had written a workflow row and redirected with the success notice instead of rejecting; two more render the copy page and look for the message on it, and found a redirect. The other four are positive controls that must pass on **both** sides — `any` as a source tracker, `any` as a source role, the same target tracker id submitted twice, and a blank source tracker still reporting the older message |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **585 examples, 0 failures** (was 566; 19 added) |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **585 examples, 0 failures**, and again with `--seed 777` before C01 was fixed |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **585 examples, 0 failures**, and again with `--seed 4242` before C01 was fixed |
+| Fails on the old code (C01's three view examples) | **one of the three**, and by design: the other two are regression guards that must pass on both sides — the source control untouched, and a submitted target selection kept rather than having *Generic* added to it. Verified by restoring both changed files to their `e9f2443` state and re-running |
+| Fails on the old code (the copy guard) | **12 of the 16 new examples**, run rather than assumed: the patch file restored to its `db381fc` state with `git show db381fc:<path> > <path>`, the block run, then `git checkout -- <path>`. Ten had written a workflow row and redirected with the success notice instead of rejecting; two more render the copy page and look for the message on it, and found a redirect. The other four are positive controls that must pass on **both** sides — `any` as a source tracker, `any` as a source role, the same target tracker id submitted twice, and a blank source tracker still reporting the older message |
 | RuboCop | 91 files, no offences, **no new `.rubocop_todo.yml` entry** |
 | `zeitwerk:check` | passes on the 7.0 host |
 | Migration up → 0 → up | clean on the 7.0 host, run **before** its suite. This session adds no migration |
 | Locale parity | eight files, **92** keys each (was 91) |
 | MySQL / MariaDB | **not run** — no such server and no `mysqld` in this container. Three of the nine cells are unverified locally; CI covers them |
-| CI | **green.** Run **63** on `250c8b3` — which carries the entire code change — succeeded on **all ten jobs**: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Run **65** on `6852fa2` is green too. That is what covers the three **MySQL and MariaDB** cells nothing in this container could run. Runs 61, 62 and 64 read "cancelled": the concurrency group superseded each of them when the next commit was pushed, which is not a failure — read the run for the commit you care about, not the newest completed one |
+| CI | **green up to `e9f2443`**; the C01 fix (`a559b6a`) was pushed after that and its run should be read by the next session. Run **63** on `250c8b3` — which carries the entire code change — succeeded on **all ten jobs**: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Run **65** on `6852fa2` is green too. That is what covers the three **MySQL and MariaDB** cells nothing in this container could run. Runs 61, 62 and 64 read "cancelled": the concurrency group superseded each of them when the next commit was pushed, which is not a failure — read the run for the commit you care about, not the newest completed one |
 
 ## Exact next step
 
 **It is Jan's turn.**
 
-1. **Nothing to check first.** CI is green on all ten jobs for the code (run 63
-   on `250c8b3`) and for the branch after it (run 65 on `6852fa2`). Only one
-   commit lands after that — this STATE rewrite, docs only — so if its own run is
-   green the whole branch is. See the CI row above for the "cancelled" runs,
-   which are the concurrency group and not failures.
+1. **Read CI for the head.** Everything up to `e9f2443` is green on all ten jobs
+   (run 63 on `250c8b3`, run 65 on `6852fa2`). The C01 fix and this STATE rewrite
+   land after that, and their run had not finished when the session ended. It is
+   view code and view specs, all nine cells run the same ones, and all three
+   PostgreSQL cells were run here — so a surprise is unlikely, but read it. See
+   the CI row above for the "cancelled" runs, which are the concurrency group and
+   not failures.
 2. **Nothing else is queued.** WP0..WP8 are done, `spec/characterization/` is
    empty, and the three open findings are all deliberate — `C01` is waiting on
    Jan, `G02` and `G03` were both recorded with the reasoning for leaving them.
@@ -195,9 +206,18 @@ the eleven after them came from WP8, and the rest from the work packages before 
   which reads as proof and is not. And once the change is **committed**,
   `git stash push` on that file has nothing to stash: it exits 0, says "No local
   changes to save", and the "old code" run is the new code passing itself. Use
-  `git show <old-sha>:<path> > <path>` … `git checkout -- <path>` instead — that
-  works whether or not the change is committed, and this session was fooled by
-  the stash form once.
+  Commit the change, then use `git show <old-sha>:<path> > <path>` …
+  `git checkout -- <path>` instead. This session was fooled by the stash form
+  once, and then by the replacement form once — see the next entry, which is why
+  "commit first" is part of the recipe rather than an aside.
+- **…and `git checkout -- <path>` afterwards restores it to `HEAD`, which throws
+  an *uncommitted* fix away.** The mirror image of the trap above, and it cost
+  this session the C01 view fix once: writing the old version over the file,
+  running, then `git checkout --` left the old version in place, because `HEAD`
+  did not yet carry the new one. `git status` then shows the spec file modified
+  and the fix silently gone. **Commit the fix first**, then restore from the
+  previous commit — that way `git checkout --` puts the fix back rather than
+  removing it.
 - **A backgrounded `dev/setup.sh` reports success immediately and means
   nothing.** `nohup dev/setup.sh … &` returns at once, so the shell's exit code
   describes the `&`, not the setup. Read the log file. Both real failures were
