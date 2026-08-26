@@ -69,6 +69,7 @@
         <td class="project-workflow-<%= rule_type %>">
           <%= project_workflow_inventory_count_link(cell, row, rule_type) %>
           <%= project_workflow_state_tag(cell.state) %>
+          <%= project_workflow_audit_tag(cell) %>
         </td>
       <% end %>
     </tr>

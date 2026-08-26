@@ -16,8 +16,9 @@ module RedmineProjectWorkflows
     # The product is never materialised: #total is a multiplication and a page
     # is addressed arithmetically, so a page costs the same on an installation
     # with three projects and one with three thousand. Whatever the mode, one
-    # page is at most four queries -- the deviating combinations, the scopes,
-    # and one count per rule type -- and never one per row (G6).
+    # page is at most five queries -- the deviating combinations, the scopes, one
+    # count per rule type, and the users named by the scopes' audit columns --
+    # and never one per row (G6).
     class InventoryQuery
       # What one cell of the table says: which of the three states of INV-3
       # this (project, tracker, role, rule type) is in, and how many rules of
@@ -27,7 +28,13 @@ module RedmineProjectWorkflows
       # that it always matches the matrix the cell links to. An inheriting
       # combination therefore reads "0", and the state label next to it -- not
       # the number -- is what says the generic workflow applies.
-      Cell = Struct.new(:state, :rule_count)
+      #
+      # +updated_by+ and +updated_on+ are the scope's audit trail (WP6): who last
+      # changed these rules and when. Both are nil on an inheriting cell, which
+      # has no scope row to carry them, and +updated_by+ is nil as well for a
+      # write with no logged-in user behind it -- a rake task, a migration, the
+      # backfill.
+      Cell = Struct.new(:state, :rule_count, :updated_by, :updated_on)
 
       # +cells+ is keyed by rule type.
       Row = Struct.new(:project, :tracker, :role, :cells)
@@ -124,10 +131,11 @@ module RedmineProjectWorkflows
         ids = (0..2).map { |column| triples.map { |triple| triple[column] }.uniq }
         scoped = scoped_combinations(*ids)
         own = own_counts(*ids)
+        authors = authors_for(scoped)
 
         by_id = position_records
         triples.map do |triple|
-          cells = @rule_types.index_with { |rule_type| cell_for(triple, rule_type, scoped, own) }
+          cells = @rule_types.index_with { |rule_type| cell_for(triple, rule_type, scoped, own, authors) }
           Row.new(by_id[0][triple[0]], by_id[1][triple[1]], by_id[2][triple[2]], cells)
         end
       end
@@ -136,22 +144,43 @@ module RedmineProjectWorkflows
       # combination counts none of them -- not even rows physically stored
       # against the project. WP1's backfill leaves none behind; one that arrives
       # later is a repair for the operator, not a number to show here.
-      def cell_for(triple, rule_type, scoped, own)
-        return Cell.new(:inherits, 0) unless scoped.include?(triple + [rule_type])
+      def cell_for(triple, rule_type, scoped, own, authors)
+        audit = scoped[triple + [rule_type]]
+        return Cell.new(:inherits, 0, nil, nil) if audit.nil?
 
         count = own[rule_type][triple] || 0
-        Cell.new(count.positive? ? :own : :own_empty, count)
+        updated_by_id, updated_on = audit
+        Cell.new(count.positive? ? :own : :own_empty, count, authors[updated_by_id], updated_on)
       end
 
       def position_records
         [@projects, @trackers, @roles].map { |records| records.index_by(&:id) }
       end
 
+      # Keyed by [project_id, tracker_id, role_id, rule_type]; the value is the
+      # scope's audit pair. A key that is absent means the combination inherits,
+      # which is the question this hash was asked before WP6 added the audit
+      # columns to the answer -- so presence still carries that meaning, and a
+      # scope whose audit columns are both null still has an entry.
       def scoped_combinations(project_ids, tracker_ids, role_ids)
-        ProjectWorkflowScope.where(
+        rows = ProjectWorkflowScope.where(
           project_id: project_ids, tracker_id: tracker_ids,
           role_id: role_ids, rule_type: @rule_types
-        ).pluck(:project_id, :tracker_id, :role_id, :rule_type).to_set
+        ).pluck(:project_id, :tracker_id, :role_id, :rule_type, :updated_by_id, :updated_at)
+        rows.to_h { |row| [row[0, 4], row[4, 2]] }
+      end
+
+      # One query for every user named on the page, so a table of a hundred rows
+      # loads at most a hundred users once rather than one per cell (G6). A
+      # scope written with nobody logged in names none, and a user since deleted
+      # leaves the id behind -- migration 004's foreign key nullifies it, but a
+      # database restored around that is not worth a crash, so a missing id
+      # simply has no author.
+      def authors_for(scoped)
+        ids = scoped.each_value.filter_map { |updated_by_id, _updated_on| updated_by_id }.uniq
+        return {} if ids.empty?
+
+        User.where(id: ids).index_by(&:id)
       end
 
       # INV-4: the query names the project ids of the rows on the page, so a

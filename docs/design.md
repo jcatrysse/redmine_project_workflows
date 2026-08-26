@@ -348,7 +348,8 @@ that have decided something; asked for everything, it addresses the product of
 projects, trackers and roles arithmetically rather than building it, so a page
 costs the same on an installation with three projects and one with three
 thousand. `Services::InventoryQuery` answers it in at most five queries per
-page.
+page — the deviating combinations, the scopes, one count per rule type, and the
+users its audit line names.
 
 The project settings screen is not a Deface override: it is a tab added by
 overriding `project_settings_tabs`, rendering the plugin's own views. The tab
@@ -387,8 +388,12 @@ set in a patched `ProjectsController#settings`: the plugin patches no method of
 that controller at all, which is one seam fewer of exactly the kind above, and a
 helper runs whenever the view does -- including when `#update` re-renders the
 settings page after a failed save. The rows are `Services::InventoryQuery` over a
-single project, so the tab costs four collection queries whatever the number of
-trackers and roles, and never one per row.
+single project, so the tab costs a fixed number of collection queries whatever
+the number of trackers and roles, and never one per row: three for the lists of
+trackers and roles, and three or four for the rows — the scopes, one count per
+rule type, and, since WP6, the users the audit line names. *(The number here
+read "four" until WP6 measured it; the constant-cost property was right and the
+count was not.)*
 
 ## Settings
 

@@ -23,18 +23,56 @@ module RedmineProjectWorkflows
       # Rows per statement when a delete is expressed as an OR of triples.
       DELETE_BATCH_SIZE = 500
 
-      # Creates the scopes a project write implies, and nothing else. Called by
-      # TransitionWriter and PermissionWriter so that saving a project matrix
-      # records the decision along with the rules.
+      # Creates the scopes a project write implies, and records who wrote it.
+      # Called by TransitionWriter and PermissionWriter so that saving a project
+      # matrix records the decision along with the rules.
       #
-      # Combinations that already have a scope are left exactly as they are --
-      # their audit columns included -- so that repeating a save is not mistaken
-      # for a fresh decision.
+      # The two halves of the audit trail say different things, which is why a
+      # repeated save moves one of them and not the other (WP6):
+      #
+      #   created_by_id / created_at   who decided this project runs its own
+      #                                workflow here, and when -- never touched
+      #                                again, so a save is not mistaken for a
+      #                                fresh decision
+      #   updated_by_id / updated_at   who last changed the rules, and when
+      #
+      # The touch covers every combination in the selection rather than only the
+      # ones whose rules actually differ afterwards. A matrix save submits and
+      # rewrites the whole matrix for the whole selection, so "this workflow was
+      # saved by this person" is true of all of them; telling a rewrite that
+      # changed nothing apart from one that did would mean diffing every cell on
+      # a path that already writes the lot.
       def self.ensure_scopes(project_ids:, tracker_ids:, role_ids:, rule_type:, user: User.current)
+        # Before the create, so that the rows this call is about to insert are
+        # not immediately stamped a second time with a later updated_at than
+        # their own created_at.
+        touch_scopes(
+          project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids,
+          rule_type: rule_type, user: user
+        )
         combinations = missing_combinations(
           project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids, rule_type: rule_type
         )
         create_scopes(combinations, rule_type, user)
+      end
+
+      # Records that somebody changed the rules of the scopes in this selection.
+      # Only existing scopes are touched -- a combination that inherits has no
+      # row to stamp, and creating one here would collapse "save" into "enable"
+      # (INV-3).
+      #
+      # One statement rather than one per scope: a selection on the
+      # administration screens can be every project on the installation, and
+      # there is nothing here for a validation to check -- only the two audit
+      # columns change.
+      def self.touch_scopes(project_ids:, tracker_ids:, role_ids:, rule_type:, user: User.current)
+        project_ids, tracker_ids, role_ids = normalize(project_ids, tracker_ids, role_ids)
+        return 0 if project_ids.empty? || tracker_ids.empty? || role_ids.empty?
+
+        scope_relation(project_ids, tracker_ids, role_ids, rule_type)
+          .update_all( # rubocop:disable Rails/SkipsModelValidations
+            updated_by_id: author_id_for(user), updated_at: Time.now.utc
+          )
       end
 
       # Records the decision for the combinations that already carry rules, and
@@ -144,15 +182,14 @@ module RedmineProjectWorkflows
           next if combinations.empty?
 
           delete_rules(combinations, rule_type)
-          # The relation covers exactly the combinations found above, because
-          # those are the scopes this selection has. One statement rather than
-          # one per scope: emptying a matrix for a wide selection is an ordinary
-          # thing to do, and there is nothing here for a validation to check --
-          # only the two audit columns change.
-          scope_relation(project_ids, tracker_ids, role_ids, rule_type)
-            .update_all( # rubocop:disable Rails/SkipsModelValidations
-              updated_by_id: author_id_for(user), updated_at: Time.now.utc
-            )
+          # Emptying a matrix is a change to the rules like any other, so it is
+          # the same stamp the writers leave. The relation covers exactly the
+          # combinations found above, because those are the scopes this selection
+          # has.
+          touch_scopes(
+            project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids,
+            rule_type: rule_type, user: user
+          )
           touched = combinations.size
         end
         # No scope was created or removed, but every rule of these combinations

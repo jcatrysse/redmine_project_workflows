@@ -301,4 +301,112 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       end.not_to change(ProjectWorkflowScope, :count)
     end
   end
+  # WP6. The two halves of the audit trail answer different questions, and a
+  # repeated save has to move one of them without moving the other.
+  describe 'the audit trail' do
+    let(:author) { users(:users_002) }
+    let(:editor) { users(:users_003) }
+
+    def scope_row
+      ProjectWorkflowScope.find_by!(project_id: project.id, tracker_id: tracker.id,
+                                    role_id: role.id, rule_type: transitions)
+    end
+
+    it 'stamps both halves when it creates the scope' do
+      described_class.ensure_scopes(
+        project_ids: [project.id], tracker_ids: [tracker.id],
+        role_ids: [role.id], rule_type: transitions, user: author
+      )
+
+      row = scope_row
+      expect(row.created_by_id).to eq(author.id)
+      expect(row.updated_by_id).to eq(author.id)
+    end
+
+    it 'records who changed the rules without rewriting who made the decision' do
+      described_class.ensure_scopes(
+        project_ids: [project.id], tracker_ids: [tracker.id],
+        role_ids: [role.id], rule_type: transitions, user: author
+      )
+      created_at = scope_row.created_at
+
+      described_class.ensure_scopes(
+        project_ids: [project.id], tracker_ids: [tracker.id],
+        role_ids: [role.id], rule_type: transitions, user: editor
+      )
+
+      row = scope_row
+      expect(row.created_by_id).to eq(author.id)
+      expect(row.updated_by_id).to eq(editor.id)
+      expect(row.created_at).to be_within(1).of(created_at)
+    end
+
+    # A project matrix save routes through the writers, which is the path an
+    # ordinary edit takes; this is what makes the inventory's line true.
+    it 'is stamped by a save through TransitionWriter' do
+      give_own_workflow(project, tracker, role, transitions)
+      User.current = editor
+
+      RedmineProjectWorkflows::Services::TransitionWriter.replace_transitions_for_project_id(
+        project.id, [tracker], [role], { s1.id.to_s => { s2.id.to_s => { 'always' => '1' } } }
+      )
+
+      expect(scope_row.updated_by_id).to eq(editor.id)
+    ensure
+      User.current = nil
+    end
+
+    it 'is stamped by emptying the matrix' do
+      give_own_workflow(project, tracker, role, transitions)
+      project_transition
+
+      described_class.clear_rules(
+        project_ids: [project.id], tracker_ids: [tracker.id],
+        role_ids: [role.id], rule_type: transitions, user: editor
+      )
+
+      expect(scope_row.updated_by_id).to eq(editor.id)
+    end
+
+    # INV-3: touching must never be a way of taking a workflow over. A
+    # combination that inherits has no row, and nothing here creates one.
+    it 'stamps nothing where the project inherits' do
+      expect do
+        described_class.touch_scopes(
+          project_ids: [project.id], tracker_ids: [tracker.id],
+          role_ids: [role.id], rule_type: transitions, user: editor
+        )
+      end.not_to change(ProjectWorkflowScope, :count)
+    end
+
+    # INV-1 / INV-4: the stamp names its selection, so a neighbour's scope is
+    # not marked as having been edited.
+    it 'leaves another project, tracker, role or rule type alone' do
+      give_own_workflow(project, tracker, role, transitions)
+      give_own_workflow(other, tracker, role, transitions)
+      give_own_workflow(project, tracker, second_role, transitions)
+      give_own_workflow(project, tracker, role, permissions)
+
+      described_class.touch_scopes(
+        project_ids: [project.id], tracker_ids: [tracker.id],
+        role_ids: [role.id], rule_type: transitions, user: editor
+      )
+
+      expect(scope_row.updated_by_id).to eq(editor.id)
+      expect(ProjectWorkflowScope.where.not(id: scope_row.id).pluck(:updated_by_id).uniq).to eq([nil])
+    end
+
+    # A rake task, a migration or a console has no user, and inventing one would
+    # name somebody who was not there.
+    it 'records no author for a write with nobody logged in' do
+      give_own_workflow(project, tracker, role, transitions)
+
+      described_class.touch_scopes(
+        project_ids: [project.id], tracker_ids: [tracker.id],
+        role_ids: [role.id], rule_type: transitions, user: User.anonymous
+      )
+
+      expect(scope_row.updated_by_id).to be_nil
+    end
+  end
 end

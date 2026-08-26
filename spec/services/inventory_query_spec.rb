@@ -3,7 +3,7 @@
 require_relative '../spec_helper'
 
 describe RedmineProjectWorkflows::Services::InventoryQuery do
-  fixtures :projects, :roles, :trackers, :issue_statuses
+  fixtures :projects, :roles, :trackers, :issue_statuses, :users
 
   let(:project) { projects(:projects_001) }
   let(:other_project) { projects(:projects_002) }
@@ -202,5 +202,82 @@ describe RedmineProjectWorkflows::Services::InventoryQuery do
     end
 
     expect(counts.first).to eq(counts.last)
+  end
+
+  # WP6: who last changed this workflow, carried by the cell so the view asks
+  # nothing itself.
+  describe 'the audit trail' do
+    let(:editor) { users(:users_002) }
+
+    def stamped_scope(target = project)
+      scope = give_own_workflow(target, tracker, role)
+      scope.update_columns(updated_by_id: editor.id, updated_at: Time.now.utc) # rubocop:disable Rails/SkipsModelValidations
+      scope
+    end
+
+    it 'carries who changed the rules and when' do
+      stamped_scope
+      transition(project.id)
+
+      cell = all_rows(build).first.cells[ProjectWorkflowScope::TRANSITIONS]
+
+      expect(cell.updated_by).to eq(editor)
+      expect(cell.updated_on).to be_present
+    end
+
+    # An inheriting combination has no scope row, so there is nothing to name.
+    it 'carries nothing for an inheriting combination' do
+      stamped_scope
+
+      cell = all_rows(build).first.cells[ProjectWorkflowScope::PERMISSIONS]
+
+      expect(cell.state).to eq(:inherits)
+      expect(cell.updated_by).to be_nil
+      expect(cell.updated_on).to be_nil
+    end
+
+    # The backfill and every other write with nobody logged in leave the time
+    # and no author.
+    it 'carries a time but no author where the write had no user behind it' do
+      give_own_workflow(project, tracker, role)
+
+      cell = all_rows(build).first.cells[ProjectWorkflowScope::TRANSITIONS]
+
+      expect(cell.updated_on).to be_present
+      expect(cell.updated_by).to be_nil
+    end
+
+    # G6, and the reason the users are loaded in build_rows rather than in the
+    # view: the plain query-count example above stamps nobody, so it would pass
+    # even if this were one query per cell.
+    it 'loads the users named on the page in one query however many rows there are' do
+      stamped_scope
+      stamped_scope(other_project)
+      transition(project.id)
+
+      # Force the three fixture lists before anything is counted. They are
+      # memoised `let`s, so leaving them to `build` resolves them inside the
+      # first counted block and nowhere else -- two SELECTs that look exactly
+      # like an N+1 and are not.
+      projects_list && trackers_list && roles_list
+
+      ignored = %w[SCHEMA TRANSACTION]
+      counts = [1, 2].map do |limit|
+        statements = 0
+        subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+          statements += 1 unless ignored.include?(payload[:name])
+        end
+        begin
+          query = build
+          query.total
+          query.rows(offset: 0, limit: limit)
+        ensure
+          ActiveSupport::Notifications.unsubscribe(subscriber)
+        end
+        statements
+      end
+
+      expect(counts.first).to eq(counts.last)
+    end
   end
 end

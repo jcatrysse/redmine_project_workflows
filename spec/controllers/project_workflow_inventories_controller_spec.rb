@@ -193,4 +193,51 @@ describe ProjectWorkflowInventoriesController, type: :controller do
       end
     end
   end
+
+  # WP6: the inventory says who last changed each workflow, so an administrator
+  # looking at a deviation can see where it came from.
+  describe 'the audit line' do
+    render_views
+
+    before { @request.session[:user_id] = 1 }
+
+    def enable_for(user)
+      RedmineProjectWorkflows::Services::ScopeWriter.enable(
+        project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
+        rule_type: ProjectWorkflowScope::TRANSITIONS, copy_generic: false, user: user
+      )
+    end
+
+    # Rendered rather than asserted on `assigns`, because the sentence is built
+    # by core's `authoring` helper and a helper the plugin has not named in the
+    # controller raises only when the view actually runs.
+    it 'names the user who last changed the rules' do
+      enable_for(users(:users_002))
+
+      get :index
+
+      expect(response.body).to include('project-workflow-scope-audit')
+      expect(response.body).to include(users(:users_002).name)
+    end
+
+    it 'says nothing where the combination inherits' do
+      enable_for(users(:users_002))
+
+      get :index
+
+      # The transitions cell carries the line; the permissions cell of the same
+      # row inherits, so it must not.
+      expect(response.body.scan('project-workflow-scope-audit').size).to eq(1)
+    end
+
+    # A scope the WP1 backfill wrote has a time and no author, and "Updated by
+    # Anonymous" would name somebody who was not there.
+    it 'says nothing for a scope written with nobody logged in' do
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)
+
+      get :index
+
+      expect(response.body).not_to include('project-workflow-scope-audit')
+    end
+  end
 end

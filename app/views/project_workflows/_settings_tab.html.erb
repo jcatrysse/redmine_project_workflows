@@ -6,8 +6,8 @@
   the number of rules the project holds itself, and the actions that would
   change something. Every number links into the matrix it describes.
 
-  The rows come from project_workflow_settings_rows, which is four collection
-  queries for the whole tab and never one per row (G6). It is a helper rather
+  The rows come from project_workflow_settings_rows, which is a fixed number of
+  collection queries for the whole tab and never one per row (G6). It is a helper rather
   than an instance variable set in ProjectsController on purpose: the plugin
   holds nothing inside that controller -- see
   RedmineProjectWorkflows::Patches::ProjectsHelperPatch#apply!.
@@ -45,6 +45,7 @@
           <td class="project-workflow-<%= rule_type %>">
             <%= project_workflow_own_count_link(cell, row, rule_type) %>
             <%= project_workflow_state_tag(cell.state) %>
+            <%= project_workflow_audit_tag(cell) %>
             <% if manage %>
               <%= render partial: 'project_workflows/scope_actions',
                          locals: { project: @project, tracker: row.tracker, role: row.role,

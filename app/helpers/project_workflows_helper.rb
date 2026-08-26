@@ -18,9 +18,10 @@ module ProjectWorkflowsHelper
   # Patches::ProjectsHelperPatch#apply! for what an alias chain does to a
   # prepended method. Redmine renders every settings tab's partial on every visit
   # to the page, so this runs whenever somebody who may see the tab opens
-  # project settings; it is InventoryQuery over a single project, which is four
-  # collection queries whatever the number of trackers and roles, and never one
-  # per row (G6).
+  # project settings; it is InventoryQuery over a single project, which is a fixed
+  # number of collection queries whatever the number of trackers and roles, and
+  # never one per row (G6) -- three for the two lists, and three or four for the
+  # rows depending on whether the audit line names anybody.
   #
   # Memoised per project for the length of the render, so a second call costs
   # nothing and cannot answer for a different project than it was asked about.
@@ -91,6 +92,25 @@ module ProjectWorkflowsHelper
     when 'readonly' then l(:label_readonly)
     when 'required' then l(:label_required)
     end
+  end
+
+  # Who last changed this combination's rules, and when (WP6).
+  #
+  # Core's own +authoring+ helper and its +label_updated_time_by+ key, so the
+  # sentence reads the way "Updated by X 3 days ago" reads everywhere else in
+  # Redmine and is already translated into every language core ships -- there is
+  # no string of the plugin's own to translate here.
+  #
+  # Nothing is rendered where there is nothing to say: an inheriting combination
+  # has no scope to carry a stamp, and a write with no logged-in user behind it
+  # -- the WP1 backfill, a rake task, a console -- records a time but no author,
+  # which would read as "Updated by Anonymous" and name somebody who was not
+  # there.
+  def project_workflow_audit_tag(cell)
+    return if cell.updated_on.blank? || cell.updated_by.blank?
+
+    content_tag(:span, authoring(cell.updated_on, cell.updated_by, label: :label_updated_time_by),
+                class: 'project-workflow-scope-audit')
   end
 
   # The number of rules the project holds itself, linking into the matrix that

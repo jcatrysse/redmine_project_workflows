@@ -140,6 +140,31 @@ describe ProjectsController, type: :controller do
       expect(response.body).to include(ERB::Util.html_escape(permissions))
     end
 
+    # WP6: the same audit line the administration inventory carries, on the tab
+    # a project manager actually looks at.
+    it 'says who last changed a workflow the project owns' do
+      log_in(2, :view_project_workflow)
+      RedmineProjectWorkflows::Services::ScopeWriter.enable(
+        project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
+        rule_type: ProjectWorkflowScope::TRANSITIONS, copy_generic: false,
+        user: users(:users_003)
+      )
+
+      get :settings, params: { id: project.id }
+
+      expect(response.body).to include('project-workflow-scope-audit')
+      expect(response.body).to include(users(:users_003).name)
+    end
+
+    it 'says nothing about a combination the project inherits' do
+      log_in(2, :view_project_workflow)
+
+      get :settings, params: { id: project.id }
+
+      expect(response.body).to include('tab-project_workflows')
+      expect(response.body).not_to include('project-workflow-scope-audit')
+    end
+
     it 'offers no action to somebody who may only view the workflow' do
       log_in(2, :view_project_workflow)
 
