@@ -11,8 +11,9 @@ module RedmineProjectWorkflows
     # cells, each labelled with the side it is on.
     #
     # Both populations are read with an explicit project_id -- the project's id
-    # and nil (INV-4) -- in two queries per rule type, whatever the size of the
-    # matrix.
+    # and nil (INV-4) -- in three queries whatever the size of the matrix: one
+    # per side, plus one for the statuses either side names. The rule counts come
+    # out of the rows already plucked rather than out of a COUNT of their own.
     class WorkflowComparison
       # The three grids core draws on the transitions screen. A stored row lands
       # in +author+ if its author flag is set, in +assignee+ if its assignee flag
@@ -30,10 +31,17 @@ module RedmineProjectWorkflows
       TransitionDifference = Struct.new(:group, :old_status_id, :old_status, :new_status_id, :new_status,
                                         :state, keyword_init: true)
 
-      # One line of a field-permissions comparison. Either rule is nil where that
-      # side says nothing about the field, which is the default -- neither
-      # read-only nor required.
-      PermissionDifference = Struct.new(:status_id, :status, :field_name, :project_rule, :generic_rule,
+      # One line of a field-permissions comparison. Either side's rules is an
+      # *array*, empty where that side says nothing about the field -- which is
+      # the default, neither read-only nor required -- and longer than one where
+      # the table holds two rows for the same (status, field) that disagree.
+      #
+      # An array rather than a value on purpose. Taking one of two disagreeing
+      # rows would make the answer depend on the order the database returned
+      # them, so the same install would compare differently on PostgreSQL and on
+      # MySQL; and core does not pick either -- WorkflowsHelper#field_permission_tag
+      # renders such a cell as "no change" precisely because it cannot.
+      PermissionDifference = Struct.new(:status_id, :status, :field_name, :project_rules, :generic_rules,
                                         :state, keyword_init: true)
 
       # +differences+ is ordered for display and is empty when the two agree.
@@ -71,8 +79,8 @@ module RedmineProjectWorkflows
       # --- transitions ---------------------------------------------------------
 
       def compare_transitions
-        project = transition_groups(@project_id)
-        generic = transition_groups(nil)
+        project, project_rows = transition_groups(@project_id)
+        generic, generic_rows = transition_groups(nil)
         statuses = statuses_for(transition_status_ids(project) | transition_status_ids(generic))
 
         differences = GROUPS.flat_map do |group|
@@ -83,8 +91,8 @@ module RedmineProjectWorkflows
         Result.new(
           rule_type: @rule_type,
           differences: sort_transition_differences(differences),
-          project_rule_count: transition_row_count(@project_id),
-          generic_rule_count: transition_row_count(nil)
+          project_rule_count: project_rows,
+          generic_rule_count: generic_rows
         )
       end
 
@@ -100,20 +108,21 @@ module RedmineProjectWorkflows
         end
       end
 
+      # Returns the three grids and the number of rows they were built from. The
+      # count comes from here rather than from a COUNT of its own: the rows are
+      # already in hand, and the grids throw the duplicates away that the count
+      # has to keep -- the settings tab and the inventory count rows, so this has
+      # to as well or two screens would disagree about the same combination.
       def transition_groups(project_id)
         groups = GROUPS.index_with { Set.new }
-        transition_scope(project_id).pluck(:old_status_id, :new_status_id, :author, :assignee)
-                                    .each do |old_status_id, new_status_id, author, assignee|
+        rows = transition_scope(project_id).pluck(:old_status_id, :new_status_id, :author, :assignee)
+        rows.each do |old_status_id, new_status_id, author, assignee|
           pair = [old_status_id, new_status_id]
           groups['author'] << pair if author
           groups['assignee'] << pair if assignee
           groups['always'] << pair unless author || assignee
         end
-        groups
-      end
-
-      def transition_row_count(project_id)
-        transition_scope(project_id).count
+        [groups, rows.size]
       end
 
       def transition_scope(project_id)
@@ -141,46 +150,55 @@ module RedmineProjectWorkflows
       # --- field permissions ---------------------------------------------------
 
       def compare_permissions
-        project = permission_rules(@project_id)
-        generic = permission_rules(nil)
+        project, project_rows = permission_rules(@project_id)
+        generic, generic_rows = permission_rules(nil)
         keys = project.keys | generic.keys
         statuses = statuses_for(keys.map(&:first))
 
         differences = keys.filter_map do |key|
-          next if project[key] == generic[key]
+          mine = project[key] || []
+          theirs = generic[key] || []
+          next if mine == theirs
 
           status_id, field_name = key
           PermissionDifference.new(
             status_id: status_id, status: statuses[status_id], field_name: field_name,
-            project_rule: project[key], generic_rule: generic[key],
-            state: permission_state(project[key], generic[key])
+            project_rules: mine, generic_rules: theirs,
+            state: permission_state(mine, theirs)
           )
         end
 
         Result.new(
           rule_type: @rule_type,
           differences: sort_permission_differences(differences),
-          project_rule_count: project.size,
-          generic_rule_count: generic.size
+          project_rule_count: project_rows,
+          generic_rule_count: generic_rows
         )
       end
 
-      def permission_state(project_rule, generic_rule)
-        return :project_only if generic_rule.nil?
-        return :generic_only if project_rule.nil?
+      def permission_state(project_rules, generic_rules)
+        return :project_only if generic_rules.empty?
+        return :generic_only if project_rules.empty?
 
         :changed
       end
 
-      # Keyed by [status id, field name]. A key with two rows that disagree is a
-      # contradiction for an administrator to settle rather than a difference to
-      # show -- design.md and `rake
-      # redmine_project_workflows:deduplicate_workflow_rules` cover it -- so the
-      # last row wins here, as it does in the matrix cell.
+      # Keyed by [status id, field name]; the value is every *distinct* rule the
+      # table holds for it, sorted. Two rows that disagree are a contradiction
+      # for an administrator to settle -- `docs/design.md` and `rake
+      # redmine_project_workflows:deduplicate_workflow_rules` cover it -- and
+      # this screen's job is to show them rather than to pick one, which is what
+      # keeps the answer the same on all three databases.
+      #
+      # The second return value is the number of *rows*, duplicates included,
+      # because that is what the settings tab and the inventory count.
       def permission_rules(project_id)
-        WorkflowPermission.where(project_id: project_id, tracker_id: @tracker_id, role_id: @role_id)
-                          .pluck(:old_status_id, :field_name, :rule)
-                          .to_h { |status_id, field_name, rule| [[status_id, field_name], rule] }
+        rows = WorkflowPermission.where(project_id: project_id, tracker_id: @tracker_id,
+                                        role_id: @role_id)
+                                 .pluck(:old_status_id, :field_name, :rule)
+        map = rows.group_by { |status_id, field_name, _rule| [status_id, field_name] }
+                  .transform_values { |grouped| grouped.map(&:last).uniq.sort }
+        [map, rows.size]
       end
 
       def sort_permission_differences(differences)

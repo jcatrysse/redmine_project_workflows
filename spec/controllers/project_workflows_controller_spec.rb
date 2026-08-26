@@ -685,9 +685,11 @@ describe ProjectWorkflowsController, type: :controller do
         expect(response).to have_http_status(:not_found)
       end
 
-      # The link from the administration inventory leads here, and a project may
-      # since have had the tracker taken away from it. An honest 404 rather than
-      # a 500.
+      # The link from the administration inventory leads here, and the project's
+      # configuration may have moved on since the scope was created. Which
+      # refusal comes back depends on what changed, and docs/design.md now
+      # carries the table -- it said 404 for all of it until the WP6 review
+      # checked it. These two examples are what keeps that table true.
       it 'answers 404 for a tracker the project does not have' do
         log_in(2, :view_project_workflow)
         project.trackers = project.trackers - [foreign_tracker]
@@ -695,6 +697,15 @@ describe ProjectWorkflowsController, type: :controller do
         get :compare, params: compare_params(tracker_id: foreign_tracker.id)
 
         expect(response).to have_http_status(:not_found)
+      end
+
+      it 'answers 403 for a project whose issue tracking module is disabled' do
+        log_in(2, :view_project_workflow)
+        project.enabled_module_names = project.enabled_module_names - ['issue_tracking']
+
+        get :compare, params: compare_params
+
+        expect(response).to have_http_status(:forbidden)
       end
     end
 
@@ -748,6 +759,34 @@ describe ProjectWorkflowsController, type: :controller do
         expect(assigns(:comparison).differences.map(&:state)).to eq(%i[generic_only generic_only])
         expect(response.body)
           .to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_compare_generic_only)))
+      end
+
+      # The footnote for a rule the matrix cannot reach: a core field the tracker
+      # has since had disabled is still a difference, and no control on a project
+      # screen can change it.
+      it 'says so when a difference names a field the tracker no longer offers' do
+        give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+        WorkflowPermission.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
+                                   old_status_id: new_status.id, field_name: 'due_date',
+                                   rule: 'required')
+        tracker.update!(core_fields: Tracker::CORE_FIELDS - ['due_date'])
+
+        get :compare, params: compare_params(rule_type: ProjectWorkflowScope::PERMISSIONS)
+
+        expect(response.body)
+          .to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_compare_unreachable_field)))
+      end
+
+      it 'stays quiet about it when every difference names a field the matrix has' do
+        give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+        WorkflowPermission.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
+                                   old_status_id: new_status.id, field_name: 'due_date',
+                                   rule: 'required')
+
+        get :compare, params: compare_params(rule_type: ProjectWorkflowScope::PERMISSIONS)
+
+        expect(response.body)
+          .not_to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_compare_unreachable_field)))
       end
 
       it 'compares the field permissions when asked for them' do

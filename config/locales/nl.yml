@@ -85,3 +85,5 @@ nl:
   text_project_workflow_bulk_changed: '%{cells} cel(len) gewijzigd, %{rules} workflowregel(s).'
   text_project_workflow_bulk_undone: 'Ongedaan gemaakt: %{cells} cel(len) teruggezet.'
   text_project_workflow_bulk_unsaved: Er is nog niets opgeslagen. Druk op Opslaan om deze wijzigingen door te voeren.
+  label_project_workflow_comparison: Workflowvergelijking
+  text_project_workflow_compare_unreachable_field: Minstens één verschil hieronder betreft een veld dat dit tracker niet meer aanbiedt; de eigen matrix van het project kan het dus niet tonen of wijzigen. Een systeembeheerder kan zo'n regel via Beheer verwijderen.

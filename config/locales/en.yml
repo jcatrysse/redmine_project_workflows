@@ -85,3 +85,5 @@ en:
   text_project_workflow_bulk_changed: Changed %{cells} cell(s), %{rules} workflow rule(s).
   text_project_workflow_bulk_undone: 'Undone: %{cells} cell(s) put back.'
   text_project_workflow_bulk_unsaved: Nothing has been saved yet. Press Save to apply these changes.
+  label_project_workflow_comparison: Workflow comparison
+  text_project_workflow_compare_unreachable_field: At least one difference below names a field this tracker no longer offers, so the project's own matrix cannot show or change it. A system administrator can remove such a rule from Administration.

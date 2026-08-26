@@ -13,12 +13,15 @@
   it is why every line carries the side it is on rather than a "wins" column.
 %>
 <div class="contextual">
+  <%# used_statuses_only travels with the link, so somebody who arrived from a
+      matrix showing every status goes back to one. %>
   <%= link_to l(:label_project_workflow_open_matrix),
-              project_workflow_matrix_path(@project, @tracker, @role, @rule_type) %>
+              project_workflow_matrix_path(@project, @tracker, @role, @rule_type,
+                                           used_statuses_only: params[:used_statuses_only]) %>
   <%= link_to l(:label_settings), settings_project_path(@project, tab: 'project_workflows') %>
 </div>
 
-<%= title l(:label_project_workflow_compare) %>
+<%= title l(:label_project_workflow_comparison) %>
 
 <p>
   <strong><%= l(:label_tracker) %>:</strong> <%= @tracker.name %>
@@ -91,14 +94,23 @@
             <%= project_workflow_field_label(difference.field_name, @custom_fields_by_name) %>
           </td>
           <%# An empty cell is a field that side says nothing about -- neither
-              read-only nor required, which is the default and needs no word. %>
-          <td><%= project_workflow_permission_label([difference.project_rule]) %></td>
-          <td><%= project_workflow_permission_label([difference.generic_rule]) %></td>
+              read-only nor required, which is the default and needs no word.
+              Two words means the table holds two rows for it that disagree. %>
+          <td><%= project_workflow_permission_labels(difference.project_rules) %></td>
+          <td><%= project_workflow_permission_labels(difference.generic_rules) %></td>
           <td><%= project_workflow_difference_tag(difference.state) %></td>
         </tr>
         <% end %>
       </tbody>
     </table>
     </div>
+    <%# A rule on a field this tracker no longer offers is a real difference with
+        no control anywhere on a project screen that can change it, so say so
+        rather than leaving the reader looking for one. %>
+    <% if @comparison.differences.any? { |d| @offered_field_names.exclude?(d.field_name.to_s) } %>
+      <p class="project-workflow-comparison-note">
+        <em><%= l(:text_project_workflow_compare_unreachable_field) %></em>
+      </p>
+    <% end %>
   <% end %>
 <% end %>

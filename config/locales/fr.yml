@@ -85,3 +85,5 @@ fr:
   text_project_workflow_bulk_changed: '%{cells} cellule(s) modifiée(s), %{rules} règle(s) de workflow.'
   text_project_workflow_bulk_undone: 'Annulé : %{cells} cellule(s) rétablie(s).'
   text_project_workflow_bulk_unsaved: Rien n'a encore été enregistré. Cliquez sur Enregistrer pour appliquer ces modifications.
+  label_project_workflow_comparison: Comparaison des workflows
+  text_project_workflow_compare_unreachable_field: Au moins une différence ci-dessous concerne un champ que ce tracker ne propose plus ; la matrice propre au projet ne peut donc ni l'afficher ni le modifier. Un administrateur système peut supprimer une telle règle depuis l'administration.

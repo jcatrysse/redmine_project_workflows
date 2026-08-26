@@ -153,7 +153,12 @@ describe ProjectsController, type: :controller do
       get :settings, params: { id: project.id }
 
       expect(response.body).to include('project-workflow-scope-audit')
-      expect(response.body).to include(users(:users_003).name)
+      # Scoped to the audit element, not to the page: dlopper is a member of
+      # this project, so core's own Members tab renders that name into the same
+      # response whatever the audit line says. The unscoped assertion this
+      # replaces passed for that reason.
+      expect(css_select('span.project-workflow-scope-audit').to_s)
+        .to include(users(:users_003).name)
     end
 
     it 'says nothing about a combination the project inherits' do

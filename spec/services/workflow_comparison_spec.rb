@@ -135,8 +135,8 @@ describe RedmineProjectWorkflows::Services::WorkflowComparison do
 
       difference = compare(permissions).differences.first
       expect(difference.state).to eq(:project_only)
-      expect(difference.project_rule).to eq('readonly')
-      expect(difference.generic_rule).to be_nil
+      expect(difference.project_rules).to eq(['readonly'])
+      expect(difference.generic_rules).to be_empty
       expect(difference.field_name).to eq('due_date')
     end
 
@@ -145,7 +145,8 @@ describe RedmineProjectWorkflows::Services::WorkflowComparison do
 
       difference = compare(permissions).differences.first
       expect(difference.state).to eq(:generic_only)
-      expect(difference.generic_rule).to eq('required')
+      expect(difference.generic_rules).to eq(['required'])
+      expect(difference.project_rules).to be_empty
     end
 
     # The state a transitions comparison cannot have: both sides say something
@@ -156,8 +157,8 @@ describe RedmineProjectWorkflows::Services::WorkflowComparison do
 
       difference = compare(permissions).differences.first
       expect(difference.state).to eq(:changed)
-      expect(difference.project_rule).to eq('readonly')
-      expect(difference.generic_rule).to eq('required')
+      expect(difference.project_rules).to eq(['readonly'])
+      expect(difference.generic_rules).to eq(['required'])
     end
 
     it 'reports nothing when the two agree' do
@@ -182,6 +183,51 @@ describe RedmineProjectWorkflows::Services::WorkflowComparison do
       expect(compare(permissions).differences.map { |d| [d.status_id, d.field_name] })
         .to eq([[s1.id, 'assigned_to_id'], [s1.id, 'start_date'], [s2.id, 'due_date']])
     end
+  end
+
+  # The one place where this screen's answer could have depended on the order the
+  # database returned rows in -- which is a green nine-cell matrix hiding a
+  # PostgreSQL/MySQL divergence rather than a red one.
+  describe 'two rows for the same field that disagree' do
+    it 'shows both rather than picking one' do
+      permission(project.id, 'readonly')
+      permission(project.id, 'required')
+      permission(nil, 'readonly')
+
+      difference = compare(permissions).differences.first
+      expect(difference.project_rules).to eq(%w[readonly required].sort)
+      expect(difference.generic_rules).to eq(['readonly'])
+      expect(difference.state).to eq(:changed)
+    end
+
+    it 'reports nothing when both sides hold the same disagreeing pair' do
+      %w[readonly required].each do |rule|
+        permission(nil, rule)
+        permission(project.id, rule)
+      end
+
+      expect(compare(permissions)).to be_identical
+    end
+
+    # The settings tab and the inventory count rows, so this has to as well or
+    # two screens describe the same combination with different numbers.
+    it 'counts rows, duplicates included, not distinct rules' do
+      permission(project.id, 'readonly')
+      permission(project.id, 'readonly')
+
+      expect(compare(permissions).project_rule_count).to eq(2)
+    end
+  end
+
+  # A transitions comparison counts rows too, and the grids it compares throw
+  # duplicates away, so the count cannot come from them.
+  it 'counts duplicate transition rows' do
+    transition(project.id)
+    transition(project.id)
+
+    result = compare
+    expect(result.project_rule_count).to eq(2)
+    expect(result.differences.size).to eq(1)
   end
 
   it 'refuses a rule type it does not know' do

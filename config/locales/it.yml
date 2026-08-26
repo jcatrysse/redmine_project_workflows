@@ -78,10 +78,12 @@ it:
   label_project_workflow_condition_author: Anche quando l'utente è l'autore
   label_project_workflow_condition_assignee: Anche quando l'utente è l'assegnatario
   text_project_workflow_compare_description: Il workflow di questo progetto sostituisce quello generico per questo tracker e questo ruolo, quindi quanto segue è la differenza completa. Nulla viene unito e nulla del workflow generico si applica più.
-  text_project_workflow_compare_counts: Questo progetto ha %{project} regola/e propria/e per questo tracker e questo ruolo; il workflow generico ne ha %{generic}.
+  text_project_workflow_compare_counts: Questo progetto ha %{project} regole proprie per questo tracker e questo ruolo; il workflow generico ne ha %{generic}.
   text_project_workflow_compare_identical: Il workflow proprio di questo progetto è identico a quello generico per questo tracker e questo ruolo.
   text_project_workflow_compare_inherits: Questo progetto eredita il workflow generico per questo tracker e questo ruolo, quindi non c'è nulla da confrontare.
   button_project_workflow_bulk_undo: Annulla
   text_project_workflow_bulk_changed: '%{cells} cella/e modificata/e, %{rules} regola/e di workflow.'
   text_project_workflow_bulk_undone: 'Annullato: %{cells} cella/e ripristinata/e.'
   text_project_workflow_bulk_unsaved: Non è stato salvato ancora nulla. Premi Salva per applicare queste modifiche.
+  label_project_workflow_comparison: Confronto dei workflow
+  text_project_workflow_compare_unreachable_field: Almeno una differenza qui sotto riguarda un campo che questo tracker non offre più, quindi la matrice propria del progetto non può mostrarlo né modificarlo. Un amministratore di sistema può rimuovere tale regola dall'amministrazione.

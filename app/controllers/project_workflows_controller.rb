@@ -98,6 +98,14 @@ class ProjectWorkflowsController < ApplicationController
       project_id: @project.id, tracker_id: @tracker.id, role_id: @role.id, rule_type: @rule_type
     ).result
     @custom_fields_by_name = @tracker.custom_fields.index_by { |field| field.id.to_s }
+    # Which fields the permissions matrix can actually show, so the view can say
+    # so when a difference names one it cannot. The same two lists the
+    # #permissions action builds its grid from: a rule on a core field the
+    # tracker has since disabled, or on a custom field removed from it, is still
+    # in the table and still a difference -- and there is no control anywhere on
+    # a project screen that can change it.
+    @offered_field_names = (Tracker::CORE_FIELDS_ALL - @tracker.disabled_core_fields).to_set +
+                           @custom_fields_by_name.keys
   end
 
   # The three actions of INV-3, for this project and this one combination. They

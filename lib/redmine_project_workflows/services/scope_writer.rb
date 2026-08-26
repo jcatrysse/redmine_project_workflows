@@ -100,12 +100,25 @@ module RedmineProjectWorkflows
 
       # The copy screen's entry point: both rule types at once, because
       # WorkflowRule.copy_for_project moves both.
+      #
+      # The touch is what makes the audit line true on this path as well. A copy
+      # into a project that already had a scope deletes and rewrites its rules
+      # and creates nothing, so without it the inventory would go on naming
+      # whoever last saved the matrix by hand -- for rules somebody else has
+      # since replaced wholesale. It runs after the create, unlike the writers':
+      # here the scopes that already existed are exactly the ones whose rules
+      # were overwritten, and the ones just created carry the same user anyway.
       def self.ensure_scopes_for_copy(project_ids:, tracker_ids:, role_ids:, user: User.current)
         ProjectWorkflowScope::RULE_TYPES.flat_map do |rule_type|
-          ensure_scopes_for_existing_rules(
+          created = ensure_scopes_for_existing_rules(
             project_ids: project_ids, tracker_ids: tracker_ids,
             role_ids: role_ids, rule_type: rule_type, user: user
           )
+          touch_scopes(
+            project_ids: project_ids, tracker_ids: tracker_ids,
+            role_ids: role_ids, rule_type: rule_type, user: user
+          )
+          created
         end
       end
 

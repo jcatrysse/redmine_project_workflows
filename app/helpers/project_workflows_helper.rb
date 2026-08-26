@@ -46,8 +46,9 @@ module ProjectWorkflowsHelper
   # The state of one (project, tracker, role, rule type), as text.
   #
   # Three states have to stay tellable apart (INV-3), and "own empty workflow"
-  # is a deliberate configuration rather than a fault, so it is named. The class
-  # only carries colour; the words carry the meaning.
+  # is a deliberate configuration rather than a fault, so it is named. The words
+  # carry the whole meaning; the class is a hook for a theme, and the plugin
+  # ships no stylesheet of its own.
   def project_workflow_state_tag(state)
     content_tag(:span, project_workflow_state_label(state),
                 class: "project-workflow-scope-state #{state}")
@@ -92,6 +93,18 @@ module ProjectWorkflowsHelper
     when 'readonly' then l(:label_readonly)
     when 'required' then l(:label_required)
     end
+  end
+
+  # One side of a comparison line: every distinct rule the table holds for that
+  # (status, field), named. Normally one; more than one only where the table
+  # holds two rows that disagree, and then both are shown rather than one being
+  # picked -- picking would make the page depend on the order the rows came back
+  # in, and core does not pick either.
+  #
+  # Empty where that side says nothing about the field, which is the default and
+  # needs no word of its own.
+  def project_workflow_permission_labels(rules)
+    safe_join(Array(rules).filter_map { |rule| project_workflow_permission_label([rule]) }, ', ')
   end
 
   # The link to the comparison, or nothing at all where there is nothing to

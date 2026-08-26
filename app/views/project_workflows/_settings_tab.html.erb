@@ -45,8 +45,12 @@
           <td class="project-workflow-<%= rule_type %>">
             <%= project_workflow_own_count_link(cell, row, rule_type) %>
             <%= project_workflow_state_tag(cell.state) %>
-            <%= project_workflow_audit_tag(cell) %>
-            <%= project_workflow_compare_link(@project, row.tracker, row.role, rule_type, cell.state) %>
+            <%# A block, so the audit line and the comparison link drop below the
+                count and the state label rather than crowding onto one line. %>
+            <div class="project-workflow-cell-details">
+              <%= project_workflow_audit_tag(cell) %>
+              <%= project_workflow_compare_link(@project, row.tracker, row.role, rule_type, cell.state) %>
+            </div>
             <% if manage %>
               <%= render partial: 'project_workflows/scope_actions',
                          locals: { project: @project, tracker: row.tracker, role: row.role,

@@ -338,7 +338,11 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       row = scope_row
       expect(row.created_by_id).to eq(author.id)
       expect(row.updated_by_id).to eq(editor.id)
-      expect(row.created_at).to be_within(1).of(created_at)
+      # eq, not be_within: created_at is read back from the same row, so a
+      # tolerance would let a stamp that rewrote it pass. And updated_at has to
+      # have moved, or "who last changed the rules" is not being recorded at all.
+      expect(row.created_at).to eq(created_at)
+      expect(row.updated_at).to be >= row.created_at
     end
 
     # A project matrix save routes through the writers, which is the path an
@@ -366,6 +370,32 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       )
 
       expect(scope_row.updated_by_id).to eq(editor.id)
+    end
+
+    # A copy into a project that already has a scope rewrites its rules and
+    # creates nothing, so without a stamp the audit line would go on naming
+    # whoever last saved the matrix by hand.
+    it 'is stamped by a copy into a project that already has a scope' do
+      give_own_workflow(project, tracker, role, transitions)
+      project_transition
+
+      described_class.ensure_scopes_for_copy(
+        project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
+        user: editor
+      )
+
+      expect(scope_row.updated_by_id).to eq(editor.id)
+    end
+
+    # ...and it still must not create one where the copy landed nothing, because
+    # a scope with no rules is an own *empty* workflow (INV-3).
+    it 'creates no scope for a project a copy did not reach' do
+      expect do
+        described_class.ensure_scopes_for_copy(
+          project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
+          user: editor
+        )
+      end.not_to change(ProjectWorkflowScope, :count)
     end
 
     # INV-3: touching must never be a way of taking a workflow over. A

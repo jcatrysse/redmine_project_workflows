@@ -303,8 +303,12 @@ that, read-only, at
 `projects/:project_id/workflow/compare?tracker_id=&role_id=&rule_type=`.
 
 `Services::WorkflowComparison` reads both populations with an explicit
-`project_id` — the project's id and `nil` (**INV-4**) — in two queries plus one
-for the statuses, whatever the size of the matrix.
+`project_id` — the project's id and `nil` (**INV-4**) — in **three** queries
+whatever the size of the matrix: one per side, plus one for the statuses either
+side names. The rule counts come out of the rows already plucked rather than out
+of a `COUNT` of their own, and they count **rows** — duplicates included — because
+that is what the settings tab and the inventory count, and two screens must not
+describe the same combination with different numbers.
 
 **The unit of comparison is the grid, not the row.** Core's transitions screen
 draws three: the plain one, plus *additional transitions when the user is the
@@ -316,7 +320,24 @@ its answer match what the screen shows rather than what the table holds.
 
 Field permissions have a third state transitions cannot have — both sides say
 something about a (status, field) and they disagree — so a permissions difference
-carries the rule from each side as well as the label.
+carries each side's rules as well as the label.
+
+Each side's rules is a **list**, not a value, and that is load-bearing. Nothing
+stops the table holding two rows for the same (status, field) that disagree; it
+is a contradiction for an administrator to settle rather than a difference to
+show, and `rake redmine_project_workflows:deduplicate_workflow_rules` only
+removes *exact* duplicates. Picking one of the two would make the page depend on
+the order the database returned them, so the same installation would compare
+differently on PostgreSQL and on MySQL — a cross-database divergence hiding
+behind a green nine-cell matrix, which is worse than a red one. Core does not
+pick either: `WorkflowsHelper#field_permission_tag` renders such a cell as "no
+change" precisely because it cannot. So the comparison shows both.
+
+A difference may also name a field the project's own matrix cannot show — a core
+field the tracker has since had disabled, or a custom field removed from it. The
+rule is still in the table and still a difference, and there is no control
+anywhere on a project screen that can change it, so the page says so in a
+footnote rather than leaving the reader hunting for one.
 
 Every line says which side it is on, in words, with the class carrying nothing
 but colour: *Only in this project*, *Only in the generic workflow*, *Different*.
@@ -342,10 +363,22 @@ order.
 Three entry points, all built by one helper so they cannot drift about when the
 link is offered: the project settings tab, the header of either project matrix,
 and the administration inventory. The inventory's link leads out of the
-administration section into a project screen; a project that has since had its
-issue tracking module or its tracker taken away answers **404** there, which is
-the honest answer — the combination still has a scope, and the project no longer
-offers the matrix to compare it against.
+administration section into a project screen, and a project whose configuration
+has moved on since the scope was created refuses it — honestly, because the
+combination still has a scope and the project no longer offers the matrix to
+compare it against:
+
+| What changed | Answer | Where it comes from |
+| --- | --- | --- |
+| the issue tracking module was disabled | **403** | `authorize` → `Project#allows_to?` → `deny_access` |
+| the project was archived | **403** | the same, with core's archived message |
+| the tracker was taken off the project | **404** | `find_tracker_and_role`, which matches against `ProjectOptions.trackers` |
+| the role lost its last member in the project | **404** | the same, against `ProjectOptions.roles` |
+
+Rendering the link conditionally instead would mean preloading each row's enabled
+modules, trackers and member roles to answer a question the link itself answers.
+*(This table read "404" for all four until the WP6 review checked it against
+core's `ApplicationController`.)*
 
 ### The audit trail
 
@@ -361,9 +394,17 @@ save moves one and not the other:
 `ScopeWriter.touch_scopes` is the only stamp, and `ensure_scopes` calls it
 *before* it creates anything, so a row inserted by the same call is not
 immediately stamped a second time with an `updated_at` later than its own
-`created_at`. Emptying a matrix goes through the same method. Only existing
-scopes are touched: a combination that inherits has no row, and creating one
-there would collapse "save" into "enable" (**INV-3**).
+`created_at`. Emptying a matrix goes through the same method, and so does the
+**copy screen** — a copy into a project that already has a scope deletes and
+rewrites its rules and creates nothing, so without a stamp the audit line would
+go on naming whoever last saved that matrix by hand. Only existing scopes are
+touched: a combination that inherits has no row, and creating one there would
+collapse "save" into "enable" (**INV-3**).
+
+`ScopeCopier`, which duplicates scopes along with a role or a tracker, needs no
+stamp: core calls `Role#copy_workflow_rules` and `Tracker#copy_workflow_rules`
+only on one it has just created, so the target cannot already carry a scope, and
+every row it writes is created rather than overwritten.
 
 The touch covers every combination in the write's selection rather than only the
 ones whose rules end up different. A matrix save submits and rewrites the whole
