@@ -124,7 +124,7 @@ nothing else, it is documented in `dev/README.md`, and it is **not** in CI.
 | Locale parity | eight files, 53 keys each (was 45) |
 | Independent review | run in this context rather than a fresh one — see "Known traps" |
 | New specs against the old code | see below |
-| CI | **not yet run for WP5** at the time of writing: the branch head was pushed at the end of the session, so the next session should read the run for it before anything else |
+| CI | **run 33 is green on all nine cells plus RuboCop**, on the branch head `a6a1508` — Redmine 5.1, 6.1 and 7.0 × PostgreSQL, MySQL and MariaDB. Run 32 was green as well, on the commit before it. (A run reading "cancelled" is the concurrency group superseding it after the next push — not a failure, and easy to misread.) |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done by
 putting one thing back and leaving the rest of WP5 in place, against the full
@@ -159,9 +159,8 @@ before save. Finding **G02** (a cross-project bulk tracker change is an N+1) is
 scheduled for WP6 and should be read with it; `docs/DECISIONS.md` records why WP2
 left it alone, and that reasoning is what WP6 has to overturn or confirm.
 
-Before writing anything: **read the CI run for the branch head**. WP5 was pushed
-at the end of this session and the matrix had not reported yet. Nine cells plus
-RuboCop.
+CI is green for WP5 on all nine cells, so there is nothing to check first this
+time — start with the work package.
 
 ## Known traps
 
