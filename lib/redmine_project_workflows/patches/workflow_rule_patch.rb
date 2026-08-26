@@ -237,7 +237,9 @@ module RedmineProjectWorkflows
 
         duplicate_keys.sum do |key|
           ids = scope.where(DUPLICATE_KEY_COLUMNS.zip(Array(key)).to_h).order(:id).pluck(:id)
-          where(id: ids.drop(1)).delete_all
+          # Deleted through the population's own relation, not by id alone, so
+          # the statement still names its project predicate (INV-4).
+          scope.where(id: ids.drop(1)).delete_all
         end
       end
 

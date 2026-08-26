@@ -42,6 +42,24 @@ covered by CI only.
    Giving a project its own workflow starts from a copy of the generic one by
    default, because an empty one would allow no transition at all.
 
+## Maintenance
+
+Neither Redmine nor this plugin has a unique constraint on the `workflows`
+table — the key would have to include two nullable columns, and every supported
+database treats NULLs in a unique index as distinct
+(see [`docs/design.md`](docs/design.md)). Two administrators saving the same
+matrix at the same moment can therefore leave duplicate rows behind, which makes
+a matrix cell render as a mixed dropdown instead of a checkbox. To clean them up:
+
+```
+bundle exec rake redmine_project_workflows:deduplicate_workflow_rules
+```
+
+It removes only rows that are identical in every column, so it cannot change
+what any workflow permits. Two field permissions that agree on everything but
+the rule are a contradiction rather than a duplicate, and are left for you to
+settle.
+
 ## Development
 
 Working on this plugin with an AI coding agent? Start with

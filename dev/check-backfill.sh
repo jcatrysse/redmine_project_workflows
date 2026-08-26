@@ -33,6 +33,15 @@ DST=pwscope-target
 bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows >/dev/null
 
 bundle exec rails runner "
+  # projects_trackers is in no spec's fixture list, so nothing truncates it, and
+  # a run of this script that died between creating a project and destroying it
+  # leaves rows behind for an id the projects sequence will hand out again --
+  # after which Project.create! below dies on projects_trackers_unique and the
+  # failure looks like a backfill defect. Sweep the orphans first.
+  ActiveRecord::Base.connection.delete(
+    'DELETE FROM projects_trackers pt WHERE NOT EXISTS' \
+    ' (SELECT 1 FROM projects p WHERE p.id = pt.project_id)'
+  )
   Project.where(identifier: ['$SRC', '$DST']).each do |project|
     project.trackers.clear
     project.destroy

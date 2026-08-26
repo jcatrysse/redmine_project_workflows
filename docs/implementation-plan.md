@@ -114,7 +114,10 @@ the plan:
 - Walk the remaining core queries against `workflows` (default data loader,
   status deletion) and record the outcome in `design.md`.
 
-**Done when** `spec/characterization/` is empty.
+**Done when** `spec/characterization/` holds only the summary-page example.
+*(Corrected: this line said "is empty". Three of the four characterization
+examples belong to WP2; the fourth is the summary page's count, which is
+claude F01 and therefore WP3's. WP2 cannot empty the directory.)*
 
 ## WP3 — Summary and inventory
 
@@ -129,6 +132,9 @@ the plan:
   everything. Default: deviations only.
 - An empty state with a sentence and two actions rather than an empty table.
 - Rows link into the existing matrices, pre-filled.
+
+**Done when** `spec/characterization/` is empty — the summary-page example is
+its last one.
 
 ## WP4 — Project settings tab and permissions
 
