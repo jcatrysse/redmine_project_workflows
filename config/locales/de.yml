@@ -81,3 +81,7 @@ de:
   text_project_workflow_compare_counts: Dieses Projekt hat %{project} eigene Regel(n) für diesen Tracker und diese Rolle; der allgemeine Workflow hat %{generic}.
   text_project_workflow_compare_identical: Der eigene Workflow dieses Projekts ist für diesen Tracker und diese Rolle mit dem allgemeinen identisch.
   text_project_workflow_compare_inherits: Dieses Projekt erbt den allgemeinen Workflow für diesen Tracker und diese Rolle, es gibt also nichts zu vergleichen.
+  button_project_workflow_bulk_undo: Rückgängig
+  text_project_workflow_bulk_changed: '%{cells} Zelle(n) geändert, %{rules} Workflow-Regel(n).'
+  text_project_workflow_bulk_undone: 'Rückgängig gemacht: %{cells} Zelle(n) zurückgesetzt.'
+  text_project_workflow_bulk_unsaved: Es wurde noch nichts gespeichert. Klicken Sie auf Speichern, um die Änderungen zu übernehmen.

@@ -21,7 +21,7 @@
 | WP3 | Summary and inventory | **done** |
 | WP4 | Project settings tab and permissions | **done** |
 | WP5 | Bulk editing in the matrix | **done** |
-| WP6 | Compare, audit, undo | not started |
+| WP6 | Compare, audit, undo | **done** |
 | WP7 | Documentation, locales, release | not started |
 | WP8 | Status help and the transition map on the issue form | not started |
 
@@ -223,6 +223,46 @@ no row or column toggles there to repair. Jan answered that one **A** on
   only Save writes.
 
 Out of scope: workflow templates, rectangle and drag selection.
+
+**Done.** All three, and finding **G02** was read with them and left standing --
+see below. Four things came out differently from what this list assumed:
+
+1. **The audit columns needed a stamp, not a column.** WP1's migration already
+   created all four; what was missing was that `ScopeWriter.ensure_scopes` --
+   the method every project matrix save goes through -- deliberately left an
+   existing scope alone. `touch_scopes` is the stamp, and the two halves are kept
+   apart on purpose: `created_*` records who decided the project runs its own
+   workflow, `updated_*` who last changed the rules. The sentence on screen is
+   core's own `authoring` with `label_updated_time_by`, so it needed no locale key
+   of its own.
+2. **The comparison compares grids, not rows.** Core's transitions screen draws
+   three grids and partitions the rows into them with
+   `reject { author || assignee }`, `select(&:author)` and `select(&:assignee)` --
+   so a row with **both** flags set is in two grids at once. Comparing by grid is
+   what makes the answer match the screen. Field permissions get a third state
+   transitions cannot have: both sides speak and disagree.
+3. **"Bulk actions change the screen first" was already true; the counter and the
+   undo were the gap.** WP5's actions never wrote anything -- only Save does --
+   but nothing on the page said so, and one click could change a hundred cells
+   with no count and no way back short of reloading. The undo is a stack, so
+   repeated actions step back one at a time, and it restores the value each
+   control held *before* the action rather than the value the page was opened
+   with; those are the same thing only for the first action.
+4. **A new controller action is 403 for everybody until `init.rb` names it.**
+   Including administrators, and the symptom is a forbidden page rather than an
+   "unmapped action" error. `spec/plugin_conventions_spec.rb` now asserts
+   structurally that every action of `ProjectWorkflowsController` is named by at
+   least one of the two permissions.
+
+**G02 stands, and WP6 is where it was to be settled.** A cross-project bulk
+tracker change is two queries per distinct project where core is one for the whole
+selection, because core hands the same `Tracker` instance to every issue and
+memoises on it. WP6 confirms WP2's reasoning rather than overturning it: the
+plugin's request cache is keyed by (project, tracker), which is the narrowest key
+that can be correct -- a per-`Tracker` memo is exactly the project-blind cache
+INV-4 forbids. Collapsing the repeats across projects would mean resolving the
+whole selection up front, which puts a query on every single-issue save to save
+one on a bulk move. Left open, with its reasoning now twice-examined.
 
 ## WP7 — Documentation, locales, release
 

@@ -81,3 +81,7 @@ nl:
   text_project_workflow_compare_counts: Dit project heeft %{project} eigen regel(s) voor dit tracker en deze rol; de algemene workflow heeft %{generic}.
   text_project_workflow_compare_identical: De eigen workflow van dit project is identiek aan de algemene workflow voor dit tracker en deze rol.
   text_project_workflow_compare_inherits: Dit project erft de algemene workflow voor dit tracker en deze rol, dus er is niets te vergelijken.
+  button_project_workflow_bulk_undo: Ongedaan maken
+  text_project_workflow_bulk_changed: '%{cells} cel(len) gewijzigd, %{rules} workflowregel(s).'
+  text_project_workflow_bulk_undone: 'Ongedaan gemaakt: %{cells} cel(len) teruggezet.'
+  text_project_workflow_bulk_unsaved: Er is nog niets opgeslagen. Druk op Opslaan om deze wijzigingen door te voeren.

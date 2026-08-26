@@ -81,3 +81,7 @@ pt:
   text_project_workflow_compare_counts: Este projeto tem %{project} regra(s) própria(s) para este tipo de tarefa e este perfil; o fluxo de trabalho genérico tem %{generic}.
   text_project_workflow_compare_identical: O fluxo de trabalho próprio deste projeto é idêntico ao genérico para este tipo de tarefa e este perfil.
   text_project_workflow_compare_inherits: Este projeto herda o fluxo de trabalho genérico para este tipo de tarefa e este perfil, pelo que não há nada a comparar.
+  button_project_workflow_bulk_undo: Desfazer
+  text_project_workflow_bulk_changed: '%{cells} célula(s) alterada(s), %{rules} regra(s) de fluxo de trabalho.'
+  text_project_workflow_bulk_undone: 'Desfeito: %{cells} célula(s) reposta(s).'
+  text_project_workflow_bulk_unsaved: Ainda não foi guardado nada. Prima Guardar para aplicar estas alterações.

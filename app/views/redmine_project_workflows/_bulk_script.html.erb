@@ -1,5 +1,6 @@
 <%#
-  The one function the row and column actions call (WP5).
+  The one function the row and column actions call (WP5), and the undo stack
+  behind them (WP6).
 
   Deliberately small and dependency-free: this repository has no way to test
   JavaScript, so anything clever here would ship untested. It reads what to do
@@ -10,8 +11,48 @@
   A <select> is what a mixed cell renders as, so both kinds of control are
   handled: "no change" means the select's own no-change option, and for a
   checkbox it means the value the page was opened with.
+
+  What the undo restores is the value each control held *before the action*, not
+  the value the page was opened with -- those are the same thing only for the
+  first action. Every action pushes one entry, so undo walks back through them
+  one at a time. `dev/check-bulk-js.mjs` is the gate the suite cannot be: a
+  hand-built DOM, this function extracted from the partial, and one check per
+  behaviour described above.
 %>
 <%= javascript_tag do %>
+var projectWorkflowBulkUndoStack = [];
+
+function projectWorkflowBulkRegion() {
+  return document.getElementById('project-workflow-bulk-undo');
+}
+
+// Nothing here assumes the region is on the page: a screen that renders the
+// actions without it must go on working rather than throwing on every click.
+//
+// The region stays visible once anything has happened -- the last undo's own
+// confirmation is the one the reader most needs, and hiding the region to
+// signal an empty stack would take that sentence away with it. What comes and
+// goes is the undo link, which is offered exactly while there is something to
+// undo.
+function projectWorkflowBulkSay(template, cells, rules) {
+  var region = projectWorkflowBulkRegion();
+  if (!region) { return; }
+
+  var text = region.getAttribute(template) || '';
+  text = text.replace(/%\{cells\}/g, cells).replace(/%\{rules\}/g, rules);
+  region.querySelector('.project-workflow-bulk-undo-message').textContent = text;
+  region.style.display = '';
+  var undo = region.querySelector('.project-workflow-bulk-undo-action');
+  if (undo) { undo.style.display = projectWorkflowBulkUndoStack.length > 0 ? '' : 'none'; }
+}
+
+function projectWorkflowBulkSet(control, value) {
+  if (control.type === 'checkbox') { control.checked = value; }
+  else { control.value = value; }
+  if (window.jQuery) { window.jQuery(control).trigger('change'); }
+  else { control.dispatchEvent(new Event('change', { bubbles: true })); }
+}
+
 function projectWorkflowBulkApply(link) {
   var group = link.parentNode;
   var value = link.getAttribute('data-project-workflow-value');
@@ -23,28 +64,38 @@ function projectWorkflowBulkApply(link) {
     if (control.disabled) { continue; }
     if (control.type === 'checkbox') {
       var checked = (value === 'no_change') ? control.defaultChecked : (value === '1');
-      if (control.checked !== checked) { pending.push([control, checked]); }
+      if (control.checked !== checked) { pending.push([control, checked, control.checked]); }
     } else if (control.tagName === 'SELECT' &&
                control.querySelector('option[value="' + value + '"]') &&
                control.value !== value) {
-      pending.push([control, value]);
+      pending.push([control, value, control.value]);
     }
   }
   if (pending.length === 0) { return; }
 
+  var multiplier = parseInt(group.getAttribute('data-project-workflow-multiplier'), 10);
   var threshold = parseInt(group.getAttribute('data-project-workflow-threshold'), 10);
-  var rules = pending.length * parseInt(group.getAttribute('data-project-workflow-multiplier'), 10);
+  var rules = pending.length * multiplier;
   if (!isNaN(threshold) && rules > threshold) {
     var question = group.getAttribute('data-project-workflow-confirm').replace(/%\{count\}/g, rules);
     if (!window.confirm(question)) { return; }
   }
 
   for (var j = 0; j < pending.length; j++) {
-    var target = pending[j][0];
-    if (target.type === 'checkbox') { target.checked = pending[j][1]; }
-    else { target.value = pending[j][1]; }
-    if (window.jQuery) { window.jQuery(target).trigger('change'); }
-    else { target.dispatchEvent(new Event('change', { bubbles: true })); }
+    projectWorkflowBulkSet(pending[j][0], pending[j][1]);
   }
+  projectWorkflowBulkUndoStack.push({ changes: pending, multiplier: multiplier });
+  projectWorkflowBulkSay('data-project-workflow-changed', pending.length, rules);
+}
+
+function projectWorkflowBulkUndo() {
+  var entry = projectWorkflowBulkUndoStack.pop();
+  if (!entry) { projectWorkflowBulkSay('data-project-workflow-undone', 0, 0); return; }
+
+  for (var i = entry.changes.length - 1; i >= 0; i--) {
+    projectWorkflowBulkSet(entry.changes[i][0], entry.changes[i][2]);
+  }
+  projectWorkflowBulkSay('data-project-workflow-undone',
+                         entry.changes.length, entry.changes.length * entry.multiplier);
 }
 <% end %>

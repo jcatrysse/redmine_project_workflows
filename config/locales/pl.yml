@@ -84,3 +84,7 @@ pl:
   text_project_workflow_compare_counts: 'Ten projekt ma własnych reguł dla tego typu zagadnienia i tej roli: %{project}; ogólny przepływ pracy ma %{generic}.'
   text_project_workflow_compare_identical: Własny przepływ pracy tego projektu jest identyczny z ogólnym dla tego typu zagadnienia i tej roli.
   text_project_workflow_compare_inherits: Ten projekt dziedziczy ogólny przepływ pracy dla tego typu zagadnienia i tej roli, więc nie ma nic do porównania.
+  button_project_workflow_bulk_undo: Cofnij
+  text_project_workflow_bulk_changed: 'Zmienione komórki: %{cells}; reguły przepływu pracy: %{rules}.'
+  text_project_workflow_bulk_undone: 'Cofnięto; przywrócone komórki: %{cells}.'
+  text_project_workflow_bulk_unsaved: Nic nie zostało jeszcze zapisane. Naciśnij Zapisz, aby zastosować te zmiany.

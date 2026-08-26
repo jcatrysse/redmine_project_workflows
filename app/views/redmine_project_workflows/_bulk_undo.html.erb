@@ -1,0 +1,34 @@
+<%#
+  What the last row or column action did, and a way back (WP6).
+
+  A row or column action changes the screen and nothing else -- only Save
+  writes -- and before this there was nothing on the page saying either of
+  those things. One click could change a hundred cells with no count, no way
+  back short of reloading, and no hint that reloading was the way back.
+
+  Empty and hidden until an action runs; the script fills it in and shows it.
+  aria-live so the count is announced rather than only drawn, and the undo is a
+  plain link -- one tab stop, with the browser's own focus ring, which Redmine's
+  stylesheet removes on form controls but never on an <a>, on any supported
+  version.
+
+  Rendered above the matrix from the two partials that are already there: the
+  administration screens' note, and a project matrix's header. Not from an
+  anchor of its own, because it needs none, and not from the script's own <td>,
+  which is inside the table it talks about.
+
+  The strings come down as data attributes rather than being built in the
+  script, so every sentence on the page stays in the locale files. The names
+  match the confirmation's convention: %{...} placeholders, replaced in the
+  browser.
+%>
+<div id="project-workflow-bulk-undo" class="project-workflow-bulk-undo" style="display:none;"
+     aria-live="polite"
+     data-project-workflow-changed="<%= l(:text_project_workflow_bulk_changed) %>"
+     data-project-workflow-undone="<%= l(:text_project_workflow_bulk_undone) %>">
+  <span class="project-workflow-bulk-undo-message"></span>
+  <%= link_to_function l(:button_project_workflow_bulk_undo), 'projectWorkflowBulkUndo()',
+                       class: 'project-workflow-bulk-undo-action',
+                       'aria-label' => l(:button_project_workflow_bulk_undo) %>
+  <em><%= l(:text_project_workflow_bulk_unsaved) %></em>
+</div>

@@ -50,12 +50,19 @@ The plugin is copied rather than symlinked: the specs resolve
 
 ### The one gate the suite cannot run
 
-The row and column actions on a workflow matrix (WP5) are JavaScript, and the
-suite is RSpec against a real Redmine: it can assert the markup the actions are
-made of, and does, but it cannot run them. `dev/check-bulk-js.mjs` is the other
-half — a hand-built DOM, the function extracted from
-`app/views/redmine_project_workflows/_bulk_script.html.erb`, and the sixteen
+The row and column actions on a workflow matrix (WP5), and the counter and undo
+behind them (WP6), are JavaScript, and the suite is RSpec against a real Redmine:
+it can assert the markup they are made of, and does, but it cannot run them.
+`dev/check-bulk-js.mjs` is the other half — a hand-built DOM, the whole
+`javascript_tag` block extracted from
+`app/views/redmine_project_workflows/_bulk_script.html.erb`, and the **thirty-two**
 things it has to get right.
+
+The block is extracted whole rather than one function at a time, and it is
+re-evaluated for every scenario that touches the undo stack. That stack is state
+the script holds for the life of a page, so a scenario inheriting an earlier one's
+stack makes every "there is nothing left to undo" check pass or fail on what was
+left behind — which is exactly how the first version of those checks went wrong.
 
 ```sh
 node dev/check-bulk-js.mjs

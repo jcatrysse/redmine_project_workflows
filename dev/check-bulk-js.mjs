@@ -1,24 +1,38 @@
-// Exercises the row and column action function in
-// app/views/redmine_project_workflows/_bulk_script.html.erb (WP5).
+// Exercises the row and column action script in
+// app/views/redmine_project_workflows/_bulk_script.html.erb (WP5, WP6).
 //
 // The plugin's suite is RSpec against a real Redmine, which can assert the
 // markup the actions are made of but cannot run them. This is the missing half:
-// a hand-built DOM, the real function extracted from the partial, and the four
-// things it has to get right.
+// a hand-built DOM, the real script extracted from the partial, and one check
+// per thing it has to get right.
 //
 //   node dev/check-bulk-js.mjs
 //
 // It is a manual gate: CI runs Ruby only, so this has to be run by hand (or
-// wired into a JS job) when the function changes.
+// wired into a JS job) when the script changes.
+//
+// The whole javascript_tag block is extracted and evaluated ONCE, not one
+// function at a time: the undo stack (WP6) is state the functions share, so
+// re-evaluating per case would reset it and every undo check would pass
+// vacuously.
 import { readFileSync } from 'node:fs';
 
 const partial = new URL('../app/views/redmine_project_workflows/_bulk_script.html.erb', import.meta.url);
 const source = readFileSync(partial, 'utf8');
-const body = source.match(/function projectWorkflowBulkApply[\s\S]*?\n}\n/);
-if (!body) {
-  console.error('FAIL: could not find projectWorkflowBulkApply in the partial');
+const block = source.match(/<%= javascript_tag do %>([\s\S]*?)\n<% end %>/);
+if (!block) {
+  console.error('FAIL: could not find the javascript_tag block in the partial');
   process.exit(1);
 }
+
+function loadScript() {
+  // eslint-disable-next-line no-new-func
+  return new Function(
+    `${block[1]}\nreturn [projectWorkflowBulkApply, projectWorkflowBulkUndo];`
+  )();
+}
+
+let [bulkApply, bulkUndo] = loadScript();
 
 let failures = 0;
 let confirmations = [];
@@ -45,6 +59,45 @@ function select({ value, options, disabled = false }) {
            dispatchEvent(e) { this.events.push(e.type); } };
 }
 
+// The undo region (WP6): the two message templates, the element the count is
+// written into, and the undo link whose visibility follows the stack.
+function undoRegion() {
+  const message = { textContent: '' };
+  const undoLink = { style: {} };
+  return {
+    style: {},
+    message,
+    undoLink,
+    getAttribute(name) {
+      return { 'data-project-workflow-changed': 'changed %{cells} cells, %{rules} rules',
+               'data-project-workflow-undone': 'undone %{cells} cells, %{rules} rules' }[name];
+    },
+    querySelector(selector) {
+      return selector.includes('message') ? message : undoLink;
+    }
+  };
+}
+
+// null means "a page that renders the actions without the region", which the
+// script has to survive rather than throw on.
+let region = undoRegion();
+
+// A fresh script and a fresh region. The undo stack is state the script holds
+// for the life of a page, so a scenario that asserts anything about it has to
+// start from an empty one -- otherwise every "there is nothing left to undo"
+// check passes or fails on what an earlier scenario happened to leave behind.
+// This is how the first version of these checks went wrong.
+function reset() {
+  [bulkApply, bulkUndo] = loadScript();
+  region = undoRegion();
+}
+
+function install(controls) {
+  global.document = { querySelectorAll: () => controls, getElementById: () => region };
+  global.window = { confirm: (question) => { confirmations.push(question); return confirmAnswer; } };
+  global.Event = class { constructor(type) { this.type = type; } };
+}
+
 function run(controls, { value, multiplier = 1, threshold = 50 }) {
   const group = {
     getAttribute(name) {
@@ -55,11 +108,13 @@ function run(controls, { value, multiplier = 1, threshold = 50 }) {
     }
   };
   const link = { parentNode: group, getAttribute: () => value };
-  global.document = { querySelectorAll: () => controls };
-  global.window = { confirm: (question) => { confirmations.push(question); return confirmAnswer; } };
-  global.Event = class { constructor(type) { this.type = type; } };
-  // eslint-disable-next-line no-new-func
-  new Function(`${body[0]}; projectWorkflowBulkApply(arguments[0]);`)(link);
+  install(controls);
+  bulkApply(link);
+}
+
+function undo(controls) {
+  install(controls);
+  bulkUndo();
 }
 
 // --- 1. both kinds of control, and the disabled one left alone ---------------
@@ -117,10 +172,66 @@ run(cells, { value: '1', multiplier: 1, threshold: 0 });
 check('a threshold of zero asks every time', confirmations, ['affects 1 rules, 1 again']);
 
 // --- 4. an action that would change nothing does nothing --------------------
+reset();
 confirmations = [];
 cells = [checkbox({ checked: true })];
 run(cells, { value: '1', multiplier: 100, threshold: 0 });
 check('an action that changes nothing neither asks nor fires', [confirmations, cells[0].events], [[], []]);
+check('and says nothing, so the region stays as it was', region.message.textContent, '');
+
+// --- 5. the counter and the undo (WP6) --------------------------------------
+reset();
+cells = [checkbox({ checked: false }), checkbox({ checked: false }), checkbox({ checked: true })];
+run(cells, { value: '1', multiplier: 3 });
+check('the counter names the cells it changed and the rules that costs',
+      region.message.textContent, 'changed 2 cells, 6 rules');
+check('the region is shown', region.style.display, '');
+check('and the undo is offered', region.undoLink.style.display, '');
+
+undo(cells);
+check('undo puts the checkboxes back', [cells[0].checked, cells[1].checked, cells[2].checked],
+      [false, false, true]);
+check('and says what it put back', region.message.textContent, 'undone 2 cells, 6 rules');
+check('and withdraws itself once there is nothing left to undo',
+      region.undoLink.style.display, 'none');
+check('while the sentence stays readable', region.style.display, '');
+
+// The value undo restores is the one held BEFORE the action, not the one the
+// page was opened with -- and those differ from the second action onwards.
+reset();
+cells = [select({ value: 'no_change', options: ['1', '0', 'no_change'] })];
+run(cells, { value: '1', multiplier: 1 });
+run(cells, { value: '0', multiplier: 1 });
+undo(cells);
+check('undo steps back one action, not all the way to the start', cells[0].value, '1');
+undo(cells);
+check('a second undo steps back again', cells[0].value, 'no_change');
+check('and the undo is gone', region.undoLink.style.display, 'none');
+
+undo(cells);
+check('undo on an empty stack changes nothing', cells[0].value, 'no_change');
+check('and says so rather than throwing', region.message.textContent, 'undone 0 cells, 0 rules');
+
+// A refused confirmation must not leave an entry behind for undo to "restore".
+reset();
+confirmAnswer = false;
+confirmations = [];
+cells = [checkbox({ checked: false }), checkbox({ checked: false })];
+run(cells, { value: '1', multiplier: 4, threshold: 1 });
+undo(cells);
+check('a refused action leaves nothing on the undo stack',
+      [cells[0].checked, cells[1].checked, region.message.textContent],
+      [false, false, 'undone 0 cells, 0 rules']);
+confirmAnswer = true;
+
+// A page that renders the actions without the region.
+reset();
+region = null;
+cells = [checkbox({ checked: false })];
+run(cells, { value: '1', multiplier: 1 });
+check('an action still works with no region on the page', cells[0].checked, true);
+undo(cells);
+check('and so does the undo behind it', cells[0].checked, false);
 
 console.log(failures === 0 ? '\nbulk action script OK' : `\n${failures} check(s) failed`);
 process.exit(failures === 0 ? 0 : 1);

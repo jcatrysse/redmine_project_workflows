@@ -342,4 +342,42 @@ describe WorkflowsController, type: :controller do
       expect(response.body).not_to include('project-workflow-bulk-action')
     end
   end
+
+  # WP6. What the last row or column action did, and a way back. Unlike the note
+  # above it, this does not wait for a cell to stand for more than one workflow:
+  # the actions are there whatever the size of the selection, and so is the cost
+  # of clicking one by accident.
+  describe 'the counter and the undo above the matrix' do
+    let(:other_tracker) { trackers(:trackers_002) }
+
+    it 'is on the transitions page for a selection of one workflow per cell' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: ['global'], used_statuses_only: '0' }
+
+      expect(response.body).to include('id="project-workflow-bulk-undo"')
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_bulk_undo)))
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_bulk_unsaved)))
+      # The two sentences the script fills in come down as data attributes, so
+      # every string on the page stays in the locale files.
+      expect(response.body).to include('data-project-workflow-changed')
+      expect(response.body).to include('data-project-workflow-undone')
+    end
+
+    it 'is on the transitions page for a wide selection too' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
+                           project_id: ['global'], used_statuses_only: '0' }
+
+      expect(response.body).to include('id="project-workflow-bulk-undo"')
+    end
+
+    # No row or column actions there, so nothing for a counter to count or an
+    # undo to undo.
+    it 'is absent from the field permissions page' do
+      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
+                                  project_id: ['global'] }
+
+      expect(response.body).to include('project-workflow-bulk-note')
+      expect(response.body).not_to include('id="project-workflow-bulk-undo"')
+    end
+  end
 end

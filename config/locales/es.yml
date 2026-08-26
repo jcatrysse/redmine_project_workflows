@@ -81,3 +81,7 @@ es:
   text_project_workflow_compare_counts: Este proyecto tiene %{project} regla(s) propia(s) para este tipo de petición y este rol; el flujo de trabajo genérico tiene %{generic}.
   text_project_workflow_compare_identical: El flujo de trabajo propio de este proyecto es idéntico al genérico para este tipo de petición y este rol.
   text_project_workflow_compare_inherits: Este proyecto hereda el flujo de trabajo genérico para este tipo de petición y este rol, por lo que no hay nada que comparar.
+  button_project_workflow_bulk_undo: Deshacer
+  text_project_workflow_bulk_changed: '%{cells} celda(s) modificada(s), %{rules} regla(s) de flujo de trabajo.'
+  text_project_workflow_bulk_undone: 'Deshecho: %{cells} celda(s) restaurada(s).'
+  text_project_workflow_bulk_unsaved: Todavía no se ha guardado nada. Pulse Guardar para aplicar estos cambios.

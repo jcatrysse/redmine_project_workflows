@@ -473,6 +473,36 @@ describe ProjectWorkflowsController, type: :controller do
       expect(response.body).not_to include('project-workflow-bulk-note')
     end
 
+    # WP6. A project matrix has row and column actions once it is editable, so
+    # it gets the counter and the undo -- but a cell there is one workflow, so
+    # the note above them still says nothing.
+    it 'offers the counter and the undo on an editable project matrix' do
+      give_own_workflow(project, tracker, role)
+
+      get :transitions, params: transitions_params
+
+      expect(response.body).to include('id="project-workflow-bulk-undo"')
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_bulk_unsaved)))
+    end
+
+    # A read-only matrix renders the plugin's own grid rather than core's
+    # workflows/_form, so the Deface overrides that put the actions there never
+    # run and there is nothing to undo.
+    it 'does not offer them on a matrix that cannot be edited' do
+      get :transitions, params: transitions_params
+
+      expect(response.body).not_to include('project-workflow-bulk-action')
+      expect(response.body).not_to include('id="project-workflow-bulk-undo"')
+    end
+
+    it 'does not offer them on the field permissions matrix' do
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+
+      get :permissions, params: transitions_params
+
+      expect(response.body).not_to include('id="project-workflow-bulk-undo"')
+    end
+
     it 'draws the collapsible legend the way the host draws icons' do
       give_own_workflow(project, tracker, role)
 

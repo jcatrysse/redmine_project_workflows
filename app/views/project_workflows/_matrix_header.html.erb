@@ -52,6 +52,13 @@
   <p class="project-workflow-scope-help"><em><%= l(:text_project_workflow_scope_help) %></em></p>
 </div>
 
+<% if @rule_type == ProjectWorkflowScope::TRANSITIONS && @editable %>
+  <%# WP6. Only where there is something to undo: the row and column actions
+      come from Deface overrides on core's workflows/_form, which a read-only
+      project matrix does not render -- it renders the plugin's own grid. %>
+  <%= render partial: 'redmine_project_workflows/bulk_undo' %>
+<% end %>
+
 <%= form_tag({}, method: :get) do %>
 <p>
   <%= hidden_field_tag 'tracker_id', @tracker.id, id: nil %>

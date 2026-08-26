@@ -18,6 +18,14 @@
   project being selected -- core's own "no change" cells appear for a selection
   of several trackers or roles alone.
 %>
+<%# WP6: what the last row or column action did, and a way back. Outside the
+    "more than one workflow per cell" test below -- the actions exist whatever
+    the size of the selection, so the counter and the undo have to as well --
+    and only on the matrix that has them. %>
+<% if rule_type == ProjectWorkflowScope::TRANSITIONS %>
+  <%= render partial: 'redmine_project_workflows/bulk_undo' %>
+<% end %>
+
 <% selection_size = project_workflow_selection_size %>
 <% if selection_size > 1 %>
   <p class="project-workflow-bulk-note">

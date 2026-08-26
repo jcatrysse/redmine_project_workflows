@@ -81,3 +81,7 @@ en:
   text_project_workflow_compare_counts: This project holds %{project} rule(s) of its own for this tracker and role; the generic workflow holds %{generic}.
   text_project_workflow_compare_identical: This project's own workflow is identical to the generic one for this tracker and role.
   text_project_workflow_compare_inherits: This project inherits the generic workflow for this tracker and role, so there is nothing to compare.
+  button_project_workflow_bulk_undo: Undo
+  text_project_workflow_bulk_changed: Changed %{cells} cell(s), %{rules} workflow rule(s).
+  text_project_workflow_bulk_undone: 'Undone: %{cells} cell(s) put back.'
+  text_project_workflow_bulk_unsaved: Nothing has been saved yet. Press Save to apply these changes.
