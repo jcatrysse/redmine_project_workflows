@@ -21,6 +21,10 @@
 - **Open findings:** 10 of 16. Six were closed in WP0 (claude F04, F05;
   external F02, F03, F05, F09). Every remaining one is scheduled into a work
   package.
+- **Open choices:** none. Jan answered both of WP0's on 2026-08-26, keeping the
+  `CLAUDE.md` correction about `to_prepare` and keeping
+  `ActiveSupport::CurrentAttributes` as the request-scoped cache. Both were
+  already the implemented default, so nothing changed in the code.
 - **`spec/characterization/`:** four examples left, down from nine. They belong
   to WP2 (`Tracker#issue_status_ids`, `Project#rolled_up_statuses`, the used
   statuses filter) and WP3 (the summary page count). The plan is finished when
@@ -80,19 +84,17 @@ test.
 | Migration reversibility up → 0 → up | clean on 5.1, 6.1 and 7.0, run before the suite |
 | New specs against the old code (`HEAD~1`) | 21 fail, including every inverted characterization example |
 | Patches installed by the host boot | verified with `rails runner` on 5.1 and 7.0, with `spec_helper`'s fallback removed |
-| CI, all nine cells + RuboCop | green on `35090347`, the WP0 code — run 3 of `Specs` |
+| CI, all nine cells + RuboCop | green on `35090347` (run 3) and again on `27229bd` (run 6), the branch head |
 
 MySQL and MariaDB could not be run locally: no server for either is available
 in this container and the packages could not be installed. CI covered those six
 cells and they are green, so the WP0 code is verified on all nine.
 
-Two follow-up commits touch only `dev/setup.sh`, `dev/run.sh` and this file --
-no plugin code -- so `35090347` is still the commit the nine green cells
-describe. Their own CI runs had not reported back when the session ended:
-run 4 shows `cancelled`, which is the workflow's own
-`concurrency: cancel-in-progress` superseding it when the next commit was
-pushed, not a failure. Confirm the newest run on `claude/dev` is green before
-starting WP1, and re-run it if it was cancelled the same way.
+Runs 4 and 5 show `cancelled` in the Actions list. That is the workflow's own
+`concurrency: cancel-in-progress` superseding a run when the next commit is
+pushed, not a failure — three small follow-up commits went out in quick
+succession. Run 6, on the branch head, is green. Batch such commits next time
+so the history reads cleanly.
 
 ## Exact next step
 

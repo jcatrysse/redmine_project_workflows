@@ -28,6 +28,8 @@
 | 2026-08-26 | Development branch | One pinned branch, `claude/dev` | Overrides the per-session branch name the environment prescribes. Without a pin the work migrates to a new branch every session. |
 | 2026-08-26 | Documentation language | English throughout | Including `STATE.md`, `DECISIONS.md` and the session report — differs from `redmine_ai_triage`, where those three are Dutch. |
 | 2026-08-26 | Invariant enforcement | Text in CLAUDE.md, no scanner spec | Considered and rejected: a spec that greps for forbidden constructs and fails the build, as `redmine_ai_triage` does. Revisit if an invariant is breached in practice. |
+| 2026-08-26 | Plugin patch hook | Patches are applied in the body of `init.rb`; the corrected `CLAUDE.md` row stands | Answered A. `Rails.application.config.to_prepare` in a plugin's `init.rb` is a silent no-op: `:add_to_prepare_blocks` has already consumed `config.to_prepare_blocks` by the time Redmine's `PluginLoader` loads the file, and following the old wording disabled the plugin entirely while the suite stayed green. Considered and rejected: reverting the table and recording the trap elsewhere. |
+| 2026-08-26 | Request-scoped cache | `ActiveSupport::CurrentAttributes`, as `RedmineProjectWorkflows::Current` | Answered A. Rails resets it around every request and job on 5.1, 6.1 and 7.0, and it adds no dependency. Considered and rejected: adding `request_store` to the plugin's own Gemfile (Redmine 7.0 dropped the gem), and dropping the cache entirely (one extra query per issue where a list renders many). |
 
 ## Decided (autonomous)
 
@@ -54,28 +56,6 @@
 
 ## Open — for Jan
 
-- **Choice:** `CLAUDE.md`'s forbidden-constructs table told us to move plugin
-  patches to `Rails.application.config.to_prepare`. That is a silent no-op in a
-  Redmine plugin's `init.rb`, and following it left the plugin doing nothing at
-  all. The table has been corrected in this session. Do you want it left as
-  corrected?
-  - **Options:** A) Leave the correction in place — the table now says to call
-    `apply_patches` in the body of `init.rb` and explains why a `to_prepare`
-    block never runs there. B) Revert to the old wording and record the trap
-    somewhere else instead.
-  - **Recommendation:** A — the table is the first thing a session reads, and
-    the old row would send every future session into the same trap; the
-    evidence is in the finding's `Resolution:` line and in the boot assertion in
-    `spec/plugin_conventions_spec.rb`.
-  - **Urgent?** no — we continued with A.
-
-- **Choice:** external F09 was written on the premise that Redmine bundles
-  `request_store`. Redmine 7.0 dropped it. The cache now uses
-  `ActiveSupport::CurrentAttributes`, which adds a small class of our own
-  (`RedmineProjectWorkflows::Current`) rather than a gem.
-  - **Options:** A) Keep `CurrentAttributes`. B) Add `request_store` to the
-    plugin's own `Gemfile` so the original design holds on 7.0 too. C) Drop the
-    cache entirely and accept one extra query per issue.
-  - **Recommendation:** A — it works identically on 5.1, 6.1 and 7.0, adds no
-    dependency, and Rails resets it around every request and job.
-  - **Urgent?** no — we continued with A.
+*(Nothing open. Items land here with their options, a plain-language
+explanation of each and a recommendation, while the build continues on the
+safest default.)*
