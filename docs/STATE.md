@@ -26,11 +26,13 @@
   history while `origin/claude/dev` was the real head. `git checkout -B claude/dev
   origin/claude/dev` is the safe form.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open choices:** **two**, both logged in `docs/DECISIONS.md` under
-  "Open — for Jan", both with a safe default already in place. Neither blocks
-  anything: (1) does WP8 go inside the 0.1.0 changelog entry or does the plugin
-  become 0.2.0, and (2) the six non-`en`/`nl` locale files are fully translated
-  where `CLAUDE.md` says they only carry the keys — which is the rule?
+- **Open choices:** **none.** WP8 raised two and Jan answered both **A** on
+  2026-08-26; they have moved up in `docs/DECISIONS.md`. (1) WP8 stays **inside
+  the 0.1.0 release** — there is no 0.2.0. (2) **All eight locale files are
+  translated**, and `CLAUDE.md`'s working rule now says so instead of claiming
+  the six beside `en` and `nl` merely carry the keys; `en` and `nl` remain the
+  authoritative pair, and the accepted cost — unreviewed translation presented
+  as translation — is written down beside the rule.
 - **Open findings:** **2**, both left deliberately and unchanged by this session:
   G02 (a cross-project bulk tracker change is two queries per project where core
   is one) and G03 (`Issue#project=`, which behaves as core does).
@@ -231,7 +233,8 @@ one carries an example asserting the argument is now refused.
 
 ## Exact next step
 
-**Watch CI, and then it is Jan's turn.** There is no WP9. Concretely:
+**It is Jan's turn.** There is no WP9, CI is green on the head, and no choice is
+open. Concretely:
 
 1. **Nothing to check first.** CI **run 58 is green on all ten jobs** for the
    head, `89360e3` — nine cells plus RuboCop, each through migration
@@ -241,7 +244,8 @@ one carries an example asserting the argument is now refused.
    "cancelled": the concurrency group superseded it when the next commit was
    pushed. Read the *head's* run, not the newest completed one.)
 2. **Nothing else is queued.** WP0..WP8 are done, `spec/characterization/` is
-   empty, and the two open findings are deliberate. The plugin is ready for Jan
+   empty, no choice is open, and the two open findings are deliberate. The
+   plugin is ready for Jan
    to review the branch and ask for the merge.
 3. If Jan wants more, the candidates already written down are: the **layered SVG
    diagram** (option A in `docs/DECISIONS.md`, which is exactly WP8's data with a

@@ -40,6 +40,8 @@
 | 2026-08-26 | Declared minimum Redmine version | **5.1**, raised from 5.0 | Answered A. Nothing had ever tested 5.0 and the README said so. Known limit, recorded so nobody mistakes the floor for a claim: 5.2, 6.0, 6.2 and 7.1 still install and none of those is in CI either, so the README's Compatibility section — which names the nine cells that run on every push — remains the honest answer. Considered and rejected: putting 5.0 back and going on warning that it is untested. |
 | 2026-08-26 | WP8 must name the workflow it is describing | The panel says whether this issue is governed by the project's own workflow or the generic one, per role, and links to where it is edited | Raised by Jan while reviewing WP8's spec, and it is the first thing somebody debugging "why can I not close this issue" needs. Nothing on the issue form says it today: core has no concept of a project workflow, and WP8 is the first thing the plugin puts on that form at all. |
 | 2026-08-26 | Bulk editing (field permissions) | The field-permissions matrix keeps only core's `»` copy control — no row or column actions | Answered **A** the same day it was raised. The transitions matrix is the one with the clicking in it; core has no row or column toggles on the field-permissions matrix to repair, its cells are four-valued rather than yes or no, and `»` already covers "the same from here on". B — the same three actions adapted to four values — stays available as a small work package of its own if somebody actually wants it. |
+| 2026-08-26 | WP8 stays inside the 0.1.0 release | **A**: one release containing everything; no 0.2.0 | Answered **A**. 0.1.0 had never been tagged or published and `main` was still pre-WP1, so the first release anybody can install already contains WP8; a 0.2.0 heading would have described an upgrade path from a version that never existed. Considered and rejected: bumping `init.rb` to 0.2.0 with a heading of its own — still one line plus one heading if a reason appears, and `spec/plugin_conventions_spec.rb` asserts the version and the newest changelog heading agree, so it cannot be done by halves. |
+| 2026-08-26 | All eight locale files are translated | **A**: keep translating all eight, and `CLAUDE.md` now says so | Answered **A**. The rule in `CLAUDE.md` said the six beside `en` and `nl` merely carried the keys; the files had not matched that for some time, and WP8 followed the files. `en` and `nl` stay the authoritative pair. The cost is recorded rather than glossed: the six are unreviewed translation *presented as* translation, so a wrong word reads as a decision rather than as a gap, and `spec/locales_spec.rb` can assert key parity but never that a translation is right. Considered and rejected: **B**, keeping the rule and leaving new keys in those six in English and marked — honest and cheap, but it would have meant un-translating six files that are already done. Raised by the fresh-subagent review of WP8. |
 
 ## Decided (autonomous)
 
@@ -63,7 +65,6 @@
 | 2026-08-26 | WP0 | `spec/spec_helper.rb` no longer applies the patches itself when the boot did not | That fallback hid a change that left the plugin doing nothing in a real installation while the suite stayed green. `spec/plugin_conventions_spec.rb` asserts the boot instead. |
 | 2026-08-26 | WP0 | No grep-style scanner example was added, per the existing choice | The `Thread.current` removal is covered behaviourally instead. Jan's "Invariant enforcement" entry stands; it says revisit, and this was not the occasion. |
 | 2026-08-26 | dev | `dev/setup.sh` and `dev/run.sh` put rbenv's **shims** on `PATH`, not just rbenv itself | `command -v rbenv` succeeding does not mean the shims are on `PATH`; without them the ambient Ruby ran and the failure surfaced much later, as a Gemfile Ruby requirement. |
-
 | 2026-08-26 | WP1 | The scope table's unique index ships with the table, in migration 004 | `design.md` specifies it as part of the table, and the backfill has to produce unique rows anyway. The implementation plan listed it under WP2; that item is therefore already delivered. |
 | 2026-08-26 | WP1 | Foreign-key columns are `:integer`, not Rails' default `:bigint` | Redmine's own primary keys are 4-byte integers and MySQL refuses a foreign key whose column width differs from the column it references. |
 | 2026-08-26 | WP1 | The backfill stamps `CURRENT_TIMESTAMP`, not a quoted Ruby `Time` | PostgreSQL will not cast a text literal to a timestamp inside a `SELECT` list, and the casts that would work are spelled differently on MySQL. Rails puts every supported adapter's session in UTC. |
@@ -158,50 +159,17 @@
 | 2026-08-26 | WP7 | The terminology bullet needed no work, and the plan says so rather than claiming it | *Generic workflow*, *Own workflow*, *Inherits the generic workflow* are what WP3, WP4 and WP5 used as they went. Same for "version-conditional code in one helper": `VersionHelper` already owns all five differences. A work package that reports work it did not do is worse than one that reports less. |
 | 2026-08-26 | WP7 | `.rubocop_todo.yml` is annotated by hand, and anything added to it needs a reason | A generated list says which cop is off in which file and nothing about whether that is debt or a decision, and this one is almost entirely decisions — core's own method bodies, and `insert_all` in the writers, which INV-2 requires. 198 offences in 21 files became 50 in 8; the file's header names the three groups the rest fall into. |
 | 2026-08-26 | WP7 | `TransitionWriter.transition_row` takes keyword arguments | The one `Metrics/ParameterLists` offence worth fixing rather than excluding: seven positional parameters ending in two booleans, so `transition_row(a, b, c, d, e, false, false)` put the author and assignee flags in an order nothing at the call site named, and swapping them writes a workflow permitting the opposite of what was asked for. |
-
 | 2026-08-26 | WP8 | The panel gets a **controller of its own**, with no permission of its own | It reveals the workflow governing an issue the reader is already looking at, so `Issue.visible` (or, on the new-issue form, the project plus `add_issues`) is the whole authorization. Every action on `ProjectWorkflowsController` is behind `view_project_workflow`, and requiring that to read the workflow governing your own issue would hide the panel from the people it is for. `spec/controllers/project_workflow_maps_controller_spec.rb` asserts the action count, so a second action there cannot be added without a decision about how it is authorized. |
 | 2026-08-26 | WP8 | The link carries the form's **tracker**, and the controller applies it to the issue before drawing the map | Core re-renders the whole issue form on a tracker change, so the link is rebuilt with it. Applying it is the same reconciliation `Issue#new_statuses_allowed_to` performs to pick its initial status — keep the status where the new tracker's own workflow uses it, otherwise that tracker's default — which is what makes the map and the status list read from one object rather than two. Considered and rejected: describing the issue as saved (the panel would then contradict the very dropdown it is beside), and duplicating core's private initial-status logic in the service. |
 | 2026-08-26 | WP8 | A move's condition is worded *"only when the user is the author"*, in three keys of its own | Not the comparison screen's `label_project_workflow_condition_author` (*"also when the user is the author"*). There the label names one of core's three whole grids, which is core's framing; here the conditions of a single move have been collapsed, so a move naming only the author grid is a move **only** the author may make and "also" says the opposite of the truth. Both grids at once is one phrase rather than two joined by a comma, because "only the author" beside "only the assignee" reads as a contradiction. The unconditional case keeps the shared key, because there it means the same thing on both screens. |
 | 2026-08-26 | WP8 | **Two** Deface overrides on `issues/_attributes`, not one | Caught by a probe, not by reasoning: core renders the status control two ways, and the second — a plain label instead of a select — is exactly what an own **empty** workflow produces, because `new_statuses_allowed_to` appends the issue's own status only when the workflow permitted something. A single anchor on `f.select :status_id` therefore withheld the panel in the one case the panel exists for. INV-9 count 13 → 15. |
 | 2026-08-26 | WP8 | An **incoming** edge carries no availability | It ends at the status the issue is already in, so it is history rather than an action, and asking would answer "yes" for every one of them — the status list always offers the current status back. |
-
 | 2026-08-26 | WP8 | `TransitionMapQuery` takes **no** `tracker:` argument | Raised by the fresh-subagent review as a latent contract hole, and the fix went the other way from the one suggested. The query took a tracker, queried the edges for it, and still read the status and the status list off the issue -- consistent only because the controller had applied the form's tracker first. Handing it a tracker the issue was not carrying produced a map whose edges and whose "offered now" column described two different trackers, which is the exact contradiction the class exists to prevent; the reviewer demonstrated it. Moving the assignment *into* the query would have fixed it too, but a query object that mutates its argument is worse: reading everything from the one issue makes the contradiction unrepresentable instead of merely unlikely. |
 | 2026-08-26 | WP8 | A row naming a **deleted** status sorts last, not first | `position_of` returned -1 for any nil status record, which is right for core's "new issue" node and wrong for a row whose status has been removed -- it sorted ahead of every real status. Told apart by the **id** now (0 is the node), not by being nil. |
 
 ## Open — for Jan
 
-- **Choice:** WP8 is a user-visible feature added after the CHANGELOG already
-  described **0.1.0** as a release. Does it go *inside* 0.1.0, or does the plugin
-  become **0.2.0**?
-- **Options:**
-  A) Leave it in 0.1.0 — one release containing everything, which is what
-     actually ships if you merge `claude/dev` once. *(in place)*
-  B) Bump `init.rb` to 0.2.0 and give WP8 a heading of its own.
-- **Recommendation:** **A** — 0.1.0 has never been tagged or published and `main`
-  is still pre-WP1, so the first release anybody can install already contains
-  WP8; a 0.2.0 heading would describe an upgrade path from a version that never
-  existed.
-- **Urgent?** no — we continued with A. Switching to B later is one line in
-  `init.rb` and one heading in `CHANGELOG.md`, and `spec/plugin_conventions_spec.rb`
-  asserts the two agree, so it cannot be done by halves.
-
-- **Choice:** `CLAUDE.md` says `en` and `nl` are written by hand and *"the other
-  six locale files carry the keys so nothing falls back silently"*. In fact
-  de, es, fr, it, pl and pt are **fully translated**, and have been since before
-  WP8 — WP8 followed the file, not the rule. Which is the rule?
-- **Options:**
-  A) Keep translating all eight, and change `CLAUDE.md` to say so. *(what the
-     files do today, and what WP8 did)*
-  B) Keep the rule as written and stop adding translations to the six, leaving
-     new keys in English there and marked as untranslated.
-- **Recommendation:** **A**, with a caveat you should know: it is unreviewed
-  machine translation presented as translation, which is a different risk from an
-  obviously-untranslated key — a wrong word in Polish reads as a decision rather
-  than as a gap. If that trade is not one you want, B is honest and cheap.
-- **Urgent?** no — we continued with A, which is what the existing files do.
-  Raised by the fresh-subagent review of WP8.
-
-*(WP7's one was answered **A** on 2026-08-26 and has moved up, as were WP8's
-renderer choice (**C**), WP4's two and WP5's one. Items land here with their
-options, a plain-language explanation of each and a recommendation, while the
-build continues on the safest default.)*
+*(Nothing open. WP8's two were both answered **A** on 2026-08-26 and have moved
+up, as were WP7's one, WP8's renderer choice (**C**), WP4's two and WP5's one.
+Items land here with their options, a plain-language explanation of each and a
+recommendation, while the build continues on the safest default.)*

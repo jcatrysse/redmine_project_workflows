@@ -108,9 +108,16 @@ task description seems to ask for it.
 - **Report, don't fix, out-of-scope findings.** A defect you notice outside the
   work package you are on goes into the session report and, if it is real, into
   a findings file — not into the diff.
-- **Locales:** `en` and `nl` by hand; the other six locale files carry the keys
-  so nothing falls back silently, but never pretend an English string is a
-  translation.
+- **Locales: all eight files are translated.** Answered **A** by Jan on
+  2026-08-26 — this rule used to say the six beside `en` and `nl` merely carried
+  the keys, and that had not been true of the files for some time. `en` and `nl`
+  are the authoritative pair, written by hand and the ones to correct if two
+  disagree; `de`, `es`, `fr`, `it`, `pl` and `pt` are translated too. Never
+  pretend an English string is a translation — leave the key out, or mark it.
+  The known cost of this, accepted rather than overlooked: the six are
+  unreviewed translation *presented as* translation, so a wrong word there reads
+  as a decision rather than as a gap. `spec/locales_spec.rb` asserts key parity
+  across all eight on every host; it cannot assert that a translation is right.
 - **Version-conditional code lives in one place.** Redmine 5.1 has no SVG
   sprites; 6.0 and later do. Keep such differences behind a single helper
   rather than scattering `respond_to?` checks through the views.
