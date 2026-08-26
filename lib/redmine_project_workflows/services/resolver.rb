@@ -30,10 +30,10 @@ module RedmineProjectWorkflows
         ).distinct.pluck(:role_id)
       end
 
-      # Called after any write that creates or removes a scope. Clears every
-      # request-scoped cache that reads the scope table, not only this one:
-      # StatusListQuery answers from one too, and a request that changed the
-      # configuration must not read back what it has just invalidated.
+      # Called after any write that changes a scope **or a rule**. Clears every
+      # request-scoped cache built from the workflow configuration, not only
+      # this one: StatusListQuery caches a status list derived from the rules,
+      # so a write that leaves the scopes alone still invalidates it.
       def self.reset_cache!
         RedmineProjectWorkflows::Current.reset_workflow_caches!
       end

@@ -2,7 +2,8 @@
 
 module RedmineProjectWorkflows
   module Services
-    # The only place that creates or removes a scope.
+    # One of the two places that create or remove a scope; ScopeCopier, which
+    # duplicates them along with a role or a tracker, is the other.
     #
     # INV-3 names three actions that must stay distinguishable in the database,
     # and they are the three public actions here:
@@ -70,36 +71,6 @@ module RedmineProjectWorkflows
         end
       end
 
-      # Duplicating a role or a tracker duplicates the decisions along with the
-      # rules (claude F03). Called from WorkflowRule.copy_one_with_projects,
-      # which has just copied the rows.
-      #
-      # The source is mirrored exactly, a scope with no rules included: that is
-      # an own *empty* workflow, and leaving it out would silently return the
-      # copy to inheritance (INV-3). Combinations the target already has are
-      # left alone, audit columns and all -- core only ever calls this on a role
-      # or tracker it has just created, so there is nothing there to disturb,
-      # and repeating it is a no-op rather than a fresh decision.
-      def self.copy_scopes(source_tracker_id:, source_role_id:, target_tracker_id:, target_role_id:, user: User.current)
-        ProjectWorkflowScope::RULE_TYPES.flat_map do |rule_type|
-          project_ids = ProjectWorkflowScope.where(
-            tracker_id: source_tracker_id, role_id: source_role_id, rule_type: rule_type
-          ).distinct.pluck(:project_id)
-          next [] if project_ids.empty?
-
-          create_scopes(
-            missing_combinations(
-              project_ids: project_ids,
-              tracker_ids: [target_tracker_id],
-              role_ids: [target_role_id],
-              rule_type: rule_type
-            ),
-            rule_type,
-            user
-          )
-        end
-      end
-
       # Action one: give these projects their own workflow.
       #
       # Only combinations that currently inherit are touched, so pressing the
@@ -130,6 +101,9 @@ module RedmineProjectWorkflows
           end
           touched = combinations.size
         end
+        # create_scopes already resets, but only when it created something, and
+        # this action deletes and re-copies rules either way.
+        Resolver.reset_cache! if touched.positive?
         touched
       end
 
@@ -181,6 +155,9 @@ module RedmineProjectWorkflows
             )
           touched = combinations.size
         end
+        # No scope was created or removed, but every rule of these combinations
+        # was deleted, and StatusListQuery caches an answer derived from rules.
+        Resolver.reset_cache! if touched.positive?
         touched
       end
 
@@ -270,7 +247,7 @@ module RedmineProjectWorkflows
       private_class_method :delete_scopes
 
       def self.author_id_for(user)
-        user.is_a?(User) && user.logged? ? user.id : nil
+        ProjectWorkflowScope.author_id_for(user)
       end
       private_class_method :author_id_for
     end

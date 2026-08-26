@@ -47,6 +47,10 @@ module RedmineProjectWorkflows
           rows = build_transition_rows(project_id, trackers, roles, transitions)
           insert_transition_rows(rows)
         end
+        # The rules have changed, so anything cached from them is now wrong.
+        # ScopeWriter resets when it creates a scope, but a save into a project
+        # that already has one creates nothing.
+        Resolver.reset_cache!
       end
 
       # INV-2: the rows are written with insert_all, which runs no validations,

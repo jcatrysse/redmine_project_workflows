@@ -214,6 +214,9 @@ describe Issue, type: :model do
       expect(issue.status).to eq(project_status)
     end
 
+    # A guard, not a regression test: core has no role filter here either, so
+    # this example passes on the old code as well. What it protects against is a
+    # future narrowing.
     it 'applies no role filter, so another role\'s generic rule still counts' do
       transition(project_status, global_status, for_role: other_role)
       issue = issue_with_status(project_status)

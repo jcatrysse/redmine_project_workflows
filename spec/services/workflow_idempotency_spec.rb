@@ -162,4 +162,101 @@ describe 'Repeating a workflow write' do
       expect { WorkflowRule.delete_duplicate_rules! }.not_to(change { WorkflowRule.count })
     end
   end
+
+  # The request cache StatusListQuery keeps for Issue#tracker= is derived from
+  # the rules, not only from the scope table, so every write that changes a rule
+  # has to invalidate it -- including the ones that create no scope at all.
+  describe 'the request cache after a write' do
+    let(:tracker) { trackers(:trackers_001) }
+
+    def cached_statuses
+      RedmineProjectWorkflows::Services::StatusListQuery.effective_status_ids(
+        project: project, tracker: tracker
+      )
+    end
+
+    def project_transition(from, to)
+      WorkflowTransition.create!(
+        tracker_id: tracker.id, role_id: role.id,
+        old_status_id: from.id, new_status_id: to.id,
+        project_id: project.id, author: false, assignee: false
+      )
+    end
+
+    it 'is invalidated when a project matrix is saved into an existing scope' do
+      give_own_workflow(project, tracker, role)
+      expect(cached_statuses).to be_empty
+
+      RedmineProjectWorkflows::Services::TransitionWriter
+        .replace_transitions_for_project_id(project.id, [tracker], [role], transitions)
+
+      # No scope was created -- there already was one -- so nothing but the
+      # writer's own reset can have cleared the cache.
+      expect(cached_statuses).to contain_exactly(old_status.id, new_status.id)
+    end
+
+    it 'is invalidated when a generic matrix is saved' do
+      expect(cached_statuses).to be_empty
+
+      WorkflowTransition.replace_transitions([tracker], [role], transitions)
+
+      expect(cached_statuses).to contain_exactly(old_status.id, new_status.id)
+    end
+
+    it 'is invalidated when field permissions are saved' do
+      RedmineProjectWorkflows::Services::PermissionWriter
+        .replace_permissions_for_project_id(project.id, [tracker], [role], permissions)
+      expect(RedmineProjectWorkflows::Current.effective_status_ids).to be_nil
+    end
+
+    it 'is invalidated when a matrix is emptied' do
+      give_own_workflow(project, tracker, role)
+      project_transition(old_status, new_status)
+      expect(cached_statuses).to contain_exactly(old_status.id, new_status.id)
+
+      RedmineProjectWorkflows::Services::ScopeWriter.clear_rules(
+        project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
+        rule_type: ProjectWorkflowScope::TRANSITIONS
+      )
+
+      expect(cached_statuses).to be_empty
+    end
+
+    it 'is invalidated when a project is given its own workflow' do
+      WorkflowTransition.create!(
+        tracker_id: tracker.id, role_id: role.id,
+        old_status_id: old_status.id, new_status_id: new_status.id,
+        project_id: nil, author: false, assignee: false
+      )
+      expect(cached_statuses).to contain_exactly(old_status.id, new_status.id)
+
+      RedmineProjectWorkflows::Services::ScopeWriter.enable(
+        project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
+        rule_type: ProjectWorkflowScope::TRANSITIONS, copy_generic: false
+      )
+
+      expect(cached_statuses).to be_empty
+    end
+
+    it 'is invalidated when duplicate rows are swept' do
+      give_own_workflow(project, tracker, role)
+      project_transition(old_status, new_status)
+      project_transition(old_status, new_status)
+      expect(cached_statuses).to contain_exactly(old_status.id, new_status.id)
+
+      expect(WorkflowRule.delete_duplicate_rules!).to eq(1)
+      expect(RedmineProjectWorkflows::Current.effective_status_ids).to be_nil
+    end
+
+    it 'is invalidated when a role is copied' do
+      target = Role.create!(name: 'Cache target', permissions: %i[add_issues])
+      give_own_workflow(project, tracker, role)
+      project_transition(old_status, new_status)
+      expect(cached_statuses).to contain_exactly(old_status.id, new_status.id)
+
+      target.copy_workflow_rules(role)
+
+      expect(RedmineProjectWorkflows::Current.effective_status_ids).to be_nil
+    end
+  end
 end

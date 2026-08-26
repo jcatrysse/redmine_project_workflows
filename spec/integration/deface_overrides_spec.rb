@@ -16,18 +16,40 @@ describe WorkflowsController, type: :controller do
   let(:role)    { roles(:roles_001) }
   let(:tracker) { trackers(:trackers_001) }
 
+  # There are eight overrides across seven files, and each needs an assertion
+  # that only *it* can satisfy. `include('project_id[]')` was not one: the
+  # selector and the hidden field both render that name, so either could have
+  # stopped matching without the suite noticing.
+  def hidden_project_field
+    /<input[^>]*type="hidden"[^>]*name="project_id\[\]"/
+  end
+
   it 'injects the project selector into the transitions page' do
     get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
                          project_id: ['global'], used_statuses_only: '0' }
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include('project_id[]')
+    expect(response.body).to include('id="project_id"')
+  end
+
+  it 'injects the hidden project fields into the transitions page' do
+    get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                         project_id: ['global'], used_statuses_only: '0' }
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to match(hidden_project_field)
   end
 
   it 'injects the project selector into the field permissions page' do
     get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
                                 project_id: ['global'] }
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include('project_id[]')
+    expect(response.body).to include('id="project_id"')
+  end
+
+  it 'injects the hidden project fields into the field permissions page' do
+    get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
+                                project_id: ['global'] }
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to match(hidden_project_field)
   end
 
   it 'injects both project selectors into the copy page' do

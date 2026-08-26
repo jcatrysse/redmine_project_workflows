@@ -1042,4 +1042,51 @@ describe WorkflowsController, type: :controller do
       expect(assigns(:statuses).size).to eq(IssueStatus.count)
     end
   end
+
+  # finding G01. Core declares find_trackers_roles_and_statuses_for_edit before
+  # require_admin, so a render from that callback halts the chain and answers
+  # before anyone has checked who is asking.
+  describe 'authorization on the matrix screens' do
+    before { @request.session[:user_id] = nil }
+
+    %i[edit permissions].each do |action|
+      it "sends an anonymous visitor to the login page for a project id that does not exist (#{action})" do
+        get action, params: { project_id: ['99999999'] }
+
+        expect(response).to redirect_to(%r{/login})
+      end
+
+      it "sends an anonymous visitor to the login page for a project id that does exist (#{action})" do
+        get action, params: { project_id: [project.id.to_s] }
+
+        expect(response).to redirect_to(%r{/login})
+      end
+    end
+
+    it 'answers a logged-in non-administrator with 403, whether the project exists or not' do
+      @request.session[:user_id] = 2
+
+      get :edit, params: { project_id: ['99999999'] }
+      expect(response).to have_http_status(:forbidden)
+
+      get :edit, params: { project_id: [project.id.to_s] }
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'still answers an administrator with 404 for a project id that does not exist' do
+      @request.session[:user_id] = 1
+
+      get :edit, params: { project_id: ['99999999'] }
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'still answers an administrator with 404 on the copy screen' do
+      @request.session[:user_id] = 1
+
+      get :copy, params: { project_id: ['99999999'] }
+
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end

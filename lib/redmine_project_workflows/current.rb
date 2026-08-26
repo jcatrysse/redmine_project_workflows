@@ -21,16 +21,20 @@ module RedmineProjectWorkflows
     attribute :scoped_role_ids
 
     # {[project_id, tracker_id] => [status_id, ...]} -- the statuses a project's
-    # effective workflow for one tracker uses, with no role filter. Core asks
-    # its equivalent question once per Tracker *instance*, and a bulk tracker
-    # change builds a fresh instance per issue, so without this the query runs
-    # once per issue. See Patches::IssuePatch#tracker=.
+    # effective workflow for one tracker uses, with no role filter. Saves the
+    # repeat when several issues of the same tracker in the same project change
+    # tracker in one request. See Patches::IssuePatch#tracker=.
+    #
+    # Unlike scoped_role_ids this is derived from the *rules*, not only from the
+    # scope table, so it goes stale on a rule write as well -- which is why
+    # reset_workflow_caches! is called from the rule writers too and not only
+    # from ScopeWriter.
     attribute :effective_status_ids
 
-    # Everything above that depends on the scope table. Called after a write
-    # that creates or removes a scope, so that a request which changes the
-    # configuration and then reads it back does not answer from a cache it has
-    # just invalidated.
+    # Forget everything cached about the workflow configuration. Called after
+    # any write that changes a scope **or a rule**, so that a request which
+    # changes the configuration and then reads it back does not answer from a
+    # cache it has just invalidated.
     def self.reset_workflow_caches!
       self.scoped_role_ids = nil
       self.effective_status_ids = nil

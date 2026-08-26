@@ -40,6 +40,9 @@ module RedmineProjectWorkflows
           rows = build_permission_rows(project_id, trackers, roles, permissions)
           insert_permission_rows(rows)
         end
+        # See TransitionWriter: the rules have changed, so anything cached from
+        # them is now wrong.
+        Resolver.reset_cache!
       end
 
       # INV-2: the rows are written with insert_all, which runs no validations,

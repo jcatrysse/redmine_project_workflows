@@ -11,6 +11,7 @@ module RedmineProjectWorkflows
       # Core's own edit runs without a project_id predicate, which would mix the
       # two populations (INV-4), so the plugin answers both cases itself.
       def edit
+        return if invalid_project_selection?
         return unless @trackers.present? && @roles.present? && @statuses.any?
 
         @project_workflow_scope_state = scope_state_for(ProjectWorkflowScope::TRANSITIONS)
@@ -24,6 +25,8 @@ module RedmineProjectWorkflows
       end
 
       def update
+        return if invalid_project_selection?
+
         if project_context?
           if @roles.present? && @trackers.present? && params[:transitions]
             transitions = params[:transitions].deep_dup
@@ -50,6 +53,7 @@ module RedmineProjectWorkflows
 
       # See #edit: the same reason, for the field permissions matrix.
       def permissions
+        return if invalid_project_selection?
         return unless @roles.present? && @trackers.present?
 
         @project_workflow_scope_state = scope_state_for(ProjectWorkflowScope::PERMISSIONS)
@@ -66,6 +70,8 @@ module RedmineProjectWorkflows
       end
 
       def update_permissions
+        return if invalid_project_selection?
+
         if project_context?
           if @roles.present? && @trackers.present? && params[:permissions]
             permissions = normalize_permissions_params(params[:permissions].deep_dup)
@@ -90,10 +96,7 @@ module RedmineProjectWorkflows
 
       def copy
         load_project_options
-        if @invalid_project_ids.present?
-          render_404
-          return if performed?
-        end
+        return if invalid_project_selection?
 
         @source_project_id = params[:source_project_id].presence
         super
@@ -301,16 +304,27 @@ module RedmineProjectWorkflows
         normalized
       end
 
+      # Core declares this callback *before* `require_admin`, so nothing in it may
+      # render. Rendering from a before_action halts the chain, and the 404 for
+      # an unresolvable project id was therefore answered before anyone had
+      # checked who was asking: /workflows/edit told an anonymous visitor which
+      # project ids exist, answering 404 for one that does not and a redirect to
+      # the login page for one that does (finding G01). The invalid ids are
+      # collected here and every action decides, after authorization.
       def find_trackers_roles_and_statuses_for_edit
         find_roles
         find_trackers
         load_project_options
-        if @invalid_project_ids.present?
-          render_404
-          return if performed?
-        end
-
         find_statuses
+      end
+
+      # Renders the 404 and says so, for an action to return on. Every caller
+      # runs after `require_admin`, which is the whole point.
+      def invalid_project_selection?
+        return false if @invalid_project_ids.blank?
+
+        render_404
+        true
       end
 
       # "Only display statuses that are used by this tracker" -- the checkbox

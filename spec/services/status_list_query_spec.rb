@@ -36,9 +36,8 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
       assignee: false
     )
 
-    status_ids = described_class.status_ids_for_project(
-      project: project,
-      trackers: tracker,
+    status_ids = described_class.status_ids_for_pairs(
+      pairs: [[project.id, tracker.id]],
       role_ids: [role.id]
     )
 
@@ -68,9 +67,8 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
       assignee: false
     )
 
-    status_ids = described_class.status_ids_for_project(
-      project: project,
-      trackers: tracker,
+    status_ids = described_class.status_ids_for_pairs(
+      pairs: [[project.id, tracker.id]],
       role_ids: [role.id]
     )
 
@@ -79,9 +77,8 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
   end
 
   it 'returns empty when trackers are missing' do
-    status_ids = described_class.status_ids_for_project(
-      project: project,
-      trackers: [],
+    status_ids = described_class.status_ids_for_pairs(
+      pairs: [],
       role_ids: [role.id]
     )
 
@@ -89,9 +86,8 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
   end
 
   it 'returns empty when role ids are missing' do
-    status_ids = described_class.status_ids_for_project(
-      project: project,
-      trackers: tracker,
+    status_ids = described_class.status_ids_for_pairs(
+      pairs: [[project.id, tracker.id]],
       role_ids: []
     )
 
@@ -110,9 +106,8 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
       assignee: false
     )
 
-    status_ids = described_class.status_ids_for_project(
-      project: project,
-      trackers: tracker,
+    status_ids = described_class.status_ids_for_pairs(
+      pairs: [[project.id, tracker.id]],
       role_ids: []
     )
 
@@ -137,9 +132,8 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
 
     expect(unmanned).not_to be_consider_workflow
 
-    status_ids = described_class.status_ids_for_project(
-      project: project,
-      trackers: tracker,
+    status_ids = described_class.status_ids_for_pairs(
+      pairs: [[project.id, tracker.id]],
       role_ids: nil
     )
 

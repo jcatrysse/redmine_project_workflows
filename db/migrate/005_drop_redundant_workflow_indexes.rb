@@ -25,7 +25,23 @@ class DropRedundantWorkflowIndexes < ActiveRecord::Migration[6.1]
       name: 'index_workflows_on_project_tracker_role_type' }
   ].freeze
 
+  # The foreign key migration 003 adds needs an index with project_id leftmost,
+  # and InnoDB refuses to drop the last one -- MySQL error 1553. Migration 002's
+  # index is the replacement, and 002 guards its own creation, so it is normally
+  # there; if a database has lost it by hand, leave the redundant indexes alone
+  # rather than abort the migration.
+  REPLACEMENT = {
+    columns: %i[project_id tracker_id role_id old_status_id type],
+    name: 'index_workflows_on_project_tracker_role_old_status_type'
+  }.freeze
+
   def up
+    unless index_exists?(:workflows, REPLACEMENT[:columns], name: REPLACEMENT[:name])
+      say "#{REPLACEMENT[:name]} is missing, so the redundant indexes are the only " \
+          'ones left with project_id leftmost; leaving them in place'
+      return
+    end
+
     REDUNDANT.each do |index|
       next unless index_exists?(:workflows, index[:columns], name: index[:name])
 

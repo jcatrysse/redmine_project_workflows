@@ -14,21 +14,12 @@ module RedmineProjectWorkflows
     # not one call per project: the number of queries does not grow with the
     # size of the tree.
     class StatusListQuery
-      # One project, one or more trackers.
+      # Many (project_id, tracker_id) pairs at once. A nil project id in a pair
+      # is the generic workflow.
       #
       # +role_ids+ nil means "no role filter", which is what core does
       # everywhere it reads this table. Passing a list narrows the answer to
       # those roles; passing an empty list answers nothing.
-      def self.status_ids_for_project(project:, trackers:, role_ids: nil)
-        project_id = project.is_a?(Project) ? project.id : project
-        pairs = Array(trackers).compact.map do |tracker|
-          [project_id, tracker.is_a?(Tracker) ? tracker.id : tracker]
-        end
-        status_ids_for_pairs(pairs: pairs, role_ids: role_ids)
-      end
-
-      # Many (project_id, tracker_id) pairs at once. A nil project id in a pair
-      # is the generic workflow.
       def self.status_ids_for_pairs(pairs:, role_ids: nil)
         new(pairs: pairs, role_ids: role_ids).status_ids
       end
@@ -50,9 +41,15 @@ module RedmineProjectWorkflows
         cache[key] ||= status_ids_for_pairs(pairs: [key])
       end
 
+      # Integer() rather than to_i on purpose: to_i turns a missing tracker id
+      # into 0 and a *flat* pair list into one pair per element with tracker 0,
+      # both of which answer [] instead of saying the caller is wrong.
       def initialize(pairs:, role_ids: nil)
-        @pairs = Array(pairs).map { |project_id, tracker_id| [project_id&.to_i, tracker_id.to_i] }.uniq
-        @role_ids = role_ids.nil? ? nil : Array(role_ids).compact.map(&:to_i).uniq
+        @pairs = Array(pairs).map do |pair|
+          project_id, tracker_id = pair
+          [project_id && Integer(project_id), Integer(tracker_id)]
+        end.uniq
+        @role_ids = role_ids.nil? ? nil : Array(role_ids).compact.map { |id| Integer(id) }.uniq
       end
 
       def status_ids

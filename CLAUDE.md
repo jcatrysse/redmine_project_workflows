@@ -60,11 +60,15 @@ task description seems to ask for it.
   and do it **before** the suite runs — `maintain_test_schema` reloads
   `db/schema.rb` and wipes the plugin's migration bookkeeping, after which
   `VERSION=0` silently does nothing.
-- **INV-9 A Deface override that does not match is a build failure.** The five
-  view overrides are the plugin's only hold on Redmine's screens, and an
-  unmatched selector produces no error — just a missing project selector.
-  `spec/integration/deface_overrides_spec.rb` asserts each one against the real
-  rendered page, on every supported Redmine version.
+- **INV-9 A Deface override that does not match is a build failure.** The
+  **eight** view overrides — in seven files under
+  `lib/redmine_project_workflows/overrides/` — are the plugin's only hold on
+  Redmine's screens, and an unmatched selector produces no error, just a
+  missing project selector. `spec/integration/deface_overrides_spec.rb` asserts
+  each one against the real rendered page, on every supported Redmine version,
+  with an assertion **only that override can satisfy**: two overrides both
+  rendering `project_id[]` meant either could have stopped matching unnoticed.
+  `docs/design.md` carries the table; keep the count in all three places.
 
 ## Hard gates
 

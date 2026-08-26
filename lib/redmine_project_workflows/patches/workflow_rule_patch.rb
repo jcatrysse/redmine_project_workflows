@@ -103,6 +103,7 @@ module RedmineProjectWorkflows
                 " AND project_id #{source_project_condition}"
           )
         end
+        RedmineProjectWorkflows::Services::Resolver.reset_cache!
         true
       end
 
@@ -136,6 +137,7 @@ module RedmineProjectWorkflows
               " AND role_id = #{connection.quote(role_id)}" \
               " AND type = #{connection.quote(sti_type)}"
         )
+        RedmineProjectWorkflows::Services::Resolver.reset_cache!
       end
 
       # Core's WorkflowRule.copy, extended to the projects.
@@ -176,32 +178,42 @@ module RedmineProjectWorkflows
       # scopes that make the project rules visible to the resolver. Without the
       # scopes the copied rows would be ignored and the copy would silently be
       # an inheriting workflow (INV-3).
+      #
+      # One statement, not one per project: project_id is carried through the
+      # SELECT rather than substituted, so the generic rows and every project's
+      # move together. Copying a role in an installation with 500 overriding
+      # projects would otherwise be 500 round trips per tracker.
+      #
+      # The delete is the target's rows for this (tracker, role) across *all*
+      # projects, deliberately: this is a replacing copy, and leaving a target
+      # project the source knows nothing about would make the two halves of the
+      # same method behave differently. Core only ever calls this on a role or
+      # tracker it has just created, so in practice there is nothing to delete.
       def copy_one_with_projects(source_tracker, source_role, target_tracker, target_role)
         return false if source_tracker == target_tracker && source_role == target_role
 
-        ([nil] + project_ids_with_rules(source_tracker, source_role)).each do |project_id|
-          copy_one_for_project(
-            project_id, project_id,
-            source_tracker, source_role, target_tracker, target_role
+        transaction do
+          where(tracker_id: target_tracker.id, role_id: target_role.id).delete_all
+          connection.insert(
+            "INSERT INTO #{WorkflowRule.table_name}" \
+              " (tracker_id, role_id, old_status_id, new_status_id," \
+               " author, assignee, field_name, #{connection.quote_column_name 'rule'}, type, project_id)" \
+              " SELECT #{connection.quote(target_tracker.id)}, #{connection.quote(target_role.id)}," \
+                      " old_status_id, new_status_id, author, assignee, field_name," \
+                      " #{connection.quote_column_name 'rule'}, type, project_id" \
+                " FROM #{WorkflowRule.table_name}" \
+                " WHERE tracker_id = #{connection.quote(source_tracker.id)}" \
+                " AND role_id = #{connection.quote(source_role.id)}"
           )
         end
-        RedmineProjectWorkflows::Services::ScopeWriter.copy_scopes(
+        RedmineProjectWorkflows::Services::ScopeCopier.copy_scopes(
           source_tracker_id: source_tracker.id,
           source_role_id: source_role.id,
           target_tracker_id: target_tracker.id,
           target_role_id: target_role.id
         )
+        RedmineProjectWorkflows::Services::Resolver.reset_cache!
         true
-      end
-
-      # The projects that have rules of their own for this (tracker, role),
-      # either kind of rule. IS NOT NULL is an explicit project predicate, which
-      # is what INV-4 asks for; what it must not be is absent.
-      def project_ids_with_rules(tracker, role)
-        where(tracker_id: tracker.id, role_id: role.id)
-          .where.not(project_id: nil)
-          .distinct
-          .pluck(:project_id)
       end
 
       def copy_one(source_tracker, source_role, target_tracker, target_role)
@@ -226,9 +238,11 @@ module RedmineProjectWorkflows
       # The two populations are swept separately, so the generic pass cannot
       # touch a project row or the other way round (INV-1, INV-4).
       def delete_duplicate_rules!
-        [where(project_id: nil), where.not(project_id: nil)].sum do |scope|
+        deleted = [where(project_id: nil), where.not(project_id: nil)].sum do |scope|
           delete_duplicates_within(scope)
         end
+        RedmineProjectWorkflows::Services::Resolver.reset_cache! if deleted.positive?
+        deleted
       end
 
       def delete_duplicates_within(scope)

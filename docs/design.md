@@ -152,6 +152,7 @@ This is the complete list: every place in Redmine 5.1, 6.1 and 7.0 that names
 | `Role#workflow_rules`, `Tracker#workflow_rules` (`dependent: :delete_all`) | deleting a role or tracker | no change needed — the association covers project rows, and migration 004's foreign keys cascade the scopes |
 | `Project` destroy | deleting a project | no change needed — migration 003's foreign key cascades the rules, migration 004's the scopes |
 | `Redmine::DefaultData::Loader` | the default workflow on a fresh install | no change needed — it creates rows without a `project_id`, which is exactly the generic workflow |
+| `Issue#project=` | moving an issue to another project | **not handled, deliberately.** It re-checks the *tracker* against the new project and never the *status*, so an issue moved into a project whose own workflow does not use its status lands on a status that project cannot leave. Core has the same asymmetry — it is not a regression — but per-project workflows make it reachable without an administrator changing anything. Repairing it changes behaviour a user can see, which is a WP4 conversation and not a query fix; recorded as finding G03 |
 
 ### Why there is no unique index on `workflows`
 
@@ -186,9 +187,34 @@ workflow save inserts a whole matrix. What remains is one index per query shape:
 | (`project_id`, `tracker_id`, `role_id`, `old_status_id`, `type`) | the transition queries |
 | (`project_id`, `tracker_id`, `role_id`, `old_status_id`, `field_name`, `type`) | the field-permission queries |
 
+Migration 005 declines to drop anything if the first of those two is missing:
+migration 003's foreign key needs an index with `project_id` leftmost, and
+InnoDB refuses to drop the last one.
+
+### What the resolution costs
+
+`StatusListQuery` resolves a set of (project, tracker) pairs in two queries: one
+against the scope table and one OR of the reachable populations. The query
+*count* does not grow with the number of pairs, but the second statement does —
+one `OR` branch per pair that overrides something, about 75 bytes each. The
+worst case is the administration matrix with "all projects" selected in an
+installation where thousands of projects have their own workflow: a large
+statement, accepted by every supported database, with a planning cost that is
+not free. Accepted rather than fixed: it is one admin screen, the growth is
+linear, and the alternative (a tuple `IN (VALUES …)` predicate) is spelled
+differently on each of the three databases.
+
+`Issue#tracker=` is the one place the resolution sits on a user's path, and only
+when the tracker actually changes — an ordinary issue save asks nothing. A
+single tracker change is two queries. A **bulk** tracker change is two per
+distinct project in the selection, where core is one for the whole selection,
+because core hands the same `Tracker` instance to every issue and memoises on
+it. The plugin's request cache is keyed by (project, tracker), so it collapses
+the repeats inside a project but not across projects. Recorded as finding G02.
+
 ## Views
 
-Seven Deface overrides, all on admin screens:
+Eight Deface overrides in seven files, all on admin screens:
 
 | View | Anchor | Adds |
 | --- | --- | --- |
@@ -198,16 +224,20 @@ Seven Deface overrides, all on admin screens:
 | `workflows/permissions` | `div.autoscroll` (top) | hidden `project_id[]` fields |
 | `workflows/permissions` | `div.autoscroll` (before) | the scope panel |
 | `workflows/permissions` | the `submit_tag l(:button_edit)` expression | the project selector |
-| `workflows/copy` | the `source_role_id` / `target_role_ids` select expressions | source and target project selectors |
+| `workflows/copy` | the `select_tag('source_role_id'` expression | the source project selector |
+| `workflows/copy` | the `select_tag 'target_role_ids'` expression | the target project selector |
 
 The scope panel renders only when the selection contains at least one real
 project. An administrator who does not use the plugin sees core's screens
 unchanged.
 
-All seven anchors exist verbatim in Redmine 5.1, 6.1 and 7.0, and
+All eight anchors exist verbatim in Redmine 5.1, 6.1 and 7.0, and
 `workflows/edit`, `permissions` and `copy` are byte-identical between 6.1 and
 7.0. `spec/integration/deface_overrides_spec.rb` asserts that each override
-actually reaches the rendered page (**INV-9**).
+actually reaches the rendered page (**INV-9**), with an assertion that only
+that override can satisfy — the selector and the hidden field both render
+`project_id[]`, so a shared assertion would have let either of them stop
+matching unnoticed.
 
 The project settings screen is not a Deface override: it is a tab added by
 patching `ProjectsHelper#project_settings_tabs`, rendering the plugin's own

@@ -46,6 +46,12 @@ class ProjectWorkflowScope < ActiveRecord::Base
     end
   end
 
+  # The id to stamp into the audit columns. Nil for anonymous, and for a write
+  # with no user behind it at all -- a rake task, a migration, a console.
+  def self.author_id_for(user)
+    user.is_a?(User) && user.logged? ? user.id : nil
+  end
+
   # The workflow class a rule type stores its rules in -- the inverse of
   # .rule_type_for.
   def self.rule_model_for(rule_type)
