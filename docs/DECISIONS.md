@@ -23,6 +23,7 @@
 | 2026-08-26 | Bulk editing | Row and column actions Yes / No / Unchanged | Includes the CSS-class repair that makes core's own toggles reach mixed cells. Full selection UI (rectangle, drag) is out of scope. |
 | 2026-08-26 | Extras in scope | Compare with generic, audit columns, undo before save | Workflow templates are out of scope. |
 | 2026-08-26 | Delivery | One pull request, built from self-contained commits | The diff will be large; commit granularity is what keeps it readable. |
+| 2026-08-26 | Copy screen, no target project (finding C01) | **B — preselect *Generic* in the target project control** | A multiple select with nothing selected submits no parameter at all, so a copy form that showed nothing there still ran against the generic workflow, reported success, and said so nowhere. Preselecting it makes the destructive default the visible one and costs no request shape: option A (refusing the request) would have stopped a bare Redmine-shaped copy request working, and stays available. The **source** project control keeps its blank default — blank there already means the generic workflow, destroys nothing, and the source tracker and role beside it are blank-by-default too, which is core's own convention for "not chosen yet". |
 | 2026-08-26 | Supported versions | Redmine 5.1, 6.1 and 7.0 | 5.1 is in production; 7.0 already passes. The cost is version-conditional code for SVG sprites, kept behind one helper. |
 | 2026-08-26 | Agent framework | Adopt the `redmine_ai_triage` framework, adapted | Full scope: CLAUDE.md with plugin-specific invariants, the three memory files, the review loop, one design document and one ADR, three extra CI gates. |
 | 2026-08-26 | Development branch | One pinned branch, `claude/dev` | Overrides the per-session branch name the environment prescribes. Without a pin the work migrates to a new branch every session. |
@@ -174,37 +175,8 @@
 
 ## Open — for Jan
 
-*(WP8's two were both answered **A** on 2026-08-26 and have moved up, as were
-WP7's one, WP8's renderer choice (**C**), WP4's two and WP5's one. Items land
-here with their options, a plain-language explanation of each and a
-recommendation, while the build continues on the safest default.)*
-
-### The copy form when no target project is selected (finding C01)
-
-- **Choice:** what should *Administration → Workflow → Copy* do when the
-  administrator selects no target project at all?
-- **Background:** the target project control is a multi-select with nothing
-  preselected, and a multi-select with nothing selected sends no parameter. The
-  request therefore looks to the plugin like a request that never mentioned
-  projects, and it is handed to Redmine's own copy — which rewrites the
-  **generic** workflow, the one every project that has not overridden it
-  inherits, and reports success. The plugin's own error text already says a
-  target project is required; that check is simply never reached on this path.
-- **Options:**
-  - **A)** Refuse the request, with the error the wording already promises.
-    Safest for the data. The cost: a bare Redmine-shaped request to
-    `/workflows/duplicate` — one carrying no plugin parameter at all, as a
-    script or another plugin might post — stops working.
-  - **B)** Preselect *Generic* in the target project selector, so the form
-    always submits a target and what runs is what the form shows. Nothing that
-    works today stops working; the destructive default becomes the visible one
-    instead of the invisible one.
-  - **C)** Leave it. Redmine behaves this way with the plugin uninstalled, and
-    an administrator who ignores a control gets the pre-plugin outcome.
-- **Recommendation:** **B**, and then **A** on top of it once you are happy that
-  nothing in your installation posts a bare copy request — B removes the
-  surprise without removing a request shape, and A is the one that makes the
-  slip impossible.
-- **Urgent?** no — nothing regressed here; this is Redmine's behaviour and the
-  plugin inherited it. It blocks no work package. Recorded in
-  `docs/review/findings/2026-08-26-copy-form-observations.md`.
+*(Nothing open. Finding **C01** was answered **B** on 2026-08-26 and has moved
+up, as were WP8's two (**A**), WP7's one, WP8's renderer choice (**C**), WP4's
+two and WP5's one. Items land here with their options, a plain-language
+explanation of each and a recommendation, while the build continues on the
+safest default.)*

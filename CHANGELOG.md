@@ -58,6 +58,12 @@ nothing had ever tested.
   half applied. **This applies to the generic copy screen too,** with or without
   a per-project workflow: a selection that names something real still behaves
   exactly as before.
+- The copy screen's **target project** control preselects *Generic*. A
+  multiple-choice control with nothing selected sends nothing at all, so a copy
+  form that showed no target project still copied into the generic workflow and
+  reported success. What runs is now what the form shows. The **source** project
+  control is unchanged: blank there already means the generic workflow and
+  destroys nothing.
 
 ### Screens
 

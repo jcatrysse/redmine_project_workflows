@@ -12,7 +12,7 @@
 
 ### C01 — The copy form silently copies into the generic workflow when no target project is selected
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** major
 - **Confidence:** confirmed
 - **Category:** correctness, ux
@@ -74,4 +74,36 @@ what an administrator sees:
 Whichever is chosen, the source project selector deserves the same look: it
 defaults to blank, which `#duplicate` reads as the generic workflow.
 
-**Resolution:**
+**Resolution:** Fixed as **option B**, answered by Jan on 2026-08-26. The target
+project control now preselects *Generic* when nothing else is selected, so the
+form always submits a target and the copy that runs is the copy the form shows.
+One local on `_copy_project_selector.html.erb` (`default_global`), passed by the
+target selector's override only.
+
+Option A was not taken and is not needed now: with a target always submitted,
+every submission from the plugin's own form carries project context and is
+validated by `#duplicate` rather than handed to core. A **hand-built** request
+carrying no plugin parameter at all still reaches core and still rewrites the
+generic workflow — that is Redmine's own behaviour, it is now the only way to
+reach it, and A remains available if Jan ever wants it closed too. So does
+deliberately clearing the control with ctrl-click, which is the same request.
+
+The **source** project control was deliberately left alone. Blank there already
+means the generic workflow, it destroys nothing, and the source tracker and role
+beside it are blank-by-default as well — that is core's own convention for "not
+chosen yet", and making this one control differ would be the inconsistency rather
+than the fix.
+
+Verified red on the old code by restoring both changed files to their `e9f2443`
+state and re-running: one of the three new view examples fails, the one asserting
+*Generic* is preselected. The other two are regression guards that must pass on
+both sides, and do — the source control is untouched, and a target selection that
+was submitted is kept rather than having *Generic* added to it. 585 examples / 0
+failures on Redmine 5.1, 6.1 and 7.0 on PostgreSQL 16; RuboCop clean.
+
+The first version of these examples asserted `selected="selected" value="global"`
+as one string. It caught the real case but made the two guards **vacuous**:
+`content_tag` writes `value` before `selected` and
+`options_from_collection_for_select` writes them the other way round, so a
+"not_to include" naming both in one order could never have failed. They read the
+selected values off the markup now instead of matching a string against it.

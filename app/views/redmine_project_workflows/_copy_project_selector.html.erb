@@ -4,12 +4,18 @@
 <% multiple = local_assigns[:multiple] || false %>
 <% include_same_as_target = local_assigns[:include_same_as_target] || false %>
 <% disable_blank = local_assigns[:disable_blank] || false %>
+<%# Preselects the generic workflow when nothing else is selected. A multiple
+    select with no option selected submits no parameter at all, so a copy form
+    that showed nothing here ran against the generic workflow anyway -- and said
+    so nowhere (finding C01). The destructive default is the visible one now. %>
+<% default_global = local_assigns[:default_global] || false %>
 <% selected_values = Array.wrap(local_assigns[:selected_values]).reject(&:blank?).map(&:to_s) %>
 <% blank_selected = selected_values.empty? && !disable_blank %>
 <% option_tags = content_tag('option', "--- #{l(:actionview_instancetag_blank_option)} ---", value: '', disabled: disable_blank, selected: blank_selected) %>
 <% if include_same_as_target %>
   <% option_tags << content_tag('option', "--- #{l(:label_copy_same_as_target)} ---", value: 'any', selected: selected_values.include?('any')) %>
 <% end %>
-<% option_tags << content_tag('option', l(:label_project_workflows_global), value: 'global', selected: selected_values.include?('global')) %>
+<% global_selected = selected_values.include?('global') || (default_global && selected_values.empty?) %>
+<% option_tags << content_tag('option', l(:label_project_workflows_global), value: 'global', selected: global_selected) %>
 <% option_tags << options_from_collection_for_select(@projects, 'id', 'name', selected_values) %>
 <%= select_tag field_name, option_tags, id: selector_id, multiple: multiple %>

@@ -32,7 +32,8 @@ module RedmineProjectWorkflows
                          field_name: 'target_project_ids[]',
                          selected_values: params[:target_project_ids],
                          multiple: true,
-                         disable_blank: true
+                         disable_blank: true,
+                         default_global: true
                        } %>
           </p>
         ERB
