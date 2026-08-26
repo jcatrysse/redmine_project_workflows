@@ -121,17 +121,15 @@ private again.
 | `zeitwerk:check` | passes on the 7.0 host (one new file, `services/matrix_scope.rb`) |
 | JavaScript gate | `node dev/check-bulk-js.mjs` — all thirty-two checks |
 | Locale parity | eight files, **94** keys each (was 92) |
-| MySQL 8.4, and 5.1/6.1 on MySQL and MariaDB | **not run** — five of the nine cells are unverified locally; CI covers them |
-| CI | **not yet run on this commit.** Read it before believing the five cells above |
+| MySQL 8.4, and 5.1/6.1 on MySQL and MariaDB | not run **locally** — five of the nine cells; CI covers them, see the row below |
+| CI | **green on all ten jobs.** Run **69** on `2350b62`: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each cell through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Only one commit lands after it — `7b7bfce`, this file — and it touches no code. **A push from this session did not trigger a run**: two pushes produced none, so `specs.yml` was dispatched by hand on `claude/dev` (`workflow_dispatch`). Whatever the cause — most likely GitHub declining to fire `push` workflows for commits pushed with the same App token — the next session should check that a run appeared rather than assume one did |
 
 ## Exact next step
 
-1. **Read CI on the head of `claude/dev`.** Five of the nine cells were not run
-   here. Nothing in the change is database-specific — the one new SQL shape is an
-   `insert_all` of scope rows and an Arel `OR` of (tracker, role) pairs, both of
-   which the four cells that did run exercise — but that is an argument, not a
-   run.
-2. **Then it is Jan's turn.** `docs/review/findings/2026-08-26-claude-second-review.md`
+1. **Nothing to check first.** CI run 69 is green on all ten jobs, on the commit
+   that carries every line of code this session wrote. But see the CI row above:
+   the run had to be started by hand, because pushing did not start one.
+2. **It is Jan's turn.** `docs/review/findings/2026-08-26-claude-second-review.md`
    is the readable account of what was wrong and what was done about it; the
    CHANGELOG's 0.1.1 entry is the same thing for a user.
 3. The one behaviour change worth his eye is **R02**: an administrator who
