@@ -33,8 +33,14 @@ describe RedmineProjectWorkflows do
     expect(WorkflowTransition.singleton_class.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowTransitionPatch)
     expect(WorkflowPermission.singleton_class.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowPermissionPatch)
     expect(WorkflowRule.singleton_class.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowRulePatch)
-    expect(ProjectsController.ancestors).to include(RedmineProjectWorkflows::Patches::ProjectsControllerPatch)
-    expect(ProjectsHelper.ancestors).to include(RedmineProjectWorkflows::Patches::ProjectsHelperPatch)
+    # The settings tab is the one patch that is deliberately *not* a prepend --
+    # see Patches::ProjectsHelperPatch#apply!, and the alias-chain examples in
+    # spec/controllers/projects_settings_tab_spec.rb. It has to be in the
+    # controller's helper chain, and nowhere near ProjectsHelper itself.
+    expect(ProjectsController._helpers.ancestors)
+      .to include(RedmineProjectWorkflows::Patches::ProjectsHelperPatch)
+    expect(ProjectsHelper.ancestors)
+      .not_to include(RedmineProjectWorkflows::Patches::ProjectsHelperPatch)
   end
 
   # WP4. The permissions are declared inside Redmine::Plugin.register, which is

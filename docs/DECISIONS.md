@@ -32,6 +32,9 @@
 | 2026-08-26 | Request-scoped cache | `ActiveSupport::CurrentAttributes`, as `RedmineProjectWorkflows::Current` | Answered A. Rails resets it around every request and job on 5.1, 6.1 and 7.0, and it adds no dependency. Considered and rejected: adding `request_store` to the plugin's own Gemfile (Redmine 7.0 dropped the gem), and dropping the cache entirely (one extra query per issue where a list renders many). |
 | 2026-08-26 | The "only used statuses" label | Leave core's wording alone | Answered A. The filter now means "the statuses the selected workflow uses", and with a project selected that project's workflow is what "this tracker" refers to there anyway. Considered and rejected: overriding the text when a project is selected, which needs two more Deface anchors and a spec for each (INV-9) to change "used by this tracker" into something barely different. |
 | 2026-08-26 | A unique constraint on `workflows` | No; keep `project_id` nullable and repair with the rake task | Answered A. The only visible symptom of a duplicate row is a matrix cell drawn as a mixed dropdown instead of a checkbox, and `rake redmine_project_workflows:deduplicate_workflow_rules` clears that in seconds. The residual race — two administrators saving the same matrix at the same instant — stays, and is core's as much as the plugin's. Considered and rejected: `project_id` NOT NULL with 0 for the generic workflow, which would make a plain unique index work on all three databases but changes what every query and `docs/design.md` mean by "generic", and would need an ADR. |
+| 2026-08-26 | `Issue#project=` and the status (finding G03) | Leave it as Redmine already behaves | Answered A. An issue moved into a project whose workflow does not use its status keeps that status and, in that project, has no transition it may make. Core has the same asymmetry, so nothing here is a regression; what per-project workflows change is that it can be reached without an administrator editing anything. Considered and rejected for now: resetting the status the way `#tracker=` does (it sits on the path of every issue save and every bulk move, and `safe_attributes=` assigns `project_id` before `tracker_id` on purpose, so a wrong order would reset statuses that should have been left alone) and refusing the move outright. |
+| 2026-08-26 | The builtin roles on the project screen | The project screen offers only the roles that have members in the project | Answered A. *Non member* and *Anonymous* go on following the generic workflow, and a system administrator can still give a project its own workflow for them from Administration → Workflow. Considered and rejected: listing them on public projects, where those roles really do act on the issues. |
+| 2026-08-26 | Where the settings tab attaches | `ProjectsController.helper`, never `ProjectsHelper.prepend` | Raised by Jan from `redmine_ai_triage`'s K-29. Many Redmine plugins take `project_settings_tabs` over with an alias chain; `alias_method` resolves through `ProjectsHelper.ancestors`, so with anything prepended there the neighbour copies *our* method and the copy's `super` finds nothing above `ProjectsHelper` — core's own method drops out and every settings page raises `NoMethodError`. Attaching to the controller's helper chain is immune by construction, in either load order. |
 
 ## Decided (autonomous)
 
@@ -107,55 +110,16 @@
 | 2026-08-26 | WP4 | Saving a project matrix while the project inherits is refused, not accepted | `TransitionWriter` and `PermissionWriter` create the scope a project write implies, so accepting it would turn "save" into "enable" — and the screen never offered an editable grid, because a project that inherits sees the generic workflow read-only. The three actions of INV-3 stay the only way to take a workflow over. |
 | 2026-08-26 | WP4 | The project screen offers only the roles that have members in the project | Follows `docs/design.md`. The consequence is that the builtin roles — Non member and Anonymous — are not offered there and go on inheriting the generic workflow; a system administrator can still give a project its own workflow for them from the administration screens. Logged as an open choice below. |
 | 2026-08-26 | WP4 | A project that inherits sees the generic workflow read-only, as disabled checkboxes | It is exactly what applies to that project until it takes over (INV-5), and a disabled checkbox is how core already draws a cell that cannot be changed. The editable case renders core's own `workflows/_form` partial unchanged, so the project matrix cannot drift from the administration one. |
-| 2026-08-26 | WP4 | The tab's rows are loaded in `ProjectsController#settings`, patched | Redmine renders every tab's partial on every visit to the settings page — `showTab` only hides and shows what is already there — so the data has to exist before the view does. The method rather than a callback, because core's `#update` calls `settings` itself and then renders its view; a callback would have left the tab without its rows on a failed save. |
+| 2026-08-26 | WP4 | The tab's rows come from a helper, and the plugin patches no method of `ProjectsController` at all | First built as a patch on `ProjectsController#settings`. Superseded on the same day: once the tab override moved to the controller's *helper* chain (see "Where the settings tab attaches"), a second seam inside that controller bought nothing and carried the same alias-chain risk. `ProjectWorkflowsHelper#project_workflow_settings_rows` memoises `InventoryQuery` over one project — four collection queries, never one per row — and the failed-save path needs no special handling because a helper runs whenever the view does. |
 | 2026-08-26 | WP4 | A scope action carries a `back_url` from the tab and none from a matrix | So an action taken on the tab comes back to the tab and one taken on a matrix stays on that matrix. Redmine's `redirect_back_or_default` validates the value, so a crafted one falls back to the matrix. |
 | 2026-08-26 | WP4 | `spec/models/project_statuses_spec.rb` now declares the `projects_trackers` fixture, and its scoped-roles example moved to a leaf project | It was passing on whatever the previous spec file had left in that table, and its assertion — that the generic status is *absent* — is only true for a project with no descendants, because a scope on a parent says nothing about its children (INV-6). The third spec in this project found to be passing for a reason it never stated. |
 | 2026-08-26 | WP4 | Locale parity is a spec now, not a hand check | `spec/locales_spec.rb` asserts that all eight files parse and carry exactly the same keys. It was checked by hand at the end of every session until now, which is precisely the kind of gate that eventually gets skipped. |
 | 2026-08-26 | WP4 | The forbidden-constructs table in `CLAUDE.md` gains a row for a module `include`d into a controller | Every public instance method of a controller is an action, so such a module makes its methods routable and unauthorized. It has come up twice now — `WorkflowsControllerProjectSelection` in WP3, and `ProjectWorkflowsHelper` in WP4, where the fix was `helper` rather than `include`. |
+| 2026-08-26 | WP4 | The tab override lands in `ProjectsController._helpers`, and the specs assert both halves | The behavioural half is a neighbour alias chain in miniature, in both load orders; the one that aliases *after* this plugin has applied is the one that fails, with the real error — `super: no superclass method 'project_settings_tabs'` — the moment the override goes back inside `ProjectsHelper`. The structural half asserts the arrangement itself, so a refactor fails in the suite rather than on somebody's settings page. |
+| 2026-08-26 | WP4 | The narrowing this accepts is stated rather than left implicit | The tab now reaches `projects/settings` through `ProjectsController` only. A plugin rendering that view from a controller of its own would not see it — and would not see core's own tabs either, since the view reads `@project` straight from `ProjectsController`. |
 
 ## Open — for Jan
 
-### 1. An issue moved into a project whose workflow does not use its status (finding G03)
-
-- **Choice:** what should happen when an issue is moved into a project whose own
-  workflow does not use the status the issue currently has?
-- **Options:**
-  - **A) Nothing — leave it as Redmine already behaves.** The issue keeps its
-    status and, in that project, has no transition it is allowed to make, so it
-    cannot leave that status until somebody changes the workflow or moves it
-    back.
-  - **B) Reset the status, the way Redmine already does when the tracker
-    changes.** The issue silently lands on the new project's default status for
-    its tracker. Predictable, and symmetric with behaviour Redmine has had for
-    years — but it changes data the person moving the issue did not ask to
-    change, and a bulk move of two hundred issues would change all of them.
-  - **C) Refuse the move.** The issue cannot be moved until its status is one
-    the target project's workflow uses. Safest for the data, and the most
-    annoying: a legitimate move fails with a message about workflows.
-- **Recommendation:** **A for now, B later.** Redmine has the same asymmetry
-  today, so nothing here is a regression — what per-project workflows change is
-  that it can now be reached without an administrator editing anything. B is the
-  right end state, but it sits on the path of every issue save and every bulk
-  move, and Redmine assigns `project_id` before `tracker_id` on purpose, so
-  getting the order wrong would reset statuses that should have been left alone
-  — a data change that is not easily undone. A changes nothing and is therefore
-  perfectly reversible; B deserves its own work package, with the behaviour
-  spelled out on the screen.
-- **Urgent?** no — we continued with A, which is what Redmine does today.
-
-### 2. The builtin roles on the project screen
-
-- **Choice:** should a project be able to give itself its own workflow for the
-  **Non member** and **Anonymous** roles?
-- **Options:**
-  - **A) No, as now.** The project screen lists only the roles somebody holds in
-    that project, which those two never are. They go on following the generic
-    workflow, and a system administrator can still override them per project
-    from Administration → Workflow.
-  - **B) Yes, on a public project.** The project screen also lists the two
-    builtin roles when the project is public, because on a public project those
-    roles really do act on its issues.
-- **Recommendation:** **A.** It is what `docs/design.md` says, it is the state
-  those roles are in today, and it keeps "who is not a member of this project"
-  a system-wide decision. B is a small change to one list if you want it.
-- **Urgent?** no — we continued with A.
+*(Nothing open. Items land here with their options, a plain-language
+explanation of each and a recommendation, while the build continues on the
+safest default. WP4's two were answered A on 2026-08-26 and have moved up.)*

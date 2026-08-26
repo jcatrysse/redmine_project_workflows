@@ -97,6 +97,7 @@ task description seems to ask for it.
 | English text pasted into a non-English locale file | it reads as translated and never gets fixed | leave the key out, or mark it |
 | a new Deface anchor without a spec asserting it matches | INV-9 | add the assertion in the same commit |
 | a module `include`d into a controller with any public method | every public instance method of a controller is an **action**, so it becomes routable and unauthorized | make every method `private`, or make it a helper and `helper Mod` it in |
+| `ProjectsHelper.prepend` for a settings tab (or a prepend on any core helper other plugins alias-chain) | a neighbour's `alias_method` resolves through `ProjectsHelper.ancestors`, copies **our** prepended method, and the copy has no `super` — core's own tabs vanish and the settings page raises `NoMethodError` | `ProjectsController.helper(Mod)`: beside `ProjectsHelper`, never inside it. See `Patches::ProjectsHelperPatch#apply!` |
 
 ## Working rules
 

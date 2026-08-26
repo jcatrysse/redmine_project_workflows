@@ -10,6 +10,38 @@
 module ProjectWorkflowsHelper
   include RedmineProjectWorkflows::VersionHelper
 
+  # The settings tab's rows: one per (tracker, role) this project can decide for,
+  # with the state and the project's own rule count for each kind of rule.
+  #
+  # Built here rather than in a patched ProjectsController#settings, because the
+  # plugin deliberately holds nothing inside that controller either -- see
+  # Patches::ProjectsHelperPatch#apply! for what an alias chain does to a
+  # prepended method. Redmine renders every settings tab's partial on every visit
+  # to the page, so this runs whenever somebody who may see the tab opens
+  # project settings; it is InventoryQuery over a single project, which is four
+  # collection queries whatever the number of trackers and roles, and never one
+  # per row (G6).
+  #
+  # Memoised per project for the length of the render, so a second call costs
+  # nothing and cannot answer for a different project than it was asked about.
+  def project_workflow_settings_rows(project)
+    @project_workflow_settings_rows ||= {}
+    @project_workflow_settings_rows[project.id] ||= begin
+      options = RedmineProjectWorkflows::Services::ProjectOptions
+      query = RedmineProjectWorkflows::Services::InventoryQuery.new(
+        projects: [project],
+        trackers: options.trackers(project),
+        roles: options.roles(project),
+        rule_types: ProjectWorkflowScope::RULE_TYPES,
+        deviations_only: false
+      )
+      # The whole list, not a page: it is one project's own trackers times the
+      # roles somebody holds in it, and the tab is where you go to see all of
+      # them at once. The administration inventory is the paged screen.
+      query.rows(offset: 0, limit: query.total)
+    end
+  end
+
   # The state of one (project, tracker, role, rule type), as text.
   #
   # Three states have to stay tellable apart (INV-3), and "own empty workflow"

@@ -6,11 +6,19 @@
   the number of rules the project holds itself, and the actions that would
   change something. Every number links into the matrix it describes.
 
-  Rendered from ProjectsController#settings, which loads the rows; this file
-  queries nothing.
+  The rows come from project_workflow_settings_rows, which is four collection
+  queries for the whole tab and never one per row (G6). It is a helper rather
+  than an instance variable set in ProjectsController on purpose: the plugin
+  holds nothing inside that controller -- see
+  RedmineProjectWorkflows::Patches::ProjectsHelperPatch#apply!.
+
+  The tab is only in the list for somebody allowed to open it, so there is no
+  permission check here; the actions below are gated separately, and every
+  controller they post to checks again (INV-7).
 %>
-<% if @project_workflow_rows.nil? %>
-<% elsif @project_workflow_rows.empty? %>
+<% rows = project_workflow_settings_rows(@project) %>
+<% rule_types = ProjectWorkflowScope::RULE_TYPES %>
+<% if rows.empty? %>
   <p class="nodata"><%= l(:text_project_workflow_tab_nothing_to_configure) %></p>
 <% else %>
   <p><%= l(:text_project_workflow_tab_description) %></p>
@@ -22,17 +30,17 @@
       <tr>
         <th><%= l(:label_tracker) %></th>
         <th><%= l(:label_role) %></th>
-        <% @project_workflow_rule_types.each do |rule_type| %>
+        <% rule_types.each do |rule_type| %>
           <th><%= project_workflow_rule_type_label(rule_type) %></th>
         <% end %>
       </tr>
     </thead>
     <tbody>
-      <% @project_workflow_rows.each do |row| %>
+      <% rows.each do |row| %>
       <tr>
         <td class="name"><%= row.tracker.name %></td>
         <td class="name"><%= row.role.name %></td>
-        <% @project_workflow_rule_types.each do |rule_type| %>
+        <% rule_types.each do |rule_type| %>
           <% cell = row.cells[rule_type] %>
           <td class="project-workflow-<%= rule_type %>">
             <%= project_workflow_own_count_link(cell, row, rule_type) %>

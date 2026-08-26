@@ -296,20 +296,44 @@ thousand. `Services::InventoryQuery` answers it in at most five queries per
 page.
 
 The project settings screen is not a Deface override: it is a tab added by
-patching `ProjectsHelper#project_settings_tabs`, rendering the plugin's own
-views. The tab list is data, so adding an entry to it is an append rather than a
-match against rendered markup, with no anchor to go stale. Its entry names the
-controller action it leads to rather than a permission, because two permissions
-reach it and somebody who may manage a workflow must see the tab without also
-holding the permission to view it.
+overriding `project_settings_tabs`, rendering the plugin's own views. The tab
+list is data, so adding an entry to it is an append rather than a match against
+rendered markup, with no anchor to go stale. Its entry names the controller
+action it leads to rather than a permission, because two permissions reach it and
+somebody who may manage a workflow must see the tab without also holding the
+permission to view it.
+
+**Where that override attaches is load-bearing.** It goes into
+`ProjectsController._helpers`, via `ProjectsController.helper`, and never into
+`ProjectsHelper` itself. Many Redmine plugins take `project_settings_tabs` over
+with a classic alias chain (`alias_method :x_without_y, :x`, then
+`alias_method :x, :x_with_y`), and `alias_method` resolves the name through
+`ProjectsHelper.ancestors` -- which, with anything prepended there, *starts* at
+the prepended module. The neighbour therefore copies the plugin's method into its
+`_without_` alias, and that copy, now owned by `ProjectsHelper`, has no `super`
+to reach: core's own method drops out of the chain and every project's settings
+page raises `NoMethodError`. Attaching beside `ProjectsHelper` rather than inside
+it is immune by construction, in either load order -- applying later would fix
+one order and leave the trap for the other. `redmine_ai_triage` measured this
+(its K-29); `spec/controllers/projects_settings_tab_spec.rb` holds both load
+orders and the structural assertion.
+
+What that narrows, stated rather than left implicit: the tab reaches
+`projects/settings` through `ProjectsController` only. A plugin rendering that
+view from a controller of its own would not see it -- and would not see core's
+own tabs either, since the view reads `@project` straight from
+`ProjectsController`.
 
 Redmine renders **every** tab's partial on every visit to the settings page --
 `showTab` only hides and shows what is already there -- so the tab's rows are
-loaded in `ProjectsController#settings`, patched. The method rather than a
-callback: core's `#update` calls `settings` itself and then renders its view, and
-a callback would have left the tab without its rows on a failed save. The rows
-are `Services::InventoryQuery` over a single project, so the tab costs four
-queries whatever the number of trackers and roles.
+built by `ProjectWorkflowsHelper#project_workflow_settings_rows`, memoised per
+project for the length of the render. A helper rather than an instance variable
+set in a patched `ProjectsController#settings`: the plugin patches no method of
+that controller at all, which is one seam fewer of exactly the kind above, and a
+helper runs whenever the view does -- including when `#update` re-renders the
+settings page after a failed save. The rows are `Services::InventoryQuery` over a
+single project, so the tab costs four collection queries whatever the number of
+trackers and roles, and never one per row.
 
 ## Supported versions
 

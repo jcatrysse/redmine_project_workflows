@@ -17,11 +17,10 @@
   `claude/docs-review-su98z4`, which the environment had prescribed; nothing was
   committed there.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open choices:** **two**, both in `docs/DECISIONS.md` under "Open — for Jan",
-  both non-urgent and both continued on the safest default. (1) What should
-  happen to an issue moved into a project whose workflow does not use its status
-  — finding G03. (2) Whether a project may give itself its own workflow for the
-  builtin *Non member* and *Anonymous* roles.
+- **Open choices:** none. WP4's two were both answered **A** by Jan on
+  2026-08-26 and have moved up in `docs/DECISIONS.md`: `Issue#project=` keeps
+  core's behaviour (finding G03), and the project screen goes on offering only
+  the roles that have members in the project.
 - **Open findings:** 4, unchanged in number. `claude` F06 (row and column bulk
   actions skip mixed cells, WP5), `external` F11 (the README understates the
   operational risks, WP7), G02 (a cross-project bulk tracker change is an N+1,
@@ -78,12 +77,34 @@ to project 1 and the shape of an id is therefore not something to rely on.
 Anything not on those lists is a 404.
 
 **The tab is not a Deface override**, so the override count stays **eleven**
-(INV-9). It is a patch on `ProjectsHelper#project_settings_tabs`: the tab list is
-data, so adding to it is an append with no anchor to go stale. Its entry names
-the *controller action* it leads to rather than a permission, because two
-permissions reach the screen and somebody who may manage a workflow must see the
-tab without also holding the permission to view it — Redmine's `allowed_to?`
-takes either shape.
+(INV-9). It overrides `project_settings_tabs`: the tab list is data, so adding to
+it is an append with no anchor to go stale. Its entry names the *controller
+action* it leads to rather than a permission, because two permissions reach the
+screen and somebody who may manage a workflow must see the tab without also
+holding the permission to view it — Redmine's `allowed_to?` takes either shape.
+
+**Where that override attaches was a real bug, and Jan caught it.** It was
+`ProjectsHelper.prepend`. Many Redmine plugins take `project_settings_tabs` over
+with a classic alias chain, and `alias_method` resolves the name through
+`ProjectsHelper.ancestors` — which, with something prepended there, *starts* at
+the prepended module. The neighbour therefore copies **our** method into its
+`_without_` alias, and that copy, now owned by `ProjectsHelper`, has no `super`
+to reach: core's own method drops out and every project's settings page raises
+`NoMethodError`. `redmine_ai_triage` measured exactly this (its K-29) with
+`redmine_itil_priority` installed beside it. The override now goes into
+`ProjectsController._helpers` via `ProjectsController.helper` — beside
+`ProjectsHelper`, never inside it — which is immune by construction in either
+load order, where merely applying later would have fixed one order and left the
+trap for the other. Both load orders are in the suite, and the one that aliases
+*after* this plugin has applied is the one that fails with the real error the
+moment the override goes back inside `ProjectsHelper`.
+
+**So the plugin now patches no method of `ProjectsController` at all.** The tab's
+rows moved from a patched `#settings` into
+`ProjectWorkflowsHelper#project_workflow_settings_rows`, memoised per project for
+the length of the render. One seam fewer of exactly the kind above, and a helper
+runs whenever the view does — including when `#update` re-renders the settings
+page after a failed save, which no longer needs handling of its own.
 
 **Two repairs found on the way.**
 
@@ -102,17 +123,17 @@ takes either shape.
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | 382 examples, 0 failures |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | 382 examples, 0 failures |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | 382 examples, 0 failures |
-| RuboCop | 78 files, no offences |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | 384 examples, 0 failures |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | 384 examples, 0 failures |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | 384 examples, 0 failures |
+| RuboCop | 77 files, no offences |
 | `zeitwerk:check` | "All is good!" on 5.1, 6.1 and 7.0 |
 | Migration reversibility up → 0 → up | clean on 7.0, asserted by reading the schema back in a **separate process** after each step. WP4 changes no migration |
 | Backfill (`dev/check-backfill.sh`) | passes on 7.0 + PostgreSQL |
 | Locale parity | now a spec, green on all three hosts: eight files, 45 keys each |
 | Independent review | run in this context rather than a fresh one — see "Known traps" |
 | New specs against the old code | see below |
-| CI | **run 28 is green on all nine cells plus RuboCop**, on the branch head `aeb994e` — Redmine 5.1, 6.1 and 7.0 × PostgreSQL, MySQL and MariaDB. (Run 27 reads "cancelled": the concurrency group cancels a run when the next push supersedes it. Not a failure, and easy to misread.) |
+| CI | run 28 was green on all nine cells plus RuboCop for `aeb994e`; the tab-attachment fix landed after it, so **check the run on the current head**. (A run reading "cancelled" is the concurrency group superseding it after the next push — not a failure, and easy to misread.) |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done
 by putting one thing back and leaving the rest of WP4 in place:
@@ -124,6 +145,7 @@ by putting one thing back and leaving the rest of WP4 in place:
 | `patches/projects_controller_patch.rb` (the tab's rows) | 7 |
 | the refusal to save while the project inherits | 2 |
 | `ProjectOptions.roles` widened past the project's members | 9 |
+| the tab override moved back to `ProjectsHelper.prepend` | 2 — the structural assertion, and the later-neighbour alias chain, which fails with the production error `super: no superclass method 'project_settings_tabs'` |
 
 The 96 new examples cover authorization (nine cases), the tracker and role
 intersection (four, including an id of the wrong shape and an unknown rule
@@ -154,20 +176,29 @@ outline:
 
 WP5 touches the administration matrices, which the project matrices now share
 `workflows/_form` with — so anything done to that partial's markup has to be
-checked on **both** screens. `spec/controllers/project_workflows_controller_spec.rb`
+checked on **both** screens. WP7 should also read `redmine_ai_triage`'s
+`docs/` for the neighbour-plugin traps it has already collected; the settings-tab
+one turned out to apply here verbatim, and it is unlikely to be the only one. `spec/controllers/project_workflows_controller_spec.rb`
 has the assertion that all three grids are submitted; keep it passing.
 
 ## Known traps
 
 Everything below cost time at least once. The first eight are new this session.
 
+- **Never extend `project_settings_tabs` with `ProjectsHelper.prepend`.** A
+  neighbouring plugin's alias chain resolves the name through
+  `ProjectsHelper.ancestors`, copies the prepended method, and loses its `super`
+  — core's own tabs vanish and the settings page raises `NoMethodError` for every
+  project. `ProjectsController.helper(Mod)` instead: beside `ProjectsHelper`,
+  never inside it. Same reasoning applies to any core helper method that other
+  plugins are known to alias-chain. This is now a row in CLAUDE.md's
+  forbidden-constructs table.
 - **Redmine renders every settings tab's partial on every visit.**
   `showTab` only hides and shows what is already in the page, so a tab's content
-  is built whether or not anybody clicks it. Its data therefore has to exist
-  before the view does, and it has to be cheap.
+  is built whether or not anybody clicks it, and it has to be cheap.
 - **`ProjectsController#update` calls the `settings` *method* and then renders
-  the settings view.** A `before_action` would not run on that path, so the tab
-  would render without its rows after a failed save. Patch the method.
+  the settings view.** So a `before_action` would not run on that path. A helper
+  sidesteps the question entirely, which is why the tab's rows are one.
 - **A tab entry's `:action` may be an action hash, not only a permission name.**
   `User.current.allowed_to?` takes either. That is the way to make a tab visible
   to holders of *either* of two permissions without inventing a third.

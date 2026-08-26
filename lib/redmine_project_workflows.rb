@@ -21,7 +21,6 @@ require_relative 'redmine_project_workflows/patches/workflow_permission_patch'
 require_relative 'redmine_project_workflows/patches/workflow_rule_patch'
 require_relative 'redmine_project_workflows/patches/workflows_helper_patch'
 require_relative 'redmine_project_workflows/patches/project_patch'
-require_relative 'redmine_project_workflows/patches/projects_controller_patch'
 require_relative 'redmine_project_workflows/patches/projects_helper_patch'
 require_relative 'redmine_project_workflows/patches/role_patch'
 require_relative 'redmine_project_workflows/patches/tracker_patch'
@@ -51,8 +50,10 @@ module RedmineProjectWorkflows
     prepend_once(WorkflowRule.singleton_class, Patches::WorkflowRulePatch)
     prepend_once(WorkflowsHelper, Patches::WorkflowsHelperPatch)
     prepend_once(Project, Patches::ProjectPatch)
-    prepend_once(ProjectsController, Patches::ProjectsControllerPatch)
-    prepend_once(ProjectsHelper, Patches::ProjectsHelperPatch)
+    # Deliberately not a prepend on ProjectsHelper -- see the patch: a
+    # neighbouring plugin's alias chain would copy the prepended method and lose
+    # its super, taking core's own tabs down with it.
+    Patches::ProjectsHelperPatch.apply!
     prepend_once(Role, Patches::RolePatch)
     prepend_once(Tracker, Patches::TrackerPatch)
   end
