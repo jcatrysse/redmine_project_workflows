@@ -103,15 +103,15 @@ files.**
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | 474 examples, 0 failures |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | 474 examples, 0 failures |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | 474 examples, 0 failures |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | 483 examples, 0 failures |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | 483 examples, 0 failures |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | 483 examples, 0 failures |
 | RuboCop | 82 files, no offences |
 | `node dev/check-bulk-js.mjs` | **32** checks, all ok (was 16) |
 | Migration reversibility up → 0 → up | clean on 7.0, run **before** the suite. WP6 changes no migration |
-| Locale parity | eight files, **72** keys each (was 53) |
-| Independent review | run in a **fresh subagent** this time — the first session where the mechanism was available |
-| CI | runs **36, 37 and 38 green on all nine cells** (the WP8 docs commit, WP6a, WP6b). Run **39**, on the branch head, was still in flight when this file was written — **check it first.** |
+| Locale parity | eight files, **74** keys each (was 53) |
+| Independent review | run in a **fresh subagent** — the first session where the mechanism was available. It found **seven** real defects, all fixed in the last commit; see below |
+| CI | runs **36 through 39 green on all nine cells** — the WP8 docs commit and the three WP6 commits. Run **40**, for the review-fix commit at the branch head, was still in flight when this file was written — **check it first.** |
 | New specs against the old code | measured, see below |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done by
@@ -135,8 +135,13 @@ earlier session.
 | `_matrix_header.html.erb` | 1 |
 | `_bulk_undo.html.erb` | 22 |
 | `_matrix_note.html.erb` | 2 |
+| the review fixes: `services/workflow_comparison.rb` | 8 |
+| the review fixes: `services/scope_writer.rb` (the copy path's stamp) | 1 |
+| the review fixes: `project_workflows_controller.rb` | 3 |
+| the review fixes: `compare.html.erb` | 3 |
+| the review fixes: `project_workflows_helper.rb` | 3 |
 
-The 55 new examples cover the audit stamp on all four write paths and its absence
+The 64 new examples cover the audit stamp on all four write paths and its absence
 where a project inherits, the audit pair in the cell and its absence on an
 inheriting one, a query-count proof that the audit users load in one query
 however many rows a page holds, the comparison's four states and both orderings,
@@ -144,12 +149,31 @@ however many rows a page holds, the comparison's four states and both orderings,
 user in a project the permission was not given for), its two 404s, all three
 entry points to it, and the counter and undo present on the two transition
 matrices and absent from the two field-permission ones and from a read-only
-project matrix.
+project matrix. The last nine came out of the review: two rows for the same
+(status, field) that disagree, the row counts, the copy path's stamp, the
+unreachable-field footnote, and the 403 a disabled issue tracking module gives.
+
+### What the independent review caught
+
+Worth reading before the next one, because the pattern repeats. Seven of its
+thirteen findings were real, and the most important was **latent, not red**: the
+field-permissions comparison built its map with `to_h` over an unordered `pluck`,
+so two rows for the same (status, field) that disagree made the page depend on
+which row the database returned last — the same installation comparing
+differently on PostgreSQL and on MySQL, with nine green CI cells hiding it. Each
+side now carries the whole sorted list and the page shows both, which is what core
+does too. The others: the copy screen never stamped the audit columns; the compare
+page counted distinct keys where the settings tab counts rows; two `COUNT(*)`
+queries were redundant; a difference can name a field no project screen can
+change and nothing said so; the 403/404 documentation was wrong in three places;
+and two new specs passed for the wrong reason. One finding was declined with a
+reason (the parenthetical plural, because the sentence carries two numbers and one
+interpolation cannot pluralise both).
 
 ## Exact next step
 
-**Check CI run 39** (the branch head) before anything else — it was in flight
-when this file was written. A run reading "cancelled" is the concurrency group
+**Check CI run 40** (the branch head) before anything else — it was in flight
+when this file was written; 36 through 39 are green. A run reading "cancelled" is the concurrency group
 superseding it after the next push, not a failure; read the *head's* run.
 
 Then either:
@@ -169,13 +193,24 @@ not because it depends on WP7.
 
 ## Known traps
 
-Everything below cost time at least once. The first six are new this session.
+Everything below cost time at least once. The first nine are new this session.
 
 - **A new controller action is 403 for everybody until `init.rb` names it in a
   permission.** Administrators included, and the symptom is a forbidden page
   rather than an "unmapped action" error anywhere. `spec/plugin_conventions_spec.rb`
   now asserts structurally that every action of `ProjectWorkflowsController` is
   named by at least one of the two permissions, so the next one cannot repeat it.
+- **`to_h` over an unordered `pluck` is a cross-database divergence waiting to
+  happen.** Where two rows can share a key, the last one wins — and which one
+  that is differs between PostgreSQL and MySQL. Nine green CI cells hide it until
+  a database in the field has such a pair. Keep both, or sort before picking.
+- **An unscoped `include(user.name)` on a settings page proves nothing.** Core
+  renders the Members tab into the same response, so the name is there whatever
+  the thing under test says. Scope the assertion with `css_select`.
+- **A project whose module is disabled, or which is archived, gives 403 — not
+  404.** `authorize` → `Project#allows_to?` → `deny_access` → `render_403`. Only
+  a finder that cannot match its parameter gives 404. Guessing this wrong put a
+  wrong table into `docs/design.md`.
 - **`Set#flatten` flattens nested Sets, not the Arrays inside one.**
   `Set[[1, 2]].flatten` is still a Set of one Array, so a `reject(&:zero?)` after
   it raises `NoMethodError` on `Array`. Take the pairs out of the Set first.
