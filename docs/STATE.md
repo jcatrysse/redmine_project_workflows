@@ -80,11 +80,15 @@ test.
 | Migration reversibility up → 0 → up | clean on 5.1, 6.1 and 7.0, run before the suite |
 | New specs against the old code (`HEAD~1`) | 21 fail, including every inverted characterization example |
 | Patches installed by the host boot | verified with `rails runner` on 5.1 and 7.0, with `spec_helper`'s fallback removed |
+| CI, all nine cells + RuboCop | green on `35090347`, the WP0 code — run 3 of `Specs` |
 
-**Not run this session:** MySQL and MariaDB. No server for either is available
-in this container and the packages could not be installed. CI runs all nine
-cells on push, so the first thing to check next session is that the WP0 push
-went green there.
+MySQL and MariaDB could not be run locally: no server for either is available
+in this container and the packages could not be installed. CI covered those six
+cells and they are green, so the WP0 code is verified on all nine.
+
+One follow-up commit (`19145de`) touches only `dev/setup.sh` and `dev/run.sh`,
+not the plugin. Its CI run was still going when this session ended; check it
+before starting WP1.
 
 ## Exact next step
 
