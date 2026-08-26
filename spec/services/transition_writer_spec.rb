@@ -340,5 +340,20 @@ describe RedmineProjectWorkflows::Services::TransitionWriter do
 
       expect(stored).to eq([[true, false]])
     end
+
+    # Nothing constrains the table against two flag rows for one cell -- that is
+    # what rake redmine_project_workflows:deduplicate_workflow_rules exists for.
+    # Reading them to preserve a flag left at "no change" therefore has to answer
+    # the same way on every database, so the flags are OR-ed rather than one row
+    # being picked: picking would depend on the order the rows came back in, and
+    # OR is what the matrix already draws, since either flag renders as checked.
+    it 'merges two stored rows for one cell rather than picking one of them' do
+      store(author: true, assignee: false)
+      store(author: false, assignee: true)
+
+      write('author' => '1')
+
+      expect(stored).to eq([[true, true]])
+    end
   end
 end
