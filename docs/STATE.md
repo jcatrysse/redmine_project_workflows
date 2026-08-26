@@ -111,7 +111,7 @@ files.**
 | Migration reversibility up → 0 → up | clean on 7.0, run **before** the suite. WP6 changes no migration |
 | Locale parity | eight files, **74** keys each (was 53) |
 | Independent review | run in a **fresh subagent** — the first session where the mechanism was available. It found **seven** real defects, all fixed in the last commit; see below |
-| CI | runs **36 through 39 green on all nine cells** — the WP8 docs commit and the three WP6 commits. Run **40**, for the review-fix commit at the branch head, was still in flight when this file was written — **check it first.** |
+| CI | run **41 is green on all nine cells plus RuboCop**, on commit `3403b11` — every gate: migrations reversible, backfill, zeitwerk, specs. Runs 36 through 39 were green as well. (Run 40 was superseded by the concurrency group; a run reading "cancelled" is that, not a failure.) The only commit after `3403b11` is this line. |
 | New specs against the old code | measured, see below |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done by
@@ -172,8 +172,10 @@ interpolation cannot pluralise both).
 
 ## Exact next step
 
-**Check CI run 40** (the branch head) before anything else — it was in flight
-when this file was written; 36 through 39 are green. A run reading "cancelled" is the concurrency group
+**Nothing to check first this time.** CI run 41 is green on all nine cells for
+commit `3403b11`, and the only commit after it is the line above recording that.
+(A run reading "cancelled" is the concurrency group superseding it after the next
+push, not a failure; read the *head's* run.) A run reading "cancelled" is the concurrency group
 superseding it after the next push, not a failure; read the *head's* run.
 
 Then either:
