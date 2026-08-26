@@ -107,8 +107,9 @@ module RedmineProjectWorkflows
         end
 
         initial_assigned_to_id = assigned_to_id_changed? ? assigned_to_id_was : assigned_to_id
-        assignee_transitions_allowed = initial_assigned_to_id.present? &&
-                                       (user.id == initial_assigned_to_id || user.group_ids.include?(initial_assigned_to_id))
+        assignee_transitions_allowed =
+          initial_assigned_to_id.present? &&
+          (user.id == initial_assigned_to_id || user.group_ids.include?(initial_assigned_to_id))
 
         statuses = []
         statuses += RedmineProjectWorkflows::Services::TransitionQuery.allowed_statuses(
@@ -152,8 +153,8 @@ module RedmineProjectWorkflows
       end
 
       def compute_invisible_custom_field_role_map
-        IssueCustomField.where(visible: false).joins(:roles).pluck(:id,
-                                                                   'role_id').each_with_object({}) do |(field_id, role_id), map|
+        rows = IssueCustomField.where(visible: false).joins(:roles).pluck(:id, 'role_id')
+        rows.each_with_object({}) do |(field_id, role_id), map|
           map[field_id] ||= []
           map[field_id] << role_id
         end

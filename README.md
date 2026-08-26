@@ -42,6 +42,16 @@ one of them has surprised somebody.
   projects too, rather than falling back to Redmine's own query — Redmine's
   carries no `project_id` and would let one project read another's rules. If
   another plugin patches the same method, load order decides which of you wins.
+- **Installing it changes the generic workflow screens too, slightly.** The
+  plugin routes Redmine's own `WorkflowTransition.replace_transitions` and
+  `WorkflowPermission.replace_permissions` through its writers — it has to, or a
+  generic save would delete projects' rules along with the generic ones. Those
+  writers validate what they are given against server-built lists, which is
+  narrower than core: core accepts any run of digits as a field name, the plugin
+  accepts only a core field or an existing custom field id. An entry that fails
+  is dropped before anything is deleted, so it leaves the rule it names alone
+  rather than clearing it. In practice this only shows up for a hand-built
+  request; the matrices themselves cannot produce a rejected value.
 - **Uninstalling is a data change, not just a code change.** See
   [Upgrading and uninstalling](#upgrading-and-uninstalling).
 
@@ -66,9 +76,13 @@ one of them has surprised somebody.
 2. Run dependencies and plugin migrations:
    ```
    bundle install
-   bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
+   RAILS_ENV=production bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
    ```
 3. Restart Redmine.
+
+`RAILS_ENV` is not optional. Redmine's plugin migration task loads the
+environment it is given and defaults to **development**, so leaving it off
+migrates the wrong database and tells you it worked.
 
 ## Usage
 
@@ -104,10 +118,12 @@ several roles, and several projects, with **Generic** as one more entry in that
 list. What that means when you save:
 
 - **Every cell you leave alone stays alone.** A cell whose value differs across
-  the workflows in the selection renders as a dropdown carrying a third
-  *(No change)* option, and saving with that option selected leaves each of
-  those workflows exactly as it was. A cell that is a plain checkbox means every
-  workflow in the selection already agrees.
+  the workflows in the selection carries a *(No change)* option, and saving with
+  that option selected leaves each of those workflows exactly as it was. On the
+  transitions matrix such a cell becomes a dropdown where an agreeing cell is a
+  plain checkbox, so you can see at a glance which cells disagree; on the field
+  permissions matrix every cell is a dropdown already, and *(No change)* is one
+  more entry in it.
 - **Every cell you do change is written to all of them.** One click on a
   checkbox with three trackers, two roles and ten projects selected writes sixty
   workflows. Whenever one cell stands for more than one workflow, a sentence above
@@ -215,21 +231,23 @@ explicit one, and it is why nothing changes for a project that was already
 working. Run it with the usual
 
 ```
-bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
+RAILS_ENV=production bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
 ```
 
-The migration prints a line per rule type as it backfills, but not a count — it
-runs as one `INSERT ... SELECT` per type, so there is no row tally to print. To
-see what it produced:
+The migration prints a line per rule type as it backfills, but not a count.
+`say_with_time` prints a row tally only when its block returns an integer, and
+the backfill's block returns the adapter's result object for a raw
+`INSERT ... SELECT`. To see what it produced:
 
 ```
 bundle exec rails runner -e production \
   'puts ProjectWorkflowScope.group(:rule_type).count'
 ```
 
-It prints a hash — `{"transitions" => 12, "permissions" => 3}`. An empty one
-(`{}`) means no project had rules of its own before the upgrade, which is the
-normal answer on an installation that had not used per-project workflows yet.
+It prints a hash — on Ruby 3.2 and 3.3, `{"transitions"=>12, "permissions"=>3}`.
+An empty one (`{}`) means no project had rules of its own before the upgrade,
+which is the normal answer on an installation that had not used per-project
+workflows yet.
 
 Two things change behaviour after the upgrade, both deliberately:
 
@@ -245,15 +263,19 @@ directory — the plugin's tables and its column on `workflows` are not removed 
 deleting the code:
 
 ```
-bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows VERSION=0
+RAILS_ENV=production bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows VERSION=0
 ```
 
-That **deletes every project-specific rule** and then drops
-`project_workflow_scopes` and the `project_id` column on `workflows`. The delete
-is deliberate and comes first: dropping the column with those rows still in the
-table would leave stock Redmine reading every one of them as a *generic* rule.
-Your generic workflow itself is untouched. Take a backup first — there is no way
-back from this one.
+That **deletes every project-specific rule** before dropping the `project_id`
+column on `workflows`; `project_workflow_scopes` goes too, earlier in the run,
+because the migrations reverse in the order they were applied. The delete is
+deliberate and it has to precede the column drop: removing the column with those
+rows still in the table would leave stock Redmine reading every one of them as a
+*generic* rule. Your generic workflow itself is untouched.
+
+**Take a backup first, and check the output.** There is no way back from this one,
+and it is the one command here that has to run against the right database — see
+the `RAILS_ENV` note under [Installation](#installation).
 
 If you remove the plugin directory *without* running that, Redmine keeps working
 — core only ever reads and writes the `project_id IS NULL` rows — but every

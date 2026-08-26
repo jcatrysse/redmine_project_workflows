@@ -42,6 +42,14 @@ nothing had ever tested.
 - `rake redmine_project_workflows:deduplicate_workflow_rules` repairs a database
   that already has duplicate rules; the writers cannot produce new ones within a
   save.
+- Redmine's own `WorkflowTransition.replace_transitions` and
+  `WorkflowPermission.replace_permissions` are routed through those writers, so a
+  generic save can never delete a project's rules. **This changes the generic
+  screens slightly even on an installation with no per-project workflow:** the
+  writers whitelist `rule`, `field_name` and status ids against server-built
+  lists, which is narrower than core, and a rejected entry is dropped before the
+  delete so it leaves the rule it names alone rather than clearing it. The
+  matrices cannot produce a rejected value; a hand-built request can.
 
 ### Screens
 

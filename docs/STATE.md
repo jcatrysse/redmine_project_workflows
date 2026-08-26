@@ -112,8 +112,8 @@ all eight locale files; and version-conditional code was already behind
 | Migration reversibility up → 0 → up | clean on 7.0, run **before** the suite |
 | `dev/check-backfill.sh` | passes on 7.0 + PostgreSQL |
 | Locale parity | eight files, **74** keys each (was 53) |
-| Independent review | run in a **fresh subagent**, twice — for WP6 and for WP7. First session where the mechanism was available |
-| CI | run **45 is green on all nine cells plus RuboCop**, on the branch head. Runs 36 through 43 were green too; **44 reads "cancelled" because 45 superseded it** — that is the concurrency group, not a failure |
+| Independent review | run in a **fresh subagent**, twice — for WP6 and for WP7. First session where the mechanism was available. Both sets of findings are fixed; see below |
+| CI | run **45 green on all nine cells plus RuboCop** for commit `f65dc48`, and run **47** for the review fixes at the head. Runs 36 through 43 were green too; **44 reads "cancelled" because 45 superseded it** — that is the concurrency group, not a failure |
 | New specs against the old code | measured, twelve-plus-five-row table below |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done by
@@ -160,11 +160,30 @@ were redundant; a difference can name a field no project screen can change and
 nothing said so; the 403/404 documentation was wrong in three places; and two new
 specs passed for the wrong reason. One finding was declined with a reason.
 
-**WP7.** See the commit that follows this file if there is one; a documentation
-package's failure mode is a false claim, and the QA pass caught one before the
-reviewer did — the draft README said the backfill reports how many scopes it
-created, and it does not. It is one `INSERT ... SELECT` per rule type inside
-`say_with_time`, so there is no row tally to print.
+**WP7.** No blockers, and the reviewer confirmed by *running* it that both
+headline lint numbers were true (198 in 21 files before, 50 in 8 after) and that
+none of the 244 autocorrected offences changed behaviour — it walked every
+semantically-loaded rewrite, including `each_value` on
+`ActionController::Parameters` across all three Rails versions. Six findings were
+real, and **three were in the one section that tells an operator how to destroy
+data**: the uninstall instruction described the down migrations in the wrong
+order (the scope table goes *before* the rule delete — migrations reverse in the
+order they were applied), it omitted `RAILS_ENV` from every migrate command, and
+Redmine's plugin task defaults to **development**, so the realistic outcome was an
+operator destroying nothing in production while watching migration output say
+otherwise. Also: the plugin's biggest install-time behaviour change — routing
+core's own `replace_transitions` / `replace_permissions` through the writers,
+which narrows what a *generic* save accepts on every installation — was in
+neither the README nor the CHANGELOG; a `.rubocop_todo.yml` annotation excused a
+long line the autocorrect had itself created; another filed
+`workflow_rule_patch.rb` under INV-2 when that file uses `connection.insert` and
+is not a writer at all; and F11 ended up marked both fixed and open. All six are
+fixed.
+
+The QA pass caught one before the reviewer: the draft README said the backfill
+reports how many scopes it created. It does not — `say_with_time` prints a row
+tally only when its block returns an integer, and a raw `INSERT ... SELECT`
+returns the adapter's result object.
 
 ## Exact next step
 

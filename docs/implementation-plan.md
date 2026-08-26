@@ -277,8 +277,10 @@ one on a bulk move. Left open, with its reasoning now twice-examined.
 - Version bump, CHANGELOG, and an upgrade note about the backfill.
 - Work down `.rubocop_todo.yml` where the fix is mechanical and safe.
 
-**Done.** Four of the six as written; two were already true and are recorded here
-rather than pretended:
+**Done.** Three of the six bullets were work; **three were already satisfied** and
+are recorded here rather than pretended. The review caught that the first version
+of this note accounted for only five of the six and quietly dropped the one about
+locales — in the package named *Documentation, locales, release*.
 
 1. **The terminology was already fixed.** *Generic workflow*, *Own workflow* and
    *Inherits the generic workflow* are what WP3, WP4 and WP5 used as they went,
@@ -290,21 +292,25 @@ rather than pretended:
    differ across the 5.1 → 6.0 SVG-sprite break go through
    `RedmineProjectWorkflows::VersionHelper`; a grep for `respond_to?` outside it
    finds only duck-typing on request parameters.
+3. **The locale bullet was owed nothing.** WP7 adds no user-visible string of its
+   own, and every string WP3 through WP6 added was written into `en` and `nl` by
+   hand and into the other six as it went — `spec/locales_spec.rb` asserts parity,
+   and all eight files carry the same 74 keys.
 
-The four that were real:
+The three that were work:
 
-3. **The README's `What to know before you install it`** — F11, and more than it
+4. **The README's `What to know before you install it`** — F11, and more than it
    listed. Plus a section on what a selection of several projects does when you
    save, which is the case that writes the most rules from one click, and an
    **Upgrading and uninstalling** section: what the backfill does, and that
    `VERSION=0` deletes every project-specific rule.
-4. **0.1.0, with a CHANGELOG that reads as a release rather than a diff**, and
+5. **0.1.0, with a CHANGELOG that reads as a release rather than a diff**, and
    the entries reordered newest-first.
-5. **The declared minimum moved from Redmine 5.0 to 5.1.** Nothing had ever
+6. **The declared minimum moved from Redmine 5.0 to 5.1.** Nothing had ever
    tested 5.0 and the README said so, which is a strange thing to declare and
    then warn about. Refusing an install the plugin cannot vouch for is the safer
    direction for an alpha that rewrites workflow data; it is one line to revert.
-6. **`.rubocop_todo.yml`: 198 offences in 21 files down to 50 in 8**, and the
+7. **`.rubocop_todo.yml`: 198 offences in 21 files down to 48 in 8**, and the
    file is annotated by hand rather than generated and left. What remains is
    three groups, each named in the file's own header: the four patch files whose
    method bodies are core's (refactoring them for a metric would destroy the
@@ -315,6 +321,18 @@ The four that were real:
    `TransitionWriter.transition_row` took seven positional parameters ending in
    two booleans, which is exactly the shape `Metrics/ParameterLists` exists to
    catch, and is now keyword arguments.
+
+**The WP7 review found six real defects and all six are fixed.** Three were in
+the uninstall instruction — the one command in the README that destroys data:
+it described the down migrations in the wrong order, and it omitted `RAILS_ENV`
+from every migrate command, which Redmine's plugin task defaults to
+*development*. The others: the plugin's biggest install-time behaviour change
+(routing core's own `replace_transitions` / `replace_permissions` through the
+writers, which narrows what a *generic* save accepts on every installation) was
+in neither the README nor the CHANGELOG; one `.rubocop_todo.yml` annotation
+excused a long line the autocorrect had itself created; another filed
+`workflow_rule_patch.rb` under INV-2 when that file uses `connection.insert` and
+is not a writer; and F11 ended up marked both fixed and open.
 
 ---
 

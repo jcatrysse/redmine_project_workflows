@@ -6,10 +6,11 @@
 #   DELETE /project_workflow_scopes         return the project to inheritance
 #   POST   /project_workflow_scopes/clear   empty the project's matrix
 #
-# They are reached from the administration workflow screens. WP4 adds the
-# project settings tab, where the same three actions are authorized with
-# +manage_project_workflow+ against the project they act on; until then they are
-# administrator-only, which satisfies INV-7 trivially.
+# They are reached from the administration workflow screens and are
+# administrator-only, which satisfies INV-7 trivially. The same three actions are
+# also on ProjectWorkflowsController as of WP4, where they act on one project and
+# are authorized with +manage_project_workflow+ against it; that is the path a
+# non-administrator takes, and this one stays what it is.
 #
 # Every id that reaches a query is resolved against the database first and
 # compared back to what was sent (G5). Rails casts loosely enough in

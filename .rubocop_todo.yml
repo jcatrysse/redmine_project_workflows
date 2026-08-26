@@ -6,7 +6,9 @@
 # says which cop is off in which file and nothing about whether that is debt or
 # a decision, and this file is almost entirely decisions.
 #
-# WP7 took it from 198 offences across 21 files to 50 across 8. What went was
+# WP7 took it from 198 offences across 21 files to 48 across 8 -- 50 at first, and
+# two fewer after the review found the `Layout/LineLength` entry excusing one line
+# the autocorrect had itself created and another in a method of the plugin's own. What went was
 # mechanical -- quote style, indentation, dot position, blank lines, heredocs,
 # `map.compact`, `unless present?`, `== 0`, a negated `include?`, an inverted
 # `==`. What is left falls into three groups:
@@ -38,15 +40,6 @@
 # This cop supports safe autocorrection (--autocorrect).
 # Configuration parameters: Max, AllowHeredoc, AllowURI, AllowQualifiedName, URISchemes, AllowRBSInlineAnnotation, AllowCopDirectives, AllowedPatterns, SplitStrings.
 # URISchemes: http, https
-# Group 1. Both are inside Issue#new_statuses_allowed_to, whose body is core's
-# byte-identical in 5.1, 6.1 and 7.0. Rewrapping them makes the diff against a
-# real checkout noisier for no reader's benefit.
-Layout/LineLength:
-  Exclude:
-    - 'lib/redmine_project_workflows/patches/issue_patch.rb'
-
-# Offense count: 2
-# Configuration parameters: IgnoreLiteralBranches, IgnoreConstantBranches, IgnoreDuplicateElseBranch.
 # Group 1. Core's own `if new_record? / elsif tracker_id_changed? / else` chain,
 # in which two branches genuinely assign the same thing for different reasons.
 Lint/DuplicateBranch:
@@ -56,9 +49,12 @@ Lint/DuplicateBranch:
 # Offense count: 1
 # This cop supports unsafe autocorrection (--autocorrect-all).
 # Group 3. Dir.glob has been sorted since Ruby 3.0, so the cop is right that the
-# call is redundant -- but the Deface overrides have to load in a stable order
-# and the explicit sort is what says so. Keeping a redundant call that states an
-# intent is cheaper than a comment nothing enforces.
+# call is redundant. It stays because a deterministic load order for the Deface
+# overrides is worth stating rather than inheriting from a Ruby version, and the
+# call costs nothing. It is *not* currently load-bearing -- the WP7 review checked
+# that no two overrides share a (virtual_path, selector) pair, so no rendered page
+# depends on the order today, and no spec asserts one. A future pair that did
+# would make this a real requirement.
 Lint/RedundantDirGlobSort:
   Exclude:
     - 'lib/redmine_project_workflows.rb'
@@ -154,10 +150,19 @@ Rails/DynamicFindBy:
 # Offense count: 5
 # Configuration parameters: ForbiddenMethods, AllowedMethods.
 # ForbiddenMethods: decrement!, decrement_counter, increment!, increment_counter, insert, insert!, insert_all, insert_all!, toggle!, touch, touch_all, update_all, update_attribute, update_column, update_columns, update_counters, upsert, upsert_all
-# Group 2.
+# Two groups in one entry, because a cop cannot be listed twice. The WP7 review
+# caught this filed wholesale under group 2, which was wrong for the first file:
+# `workflow_rule_patch.rb` is not a writer, and INV-2 says nothing about it.
 Rails/SkipsModelValidations:
   Exclude:
+    # Group 1. Three raw `connection.insert("INSERT ... SELECT ...")` statements,
+    # mirroring core's own WorkflowRule.copy_one, which does the same. Every value
+    # they write is a column of a row already in the table or an id resolved from
+    # the database, so no request parameter reaches one -- which is why there is no
+    # whitelist here and why INV-2, which is about parameters, does not apply.
     - 'lib/redmine_project_workflows/patches/workflow_rule_patch.rb'
+    # Group 2. The two writers, where `insert_all` is the point: it runs no
+    # validations, which is why INV-2 makes the writer the validation.
     - 'lib/redmine_project_workflows/services/permission_writer.rb'
     - 'lib/redmine_project_workflows/services/transition_writer.rb'
 
