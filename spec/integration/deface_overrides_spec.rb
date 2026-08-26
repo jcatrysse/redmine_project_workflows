@@ -483,6 +483,26 @@ describe IssuesController, type: :controller do
     expect(response.body.scan('project-workflow-map-link').size).to eq(1)
   end
 
+  # The path that makes the tracker in the link mean anything. Core's status and
+  # tracker selects call updateIssueFrom, which re-posts the form to
+  # `update_issue_form_path` -- `edit_issue_path(issue, format: 'js')` for a saved
+  # issue -- and re-renders issues/_form from the result. So the link has to come
+  # back rebuilt with whatever the reader has just chosen; if it did not, the
+  # panel would go on describing the tracker the form no longer shows.
+  it 'rebuilds the link when the form is re-rendered for a changed tracker' do
+    other_tracker = trackers(:trackers_002)
+    project.trackers << other_tracker unless project.trackers.include?(other_tracker)
+    issue = Issue.create!(project: project, tracker: tracker, status: new_status,
+                          author_id: 2, subject: 'deface override spec')
+
+    patch :edit, params: { id: issue.id, issue: { tracker_id: other_tracker.id } },
+                 format: 'js', xhr: true
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("workflow_map?tracker_id=#{other_tracker.id}")
+    expect(response.body).not_to include("workflow_map?tracker_id=#{tracker.id}")
+  end
+
   # Out of scope on purpose: a selection can span projects and trackers, so one
   # map would be a lie about most of it. core's bulk-edit form has markup of its
   # own, and this is the assertion that it stays that way.

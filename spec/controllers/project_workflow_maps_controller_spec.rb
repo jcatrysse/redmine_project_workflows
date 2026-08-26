@@ -79,6 +79,34 @@ describe ProjectWorkflowMapsController, type: :controller do
       expect(response).to have_http_status(:not_found)
     end
 
+    # An archived project's issues are not visible at all: Issue.visible goes
+    # through allowed_to_condition, which restricts a read permission to projects
+    # that are active or closed. So this is 404, not 403 -- unlike the new-issue
+    # path, where the finder matches and allowed_to? is what says no.
+    it 'answers 404 for an issue in an archived project' do
+      issue = an_issue
+      project.reload.archive
+      @request.session[:user_id] = 2
+
+      get :show, params: { issue_id: issue.id }
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    # A closed project is read-only, not invisible, so the panel still describes
+    # it -- and reading a workflow is a read action everywhere else in the plugin.
+    it 'still describes an issue in a closed project' do
+      generic_transition(new_status, assigned)
+      issue = an_issue
+      project.reload.close
+      @request.session[:user_id] = 2
+
+      get :show, params: { issue_id: issue.id }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(assigned.name)
+    end
+
     # INV-7. With an issue in hand the project is the issue's, and a project_id
     # in the request is not consulted at all -- so it cannot move the panel onto
     # another project's workflow.

@@ -323,6 +323,39 @@ describe RedmineProjectWorkflows::Services::TransitionMapQuery do
       expect(map.outgoing.reject(&:available)).to all(satisfy { |edge| edge.reason.present? })
     end
 
+    # Core's own test too: an issue assigned to a *group* is assigned to its
+    # members for this purpose, so an assignee-only move is on offer to each of
+    # them. Getting this wrong would withhold a move the form is offering.
+    it 'treats a member of the assigned group as the assignee' do
+      # Redmine only lets a group hold an issue when this is on, and the setting
+      # is cached on the class, so it has to be cleared again afterwards.
+      Setting.issue_group_assignment = '1'
+      group = Group.create!(lastname: 'Transition map spec group')
+      group.users << users(:users_002)
+      Member.create!(project: project, principal: group, roles: [role])
+      issue = issue_in(new_status, author: users(:users_003), assigned_to: group)
+      transition(new_status, assigned, assignee: true)
+
+      edge = map_for(issue).outgoing.first
+
+      expect(edge.available).to be(true)
+      expect(edge.reason).to be_nil
+    ensure
+      Setting.clear_cache
+    end
+
+    # Author and assignee at once: either condition on its own is enough, so an
+    # author-only move and an assignee-only move are both on offer and neither
+    # carries a reason.
+    it 'offers both variants to somebody who is author and assignee' do
+      issue = issue_in(new_status, author: user, assigned_to: user)
+      transition(new_status, assigned, author: true)
+      transition(new_status, resolved, assignee: true)
+
+      expect(map_for(issue).outgoing.map { |edge| [edge.new_status, edge.available] })
+        .to eq([[assigned, true], [resolved, true]])
+    end
+
     # An incoming edge ends at the status the issue is already in, so it is
     # history rather than an action; asking would answer "yes" for every one of
     # them, because the list always offers the current status back.
@@ -334,6 +367,47 @@ describe RedmineProjectWorkflows::Services::TransitionMapQuery do
       expect(edge.available).to be_nil
       expect(edge.reason).to be_nil
     end
+  end
+
+  # A row naming a status that no longer exists is something the table allows and
+  # core's own delete does not leave behind. It must not become a blank cell or
+  # raise: the edge is still in the workflow, so it is named by its id.
+  it 'keeps an edge whose status has been deleted' do
+    # The row has to be created against a real status -- WorkflowTransition
+    # validates the association -- and the status then removed underneath it,
+    # which is the state a hand-edited database can be in.
+    orphan = IssueStatus.create!(name: 'Transition map spec orphan')
+    transition(new_status, orphan)
+    orphan_id = orphan.id
+    IssueStatus.where(id: orphan_id).delete_all
+
+    edge = map_for(issue_in(new_status)).outgoing.first
+
+    expect(edge.new_status).to be_nil
+    expect(edge.new_status_id).to eq(orphan_id)
+    expect(edge.available).to be(false)
+  end
+
+  # The tracker the form currently shows, applied to the issue before the map is
+  # drawn. This is the property the whole "must not contradict the status list"
+  # clause rests on: after Issue#tracker= the issue's status is the same one
+  # new_statuses_allowed_to picks as its initial status, so map and list read
+  # from one object. Asserted against the list itself, not against a status this
+  # spec chose.
+  it 'agrees with the status list after a tracker change the form has made' do
+    other_tracker = trackers(:trackers_002)
+    project.trackers << other_tracker unless project.trackers.include?(other_tracker)
+    transition(new_status, assigned)
+    WorkflowTransition.create!(tracker_id: other_tracker.id, role_id: role.id, project_id: nil,
+                               old_status_id: new_status.id, new_status_id: resolved.id)
+    issue = issue_in(new_status)
+
+    issue.tracker = other_tracker
+    map = described_class.new(issue: issue, user: user, tracker: other_tracker).result
+    offered = issue.new_statuses_allowed_to(user).map(&:id) - [map.status_id]
+
+    expect(map.outgoing.select(&:available).map(&:new_status_id).sort).to eq(offered.sort)
+    expect(map.outgoing.map(&:new_status)).to eq([resolved])
   end
 
   # G6. The cost is behind a link, but it still has to be a fixed number of
