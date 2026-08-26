@@ -34,7 +34,11 @@ rbenv_shims() {
 if [ -n "$RUBY" ]; then
   export RBENV_VERSION="$RUBY"
   SHIMS="$(rbenv_shims)"
-  [ -n "$SHIMS" ] && export PATH="$SHIMS:$PATH"
+  # A bare `[ ... ] && ...` would abort the whole script under `set -e` when the
+  # test is false, which is the ordinary case on a runner that has no rbenv.
+  if [ -n "$SHIMS" ]; then
+    export PATH="$SHIMS:$PATH"
+  fi
 fi
 export RAILS_ENV=test
 

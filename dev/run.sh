@@ -17,7 +17,10 @@ if [ -n "${RUBY_VERSION:-}" ]; then
   else
     SHIMS=""
   fi
-  [ -n "$SHIMS" ] && export PATH="$SHIMS:$PATH"
+  # See dev/setup.sh: a bare `[ ... ] && ...` aborts under `set -e`.
+  if [ -n "$SHIMS" ]; then
+    export PATH="$SHIMS:$PATH"
+  fi
 fi
 export RAILS_ENV=test
 "$PLUGIN_DIR/dev/sync.sh" "$DIR"
