@@ -17,10 +17,11 @@
   `claude/docs-review-9ny8n3`, which the environment had prescribed; nothing was
   committed there.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open choices:** one, not urgent, recorded in `docs/DECISIONS.md` under
-  "Open — for Jan": whether the **field-permissions** matrix should get row and
-  column actions too. It has none today and never had core toggles to repair; its
-  cells are four-valued rather than yes or no. We continued with A, leave it.
+- **Open choices:** none. WP5's one was answered **A** by Jan on 2026-08-26 and
+  has moved up in `docs/DECISIONS.md`: the **field-permissions** matrix keeps only
+  core's `»` copy control and gets no row or column actions. It never had core
+  toggles to repair, and its cells are four-valued rather than yes or no. Nothing
+  to build — A is what is in place.
 - **Open findings:** 3, down from 4. `external` F11 (the README understates the
   operational risks, WP7), G02 (a cross-project bulk tracker change is an N+1,
   WP6) and G03 (`Issue#project=`, examined in WP4 and deliberately left as core

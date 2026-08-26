@@ -208,8 +208,9 @@ alone and reach both kinds of control. "Unchanged" reuses core's own
 `label_no_change_option` so that the cell and the action on it read the same; the
 clearer wording is the legend. The **field-permissions** matrix keeps only core's
 `»` copy control — its cells are four-valued rather than yes or no, and core has
-no row or column toggles there to repair. Recorded as open choice 1 in
-`docs/DECISIONS.md`, with A (leave it) as the default in place.
+no row or column toggles there to repair. Jan answered that one **A** on
+2026-08-26 — leave it as it is — so it is settled rather than open; see
+`docs/DECISIONS.md`.
 
 ## WP6 — Compare, audit, undo
 

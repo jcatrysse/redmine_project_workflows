@@ -35,6 +35,7 @@
 | 2026-08-26 | `Issue#project=` and the status (finding G03) | Leave it as Redmine already behaves | Answered A. An issue moved into a project whose workflow does not use its status keeps that status and, in that project, has no transition it may make. Core has the same asymmetry, so nothing here is a regression; what per-project workflows change is that it can be reached without an administrator editing anything. Considered and rejected for now: resetting the status the way `#tracker=` does (it sits on the path of every issue save and every bulk move, and `safe_attributes=` assigns `project_id` before `tracker_id` on purpose, so a wrong order would reset statuses that should have been left alone) and refusing the move outright. |
 | 2026-08-26 | The builtin roles on the project screen | The project screen offers only the roles that have members in the project | Answered A. *Non member* and *Anonymous* go on following the generic workflow, and a system administrator can still give a project its own workflow for them from Administration → Workflow. Considered and rejected: listing them on public projects, where those roles really do act on the issues. |
 | 2026-08-26 | Where the settings tab attaches | `ProjectsController.helper`, never `ProjectsHelper.prepend` | Raised by Jan from `redmine_ai_triage`'s K-29. Many Redmine plugins take `project_settings_tabs` over with an alias chain; `alias_method` resolves through `ProjectsHelper.ancestors`, so with anything prepended there the neighbour copies *our* method and the copy's `super` finds nothing above `ProjectsHelper` — core's own method drops out and every settings page raises `NoMethodError`. Attaching to the controller's helper chain is immune by construction, in either load order. |
+| 2026-08-26 | Bulk editing (field permissions) | The field-permissions matrix keeps only core's `»` copy control — no row or column actions | Answered **A** the same day it was raised. The transitions matrix is the one with the clicking in it; core has no row or column toggles on the field-permissions matrix to repair, its cells are four-valued rather than yes or no, and `»` already covers "the same from here on". B — the same three actions adapted to four values — stays available as a small work package of its own if somebody actually wants it. |
 
 ## Decided (autonomous)
 
@@ -132,27 +133,6 @@
 
 ## Open — for Jan
 
-*(Items land here with their options, a plain-language explanation of each and a
-recommendation, while the build continues on the safest default. WP4's two were
-answered A on 2026-08-26 and have moved up.)*
-
-**1. Should the field-permissions matrix get row and column actions too?**
-WP5's brief, and finding F06, are about the transitions matrix: that is where
-core has row and column toggles and where they skipped the mixed cells. The
-field-permissions matrix has no such toggles at all, and its cells are not yes or
-no but four values — blank, read-only, required, and no change — so an action
-there is "set this row to *read-only*" rather than "set it to Yes". It does have
-core's own `»` control, which copies one cell's value across the rest of its row.
-
-- **A) Leave it as it is for now.** The transitions matrix is the one with the
-  clicking in it, and the `»` control already covers the common case of "the
-  same from here on".
-- **B) Add the same three-actions treatment, with the four values.** Two more
-  Deface anchors (core keeps this table inline in its own view rather than in a
-  partial, and the project screen has a copy of it), plus classes on the cells,
-  which they do not have today.
-
-- **Recommendation:** A for now, and B as a small work package of its own once
-  somebody has actually wanted it — the shape of the control should follow a
-  real complaint rather than symmetry with the other matrix.
-- **Urgent?** no — we continued with A. Nothing in WP6 or WP7 depends on it.
+*(Nothing open. Items land here with their options, a plain-language explanation
+of each and a recommendation, while the build continues on the safest default.
+WP4's two and WP5's one were all answered A on 2026-08-26 and have moved up.)*
