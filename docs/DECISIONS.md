@@ -37,6 +37,8 @@
 | 2026-08-26 | Where the settings tab attaches | `ProjectsController.helper`, never `ProjectsHelper.prepend` | Raised by Jan from `redmine_ai_triage`'s K-29. Many Redmine plugins take `project_settings_tabs` over with an alias chain; `alias_method` resolves through `ProjectsHelper.ancestors`, so with anything prepended there the neighbour copies *our* method and the copy's `super` finds nothing above `ProjectsHelper` — core's own method drops out and every settings page raises `NoMethodError`. Attaching to the controller's helper chain is immune by construction, in either load order. |
 | 2026-08-26 | WP8's flowchart | **C**: the local view only — "from here", and no drawing | Answered C. The status the issue is in, the statuses it can move to, what each move requires (anyone / only the author / only the assignee), and the statuses that can lead into this one. Considered and rejected for now: A) a layered SVG diagram, which is what Jira draws and needs a layout pass of the plugin's own plus a table beside it for screen readers, and B) a read-only copy of the administration tick-box grid. C is A's data without the layout, so A stays buildable on top of it later. |
 | 2026-08-26 | Order of the last two packages | **WP7 first, then WP8** | Jan's call, and WP8 will be started in a session of its own. So the release pass covers what exists at that point and WP8 carries its own README paragraph, CHANGELOG line and locale keys. |
+| 2026-08-26 | Declared minimum Redmine version | **5.1**, raised from 5.0 | Answered A. Nothing had ever tested 5.0 and the README said so. Known limit, recorded so nobody mistakes the floor for a claim: 5.2, 6.0, 6.2 and 7.1 still install and none of those is in CI either, so the README's Compatibility section — which names the nine cells that run on every push — remains the honest answer. Considered and rejected: putting 5.0 back and going on warning that it is untested. |
+| 2026-08-26 | WP8 must name the workflow it is describing | The panel says whether this issue is governed by the project's own workflow or the generic one, per role, and links to where it is edited | Raised by Jan while reviewing WP8's spec, and it is the first thing somebody debugging "why can I not close this issue" needs. Nothing on the issue form says it today: core has no concept of a project workflow, and WP8 is the first thing the plugin puts on that form at all. |
 | 2026-08-26 | Bulk editing (field permissions) | The field-permissions matrix keeps only core's `»` copy control — no row or column actions | Answered **A** the same day it was raised. The transitions matrix is the one with the clicking in it; core has no row or column toggles on the field-permissions matrix to repair, its cells are four-valued rather than yes or no, and `»` already covers "the same from here on". B — the same three actions adapted to four values — stays available as a small work package of its own if somebody actually wants it. |
 
 ## Decided (autonomous)
@@ -159,21 +161,7 @@
 
 ## Open — for Jan
 
-- **Choice:** WP7 raised the declared minimum Redmine version from **5.0** to
-  **5.1**. Keep it?
-- **Options:**
-  A) **Keep 5.1** (what is in place). Redmine refuses to load the plugin on 5.0.
-     CI has never tested 5.0 and the README openly said so, so this stops the
-     plugin claiming something nothing checks — on an alpha that rewrites
-     workflow data, which is where a wrong claim costs the most.
-  B) **Put 5.0 back** and go on warning that it is untested. Anyone still on 5.0
-     can install it and find out; nothing about the plugin changes.
-- **Recommendation:** **A.** Redmine 5.0 has been out of support for a while, the
-  plugin has never run on it, and an install it cannot vouch for is exactly the
-  install that generates a bug report nobody can reproduce. It is one line in
-  `init.rb` to revert, and the CHANGELOG flags it as breaking either way.
-- **Urgent?** no — it only matters to somebody on 5.0, and it is in place already.
-
-*(WP8's one was answered **C** on 2026-08-26 and has moved up, as were WP4's two
-and WP5's one. Items land here with their options, a plain-language explanation
-of each and a recommendation, while the build continues on the safest default.)*
+*(Nothing open. WP7's one was answered **A** on 2026-08-26 and has moved up, as
+were WP8's renderer choice (**C**), WP4's two and WP5's one. Items land here with
+their options, a plain-language explanation of each and a recommendation, while
+the build continues on the safest default.)*

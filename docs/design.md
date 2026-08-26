@@ -590,6 +590,52 @@ is where a Jira-style diagram starts. *(Out of WP8 as built, per the decision
 below: the local view is what ships, and the whole map is what the SVG option
 would need.)*
 
+### Which workflow is this, and where do I change it
+
+Nothing on the issue form says today whether an issue is governed by its
+project's own workflow or by the generic one. Core cannot say it — core has no
+concept of a project workflow — and WP8 is the first thing this plugin puts on
+that form at all, so the panel is where it belongs.
+
+It is the first thing somebody debugging *why can I not close this issue* needs,
+and it is the difference between a user filing a bug report and a user opening the
+right screen.
+
+**The words are the ones the rest of the plugin already uses** — *Own workflow*,
+*Own empty workflow*, *Inherits the generic workflow* (**INV-3**). The project
+settings tab, the administration inventory and the comparison screen all name the
+three states in exactly those words, and an issue form that invented a fourth
+phrasing for the same thing would make the two screens look like they were
+describing different mechanisms.
+
+**Per role, because resolution is per role.** A user holding two roles in a
+project can have one of them overridden and the other inheriting, and the
+transitions they see are the union (**INV-5**, and the *Roles resolve
+independently* rule above). One sentence where the roles agree; a line per role
+where they do not. The panel already knows the answer: it resolves the scope to
+build the transition list at all, and that resolution is one cached point lookup
+(**INV-6** — there is no parent project in the sentence, ever, so it never has to
+say "inherited from").
+
+**The state that most needs saying is the empty one.** A project with its own
+*empty* workflow offers no transition at all, and an empty status dropdown with
+no explanation is indistinguishable from a broken plugin. That is the one case
+where this sentence stops being a convenience.
+
+**Where to change it, gated by permission.** The sentence carries a link:
+
+| Who is reading | Link |
+| --- | --- |
+| `manage_project_workflow` on this project | the project's **Workflow** tab, at this tracker and role |
+| `view_project_workflow` only | the same tab, which is read-only for them anyway |
+| a system administrator | *Administration → Workflow*, pre-filled with this project, tracker and role |
+| anybody else | no link — the sentence alone |
+
+The link is a convenience, not a capability: every screen it leads to authorizes
+again (**INV-7**), so the gate is a UX decision rather than a security boundary.
+Offering a link that answers 403 is worse than offering none, which is why the
+last row exists.
+
 ### The map must not contradict the dropdown
 
 This is the part that decides whether the feature helps or hurts.

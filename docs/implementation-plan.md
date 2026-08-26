@@ -377,6 +377,19 @@ Then:
   sprite. The INV-9 count rises, in `CLAUDE.md`, `design.md` and the spec's
   comment, with an assertion in `spec/integration/deface_overrides_spec.rb` that
   only this override can satisfy.
+- **The panel says which workflow it is describing.** Raised by Jan on 2026-08-26
+  while reviewing this spec, and it is the first thing somebody debugging *why can
+  I not close this issue* needs. Nothing on the issue form says it today: core has
+  no concept of a project workflow, and WP8 is the first thing the plugin puts on
+  that form. In the words the rest of the plugin already uses (**INV-3**) — *Own
+  workflow*, *Own empty workflow*, *Inherits the generic workflow* — **per role**,
+  because resolution is per role and the result is a union, with a link to where it
+  is edited that is gated by permission (the project's Workflow tab, or
+  Administration → Workflow for an administrator, or no link at all rather than one
+  that answers 403). The *own empty workflow* case is the one that stops being a
+  convenience: an empty status dropdown with no explanation is indistinguishable
+  from a broken plugin. It costs nothing — the panel resolves the scope to build
+  the transition list anyway, and that is one cached point lookup.
 - The renderer: **the local "from here" view alone**, answered **C** by Jan on
   2026-08-26. The status the issue is in, the statuses it can move to, what each
   move requires — anyone with the role, only the author, only the assignee — and
@@ -397,7 +410,8 @@ editing a status description from the map.
 
 **Done when** a project with its own workflow shows a map that matches its own
 matrix, an inheriting project shows the generic one, neither can see the other's,
-and the specs above are green on all nine CI cells.
+the panel names which of the three states it is describing for each of the
+reader's roles, and the specs above are green on all nine CI cells.
 
 ---
 
