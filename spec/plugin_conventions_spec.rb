@@ -43,6 +43,36 @@ describe RedmineProjectWorkflows do
       .not_to include(RedmineProjectWorkflows::Patches::ProjectsHelperPatch)
   end
 
+  # A prepended patch that reimplements a core method inherits none of core's
+  # own visibility declarations. Core says `private :workflow_rule_by_attribute`
+  # right after its definition, and the patch's copy was public -- which widens
+  # core's API on every host the plugin is installed on, quietly.
+  it 'keeps core\'s visibility on the methods it reimplements' do
+    expect(Issue.private_method_defined?(:workflow_rule_by_attribute)).to be(true)
+    expect(Issue.public_method_defined?(:workflow_rule_by_attribute)).to be(false)
+    # The other two are public in core and have to stay so.
+    expect(Issue.public_method_defined?(:new_statuses_allowed_to)).to be(true)
+    expect(Issue.public_method_defined?(:tracker=)).to be(true)
+  end
+
+  # The plugin injects a call to one of its own helpers into a partial that
+  # *core* owns. Patches::IssuesControllerPatch puts that helper into
+  # IssuesController's chain, and core renders issues/_attributes from
+  # issues/_form only -- but a neighbouring plugin rendering issues/_form from a
+  # controller of its own would reach the expression with no such helper and
+  # raise NoMethodError on its own screen. Structural, because the negative case
+  # needs a controller that does not exist in this suite.
+  it 'guards the helper it injects into a core partial' do
+    source = File.read(
+      File.expand_path('../lib/redmine_project_workflows/overrides/issues_attributes_add_transition_map_link.rb',
+                       __dir__)
+    )
+    calls = source.scan(/project_workflow_map_link\(@issue\)[^%]*/)
+
+    expect(calls.size).to eq(2)
+    calls.each { |call| expect(call).to include('respond_to?(:project_workflow_map_link)') }
+  end
+
   # WP4. The permissions are declared inside Redmine::Plugin.register, which is
   # a different mechanism from the patches above and fails differently: a
   # permission that never reaches Redmine::AccessControl cannot be granted to

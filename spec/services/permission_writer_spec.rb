@@ -11,6 +11,11 @@ describe RedmineProjectWorkflows::Services::PermissionWriter do
   let(:status) { issue_statuses(:issue_statuses_001) }
   let(:other_status) { issue_statuses(:issue_statuses_002) }
 
+  # See TransitionWriter's spec: a project write goes into a scope that already
+  # exists and never creates one (INV-3), so every example that writes into a
+  # project arranges the decision first.
+  before { give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS) }
+
   it 'replaces permissions for selected fields without deleting unrelated rules' do
     WorkflowPermission.create!(
       tracker_id: tracker.id,
@@ -254,9 +259,12 @@ describe RedmineProjectWorkflows::Services::PermissionWriter do
     end
   end
 
-  # WP1: see the transitions writer -- a project write records the decision.
+  # WP1, amended by this session: see the transitions writer -- a project write
+  # records that the rules changed and never creates the decision itself.
   describe 'the scope a project write records' do
-    it 'creates one for each tracker and role it wrote' do
+    let(:inheriting_role) { roles(:roles_002) }
+
+    it 'leaves the transitions scope alone, which is a decision of its own' do
       described_class.replace_permissions_for_project_id(
         project.id, [tracker], [role], { status.id.to_s => { 'due_date' => 'required' } }
       )
@@ -265,12 +273,22 @@ describe RedmineProjectWorkflows::Services::PermissionWriter do
       expect(own_workflow?(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)).to be(false)
     end
 
-    it 'creates none for a generic write' do
-      described_class.replace_permissions_for_project_id(
-        nil, [tracker], [role], { status.id.to_s => { 'due_date' => 'required' } }
+    it 'writes nothing for a combination that still inherits, and says how many' do
+      skipped = described_class.replace_permissions_for_project_id(
+        project.id, [tracker], [inheriting_role], { status.id.to_s => { 'due_date' => 'required' } }
       )
 
-      expect(ProjectWorkflowScope.count).to eq(0)
+      expect(skipped).to eq(1)
+      expect(WorkflowPermission.where(project_id: project.id, role_id: inheriting_role.id)).to be_empty
+      expect(own_workflow?(project, tracker, inheriting_role, ProjectWorkflowScope::PERMISSIONS)).to be(false)
+    end
+
+    it 'creates none for a generic write' do
+      expect do
+        described_class.replace_permissions_for_project_id(
+          nil, [tracker], [role], { status.id.to_s => { 'due_date' => 'required' } }
+        )
+      end.not_to change(ProjectWorkflowScope, :count)
     end
 
     it 'survives a save that clears every rule' do

@@ -52,21 +52,22 @@ module RedmineProjectWorkflows
 
         if project_context?
           if @roles.present? && @trackers.present? && params[:transitions]
-            transitions = params[:transitions].deep_dup
-            transitions.each_value do |transitions_by_new_status|
-              transitions_by_new_status.each_value do |transition_by_rule|
-                transition_by_rule.reject! { |_rule, transition| transition == 'no_change' }
+            transitions = strip_no_change(params[:transitions])
+            skipped = 0
+            # One transaction over the whole selection, as #duplicate already
+            # has: a failure half way through otherwise leaves some of the
+            # selected workflows rewritten and the rest untouched.
+            ActiveRecord::Base.transaction do
+              skipped = selected_project_ids.sum do |project_id|
+                RedmineProjectWorkflows::Services::TransitionWriter.replace_transitions_for_project_id(
+                  project_id,
+                  @trackers,
+                  @roles,
+                  transitions
+                )
               end
             end
-            selected_project_ids.each do |project_id|
-              RedmineProjectWorkflows::Services::TransitionWriter.replace_transitions_for_project_id(
-                project_id,
-                @trackers,
-                @roles,
-                transitions
-              )
-            end
-            flash[:notice] = l(:notice_successful_update)
+            report_matrix_save(skipped)
           end
           redirect_to edit_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers,
                                           role_id: @roles, used_statuses_only: params[:used_statuses_only])
@@ -98,19 +99,19 @@ module RedmineProjectWorkflows
 
         if project_context?
           if @roles.present? && @trackers.present? && params[:permissions]
-            permissions = normalize_permissions_params(params[:permissions].deep_dup)
-            permissions.each_value do |rule_by_field|
-              rule_by_field.reject! { |_field, rule| rule == 'no_change' }
+            permissions = strip_no_change(normalize_permissions_params(params[:permissions]))
+            skipped = 0
+            ActiveRecord::Base.transaction do
+              skipped = selected_project_ids.sum do |project_id|
+                RedmineProjectWorkflows::Services::PermissionWriter.replace_permissions_for_project_id(
+                  project_id,
+                  @trackers,
+                  @roles,
+                  permissions
+                )
+              end
             end
-            selected_project_ids.each do |project_id|
-              RedmineProjectWorkflows::Services::PermissionWriter.replace_permissions_for_project_id(
-                project_id,
-                @trackers,
-                @roles,
-                permissions
-              )
-            end
-            flash[:notice] = l(:notice_successful_update)
+            report_matrix_save(skipped)
           end
           redirect_to permissions_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers,
                                                  role_id: @roles, used_statuses_only: params[:used_statuses_only])
@@ -182,6 +183,50 @@ module RedmineProjectWorkflows
       end
 
       private
+
+      # What a matrix save did, and what it deliberately did not do.
+      #
+      # A combination that still inherits the generic workflow is left alone
+      # (INV-3: taking a workflow over is one of the three scope actions, not a
+      # side effect of pressing Save), and saying so is not optional -- the grid
+      # shows what the selection *stores*, so an inheriting combination renders
+      # empty, and a silent no-op there is indistinguishable from a save that
+      # cleared it.
+      def report_matrix_save(skipped)
+        written = (selected_project_ids.size * @trackers.size * @roles.size) - skipped
+        flash[:notice] = l(:notice_successful_update) if written.positive?
+        return unless skipped.positive?
+
+        flash[:warning] = l(:notice_project_workflow_save_skipped_inheriting, count: skipped)
+      end
+
+      # Strips core's "no change" option out of a submitted matrix, at whatever
+      # depth the leaves are: transitions nest status/status/rule and
+      # permissions status/field.
+      #
+      # Guarded, unlike core's own two loops: `transitions[1]=x` reaches those
+      # as a String and raises NoMethodError on `each_value`, which is a 500
+      # rather than a rejection. ProjectWorkflowsController has guarded its own
+      # copy since WP4; these are the same parameters through a different door.
+      def strip_no_change(params)
+        hash = to_plain_hash(params)
+        hash.each_value { |value| strip_no_change_in(value) }
+        hash
+      end
+
+      def strip_no_change_in(value)
+        return unless value.is_a?(Hash)
+
+        value.reject! { |_key, inner| inner == 'no_change' }
+        value.each_value { |inner| strip_no_change_in(inner) }
+      end
+
+      def to_plain_hash(value)
+        return {} if value.nil?
+        return value.deep_dup.to_unsafe_h if value.respond_to?(:to_unsafe_h)
+
+        value.respond_to?(:to_h) ? value.to_h.deep_dup : {}
+      end
 
       # The copy form's "which workflow" selectors, checked before anything is
       # written, because every write on this screen first deletes what the
@@ -281,12 +326,7 @@ module RedmineProjectWorkflows
       end
 
       def normalize_permissions_params(permissions)
-        permissions =
-          if permissions.respond_to?(:to_unsafe_h)
-            permissions.to_unsafe_h
-          else
-            permissions.to_h
-          end
+        permissions = to_plain_hash(permissions)
         return permissions if permissions.keys.all? { |key| key.to_s.match?(/\A\d+\z/) }
 
         normalized = {}

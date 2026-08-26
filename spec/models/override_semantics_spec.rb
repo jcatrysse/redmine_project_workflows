@@ -117,7 +117,7 @@ describe 'Override semantics' do
     give_own_workflow(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)
 
     # Taking over the transitions must not take over the field permissions.
-    rules = Issue.find(issue.id).workflow_rule_by_attribute(User.find(user.id))
+    rules = Issue.find(issue.id).send(:workflow_rule_by_attribute, User.find(user.id))
     expect(rules['due_date']).to eq('required')
   end
 
@@ -130,7 +130,7 @@ describe 'Override semantics' do
                                old_status_id: s_new.id, field_name: 'due_date', rule: 'readonly')
     give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
 
-    rules = Issue.find(issue.id).workflow_rule_by_attribute(User.find(user.id))
+    rules = Issue.find(issue.id).send(:workflow_rule_by_attribute, User.find(user.id))
     expect(rules['due_date']).to eq('readonly')
     expect(rules).not_to have_key('start_date') # the generic rule does not apply
   end

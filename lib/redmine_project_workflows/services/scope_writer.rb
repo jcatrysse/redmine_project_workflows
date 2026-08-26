@@ -23,9 +23,14 @@ module RedmineProjectWorkflows
       # Rows per statement when a delete is expressed as an OR of triples.
       DELETE_BATCH_SIZE = 500
 
-      # Creates the scopes a project write implies, and records who wrote it.
-      # Called by TransitionWriter and PermissionWriter so that saving a project
-      # matrix records the decision along with the rules.
+      # Records that somebody changed the rules of the scopes in this selection.
+      # Only existing scopes are touched -- a combination that inherits has no
+      # row to stamp, and creating one here would collapse "save" into "enable"
+      # (INV-3). This is the whole of what a matrix save does to the scope
+      # table: `ensure_scopes`, which used to create the missing rows here on
+      # behalf of the two writers, is gone, because that is exactly what made
+      # a plain Save on the administration matrix turn an inheriting project
+      # into one with an own **empty** workflow.
       #
       # The two halves of the audit trail say different things, which is why a
       # repeated save moves one of them and not the other (WP6):
@@ -42,24 +47,6 @@ module RedmineProjectWorkflows
       # saved by this person" is true of all of them; telling a rewrite that
       # changed nothing apart from one that did would mean diffing every cell on
       # a path that already writes the lot.
-      def self.ensure_scopes(project_ids:, tracker_ids:, role_ids:, rule_type:, user: User.current)
-        # Before the create, so that the rows this call is about to insert are
-        # not immediately stamped a second time with a later updated_at than
-        # their own created_at.
-        touch_scopes(
-          project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids,
-          rule_type: rule_type, user: user
-        )
-        combinations = missing_combinations(
-          project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids, rule_type: rule_type
-        )
-        create_scopes(combinations, rule_type, user)
-      end
-
-      # Records that somebody changed the rules of the scopes in this selection.
-      # Only existing scopes are touched -- a combination that inherits has no
-      # row to stamp, and creating one here would collapse "save" into "enable"
-      # (INV-3).
       #
       # One statement rather than one per scope: a selection on the
       # administration screens can be every project on the installation, and
@@ -247,18 +234,49 @@ module RedmineProjectWorkflows
       end
       private_class_method :normalize
 
+      # Rows per INSERT. "Give own workflow" with every project selected is
+      # projects x trackers x roles combinations, and one round trip each was
+      # tens of thousands of statements in a single request.
+      INSERT_BATCH_SIZE = 1000
+
+      # insert_all rather than one create! per combination.
+      #
+      # The forbidden-constructs table in CLAUDE.md bans insert_all outside the
+      # two rule writers because it skips validation, and the reason is INV-2:
+      # nothing built from a request parameter may reach a row hash unchecked.
+      # Nothing here is. +rule_type+ is compared against RULE_TYPES before it
+      # gets this far, the three ids are integers this class resolved from the
+      # database, and the author id comes from User.current -- the same argument
+      # ScopeCopier already makes for its raw INSERT ... SELECT. What the model
+      # would still check is uniqueness, and that is the table's own index; a
+      # concurrent duplicate raises RecordNotUnique with create! as well.
+      #
+      # Returns the combinations it inserted, not model objects: nothing reads
+      # the records back, and loading them would put the round trips straight
+      # back.
       def self.create_scopes(combinations, rule_type, user)
         return [] if combinations.empty?
 
+        # The one thing the model checked that the table does not: with
+        # insert_all there is no validates_inclusion_of to fall back on, and a
+        # rule type nothing can read would be a row that exists and applies to
+        # nothing.
+        unless ProjectWorkflowScope::RULE_TYPES.include?(rule_type)
+          raise ArgumentError, "unknown workflow scope rule type #{rule_type.inspect}"
+        end
+
         author_id = author_id_for(user)
-        created = combinations.map do |project_id, tracker_id, role_id|
-          ProjectWorkflowScope.create!(
-            project_id: project_id, tracker_id: tracker_id, role_id: role_id,
-            rule_type: rule_type, created_by_id: author_id, updated_by_id: author_id
-          )
+        now = Time.now.utc
+        combinations.each_slice(INSERT_BATCH_SIZE) do |slice|
+          rows = slice.map do |project_id, tracker_id, role_id|
+            { project_id: project_id, tracker_id: tracker_id, role_id: role_id,
+              rule_type: rule_type, created_by_id: author_id, updated_by_id: author_id,
+              created_at: now, updated_at: now }
+          end
+          ProjectWorkflowScope.insert_all(rows) # rubocop:disable Rails/SkipsModelValidations
         end
         Resolver.reset_cache!
-        created
+        combinations
       end
       private_class_method :create_scopes
 

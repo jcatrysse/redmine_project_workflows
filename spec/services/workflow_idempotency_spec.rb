@@ -51,6 +51,7 @@ describe 'Repeating a workflow write' do
     end
 
     it 'writes the same rows the second time, for a project' do
+      give_own_workflow(project, tracker, role)
       writer = RedmineProjectWorkflows::Services::TransitionWriter
       writer.replace_transitions_for_project_id(project.id, [tracker], [role], transitions)
       first = rows_for(project.id)
@@ -62,6 +63,7 @@ describe 'Repeating a workflow write' do
     end
 
     it 'records the decision once, not once per save' do
+      give_own_workflow(project, tracker, role)
       writer = RedmineProjectWorkflows::Services::TransitionWriter
       writer.replace_transitions_for_project_id(project.id, [tracker], [role], transitions)
       scope = ProjectWorkflowScope.find_by!(
@@ -87,6 +89,7 @@ describe 'Repeating a workflow write' do
     end
 
     it 'writes the same rows the second time, for a project' do
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
       writer = RedmineProjectWorkflows::Services::PermissionWriter
       writer.replace_permissions_for_project_id(project.id, [tracker], [role], permissions)
       first = rows_for(project.id)

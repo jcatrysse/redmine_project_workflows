@@ -104,7 +104,7 @@ describe Issue, type: :model do
 
       issue = Issue.new(project: project, tracker: tracker, status: status, author: user)
 
-      rules = issue.workflow_rule_by_attribute(user)
+      rules = issue.send(:workflow_rule_by_attribute, user)
 
       expect(rules['subject']).to eq('readonly')
     end
@@ -121,7 +121,7 @@ describe Issue, type: :model do
 
       issue = Issue.new(project: project, tracker: tracker, status: status, author: user)
 
-      rules = issue.workflow_rule_by_attribute(user)
+      rules = issue.send(:workflow_rule_by_attribute, user)
 
       expect(rules['subject']).to eq('required')
     end

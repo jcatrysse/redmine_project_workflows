@@ -104,6 +104,31 @@ describe WorkflowsController, type: :controller do
       expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inherit)))
     end
 
+    # The grid below the panel shows what the selection *stores*, so a project
+    # that inherits renders as an empty matrix -- which reads as "nothing is
+    # permitted here" and is the opposite of the truth. The panel is the only
+    # place that can say so, and it also has to say that Save will not change
+    # such a combination, because it no longer does.
+    it 'says why the grid is empty for a combination that inherits' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: [project.id.to_s], used_statuses_only: '0' }
+
+      expect(response.body).to include(
+        ERB::Util.html_escape(I18n.t(:text_project_workflow_scope_inheriting_note, count: 1))
+      )
+    end
+
+    it 'says nothing of the kind once the project has taken the combination over' do
+      give_own_workflow(project, tracker, role)
+
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: [project.id.to_s], used_statuses_only: '0' }
+
+      expect(response.body).not_to include(
+        ERB::Util.html_escape(I18n.t(:text_project_workflow_scope_inheriting_note, count: 1))
+      )
+    end
+
     it 'offers the empty and inherit actions once the project has a scope' do
       give_own_workflow(project, tracker, role)
 

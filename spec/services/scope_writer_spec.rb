@@ -168,11 +168,16 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
     end
   end
 
-  describe '.ensure_scopes' do
-    it 'creates a scope per tracker and role and records who did it' do
+  # `.ensure_scopes` is gone. It created the scope a project write implied, on
+  # behalf of the two rule writers, and that is exactly what made a plain Save
+  # on the administration matrix hand an inheriting project an own **empty**
+  # workflow. Creating a scope is now `.enable` and nothing else (INV-3), so
+  # what that method used to be held to is asserted here of `.enable`.
+  describe '.enable, as the only thing that creates a scope' do
+    it 'creates one per tracker and role and records who did it' do
       user = users(:users_002)
 
-      described_class.ensure_scopes(
+      described_class.enable(
         project_ids: [project.id], tracker_ids: [tracker.id],
         role_ids: [role.id, second_role.id], rule_type: transitions, user: user
       )
@@ -183,22 +188,22 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
     end
 
     it 'is idempotent and leaves the first decision intact' do
-      first = described_class.ensure_scopes(
+      described_class.enable(
         project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
         rule_type: transitions, user: users(:users_002)
-      ).first
+      )
 
-      described_class.ensure_scopes(
+      described_class.enable(
         project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
         rule_type: transitions, user: users(:users_003)
       )
 
       expect(ProjectWorkflowScope.count).to eq(1)
-      expect(ProjectWorkflowScope.first.created_by_id).to eq(first.created_by_id)
+      expect(ProjectWorkflowScope.first.created_by_id).to eq(users(:users_002).id)
     end
 
-    it 'records nothing for a generic write' do
-      described_class.ensure_scopes(
+    it 'records nothing when no project was named' do
+      described_class.enable(
         project_ids: [nil], tracker_ids: [tracker.id], role_ids: [role.id],
         rule_type: transitions, user: User.anonymous
       )
@@ -207,12 +212,35 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
     end
 
     it 'leaves created_by empty for an anonymous write' do
-      described_class.ensure_scopes(
+      described_class.enable(
         project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
         rule_type: transitions, user: User.anonymous
       )
 
       expect(ProjectWorkflowScope.first.created_by_id).to be_nil
+    end
+
+    # The row goes in through insert_all now -- one statement per batch rather
+    # than one round trip per combination, because "give own workflow" with
+    # every project selected is projects x trackers x roles of them. What the
+    # model would still have checked is asserted here instead.
+    it 'refuses a rule type nothing can read' do
+      expect do
+        described_class.enable(
+          project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
+          rule_type: 'something_else'
+        )
+      end.to raise_error(ArgumentError)
+    end
+
+    it 'writes every combination of a large selection' do
+      described_class.enable(
+        project_ids: [project.id, other.id], tracker_ids: [tracker.id],
+        role_ids: [role.id, second_role.id], rule_type: transitions, copy_generic: false
+      )
+
+      expect(ProjectWorkflowScope.count).to eq(4)
+      expect(ProjectWorkflowScope.pluck(:created_at).compact.size).to eq(4)
     end
   end
 
@@ -313,7 +341,7 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
     end
 
     it 'stamps both halves when it creates the scope' do
-      described_class.ensure_scopes(
+      described_class.enable(
         project_ids: [project.id], tracker_ids: [tracker.id],
         role_ids: [role.id], rule_type: transitions, user: author
       )
@@ -324,13 +352,13 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
     end
 
     it 'records who changed the rules without rewriting who made the decision' do
-      described_class.ensure_scopes(
+      described_class.enable(
         project_ids: [project.id], tracker_ids: [tracker.id],
         role_ids: [role.id], rule_type: transitions, user: author
       )
       created_at = scope_row.created_at
 
-      described_class.ensure_scopes(
+      described_class.touch_scopes(
         project_ids: [project.id], tracker_ids: [tracker.id],
         role_ids: [role.id], rule_type: transitions, user: editor
       )

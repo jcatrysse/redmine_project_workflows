@@ -12,6 +12,13 @@ describe RedmineProjectWorkflows::Services::TransitionWriter do
   let(:new_status) { issue_statuses(:issue_statuses_002) }
   let(:other_status) { issue_statuses(:issue_statuses_003) }
 
+  # A project write goes into a scope that already exists and never creates one
+  # (INV-3): taking a workflow over is one of the three actions of ScopeWriter,
+  # not a side effect of pressing Save. Every example below that writes into a
+  # project therefore has to arrange the decision first, exactly as the screens
+  # do.
+  before { give_own_workflow(project, tracker, role) }
+
   it 'stores a single author/assignee row when both are enabled' do
     transitions = {
       status.id.to_s => {
@@ -182,25 +189,46 @@ describe RedmineProjectWorkflows::Services::TransitionWriter do
     end
   end
 
-  # WP1: a project write records the decision along with the rules (INV-3), and
-  # a generic write has no decision to record.
+  # WP1, amended by this session: a project write records that somebody changed
+  # the rules, and records **nothing else**. It never creates the decision.
+  #
+  # Until now the writer created the scope a project write implied, which is how
+  # a plain Save on the administration matrix -- where an inheriting project
+  # renders as an empty grid -- gave that project an own *empty* workflow, in
+  # which no issue can change status at all. ADR-001 names that state as the one
+  # to keep unreachable by accident, and ProjectWorkflowsController has refused
+  # such a save since WP4. Now the writer refuses it too, whichever screen asked.
   describe 'the scope a project write records' do
-    it 'creates one for each tracker and role it wrote' do
-      described_class.replace_transitions_for_project_id(
-        project.id, [tracker], [role],
+    let(:inheriting_role) { roles(:roles_002) }
+
+    it 'writes nothing for a combination that still inherits, and says how many' do
+      skipped = described_class.replace_transitions_for_project_id(
+        project.id, [tracker], [inheriting_role],
         { status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
       )
 
-      expect(own_workflow?(project, tracker, role)).to be(true)
+      expect(skipped).to eq(1)
+      expect(WorkflowTransition.where(project_id: project.id, role_id: inheriting_role.id)).to be_empty
+      expect(own_workflow?(project, tracker, inheriting_role)).to be(false)
+    end
+
+    it 'writes the combinations that do have a scope and skips only the rest' do
+      skipped = described_class.replace_transitions_for_project_id(
+        project.id, [tracker], [role, inheriting_role],
+        { status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
+      )
+
+      expect(skipped).to eq(1)
+      expect(WorkflowTransition.where(project_id: project.id).pluck(:role_id)).to eq([role.id])
     end
 
     it 'creates none for a generic write' do
-      described_class.replace_transitions_for_project_id(
-        nil, [tracker], [role],
-        { status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
-      )
-
-      expect(ProjectWorkflowScope.count).to eq(0)
+      expect do
+        described_class.replace_transitions_for_project_id(
+          nil, [tracker], [role],
+          { status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
+        )
+      end.not_to change(ProjectWorkflowScope, :count)
     end
 
     # INV-3 again: clearing the last rule is not the same as returning the
@@ -220,12 +248,97 @@ describe RedmineProjectWorkflows::Services::TransitionWriter do
     end
 
     it 'creates none when the whole submission was rejected' do
-      described_class.replace_transitions_for_project_id(
-        project.id, [tracker], [role],
-        { status.id.to_s => { new_status.id.to_s => { 'sometimes' => '1' } } }
-      )
+      expect do
+        described_class.replace_transitions_for_project_id(
+          project.id, [tracker], [role],
+          { status.id.to_s => { new_status.id.to_s => { 'sometimes' => '1' } } }
+        )
+      end.not_to change(ProjectWorkflowScope, :count)
+    end
+  end
 
-      expect(ProjectWorkflowScope.count).to eq(0)
+  # The defect this session found. One cell of the transitions matrix is three
+  # controls -- always, author, assignee -- over two stored rows, and each of the
+  # three can independently arrive as "no change", which the controller strips
+  # before the writer sees it. The delete was keyed on (old status, new status)
+  # alone, so any surviving rule put the whole cell in the delete list and took
+  # the rows nobody had asked about with it.
+  #
+  # Red on the old code: the first two examples. Core's own
+  # WorkflowTransition.replace_transitions keeps both rows in these cases, so
+  # this is where the plugin's routing of that method had changed what a generic
+  # save does as well.
+  describe 'a cell whose columns disagree about being left alone' do
+    def store(author:, assignee:)
+      WorkflowTransition.create!(
+        tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,
+        new_status_id: new_status.id, project_id: project.id, author: author, assignee: assignee
+      )
+    end
+
+    def write(rules)
+      described_class.replace_transitions(project, [tracker], [role],
+                                          { status.id.to_s => { new_status.id.to_s => rules } })
+    end
+
+    # Sorted by hand: booleans are not Comparable, so Array#sort raises on a
+    # pair of them.
+    def stored
+      WorkflowTransition.where(project_id: project.id, old_status_id: status.id,
+                               new_status_id: new_status.id)
+                        .pluck(:author, :assignee)
+                        .sort_by { |author, assignee| [author ? 1 : 0, assignee ? 1 : 0] }
+    end
+
+    it 'keeps the unconditional row when only the author and assignee columns were submitted' do
+      store(author: false, assignee: false)
+
+      write('author' => '0', 'assignee' => '0')
+
+      expect(stored).to eq([[false, false]])
+    end
+
+    it 'keeps the author row when only the unconditional column was submitted' do
+      store(author: false, assignee: false)
+      store(author: true, assignee: false)
+
+      write('always' => '1')
+
+      expect(stored).to eq([[false, false], [true, false]])
+    end
+
+    # The finer half of the same rule: author and assignee share one row, so a
+    # submitted author column must not reset an assignee flag that was left at
+    # "no change". Core mutates the row rather than replacing it, and this is
+    # how the plugin reproduces that.
+    it 'keeps the assignee flag when only the author column was submitted' do
+      store(author: false, assignee: true)
+
+      write('author' => '1')
+
+      expect(stored).to eq([[true, true]])
+    end
+
+    it 'keeps the author flag when only the assignee column was submitted' do
+      store(author: true, assignee: false)
+
+      write('assignee' => '1')
+
+      expect(stored).to eq([[true, true]])
+    end
+
+    it 'still clears the shared row when the last of its two flags is switched off' do
+      store(author: true, assignee: false)
+
+      write('author' => '0')
+
+      expect(stored).to be_empty
+    end
+
+    it 'writes a new author row where none was stored' do
+      write('author' => '1')
+
+      expect(stored).to eq([[true, false]])
     end
   end
 end

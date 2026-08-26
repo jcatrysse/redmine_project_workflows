@@ -37,6 +37,28 @@ describe SettingsController, type: :controller do
       )
     end
 
+    # Redmine's plugin settings have no validation hook -- SettingsController
+    # assigns the submitted hash as it arrives -- so a value that is not a run
+    # of digits is accepted, stored, and then silently ignored by the helper,
+    # which falls back to the default. The field is what refuses it, and the
+    # fallback stays for anything saved before this attribute existed.
+    it 'refuses a threshold that is not a whole number, in the field itself' do
+      get :plugin, params: { id: 'redmine_project_workflows' }
+
+      field = response.body[/<input[^>]*name="settings\[bulk_confirm_threshold\]"[^>]*>/]
+      expect(field).to include('type="number"')
+      expect(field).to include('min="0"')
+    end
+
+    it 'falls back to the default for a value that was saved anyway' do
+      Setting.plugin_redmine_project_workflows = { 'bulk_confirm_threshold' => 'lots' }
+
+      helper = Object.new.extend(RedmineProjectWorkflows::BulkActionsHelper)
+
+      expect(helper.project_workflow_bulk_confirm_threshold)
+        .to eq(RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD)
+    end
+
     it 'saves what was typed into it' do
       post :plugin, params: { id: 'redmine_project_workflows',
                               settings: { 'bulk_confirm_threshold' => '12' } }

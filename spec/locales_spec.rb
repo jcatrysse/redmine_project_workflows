@@ -46,6 +46,25 @@ describe 'the locale files' do
       it 'carries every key English carries, and no key English does not' do
         expect(keys_of(path)).to eq(keys_of(reference))
       end
+
+      # Key parity alone does not catch the failure that actually happens: a
+      # pluralised key whose value is a hash missing the form Redmine will ask
+      # for. Redmine's I18n applies only :one and :other, to every language it
+      # ships -- Polish included, which is why pl.yml carries a note about
+      # wording its plurals so that two forms are enough. A missing form is an
+      # I18n::InvalidPluralizationData at render time, not a fallback.
+      it 'carries both plural forms wherever English is pluralised' do
+        table = YAML.unsafe_load_file(path).values.first
+        english = YAML.unsafe_load_file(reference).values.first
+
+        english.each do |key, value|
+          next unless value.is_a?(Hash)
+
+          expect(table[key]).to be_a(Hash), "#{key} is pluralised in English and is not here"
+          expect(table[key].keys.map(&:to_s)).to include('one', 'other'),
+                                                 "#{key} is missing a plural form: #{table[key].keys.inspect}"
+        end
+      end
     end
   end
 end

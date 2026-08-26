@@ -3,6 +3,13 @@
 module RedmineProjectWorkflows
   module Services
     class PermissionWriter
+      extend MatrixScope
+
+      # See TransitionWriter.rule_model.
+      def self.rule_model
+        WorkflowPermission
+      end
+
       # The rules core's WorkflowPermission accepts. A blank rule is not a rule
       # but the request to remove one, so it is kept and dropped again when the
       # rows are built.
@@ -12,38 +19,46 @@ module RedmineProjectWorkflows
         replace_permissions_for_project_id(project.id, trackers, roles, permissions)
       end
 
+      # Returns the number of (tracker, role) combinations this call refused to
+      # write because the project still inherits the generic workflow. Zero for
+      # a generic write, which has no scope to check.
       def self.replace_permissions_for_project_id(project_id, trackers, roles, permissions)
         trackers = Array.wrap(trackers)
         roles = Array.wrap(roles)
-        return if trackers.empty? || roles.empty?
+        return 0 if trackers.empty? || roles.empty?
 
         permissions = sanitize_permissions(normalize_permissions(permissions))
-        return if permissions.empty?
+        return 0 if permissions.empty?
 
+        skipped = 0
         WorkflowPermission.transaction do
-          # See TransitionWriter: a project write records the decision too.
-          if project_id
-            ScopeWriter.ensure_scopes(
-              project_ids: [project_id],
-              tracker_ids: trackers.map(&:id),
-              role_ids: roles.map(&:id),
-              rule_type: ProjectWorkflowScope::PERMISSIONS
-            )
-          end
+          pairs = writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::PERMISSIONS)
+          skipped = (trackers.size * roles.size) - pairs.size
+          next if pairs.empty?
 
-          scope = WorkflowPermission.where(
-            tracker_id: trackers.map(&:id),
-            role_id: roles.map(&:id),
-            project_id: project_id
-          )
-          delete_permissions_for_scope(scope, permissions)
-          rows = build_permission_rows(project_id, trackers, roles, permissions)
-          insert_permission_rows(rows)
+          write_pairs(project_id, pairs, permissions)
         end
         # See TransitionWriter: the rules have changed, so anything cached from
         # them is now wrong.
         Resolver.reset_cache!
+        skipped
       end
+
+      def self.write_pairs(project_id, pairs, permissions)
+        if project_id
+          ScopeWriter.touch_scopes(
+            project_ids: [project_id],
+            tracker_ids: pairs.map { |tracker, _role| tracker.id }.uniq,
+            role_ids: pairs.map { |_tracker, role| role.id }.uniq,
+            rule_type: ProjectWorkflowScope::PERMISSIONS
+          )
+        end
+
+        scope = WorkflowPermission.where(project_id: project_id).where(pair_predicate(pairs))
+        delete_permissions_for_scope(scope, permissions)
+        insert_permission_rows(build_permission_rows(project_id, pairs, permissions))
+      end
+      private_class_method :write_pairs
 
       # INV-2: the rows are written with insert_all, which runs no validations,
       # so this whitelist *is* the validation. It restores what core's
@@ -103,7 +118,7 @@ module RedmineProjectWorkflows
         scope.where(predicate).delete_all
       end
 
-      def self.build_permission_rows(project_id, trackers, roles, permissions)
+      def self.build_permission_rows(project_id, pairs, permissions)
         rows = []
         permissions.each do |status_id, rule_by_field|
           status_id = status_id.to_i
@@ -112,18 +127,16 @@ module RedmineProjectWorkflows
           rule_by_field.each do |field, rule|
             next if rule.blank?
 
-            trackers.each do |tracker|
-              roles.each do |role|
-                rows << {
-                  role_id: role.id,
-                  tracker_id: tracker.id,
-                  old_status_id: status_id,
-                  field_name: field,
-                  rule: rule,
-                  project_id: project_id,
-                  type: 'WorkflowPermission'
-                }
-              end
+            pairs.each do |tracker, role|
+              rows << {
+                role_id: role.id,
+                tracker_id: tracker.id,
+                old_status_id: status_id,
+                field_name: field,
+                rule: rule,
+                project_id: project_id,
+                type: 'WorkflowPermission'
+              }
             end
           end
         end

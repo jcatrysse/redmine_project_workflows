@@ -59,6 +59,12 @@ de:
   text_project_workflow_readonly_generic: Dieses Projekt erbt den allgemeinen Workflow für diesen Tracker und diese Rolle. Er wird unten als Referenz gezeigt; geben Sie dem Projekt einen eigenen Workflow, um ihn zu ändern.
   text_project_workflow_readonly_own: Dies ist der eigene Workflow des Projekts. Um ihn zu ändern, benötigen Sie das Recht, den Workflow dieses Projekts zu verwalten.
   notice_project_workflow_not_own: Dieses Projekt erbt den allgemeinen Workflow für diesen Tracker und diese Rolle, daher wurde nichts gespeichert. Geben Sie dem Projekt zuerst einen eigenen Workflow.
+  text_project_workflow_scope_inheriting_note:
+    one: "%{count} Kombination in dieser Auswahl erbt noch den allgemeinen Workflow. Die Matrix unten zeigt nur die Regeln, die die Auswahl selbst speichert; diese Kombination erscheint daher leer, und Speichern ändert nichts daran — geben Sie ihr zuerst einen eigenen Workflow."
+    other: "%{count} Kombinationen in dieser Auswahl erben noch den allgemeinen Workflow. Die Matrix unten zeigt nur die Regeln, die die Auswahl selbst speichert; diese Kombinationen erscheinen daher leer, und Speichern ändert nichts daran — geben Sie ihnen zuerst einen eigenen Workflow."
+  notice_project_workflow_save_skipped_inheriting:
+    one: "%{count} Kombination aus Projekt, Tracker und Rolle erbt noch den allgemeinen Workflow und wurde nicht geändert. Geben Sie ihr zuerst einen eigenen Workflow."
+    other: "%{count} Kombinationen aus Projekt, Tracker und Rolle erben noch den allgemeinen Workflow und wurden nicht geändert. Geben Sie ihnen zuerst einen eigenen Workflow."
   label_project_workflow_bulk_row: 'Ganze Zeile "%{name}" auf %{value} setzen'
   label_project_workflow_bulk_column: 'Ganze Spalte "%{name}" auf %{value} setzen'
   text_project_workflow_bulk_confirm: 'Diese Aktion betrifft %{count} Workflow-Regel(n). Fortfahren?'

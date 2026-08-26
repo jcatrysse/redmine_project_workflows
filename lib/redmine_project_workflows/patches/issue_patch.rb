@@ -47,6 +47,11 @@ module RedmineProjectWorkflows
         @workflow_rule_by_attribute = result if user.nil?
         result
       end
+      # Core declares `private :workflow_rule_by_attribute` right after its own
+      # definition. A prepended module that redefines it without saying so makes
+      # it public on every patched host, which quietly widens core's API -- so
+      # the visibility is restored here rather than left to be noticed later.
+      private :workflow_rule_by_attribute
 
       # Core's setter, with its one project-blind lookup replaced. Core asks the
       # tracker whether it uses the current status anywhere -- a global union

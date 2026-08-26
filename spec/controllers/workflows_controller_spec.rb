@@ -411,6 +411,8 @@ describe WorkflowsController, type: :controller do
   end
 
   it 'updates both global and project transitions when combined selection is saved (status-first payload)' do
+    give_own_workflow(project, tracker, role)
+
     post :update, params: {
       role_id: [role.id],
       tracker_id: [tracker.id],
@@ -457,6 +459,8 @@ describe WorkflowsController, type: :controller do
   end
 
   it 'updates both global and project permissions when combined selection is saved (field-first payload)' do
+    give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+
     post :update_permissions, params: {
       role_id: [role.id],
       tracker_id: [tracker.id],
@@ -512,6 +516,8 @@ describe WorkflowsController, type: :controller do
   end
 
   it 'updates both global and project permissions when combined selection is saved (status-first payload)' do
+    give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+
     post :update_permissions, params: {
       role_id: [role.id],
       tracker_id: [tracker.id],
@@ -554,6 +560,8 @@ describe WorkflowsController, type: :controller do
   end
 
   it 'updates permissions when params are field-first' do
+    give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+
     post :update_permissions, params: {
       role_id: [role.id],
       tracker_id: [tracker.id],
@@ -1339,6 +1347,160 @@ describe WorkflowsController, type: :controller do
       get :copy, params: { project_id: ['99999999'] }
 
       expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  # The two defects this session's review found on the administration matrix,
+  # both on the path "an administrator presses Save".
+  describe 'saving the administration matrix' do
+    def matrix_params(transitions)
+      { role_id: [role.id], tracker_id: [tracker.id], used_statuses_only: '0',
+        transitions: transitions }
+    end
+
+    # A cell of the transitions grid is three controls -- always, author,
+    # assignee -- and each can independently render as a <select> whose default
+    # is core's "no change". The writer keyed its delete on the cell alone, so
+    # one submitted column deleted the rows of the other two.
+    #
+    # Red on the old code: the transition is gone and the flash still says
+    # "Successful update".
+    describe 'a cell left at (No change)' do
+      it 'leaves the workflows that disagree exactly as they were' do
+        [project, other_project].each { |target| give_own_workflow(target, tracker, role) }
+        WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                   old_status_id: old_status.id, new_status_id: new_status.id,
+                                   project_id: project.id, author: false, assignee: false)
+
+        patch :update, params: matrix_params(
+          old_status.id.to_s => {
+            new_status.id.to_s => { 'always' => 'no_change', 'author' => '0', 'assignee' => '0' }
+          }
+        ).merge(project_id: [project.id.to_s, other_project.id.to_s])
+
+        expect(
+          WorkflowTransition.where(project_id: project.id, old_status_id: old_status.id,
+                                   new_status_id: new_status.id)
+        ).to exist
+      end
+
+      # The same rule on the generic workflow, which is what an administrator
+      # editing several trackers or roles at once is doing. The plugin routes
+      # core's own WorkflowTransition.replace_transitions through the writer, so
+      # this was a change to what stock Redmine does.
+      it 'leaves the generic workflow alone as well' do
+        WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                   old_status_id: old_status.id, new_status_id: new_status.id,
+                                   project_id: nil, author: false, assignee: false)
+
+        patch :update, params: matrix_params(
+          old_status.id.to_s => {
+            new_status.id.to_s => { 'always' => 'no_change', 'author' => '0', 'assignee' => '0' }
+          }
+        ).merge(project_id: ['global'])
+
+        expect(
+          WorkflowTransition.where(project_id: nil, old_status_id: old_status.id,
+                                   new_status_id: new_status.id)
+        ).to exist
+      end
+    end
+
+    # The grid shows what the selection *stores*, so a project that inherits
+    # renders empty -- and a plain Save then wrote that emptiness back as an own
+    # **empty** workflow, in which no issue in the project can change status at
+    # all. ADR-001 names that state as the one to keep unreachable by accident.
+    #
+    # Red on the old code: a scope appeared, and the only flash was the success
+    # notice.
+    describe 'a project that still inherits' do
+      let(:submission) do
+        matrix_params(
+          old_status.id.to_s => {
+            new_status.id.to_s => { 'always' => '0', 'author' => '0', 'assignee' => '0' }
+          }
+        ).merge(project_id: [project.id.to_s])
+      end
+
+      it 'is not given a workflow of its own by pressing Save' do
+        patch :update, params: submission
+
+        expect(ProjectWorkflowScope.where(project_id: project.id)).to be_empty
+        expect(WorkflowTransition.where(project_id: project.id)).to be_empty
+      end
+
+      it 'says how many combinations it left alone, and does not claim success' do
+        patch :update, params: submission
+
+        expect(flash[:warning]).to be_present
+        expect(flash[:notice]).to be_nil
+      end
+
+      it 'still reports success for the combinations it did write' do
+        give_own_workflow(project, tracker, role)
+
+        patch :update, params: submission.deep_merge(
+          project_id: ['global', project.id.to_s]
+        )
+
+        expect(flash[:notice]).to be_present
+        expect(flash[:warning]).to be_nil
+      end
+
+      it 'refuses the field permissions matrix the same way' do
+        patch :update_permissions, params: {
+          role_id: [role.id], tracker_id: [tracker.id], project_id: [project.id.to_s],
+          used_statuses_only: '0',
+          permissions: { old_status.id.to_s => { 'subject' => 'readonly' } }
+        }
+
+        expect(ProjectWorkflowScope.where(project_id: project.id)).to be_empty
+        expect(WorkflowPermission.where(project_id: project.id)).to be_empty
+        expect(flash[:warning]).to be_present
+      end
+    end
+
+    # Core's own two loops reach a malformed matrix as a String and raise
+    # NoMethodError on each_value, which is a 500 rather than a rejection.
+    # ProjectWorkflowsController has guarded its copy since WP4.
+    it 'rejects a malformed matrix rather than raising' do
+      patch :update, params: matrix_params('nonsense').merge(project_id: ['global'])
+
+      expect(response).to have_http_status(:found)
+      expect(WorkflowTransition.count).to eq(0)
+    end
+
+    it 'rejects a malformed permissions matrix rather than raising' do
+      patch :update_permissions, params: {
+        role_id: [role.id], tracker_id: [tracker.id], project_id: ['global'],
+        used_statuses_only: '0', permissions: 'nonsense'
+      }
+
+      expect(response).to have_http_status(:found)
+      expect(WorkflowPermission.count).to eq(0)
+    end
+
+    # One transaction over the whole selection, as #duplicate already had: a
+    # failure half way through otherwise leaves some of the selected workflows
+    # rewritten and the rest untouched.
+    it 'writes the whole selection or none of it' do
+      [project, other_project].each { |target| give_own_workflow(target, tracker, role) }
+      writer = RedmineProjectWorkflows::Services::TransitionWriter
+      calls = 0
+      allow(writer).to receive(:replace_transitions_for_project_id).and_wrap_original do |original, *args|
+        calls += 1
+        raise ActiveRecord::StatementInvalid, 'boom' if calls > 1
+
+        original.call(*args)
+      end
+
+      expect do
+        patch :update, params: matrix_params(
+          old_status.id.to_s => { new_status.id.to_s => { 'always' => '1' } }
+        ).merge(project_id: [project.id.to_s, other_project.id.to_s])
+      end.to raise_error(ActiveRecord::StatementInvalid)
+
+      expect(WorkflowTransition.count).to eq(0)
     end
   end
 end
