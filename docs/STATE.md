@@ -163,19 +163,17 @@ gates this session. What it did produce, each of which became an example:
 | Migration up → 0 → up | clean on the 7.0 host, run **before** its suite. This session adds no migration |
 | Locale parity | eight files, **92** keys each (was 91) |
 | MySQL / MariaDB | **not run** — no such server and no `mysqld` in this container. Three of the nine cells are unverified locally; CI covers them |
-| CI | **green up to `e9f2443`**; the C01 fix (`a559b6a`) was pushed after that and its run should be read by the next session. Run **63** on `250c8b3` — which carries the entire code change — succeeded on **all ten jobs**: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Run **65** on `6852fa2` is green too. That is what covers the three **MySQL and MariaDB** cells nothing in this container could run. Runs 61, 62 and 64 read "cancelled": the concurrency group superseded each of them when the next commit was pushed, which is not a failure — read the run for the commit you care about, not the newest completed one |
+| CI | **green, including the C01 fix.** Run **67** on `9905f6c` — the branch head, carrying `a559b6a` — succeeded, as did run **66** on `e9f2443` and run **65** on `6852fa2`. A run's conclusion is `success` only when every job in it is, and this workflow is ten jobs. Run **63** on `250c8b3` — which carries the entire code change — succeeded on **all ten jobs**: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Run **65** on `6852fa2` is green too. That is what covers the three **MySQL and MariaDB** cells nothing in this container could run. Runs 61, 62 and 64 read "cancelled": the concurrency group superseded each of them when the next commit was pushed, which is not a failure — read the run for the commit you care about, not the newest completed one |
 
 ## Exact next step
 
 **It is Jan's turn.**
 
-1. **Read CI for the head.** Everything up to `e9f2443` is green on all ten jobs
-   (run 63 on `250c8b3`, run 65 on `6852fa2`). The C01 fix and this STATE rewrite
-   land after that, and their run had not finished when the session ended. It is
-   view code and view specs, all nine cells run the same ones, and all three
-   PostgreSQL cells were run here — so a surprise is unlikely, but read it. See
-   the CI row above for the "cancelled" runs, which are the concurrency group and
-   not failures.
+1. **Nothing to check first.** CI is green on all ten jobs for every commit of
+   this session that carries code — the copy guard (run 63 on `250c8b3`) and the
+   C01 fix (run 67 on `9905f6c`). Only one commit lands after run 67: this line
+   itself, docs only. See the CI row above for the "cancelled" runs, which are the
+   concurrency group superseding a run and not failures.
 2. **Nothing else is queued.** WP0..WP8 are done, `spec/characterization/` is
    empty, and the three open findings are all deliberate — `C01` is waiting on
    Jan, `G02` and `G03` were both recorded with the reasoning for leaving them.
