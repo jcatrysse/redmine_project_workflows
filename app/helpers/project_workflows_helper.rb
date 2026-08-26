@@ -94,6 +94,74 @@ module ProjectWorkflowsHelper
     end
   end
 
+  # The link to the comparison, or nothing at all where there is nothing to
+  # compare: a combination the project inherits has no own workflow, and the
+  # page would say so rather than show a table (WP6).
+  #
+  # Built here so the settings tab, the matrix header and the administration
+  # inventory cannot drift apart about when the link is offered.
+  def project_workflow_compare_link(project, tracker, role, rule_type, state)
+    return if state.to_sym == :inherits
+
+    link_to(l(:label_project_workflow_compare),
+            project_workflow_compare_path(project, tracker_id: tracker.id, role_id: role.id,
+                                                   rule_type: rule_type),
+            class: 'project-workflow-compare-link')
+  end
+
+  # One line of the comparison, labelled with the side it is on (WP6). Three
+  # states, in words, with the class carrying nothing but colour -- the same rule
+  # as the scope state above.
+  def project_workflow_difference_tag(state)
+    content_tag(:span, project_workflow_difference_label(state),
+                class: "project-workflow-difference #{state}")
+  end
+
+  def project_workflow_difference_label(state)
+    case state
+    when :project_only then l(:label_project_workflow_compare_project_only)
+    when :generic_only then l(:label_project_workflow_compare_generic_only)
+    else l(:label_project_workflow_compare_changed)
+    end
+  end
+
+  # Which of core's three transition grids a difference sits in. Not core's own
+  # `label_additional_workflow_transitions_for_*`: those are the sentences above
+  # a grid ("Additional transitions allowed when the user is the author") and read
+  # as a heading rather than as a cell in a column of four.
+  def project_workflow_condition_label(group)
+    case group
+    when 'author' then l(:label_project_workflow_condition_author)
+    when 'assignee' then l(:label_project_workflow_condition_assignee)
+    else l(:label_project_workflow_condition_always)
+    end
+  end
+
+  # A status by name, with the two cases a name cannot come from: core's "new
+  # issue" pseudo status, stored as old_status_id 0 and not an IssueStatus, and a
+  # row naming a status that no longer exists -- which core's own delete does not
+  # leave behind, but which the table allows and is better named by its id than
+  # rendered as an empty cell.
+  def project_workflow_status_label(status, status_id)
+    return status.name if status
+    return l(:label_issue_new) if status_id.to_i.zero?
+
+    "##{status_id}"
+  end
+
+  # The row header of a field-permissions grid: a core field by its translated
+  # name, or a custom field by its own. +custom_fields+ is keyed by id as a
+  # string, because that is how the rule stores it.
+  #
+  # A field the tracker no longer has -- disabled, or a custom field since
+  # removed -- is named by what the rule holds rather than dropped, because the
+  # rule is still in the table and still a difference.
+  def project_workflow_field_label(field_name, custom_fields)
+    return custom_fields[field_name.to_s]&.name || "##{field_name}" if field_name.to_s.match?(/\A\d+\z/)
+
+    l("field_#{field_name.to_s.delete_suffix('_id')}", default: field_name.to_s)
+  end
+
   # Who last changed this combination's rules, and when (WP6).
   #
   # Core's own +authoring+ helper and its +label_updated_time_by+ key, so the

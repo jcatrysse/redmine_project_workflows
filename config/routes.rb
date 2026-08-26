@@ -27,6 +27,8 @@ patch  'projects/:project_id/workflow/transitions',   to: 'project_workflows#upd
 get    'projects/:project_id/workflow/permissions',   to: 'project_workflows#permissions',
                                                       as: 'project_workflow_permissions'
 patch  'projects/:project_id/workflow/permissions',   to: 'project_workflows#update_permissions'
+get    'projects/:project_id/workflow/compare',       to: 'project_workflows#compare',
+                                                      as: 'project_workflow_compare'
 post   'projects/:project_id/workflow/scope',         to: 'project_workflows#enable',
                                                       as: 'project_workflow_scope'
 delete 'projects/:project_id/workflow/scope',         to: 'project_workflows#inherit'

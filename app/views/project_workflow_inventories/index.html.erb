@@ -70,6 +70,12 @@
           <%= project_workflow_inventory_count_link(cell, row, rule_type) %>
           <%= project_workflow_state_tag(cell.state) %>
           <%= project_workflow_audit_tag(cell) %>
+          <%# The comparison is a project screen, so this link leads out of the
+              administration section. A project that has since had its issue
+              tracking module or its tracker taken away answers 404 there, which
+              is the honest answer: the combination still has a scope, and the
+              project no longer offers the matrix to compare it against. %>
+          <%= project_workflow_compare_link(row.project, row.tracker, row.role, rule_type, cell.state) %>
         </td>
       <% end %>
     </tr>

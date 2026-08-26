@@ -230,6 +230,21 @@ describe ProjectWorkflowInventoriesController, type: :controller do
       expect(response.body.scan('project-workflow-scope-audit').size).to eq(1)
     end
 
+    # WP6: the third entry point. The comparison is a project screen, so this
+    # link leads out of the administration section -- which is what the work
+    # package asked for, "reachable from the inventory and from the matrix".
+    it 'links every deviating cell to the comparison' do
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)
+
+      get :index
+
+      path = project_workflow_compare_path(project, tracker_id: tracker.id, role_id: role.id,
+                                                    rule_type: ProjectWorkflowScope::TRANSITIONS)
+      expect(response.body).to include(ERB::Util.html_escape(path))
+      # The same row's permissions cell inherits, so it gets no link.
+      expect(response.body.scan('project-workflow-compare-link').size).to eq(1)
+    end
+
     # A scope the WP1 backfill wrote has a time and no author, and "Updated by
     # Anonymous" would name somebody who was not there.
     it 'says nothing for a scope written with nobody logged in' do

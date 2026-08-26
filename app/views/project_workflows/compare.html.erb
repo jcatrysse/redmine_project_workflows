@@ -1,0 +1,104 @@
+<%#
+  Project settings -> Workflow -> one matrix -> compare with the generic workflow
+  (WP6).
+
+  Read-only, and deliberately not a third tab on the matrix header: the two tabs
+  there are the two kinds of rule, and this page is a view of one of them, so
+  making it a tab would leave one of the two showing as selected while the visitor
+  is somewhere else.
+
+  A scope replaces (INV-5), so the only question there is to ask about the two
+  workflows is which cells differ -- there is no merge to explain and no
+  precedence to work out. That is what the sentence under the heading says, and
+  it is why every line carries the side it is on rather than a "wins" column.
+%>
+<div class="contextual">
+  <%= link_to l(:label_project_workflow_open_matrix),
+              project_workflow_matrix_path(@project, @tracker, @role, @rule_type) %>
+  <%= link_to l(:label_settings), settings_project_path(@project, tab: 'project_workflows') %>
+</div>
+
+<%= title l(:label_project_workflow_compare) %>
+
+<p>
+  <strong><%= l(:label_tracker) %>:</strong> <%= @tracker.name %>
+  &nbsp;
+  <strong><%= l(:label_role) %>:</strong> <%= @role.name %>
+  &nbsp;
+  <strong><%= l(:label_project_workflow_rule_type) %>:</strong>
+  <%= project_workflow_rule_type_label(@rule_type) %>
+</p>
+
+<% unless @own_workflow %>
+  <p class="nodata"><%= l(:text_project_workflow_compare_inherits) %></p>
+<% end %>
+
+<% if @own_workflow %>
+  <p><%= l(:text_project_workflow_compare_description) %></p>
+  <p>
+    <%= l(:text_project_workflow_compare_counts,
+          project: @comparison.project_rule_count, generic: @comparison.generic_rule_count) %>
+  </p>
+
+  <% if @comparison.identical? %>
+    <p class="nodata"><%= l(:text_project_workflow_compare_identical) %></p>
+  <% elsif @rule_type == ProjectWorkflowScope::TRANSITIONS %>
+    <div class="autoscroll">
+    <table class="list project-workflow-comparison">
+      <thead>
+        <tr>
+          <th><%= l(:label_project_workflow_compare_condition) %></th>
+          <th><%= l(:label_current_status) %></th>
+          <th><%= l(:label_new_statuses_allowed) %></th>
+          <th><%= l(:label_project_workflow_compare_difference) %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @comparison.differences.each do |difference| %>
+        <tr>
+          <td><%= project_workflow_condition_label(difference.group) %></td>
+          <td class="name">
+            <%= project_workflow_status_label(difference.old_status, difference.old_status_id) %>
+          </td>
+          <td class="name">
+            <%= project_workflow_status_label(difference.new_status, difference.new_status_id) %>
+          </td>
+          <td><%= project_workflow_difference_tag(difference.state) %></td>
+        </tr>
+        <% end %>
+      </tbody>
+    </table>
+    </div>
+  <% else %>
+    <div class="autoscroll">
+    <table class="list project-workflow-comparison">
+      <thead>
+        <tr>
+          <th><%= l(:label_issue_status) %></th>
+          <th><%= l(:label_attribute) %></th>
+          <th><%= l(:label_project_workflow_compare_in_project) %></th>
+          <th><%= l(:label_project_workflow_compare_in_generic) %></th>
+          <th><%= l(:label_project_workflow_compare_difference) %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @comparison.differences.each do |difference| %>
+        <tr>
+          <td class="name">
+            <%= project_workflow_status_label(difference.status, difference.status_id) %>
+          </td>
+          <td class="name">
+            <%= project_workflow_field_label(difference.field_name, @custom_fields_by_name) %>
+          </td>
+          <%# An empty cell is a field that side says nothing about -- neither
+              read-only nor required, which is the default and needs no word. %>
+          <td><%= project_workflow_permission_label([difference.project_rule]) %></td>
+          <td><%= project_workflow_permission_label([difference.generic_rule]) %></td>
+          <td><%= project_workflow_difference_tag(difference.state) %></td>
+        </tr>
+        <% end %>
+      </tbody>
+    </table>
+    </div>
+  <% end %>
+<% end %>

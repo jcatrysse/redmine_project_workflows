@@ -97,6 +97,28 @@ describe RedmineProjectWorkflows do
       .to eq(RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD)
   end
 
+  # WP6 added an action and forgot this mapping, and the symptom was a 403 for
+  # everybody including administrators -- not an obvious "unmapped action" error.
+  # So this is structural rather than a list: every action this controller
+  # actually has must be named by at least one of the two permissions, and the
+  # example fails the moment the next one is added without one.
+  #
+  # The difference against ApplicationController is what leaves the plugin's own
+  # actions: action_methods on a controller includes everything public it
+  # inherited as well.
+  it 'names every action of its own controller in a permission' do
+    actions = ProjectWorkflowsController.action_methods - ApplicationController.action_methods
+    granted = %i[view_project_workflow manage_project_workflow].flat_map do |name|
+      Redmine::AccessControl.permission(name).actions
+    end
+
+    expect(actions).not_to be_empty
+    actions.each do |action|
+      expect(granted).to include("project_workflows/#{action}"),
+                         "project_workflows##{action} is reachable and no permission names it"
+    end
+  end
+
   # Reading a workflow is a read action, so it goes on working in a closed
   # project; managing one is not, so it stops there.
   it 'marks viewing as a read action and managing as a write' do

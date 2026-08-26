@@ -135,7 +135,8 @@ As built:
 | --- | --- | --- |
 | `projects/:project_id/workflow/transitions` | the transitions matrix | either |
 | `projects/:project_id/workflow/permissions` | the field permissions matrix | either |
-| `PATCH` on either | save that matrix | manage |
+| `projects/:project_id/workflow/compare` | this project's workflow against the generic one | either |
+| `PATCH` on either matrix | save that matrix | manage |
 | `projects/:project_id/workflow/scope` | enable (`POST`) / return to inheritance (`DELETE`) | manage |
 | `projects/:project_id/workflow/scope/clear` | empty the matrix | manage |
 
@@ -292,6 +293,90 @@ actually reaches the rendered page (**INV-9**), with an assertion that only
 that override can satisfy — the selector and the hidden field both render
 `project_id[]`, so a shared assertion would have let either of them stop
 matching unnoticed.
+
+### Comparing a project's workflow with the generic one
+
+A scope **replaces** (**INV-5**), so the only question there is to ask about the
+relationship between the two workflows is *which cells differ*: there is no merge
+to explain and no precedence to work out. The comparison screen answers exactly
+that, read-only, at
+`projects/:project_id/workflow/compare?tracker_id=&role_id=&rule_type=`.
+
+`Services::WorkflowComparison` reads both populations with an explicit
+`project_id` — the project's id and `nil` (**INV-4**) — in two queries plus one
+for the statuses, whatever the size of the matrix.
+
+**The unit of comparison is the grid, not the row.** Core's transitions screen
+draws three: the plain one, plus *additional transitions when the user is the
+author* and *…the assignee*. `WorkflowsController#edit` partitions the rows as
+`reject { author || assignee }`, `select(&:author)` and `select(&:assignee)`, so a
+row with **both** flags set appears in two grids at once. The comparison
+partitions them the same way and compares grid against grid, which is what makes
+its answer match what the screen shows rather than what the table holds.
+
+Field permissions have a third state transitions cannot have — both sides say
+something about a (status, field) and they disagree — so a permissions difference
+carries the rule from each side as well as the label.
+
+Every line says which side it is on, in words, with the class carrying nothing
+but colour: *Only in this project*, *Only in the generic workflow*, *Different*.
+There is no "wins" column, because there is no contest: with a scope in place the
+generic rules do not apply at all, which is what the sentence above the table
+says.
+
+Two states of the screen are not tables:
+
+- A combination the project **inherits** has nothing to compare — its workflow
+  *is* the generic one — and the page says so. This also keeps a pre-WP1 database
+  honest: rows stored against a project with no scope apply to nothing
+  (**INV-3**), so listing them as differences would name rules that are not in
+  force.
+- An own workflow **identical** to the generic one says that in a sentence rather
+  than showing an empty table.
+
+The ordering is computed in Ruby — core's own order, "new issue" first and then
+by status position, with the ids as a tiebreaker — because CI runs on three
+databases with a random seed and an order that falls out of a query is not an
+order.
+
+Three entry points, all built by one helper so they cannot drift about when the
+link is offered: the project settings tab, the header of either project matrix,
+and the administration inventory. The inventory's link leads out of the
+administration section into a project screen; a project that has since had its
+issue tracking module or its tracker taken away answers **404** there, which is
+the honest answer — the combination still has a scope, and the project no longer
+offers the matrix to compare it against.
+
+### The audit trail
+
+`project_workflow_scopes` has carried `created_by_id` and `updated_by_id` since
+WP1's migration. They answer two different questions, and that is why a repeated
+save moves one and not the other:
+
+| Columns | What they record |
+| --- | --- |
+| `created_by_id`, `created_at` | who decided this project runs its own workflow here — never rewritten |
+| `updated_by_id`, `updated_at` | who last changed the rules |
+
+`ScopeWriter.touch_scopes` is the only stamp, and `ensure_scopes` calls it
+*before* it creates anything, so a row inserted by the same call is not
+immediately stamped a second time with an `updated_at` later than its own
+`created_at`. Emptying a matrix goes through the same method. Only existing
+scopes are touched: a combination that inherits has no row, and creating one
+there would collapse "save" into "enable" (**INV-3**).
+
+The touch covers every combination in the write's selection rather than only the
+ones whose rules end up different. A matrix save submits and rewrites the whole
+matrix for the whole selection, so *this workflow was saved by this person* is
+true of all of them; distinguishing a rewrite that changed nothing would mean
+diffing every cell on a path that already writes the lot.
+
+`InventoryQuery` carries the pair into its `Cell`, and the sentence is core's own
+`authoring` helper with `label_updated_time_by` — already translated in every
+language Redmine ships, so there is no string of the plugin's own here. Nothing
+is rendered where there is nothing to say: an inheriting cell has no scope, and a
+scope the WP1 backfill wrote has a time and **no** author, which would otherwise
+read as "Updated by Anonymous" and name somebody who was not there.
 
 ### Bulk editing a matrix
 

@@ -69,3 +69,18 @@ pl:
   text_project_workflow_bulk_legend_actions: 'Akcja wiersza lub kolumny ustawiona na "%{no_change}" przywraca każdej komórce w tym wierszu lub tej kolumnie wartość, z którą strona została otwarta.'
   label_project_workflow_bulk_confirm_threshold: 'Pytaj o potwierdzenie, gdy akcja wiersza lub kolumny zmieni więcej niż'
   text_project_workflow_bulk_confirm_threshold: 'Liczba reguł przepływu pracy. Akcja wiersza lub kolumny, która zmieniłaby więcej, najpierw poprosi o potwierdzenie. 0 pyta zawsze.'
+  label_project_workflow_compare: Porównaj z ogólnym przepływem pracy
+  label_project_workflow_compare_difference: Różnica
+  label_project_workflow_compare_project_only: Tylko w tym projekcie
+  label_project_workflow_compare_generic_only: Tylko w ogólnym przepływie pracy
+  label_project_workflow_compare_changed: Inaczej
+  label_project_workflow_compare_condition: Dotyczy
+  label_project_workflow_compare_in_project: W tym projekcie
+  label_project_workflow_compare_in_generic: W ogólnym przepływie pracy
+  label_project_workflow_condition_always: Każdy z tą rolą
+  label_project_workflow_condition_author: Także gdy użytkownik jest autorem
+  label_project_workflow_condition_assignee: Także gdy użytkownik jest przypisany
+  text_project_workflow_compare_description: Przepływ pracy tego projektu zastępuje ogólny dla tego typu zagadnienia i tej roli, więc poniżej znajduje się cała różnica. Nic nie jest łączone i nic z ogólnego przepływu pracy już nie obowiązuje.
+  text_project_workflow_compare_counts: 'Ten projekt ma własnych reguł dla tego typu zagadnienia i tej roli: %{project}; ogólny przepływ pracy ma %{generic}.'
+  text_project_workflow_compare_identical: Własny przepływ pracy tego projektu jest identyczny z ogólnym dla tego typu zagadnienia i tej roli.
+  text_project_workflow_compare_inherits: Ten projekt dziedziczy ogólny przepływ pracy dla tego typu zagadnienia i tej roli, więc nie ma nic do porównania.

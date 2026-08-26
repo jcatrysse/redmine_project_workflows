@@ -605,4 +605,159 @@ describe ProjectWorkflowsController, type: :controller do
       )
     end
   end
+
+  # WP6: what this project's own workflow says that the generic one does not.
+  describe '#compare' do
+    def compare_params(extra = {})
+      transitions_params({ rule_type: ProjectWorkflowScope::TRANSITIONS }.merge(extra))
+    end
+
+    describe 'authorization' do
+      it 'sends an anonymous visitor to the login page' do
+        get :compare, params: compare_params
+
+        expect(response).to redirect_to(/login/)
+      end
+
+      it 'refuses a member who holds neither permission' do
+        log_in(2)
+
+        get :compare, params: compare_params
+
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      # Read-only, so the read permission is enough -- and nothing here can be
+      # widened by a parameter: the project comes from the path.
+      it 'answers somebody who may only view the workflow' do
+        log_in(2, :view_project_workflow)
+
+        get :compare, params: compare_params
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      # INV-7: jsmith holds roles_001 in projects_001 only, so the permission
+      # added there must not reach projects_002.
+      it 'refuses the same user in a project the permission was not given for' do
+        log_in(2, :view_project_workflow)
+
+        get :compare, params: compare_params(project_id: other_project.id)
+
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'answers 404 for a rule type it does not know' do
+        log_in(2, :view_project_workflow)
+
+        get :compare, params: compare_params(rule_type: 'everything')
+
+        expect(response).to have_http_status(:not_found)
+      end
+
+      # The link from the administration inventory leads here, and a project may
+      # since have had the tracker taken away from it. An honest 404 rather than
+      # a 500.
+      it 'answers 404 for a tracker the project does not have' do
+        log_in(2, :view_project_workflow)
+        project.trackers = project.trackers - [foreign_tracker]
+
+        get :compare, params: compare_params(tracker_id: foreign_tracker.id)
+
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
+    describe 'what it says' do
+      render_views
+
+      before { log_in(2, :view_project_workflow) }
+
+      it 'says there is nothing to compare while the project inherits' do
+        generic_transition(new_status, assigned)
+
+        get :compare, params: compare_params
+
+        expect(assigns(:comparison)).to be_nil
+        expect(response.body)
+          .to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_compare_inherits)))
+      end
+
+      it 'lists a transition the project has and the generic workflow does not' do
+        give_own_workflow(project, tracker, role)
+        own_transition(new_status, assigned)
+
+        get :compare, params: compare_params
+
+        expect(assigns(:comparison).differences.size).to eq(1)
+        expect(response.body)
+          .to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_compare_project_only)))
+      end
+
+      it 'says the two are identical when they are' do
+        give_own_workflow(project, tracker, role)
+        generic_transition(new_status, assigned)
+        own_transition(new_status, assigned)
+
+        get :compare, params: compare_params
+
+        expect(assigns(:comparison)).to be_identical
+        expect(response.body)
+          .to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_compare_identical)))
+      end
+
+      # An own empty workflow is a deliberate state, not an absence, so every
+      # generic rule is a difference from it.
+      it 'lists every generic rule against an own empty workflow' do
+        give_own_workflow(project, tracker, role)
+        generic_transition(new_status, assigned)
+        generic_transition(assigned, resolved)
+
+        get :compare, params: compare_params
+
+        expect(assigns(:comparison).differences.map(&:state)).to eq(%i[generic_only generic_only])
+        expect(response.body)
+          .to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_compare_generic_only)))
+      end
+
+      it 'compares the field permissions when asked for them' do
+        give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+        WorkflowPermission.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
+                                   old_status_id: new_status.id, field_name: 'due_date',
+                                   rule: 'required')
+
+        get :compare, params: compare_params(rule_type: ProjectWorkflowScope::PERMISSIONS)
+
+        expect(assigns(:comparison).rule_type).to eq(ProjectWorkflowScope::PERMISSIONS)
+        expect(response.body).to include(ERB::Util.html_escape(I18n.t(:field_due_date)))
+        expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_required)))
+      end
+    end
+
+    describe 'the link to it' do
+      render_views
+
+      before { log_in(2, :view_project_workflow) }
+
+      let(:compare_path) do
+        project_workflow_compare_path(project, tracker_id: tracker.id, role_id: role.id,
+                                               rule_type: ProjectWorkflowScope::TRANSITIONS)
+      end
+
+      it 'is on the matrix once the project has its own workflow' do
+        give_own_workflow(project, tracker, role)
+
+        get :transitions, params: transitions_params
+
+        expect(response.body).to include(ERB::Util.html_escape(compare_path))
+      end
+
+      # Nothing to compare, so no link: the page it leads to would only say so.
+      it 'is absent from the matrix while the project inherits' do
+        get :transitions, params: transitions_params
+
+        expect(response.body).not_to include(ERB::Util.html_escape(compare_path))
+      end
+    end
+  end
 end

@@ -23,7 +23,7 @@ class ProjectWorkflowsController < ApplicationController
 
   before_action :find_project_by_project_id
   before_action :authorize
-  before_action :find_rule_type, only: %i[enable inherit clear]
+  before_action :find_rule_type, only: %i[compare enable inherit clear]
   before_action :find_tracker_and_role
 
   def transitions
@@ -78,6 +78,26 @@ class ProjectWorkflowsController < ApplicationController
       flash[:notice] = l(:notice_successful_update)
     end
     redirect_to matrix_path
+  end
+
+  # What this project's own workflow says that the generic one does not, and the
+  # other way round (WP6). Read-only, and behind the same +authorize+ as the two
+  # matrices, so somebody who may see the workflow may see how it differs.
+  #
+  # A project that inherits has nothing to compare -- its workflow *is* the
+  # generic one -- and the view says so rather than showing an empty table. That
+  # also keeps a pre-WP1 database honest: rows stored against a project with no
+  # scope apply to nothing (INV-3), so listing them as differences would name
+  # rules that are not in force.
+  def compare
+    @scope_state = scope_state
+    @own_workflow = @scope_state.scoped?
+    return unless @own_workflow
+
+    @comparison = RedmineProjectWorkflows::Services::WorkflowComparison.new(
+      project_id: @project.id, tracker_id: @tracker.id, role_id: @role.id, rule_type: @rule_type
+    ).result
+    @custom_fields_by_name = @tracker.custom_fields.index_by { |field| field.id.to_s }
   end
 
   # The three actions of INV-3, for this project and this one combination. They

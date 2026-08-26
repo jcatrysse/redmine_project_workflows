@@ -66,3 +66,18 @@ nl:
   text_project_workflow_bulk_legend_actions: 'Een rij- of kolomactie op "%{no_change}" zet elke cel in die rij of kolom terug naar de waarde waarmee de pagina is geopend.'
   label_project_workflow_bulk_confirm_threshold: 'Vraag bevestiging wanneer een rij- of kolomactie meer wijzigt dan'
   text_project_workflow_bulk_confirm_threshold: 'Aantal workflowregels. Een rij- of kolomactie die meer dan dit zou wijzigen, vraagt eerst om bevestiging. 0 vraagt altijd.'
+  label_project_workflow_compare: Vergelijken met de algemene workflow
+  label_project_workflow_compare_difference: Verschil
+  label_project_workflow_compare_project_only: Alleen in dit project
+  label_project_workflow_compare_generic_only: Alleen in de algemene workflow
+  label_project_workflow_compare_changed: Verschillend
+  label_project_workflow_compare_condition: Geldt voor
+  label_project_workflow_compare_in_project: In dit project
+  label_project_workflow_compare_in_generic: In de algemene workflow
+  label_project_workflow_condition_always: Iedereen met deze rol
+  label_project_workflow_condition_author: Ook wanneer de gebruiker de auteur is
+  label_project_workflow_condition_assignee: Ook wanneer de gebruiker de toegewezen persoon is
+  text_project_workflow_compare_description: De workflow van dit project vervangt de algemene workflow voor dit tracker en deze rol; wat hieronder staat is dus het volledige verschil. Er wordt niets samengevoegd en er geldt niets meer uit de algemene workflow.
+  text_project_workflow_compare_counts: Dit project heeft %{project} eigen regel(s) voor dit tracker en deze rol; de algemene workflow heeft %{generic}.
+  text_project_workflow_compare_identical: De eigen workflow van dit project is identiek aan de algemene workflow voor dit tracker en deze rol.
+  text_project_workflow_compare_inherits: Dit project erft de algemene workflow voor dit tracker en deze rol, dus er is niets te vergelijken.

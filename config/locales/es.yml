@@ -66,3 +66,18 @@ es:
   text_project_workflow_bulk_legend_actions: 'Una acción de fila o de columna puesta en "%{no_change}" devuelve cada celda de esa fila o columna al valor con el que se abrió la página.'
   label_project_workflow_bulk_confirm_threshold: 'Pedir confirmación cuando una acción de fila o de columna cambie más de'
   text_project_workflow_bulk_confirm_threshold: 'Número de reglas de flujo de trabajo. Una acción de fila o de columna que cambiaría más que esto pide confirmación primero. 0 pregunta siempre.'
+  label_project_workflow_compare: Comparar con el flujo de trabajo genérico
+  label_project_workflow_compare_difference: Diferencia
+  label_project_workflow_compare_project_only: Solo en este proyecto
+  label_project_workflow_compare_generic_only: Solo en el flujo de trabajo genérico
+  label_project_workflow_compare_changed: Diferente
+  label_project_workflow_compare_condition: Se aplica a
+  label_project_workflow_compare_in_project: En este proyecto
+  label_project_workflow_compare_in_generic: En el flujo de trabajo genérico
+  label_project_workflow_condition_always: Cualquiera con este rol
+  label_project_workflow_condition_author: También cuando el usuario es el autor
+  label_project_workflow_condition_assignee: También cuando el usuario es el asignado
+  text_project_workflow_compare_description: El flujo de trabajo de este proyecto sustituye al genérico para este tipo de petición y este rol, de modo que lo siguiente es la diferencia completa. No se combina nada y ya no se aplica nada del flujo de trabajo genérico.
+  text_project_workflow_compare_counts: Este proyecto tiene %{project} regla(s) propia(s) para este tipo de petición y este rol; el flujo de trabajo genérico tiene %{generic}.
+  text_project_workflow_compare_identical: El flujo de trabajo propio de este proyecto es idéntico al genérico para este tipo de petición y este rol.
+  text_project_workflow_compare_inherits: Este proyecto hereda el flujo de trabajo genérico para este tipo de petición y este rol, por lo que no hay nada que comparar.

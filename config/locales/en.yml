@@ -66,3 +66,18 @@ en:
   text_project_workflow_bulk_legend_actions: 'A row or column action set to "%{no_change}" puts every cell in that row or column back to the value the page was opened with.'
   label_project_workflow_bulk_confirm_threshold: 'Ask before a row or column action changes more than'
   text_project_workflow_bulk_confirm_threshold: 'Number of workflow rules. A row or column action that would change more than this asks for confirmation first. 0 asks every time.'
+  label_project_workflow_compare: Compare with the generic workflow
+  label_project_workflow_compare_difference: Difference
+  label_project_workflow_compare_project_only: Only in this project
+  label_project_workflow_compare_generic_only: Only in the generic workflow
+  label_project_workflow_compare_changed: Different
+  label_project_workflow_compare_condition: Applies to
+  label_project_workflow_compare_in_project: In this project
+  label_project_workflow_compare_in_generic: In the generic workflow
+  label_project_workflow_condition_always: Anyone with this role
+  label_project_workflow_condition_author: Also when the user is the author
+  label_project_workflow_condition_assignee: Also when the user is the assignee
+  text_project_workflow_compare_description: This project's workflow replaces the generic one for this tracker and role, so what is listed below is the whole of the difference. Nothing is merged and nothing from the generic workflow still applies.
+  text_project_workflow_compare_counts: This project holds %{project} rule(s) of its own for this tracker and role; the generic workflow holds %{generic}.
+  text_project_workflow_compare_identical: This project's own workflow is identical to the generic one for this tracker and role.
+  text_project_workflow_compare_inherits: This project inherits the generic workflow for this tracker and role, so there is nothing to compare.

@@ -8,6 +8,7 @@
   matrix, which is what keeps every cell a plain yes or no.
 %>
 <div class="contextual">
+  <%= project_workflow_compare_link(@project, @tracker, @role, @rule_type, @scope_state.state) %>
   <%= link_to l(:label_settings), settings_project_path(@project, tab: 'project_workflows') %>
 </div>
 

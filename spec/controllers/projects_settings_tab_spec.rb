@@ -165,6 +165,27 @@ describe ProjectsController, type: :controller do
       expect(response.body).not_to include('project-workflow-scope-audit')
     end
 
+    # WP6: the second of the comparison's three entry points.
+    it 'links to the comparison for a workflow the project owns' do
+      log_in(2, :view_project_workflow)
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)
+
+      get :settings, params: { id: project.id }
+
+      path = project_workflow_compare_path(project, tracker_id: tracker.id, role_id: role.id,
+                                                    rule_type: ProjectWorkflowScope::TRANSITIONS)
+      expect(response.body).to include(ERB::Util.html_escape(path))
+    end
+
+    it 'does not link to the comparison for a combination the project inherits' do
+      log_in(2, :view_project_workflow)
+
+      get :settings, params: { id: project.id }
+
+      expect(response.body).to include('tab-project_workflows')
+      expect(response.body).not_to include('project-workflow-compare-link')
+    end
+
     it 'offers no action to somebody who may only view the workflow' do
       log_in(2, :view_project_workflow)
 
