@@ -79,9 +79,10 @@ role/tracker copy path (`WorkflowRule.copy`).
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | 173 examples, 0 failures |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | 173 examples, 0 failures |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | 173 examples, 0 failures |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | 178 examples, 0 failures |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | 178 examples, 0 failures |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | 178 examples, 0 failures |
+| CI, all nine cells + RuboCop | green on `5fcf02d` (run 9) |
 | RuboCop | 54 files, no offences |
 | `zeitwerk:check` | "All is good!" on 5.1, 6.1 and 7.0 |
 | Migration reversibility up → 0 → up | clean on 5.1, 6.1 and 7.0, run before the suite |
@@ -101,10 +102,20 @@ all when the scope is left without rules", "tells an empty own workflow apart
 from inheritance", and the resolver cache invalidation.
 
 MySQL and MariaDB could not be run locally: no server for either is available in
-this container and the packages could not be installed. CI covers those six
-cells. **CI has not yet been observed green for this commit** — the push
-happened at the end of the session; the next session should check the run before
-building on it.
+this container and the packages could not be installed. CI covered those six
+cells: run 9 is green on `5fcf02d`, which carries the whole of WP1. The branch
+head adds one commit on top of it — a helper change and four examples — and its
+run should be checked before building on it.
+
+**Two claims in this session's history had to be corrected, both caught by
+checking rather than assuming.** A commit message asserted that three new
+examples fail on the previous commit; running it showed all three pass, because
+two of the behaviours had already shipped with the WP1 commit and the third had
+no test pinning it at all. The commit was amended: a helper example was added
+that does fail on the old code (178 examples, 1 failure when the one file is
+reverted), and the message now says which behaviours are new and which are
+merely newly covered. Verify the "fails on the old code" claim by running it,
+every time.
 
 ## Exact next step
 
