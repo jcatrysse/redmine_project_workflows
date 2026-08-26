@@ -21,15 +21,18 @@
   both continued on the safe default and neither blocking. Whether to override
   core's "only used statuses" label, and whether a real unique constraint on
   `workflows` is worth making `project_id` NOT NULL.
-- **Open findings:** 6. Three were already open and are scheduled outside WP2 —
+- **Open findings:** 5, plus one marked wont-fix. Three were already open and
+  are scheduled outside WP2 —
   claude F01 (the summary page counts project rules as generic, WP3), claude F06
   (row and column bulk actions skip mixed cells, WP5) and external F11 (the
   README understates the operational risks, WP7). Three came out of this
   session, in `docs/review/findings/2026-08-26-wp2-observations.md`: G02 (a
   cross-project bulk tracker change is an N+1, WP6), G03 (`Issue#project=` does
   not re-check the status against the new project, WP4) and G04 (the "all
-  projects" filter builds one OR branch per overriding project, wont-fix). G01
-  and G05 from the same file are fixed.
+  projects" filter builds one OR branch per overriding project — the wont-fix,
+  with the trade written into `docs/design.md`). G01 and G05 from the same file
+  are fixed. `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` lists
+  the five.
 - **`spec/characterization/`:** one file, **one** example — the summary page's
   count. It belongs to WP3. The plan's WP2 said "done when this directory is
   empty"; that was wrong and has been corrected in place, because that last
@@ -159,7 +162,7 @@ the issue hot path.
 | Plugin suite, 5.1-stable + PostgreSQL 16 | 238 examples, 0 failures |
 | Plugin suite, 6.1-stable + PostgreSQL 16 | 238 examples, 0 failures |
 | Plugin suite, 7.0-stable + PostgreSQL 16 | 238 examples, 0 failures |
-| CI, all nine cells + RuboCop | green on `775c956`, `5a5e0d3`, `c382b3f` and `9e2a530` (runs 12–15); see below for the two later commits |
+| CI, all nine cells + RuboCop | green on `775c956`, `5a5e0d3`, `c382b3f` and `9e2a530` (runs 12–15). Runs 16, 17 and 18 failed the backfill gate on the three **MariaDB** cells and passed the other six — one cause, the `DELETE` alias described below, present in all three commits. `3e50f84` fixes it; its run (19) was cancelled by `concurrency: cancel-in-progress` when the next commit landed, so the confirming run is 20 on `f216a8d` |
 | RuboCop | 61 files, no offences |
 | Independent review | run in a fresh context on the WP2 diff; every finding either fixed or recorded with its reason |
 | `zeitwerk:check` | "All is good!" on 5.1, 6.1 and 7.0 |
