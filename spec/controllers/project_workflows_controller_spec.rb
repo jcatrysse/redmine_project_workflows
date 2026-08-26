@@ -365,6 +365,13 @@ describe ProjectWorkflowsController, type: :controller do
 
     before { log_in(2, :manage_project_workflow) }
 
+    # Redmine 5.1 draws icons from CSS classes; 6.0 and later from SVG sprites.
+    # Both shapes go through RedmineProjectWorkflows::VersionHelper, so both
+    # branches are asserted here rather than assumed.
+    def core_renders_sprites?
+      ApplicationController.helpers.respond_to?(:sprite_icon)
+    end
+
     it 'says the generic workflow is only a reference, and offers no form' do
       generic_transition(new_status, assigned)
 
@@ -427,6 +434,31 @@ describe ProjectWorkflowsController, type: :controller do
 
       %w[always author assignee].each do |rule|
         expect(response.body).to include(%(name="transitions[#{new_status.id}][#{assigned.id}][#{rule}]"))
+      end
+    end
+
+    it 'draws the collapsible legend the way the host draws icons' do
+      give_own_workflow(project, tracker, role)
+
+      get :transitions, params: transitions_params
+
+      # Core keeps the class on every version, for spacing.
+      expect(response.body).to include('icon icon-collapsed')
+      if core_renders_sprites?
+        expect(response.body).to include('icon--angle-right')
+      else
+        expect(response.body).not_to include('icon--angle-right')
+      end
+    end
+
+    it 'draws the field group expander the way the host draws icons' do
+      get :permissions, params: transitions_params
+
+      expect(response.body).to include('expander icon icon-expanded')
+      if core_renders_sprites?
+        expect(response.body).to include('icon--angle-down')
+      else
+        expect(response.body).not_to include('icon--angle-down')
       end
     end
 
