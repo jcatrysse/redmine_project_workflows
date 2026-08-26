@@ -20,9 +20,21 @@ DB_NAME="${DB_NAME:-redmine_test_$(echo "${BRANCH}_${DB}" | tr -cd '[:alnum:]_')
 DB_USER="${DB_USER:-redmine}"
 DB_PASS="${DB_PASS:-redmine}"
 
+# rbenv being on PATH does not put its shims there, and without the shims the
+# ambient ruby runs regardless of RBENV_VERSION -- which fails late, on a
+# Gemfile ruby requirement, rather than here.
+rbenv_shims() {
+  if command -v rbenv >/dev/null 2>&1; then
+    rbenv root 2>/dev/null | sed 's:$:/shims:'
+  elif [ -d /opt/rbenv/shims ]; then
+    echo /opt/rbenv/shims
+  fi
+}
+
 if [ -n "$RUBY" ]; then
   export RBENV_VERSION="$RUBY"
-  command -v rbenv >/dev/null 2>&1 || export PATH="/opt/rbenv/shims:$PATH"
+  SHIMS="$(rbenv_shims)"
+  [ -n "$SHIMS" ] && export PATH="$SHIMS:$PATH"
 fi
 export RAILS_ENV=test
 

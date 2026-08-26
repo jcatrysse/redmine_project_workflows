@@ -15,7 +15,7 @@
 
 | Package | Title | Status |
 | --- | --- | --- |
-| WP0 | Immediate repairs | not started |
+| WP0 | Immediate repairs | **done** |
 | WP1 | Scopes: table, model, resolver, backfill | not started |
 | WP2 | Correctness at the core seams | not started |
 | WP3 | Summary and inventory | not started |
@@ -52,6 +52,14 @@ redone later.
 
 **Done when** the matching characterization examples have been inverted and
 moved out, and 6.x/7.0 show no JavaScript error on the workflow page.
+
+**Done.** All six, with two corrections found on the way. `to_prepare` is the
+wrong hook for a Redmine plugin — Redmine already loads `init.rb` inside one,
+and `config.to_prepare` there is a silent no-op that disables the plugin
+entirely; `apply_patches` is called in the body of `init.rb` instead. And
+`RequestStore` is not available on every supported version, because Redmine 7.0
+dropped the gem; the cache is `ActiveSupport::CurrentAttributes`. See the
+`Resolution:` lines of claude F04/F05 and external F02/F03/F05/F09.
 
 ## WP1 — Scopes: table, model, resolver, backfill
 

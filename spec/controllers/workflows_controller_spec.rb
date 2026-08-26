@@ -810,4 +810,124 @@ describe WorkflowsController, type: :controller do
       )
     ).to be_nil
   end
+
+  # WP0 / external F02. duplicate used to decide on the resolved project list,
+  # which is empty when only the generic workflow is selected; the action then
+  # fell through to core, which copied generic to generic and ignored the
+  # source project. It now decides on the presence of the plugin's parameters.
+  it 'copies from the source project when the generic workflow is the only target' do
+    WorkflowTransition.create!(
+      tracker_id: tracker.id,
+      role_id: role.id,
+      old_status_id: old_status.id,
+      new_status_id: new_status.id,
+      project_id: project.id,
+      author: false,
+      assignee: false
+    )
+
+    post :duplicate, params: {
+      source_project_id: project.id.to_s,
+      source_tracker_id: tracker.id.to_s,
+      source_role_id: role.id.to_s,
+      target_tracker_ids: [tracker.id.to_s],
+      target_role_ids: [target_role.id.to_s],
+      target_project_ids: ['global']
+    }
+
+    expect(
+      WorkflowTransition.where(project_id: nil, role_id: target_role.id, tracker_id: tracker.id)
+    ).to exist
+  end
+
+  # WP0 / external F03. load_project_options called render_404, which renders
+  # and returns false rather than aborting the action, so duplicate ran on and
+  # rendered a second time. Invalid copy targets are now a translated
+  # validation error on the copy form.
+  describe 'invalid copy targets' do
+    def duplicate_with_target(target_project_ids)
+      post :duplicate, params: {
+        source_tracker_id: tracker.id.to_s,
+        source_role_id: role.id.to_s,
+        target_tracker_ids: [tracker.id.to_s],
+        target_role_ids: [target_role.id.to_s],
+        target_project_ids: target_project_ids
+      }
+    end
+
+    it 'reports a project id that does not exist' do
+      expect { duplicate_with_target(['999999']) }.not_to raise_error
+      expect(response).to have_http_status(:ok)
+      expect(response).to render_template(:copy)
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_target_project))
+    end
+
+    it 'reports a non-numeric project id' do
+      expect { duplicate_with_target(['abc']) }.not_to raise_error
+      expect(response).to have_http_status(:ok)
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_target_project))
+    end
+
+    # 'all' belongs to the matrix selector, not to the copy form.
+    it 'reports the matrix selector keyword as a target' do
+      duplicate_with_target(['all'])
+
+      expect(response).to have_http_status(:ok)
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_target_project))
+    end
+
+    it 'writes nothing when a target is invalid' do
+      expect { duplicate_with_target([project.id.to_s, '999999']) }
+        .not_to change(WorkflowTransition, :count)
+    end
+
+    it 'accepts the same project id twice' do
+      WorkflowTransition.create!(
+        tracker_id: tracker.id,
+        role_id: role.id,
+        old_status_id: old_status.id,
+        new_status_id: new_status.id,
+        project_id: nil,
+        author: false,
+        assignee: false
+      )
+
+      post :duplicate, params: {
+        source_tracker_id: tracker.id.to_s,
+        source_role_id: role.id.to_s,
+        target_tracker_ids: [tracker.id.to_s],
+        target_role_ids: [target_role.id.to_s],
+        target_project_ids: [project.id.to_s, project.id.to_s]
+      }
+
+      expect(response).to have_http_status(:found)
+      expect(
+        WorkflowTransition.where(project_id: project.id, role_id: target_role.id).count
+      ).to eq(1)
+    end
+  end
+
+  # The same de-duplication on the matrix selector: two identical ids used to
+  # fail the "all ids resolved" count and produce a 404.
+  it 'accepts the same project id twice in the matrix selector' do
+    get :edit, params: {
+      role_id: [role.id],
+      tracker_id: [tracker.id],
+      project_id: [project.id.to_s, project.id.to_s],
+      used_statuses_only: '0'
+    }
+
+    expect(response).to have_http_status(:ok)
+  end
+
+  it 'returns 404 for a non-numeric project id in the matrix selector' do
+    get :edit, params: {
+      role_id: [role.id],
+      tracker_id: [tracker.id],
+      project_id: ['abc'],
+      used_statuses_only: '0'
+    }
+
+    expect(response).to have_http_status(:not_found)
+  end
 end

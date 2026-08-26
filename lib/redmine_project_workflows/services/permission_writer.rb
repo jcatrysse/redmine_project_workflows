@@ -3,6 +3,11 @@
 module RedmineProjectWorkflows
   module Services
     class PermissionWriter
+      # The rules core's WorkflowPermission accepts. A blank rule is not a rule
+      # but the request to remove one, so it is kept and dropped again when the
+      # rows are built.
+      RULES = %w[readonly required].freeze
+
       def self.replace_permissions(project, trackers, roles, permissions)
         replace_permissions_for_project_id(project.id, trackers, roles, permissions)
       end
@@ -10,7 +15,10 @@ module RedmineProjectWorkflows
       def self.replace_permissions_for_project_id(project_id, trackers, roles, permissions)
         trackers = Array.wrap(trackers)
         roles = Array.wrap(roles)
-        permissions = normalize_permissions(permissions)
+        return if trackers.empty? || roles.empty?
+
+        permissions = sanitize_permissions(normalize_permissions(permissions))
+        return if permissions.empty?
 
         WorkflowPermission.transaction do
           scope = WorkflowPermission.where(
@@ -23,6 +31,48 @@ module RedmineProjectWorkflows
           insert_permission_rows(rows)
         end
       end
+
+      # INV-2: the rows are written with insert_all, which runs no validations,
+      # so this whitelist *is* the validation. It restores what core's
+      # WorkflowPermission checks -- validates_inclusion_of :rule,
+      # validate_field_name and the presence of old_status -- which the
+      # plugin's routing of replace_permissions would otherwise have removed
+      # from the generic write path as well.
+      #
+      # An entry that fails the whitelist is dropped before the delete, not
+      # only before the insert, so an unacceptable value changes nothing rather
+      # than clearing the rule it names.
+      def self.sanitize_permissions(permissions)
+        status_ids = valid_status_ids
+        field_names = valid_field_names
+
+        permissions.each_with_object({}) do |(status_id, rule_by_field), sanitized|
+          next unless rule_by_field.respond_to?(:each)
+          next unless status_ids.include?(status_id.to_s)
+
+          rule_by_field.each do |field, rule|
+            next unless field_names.include?(field.to_s)
+            next unless rule.blank? || RULES.include?(rule.to_s)
+
+            sanitized[status_id] ||= {}
+            sanitized[status_id][field] = rule
+          end
+        end
+      end
+      private_class_method :sanitize_permissions
+
+      def self.valid_status_ids
+        IssueStatus.pluck(:id).to_set(&:to_s)
+      end
+      private_class_method :valid_status_ids
+
+      # Core accepts any run of digits as a custom field reference; requiring
+      # the field to exist is strictly narrower and cannot reject anything the
+      # matrix offers, because it only offers the trackers' own custom fields.
+      def self.valid_field_names
+        (Tracker::CORE_FIELDS_ALL + IssueCustomField.pluck(:id).map(&:to_s)).to_set
+      end
+      private_class_method :valid_field_names
 
       def self.delete_permissions_for_scope(scope, permissions)
         table = WorkflowPermission.arel_table

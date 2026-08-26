@@ -3,6 +3,8 @@
 module RedmineProjectWorkflows
   module Patches
     module WorkflowsHelperPatch
+      include RedmineProjectWorkflows::VersionHelper
+
       GlobalWorkflowProject = Struct.new(:id, :name)
 
       def options_for_workflow_select(name, objects, selected, options = {})

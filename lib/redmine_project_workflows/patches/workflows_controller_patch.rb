@@ -3,30 +3,23 @@
 module RedmineProjectWorkflows
   module Patches
     module WorkflowsControllerPatch
+      # The parameters the plugin adds to core's workflow screens.
+      PROJECT_PARAM_KEYS = %i[project_id target_project_ids source_project_id].freeze
+      # The two non-numeric values the matrix selector accepts.
+      PROJECT_KEYWORDS = %w[global all].freeze
+
+      # Core's own edit runs without a project_id predicate, which would mix the
+      # two populations (INV-4), so the plugin answers both cases itself.
       def edit
-        if project_context?
-          if @trackers.present? && @roles.present? && @statuses.any?
-            workflows = WorkflowTransition.
-              where(role_id: @roles.map(&:id), tracker_id: @trackers.map(&:id), project_id: selected_project_ids).
-              preload(:old_status, :new_status)
-            @workflows = {}
-            @workflows['always'] = workflows.select { |workflow| !workflow.author && !workflow.assignee }
-            @workflows['author'] = workflows.select(&:author)
-            @workflows['assignee'] = workflows.select(&:assignee)
-          end
-        else
-          # Replicate Redmine's edit logic with project_id: nil to avoid loading
-          # project-specific transitions that would be discarded immediately.
-          if @trackers.present? && @roles.present? && @statuses.any?
-            workflows = WorkflowTransition.
-              where(role_id: @roles.map(&:id), tracker_id: @trackers.map(&:id), project_id: nil).
-              preload(:old_status, :new_status)
-            @workflows = {}
-            @workflows['always'] = workflows.select { |workflow| !workflow.author && !workflow.assignee }
-            @workflows['author'] = workflows.select(&:author)
-            @workflows['assignee'] = workflows.select(&:assignee)
-          end
-        end
+        return unless @trackers.present? && @roles.present? && @statuses.any?
+
+        workflows = WorkflowTransition.
+          where(role_id: @roles.map(&:id), tracker_id: @trackers.map(&:id), project_id: workflow_project_ids).
+          preload(:old_status, :new_status)
+        @workflows = {}
+        @workflows['always'] = workflows.select { |workflow| !workflow.author && !workflow.assignee }
+        @workflows['author'] = workflows.select(&:author)
+        @workflows['assignee'] = workflows.select(&:assignee)
       end
 
       def update
@@ -54,36 +47,20 @@ module RedmineProjectWorkflows
         end
       end
 
+      # See #edit: the same reason, for the field permissions matrix.
       def permissions
-        if project_context?
-          if @roles.present? && @trackers.present?
-            @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
-              [field, l("field_" + field.sub(/_id$/, ''))]
-            end
-            @custom_fields = @trackers.map(&:custom_fields).flatten.uniq.sort
-            @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
-              @trackers,
-              @roles,
-              selected_project_ids
-            )
-            @statuses.each { |status| @permissions[status.id] ||= {} }
-          end
-        else
-          # Replicate Redmine's permissions logic with project_id: nil to avoid
-          # loading project-specific permissions that would be discarded immediately.
-          if @roles.present? && @trackers.present?
-            @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
-              [field, l("field_" + field.sub(/_id$/, ''))]
-            end
-            @custom_fields = @trackers.map(&:custom_fields).flatten.uniq.sort
-            @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
-              @trackers,
-              @roles,
-              [nil]
-            )
-            @statuses.each { |status| @permissions[status.id] ||= {} }
-          end
+        return unless @roles.present? && @trackers.present?
+
+        @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
+          [field, l("field_" + field.sub(/_id$/, ''))]
         end
+        @custom_fields = @trackers.map(&:custom_fields).flatten.uniq.sort
+        @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
+          @trackers,
+          @roles,
+          workflow_project_ids
+        )
+        @statuses.each { |status| @permissions[status.id] ||= {} }
       end
 
       def update_permissions
@@ -111,6 +88,11 @@ module RedmineProjectWorkflows
 
       def copy
         load_project_options
+        if @invalid_project_ids.present?
+          render_404
+          return if performed?
+        end
+
         @source_project_id = params[:source_project_id].presence
         super
       end
@@ -121,7 +103,7 @@ module RedmineProjectWorkflows
 
         find_sources_and_targets
         source_project_id = params[:source_project_id].presence
-        target_project_ids = Array.wrap(params[:target_project_ids]).reject(&:blank?)
+        resolved_target_project_ids, invalid_target_project_ids = validated_target_project_ids
         if params[:source_tracker_id].blank? || params[:source_role_id].blank? ||
           (@source_tracker.nil? && @source_role.nil?) ||
           (source_project_id.present? && !%w[any global].include?(source_project_id) &&
@@ -129,14 +111,15 @@ module RedmineProjectWorkflows
           @source_project_id = nil
           flash.now[:error] = l(:error_workflow_copy_source_project)
           render :copy
-        elsif @target_trackers.blank? || @target_roles.blank? || target_project_ids.blank?
+        elsif invalid_target_project_ids.present?
+          @source_project_id = source_project_id
+          flash.now[:error] = l(:error_workflow_copy_target_project)
+          render :copy
+        elsif @target_trackers.blank? || @target_roles.blank? || resolved_target_project_ids.blank?
           flash.now[:error] = l(:error_workflow_copy_target)
           render :copy
         else
           @source_project_id = source_project_id
-          resolved_target_project_ids = target_project_ids.map do |value|
-            value == 'global' ? nil : value
-          end
           ActiveRecord::Base.transaction do
             resolved_target_project_ids.each do |target_project_id|
               resolved_source_project_id =
@@ -168,14 +151,28 @@ module RedmineProjectWorkflows
 
       private
 
+      # Whether this request is one the plugin has to handle itself.
+      #
+      # It reads the parameters, not the resolved project list: selecting only
+      # the generic workflow resolves to an empty list of projects, and falling
+      # through to core there makes `duplicate` copy generic to generic and
+      # ignore the chosen source project entirely.
       def project_context?
-        selected_projects.present?
+        PROJECT_PARAM_KEYS.any? { |key| Array.wrap(params[key]).any?(&:present?) }
       end
 
+      # Resolves the matrix selector. Values are 'global' (the generic
+      # workflow), 'all', or project ids; anything else, and any id that does
+      # not exist, is collected in @invalid_project_ids for the caller to
+      # report. Nothing is rendered here: render_404 renders and returns false
+      # rather than aborting, so the decision belongs where the action can
+      # return straight after it.
       def load_project_options
         @projects = Project.sorted
-        project_param_values = params[:project_id].presence || params[:target_project_ids]
-        project_ids = Array.wrap(project_param_values).reject(&:blank?).map(&:to_s)
+        values = Array.wrap(params[:project_id]).reject(&:blank?).map(&:to_s).uniq
+        @invalid_project_ids = values.reject { |value| project_id_value?(value) }
+        project_ids = values - @invalid_project_ids
+
         @all_selected = project_ids.delete('all').present?
         # Global is selected when explicitly chosen, when 'all' is selected,
         # or when no project params are provided (default Redmine behavior).
@@ -193,13 +190,32 @@ module RedmineProjectWorkflows
           return
         end
 
-        @selected_projects = Project.where(id: project_ids).sorted
-        unless @selected_projects.size == project_ids.size
-          render_404
-          return
-        end
+        @selected_projects = Project.where(id: project_ids).sorted.to_a
+        @invalid_project_ids += project_ids - @selected_projects.map { |project| project.id.to_s }
         @projects_for_update = @selected_projects
         @project = @selected_projects.first if @selected_projects.one?
+      end
+
+      def project_id_value?(value)
+        PROJECT_KEYWORDS.include?(value) || value.match?(/\A\d+\z/)
+      end
+
+      # The copy form's target selector, which is a different control from the
+      # matrix selector above and accepts a different set of values: 'global'
+      # or a project id, never 'all'. Returns the ids to write to -- nil for
+      # the generic workflow -- and the values that were rejected, de-duplicated
+      # and resolved in one query.
+      def validated_target_project_ids
+        values = Array.wrap(params[:target_project_ids]).reject(&:blank?).map(&:to_s).uniq
+        invalid, valid = values.partition { |value| value != 'global' && !value.match?(/\A\d+\z/) }
+        global = valid.delete('global').present?
+
+        existing_ids = valid.empty? ? [] : Project.where(id: valid).pluck(:id)
+        invalid += valid - existing_ids.map(&:to_s)
+
+        resolved = existing_ids
+        resolved.unshift(nil) if global
+        [resolved, invalid]
       end
 
       def selected_projects
@@ -210,6 +226,13 @@ module RedmineProjectWorkflows
         ids = selected_projects.map(&:id)
         ids << nil if @global_selected
         ids
+      end
+
+      # The population the matrix screens read. Without plugin parameters that
+      # is the generic workflow alone, which is what core shows -- but stated
+      # as an explicit predicate rather than left out (INV-4).
+      def workflow_project_ids
+        project_context? ? selected_project_ids : [nil]
       end
 
       def selected_project_param_values
@@ -246,6 +269,11 @@ module RedmineProjectWorkflows
         find_roles
         find_trackers
         load_project_options
+        if @invalid_project_ids.present?
+          render_404
+          return if performed?
+        end
+
         find_statuses
       end
 

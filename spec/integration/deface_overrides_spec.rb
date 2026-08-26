@@ -36,4 +36,48 @@ describe WorkflowsController, type: :controller do
     expect(response.body).to include('source_project_id')
     expect(response.body).to include('target_project_ids')
   end
+
+  # WP0 / claude F04. Since Redmine 6.0 core renders sprite_icon('') inside
+  # every .toggle-multiselect span, and toggleMultiSelectIconInit() calls
+  # updateSVGIcon($(this).find('svg')[0], iconType) for each of them. A span
+  # without an <svg> makes that argument undefined, getElementsByTagName
+  # raises, and because the call sits inside $(document).ready every
+  # initialisation registered after it is skipped. Redmine 5.1 has no
+  # sprite_icon at all and core's own spans are empty there, so the plugin's
+  # span has to match whatever core does on the host it is running on.
+  describe 'the multiselect toggle the plugin injects' do
+    def toggle_spans(body)
+      body.scan(%r{<span class="toggle-multiselect[^"]*">(.*?)</span>}m).flatten
+    end
+
+    def core_renders_sprites?
+      ApplicationController.helpers.respond_to?(:sprite_icon)
+    end
+
+    it 'matches core on the transitions page' do
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: ['global'], used_statuses_only: '0' }
+      spans = toggle_spans(response.body)
+
+      expect(spans.size).to be >= 3
+      if core_renders_sprites?
+        expect(spans).to all(include('<svg'))
+      else
+        expect(spans).to all(satisfy { |inner| inner.exclude?('<svg') })
+      end
+    end
+
+    it 'matches core on the field permissions page' do
+      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
+                                  project_id: ['global'] }
+      spans = toggle_spans(response.body)
+
+      expect(spans.size).to be >= 3
+      if core_renders_sprites?
+        expect(spans).to all(include('<svg'))
+      else
+        expect(spans).to all(satisfy { |inner| inner.exclude?('<svg') })
+      end
+    end
+  end
 end

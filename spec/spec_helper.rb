@@ -5,10 +5,11 @@ ENV['RAILS_ENV'] ||= 'test'
 require File.expand_path('../../../config/environment', __dir__)
 require 'rspec/rails'
 
-if defined?(RedmineProjectWorkflows) &&
-   !WorkflowTransition.singleton_class.ancestors.include?(RedmineProjectWorkflows::Patches::WorkflowTransitionPatch)
-  RedmineProjectWorkflows.apply_patches
-end
+# Deliberately no fallback that applies the patches when the host boot did not.
+# Such a fallback hides the one failure mode that matters most here: an init.rb
+# that registers its patches somewhere Rails never calls leaves the plugin doing
+# nothing in a real installation, and a green suite would say otherwise.
+# spec/plugin_conventions_spec.rb asserts the boot did apply them.
 
 RSpec.configure do |config|
   fixtures_dir = File.expand_path('../../../test/fixtures', __dir__)
@@ -30,5 +31,12 @@ RSpec.configure do |config|
     WorkflowTransition.delete_all
     WorkflowPermission.delete_all
     WorkflowRule.delete_all if defined?(WorkflowRule)
+  end
+
+  # Rails resets CurrentAttributes around a request through the executor, which
+  # does not wrap an example. Without this an example would see the previous
+  # example's cached data.
+  config.before do
+    RedmineProjectWorkflows::Current.reset if defined?(RedmineProjectWorkflows::Current)
   end
 end

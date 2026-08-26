@@ -105,13 +105,17 @@ module RedmineProjectWorkflows
 
       private
 
+      # See RedmineProjectWorkflows::Current for why the cache is held there and
+      # not in Thread.current or RequestStore.
       def invisible_custom_field_role_map
-        store = defined?(::RequestStore) ? ::RequestStore.store : Thread.current
-        store[:redmine_project_workflows_invisible_custom_field_role_map] ||= begin
-          IssueCustomField.where(visible: false).joins(:roles).pluck(:id, 'role_id').each_with_object({}) do |(field_id, role_id), map|
-            map[field_id] ||= []
-            map[field_id] << role_id
-          end
+        RedmineProjectWorkflows::Current.invisible_custom_field_role_map ||=
+          compute_invisible_custom_field_role_map
+      end
+
+      def compute_invisible_custom_field_role_map
+        IssueCustomField.where(visible: false).joins(:roles).pluck(:id, 'role_id').each_with_object({}) do |(field_id, role_id), map|
+          map[field_id] ||= []
+          map[field_id] << role_id
         end
       end
 

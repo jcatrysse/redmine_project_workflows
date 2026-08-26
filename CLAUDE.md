@@ -86,8 +86,9 @@ task description seems to ask for it.
 | a `workflows` query with no `project_id` predicate | INV-4 | the query services in `lib/redmine_project_workflows/services/` |
 | `insert_all` outside the two writers | INV-2 — it skips validation | extend the writer |
 | request parameters copied into a row hash | INV-2 | whitelist against server-built lists first |
-| `Thread.current[...]` as a cache | a threaded server reuses threads across requests | `RequestStore`, or no cache |
-| patches applied in `after_initialize` | lost on reload in development | `Rails.application.config.to_prepare` with an idempotent guard |
+| `Thread.current[...]` as a cache | a threaded server reuses threads across requests | `RedmineProjectWorkflows::Current` — Redmine 7.0 no longer bundles `request_store`, so `RequestStore` is not available on every supported version |
+| `Rails.application.config.to_prepare` in `init.rb` | it appends to an array the `:add_to_prepare_blocks` initializer has already consumed, so the block never runs and the plugin silently does nothing | call `apply_patches` in the body of `init.rb`: Redmine already loads it from inside a `to_prepare` block, once per reload |
+| patches applied in `after_initialize` | works, but says the opposite of what happens and registers one more callback per reload | same — the body of `init.rb`, with an idempotent prepend guard |
 | `render_404` (or any render) without a `performed?` guard after it | it renders and returns `false`; execution continues into a second render | `return if performed?` |
 | English text pasted into a non-English locale file | it reads as translated and never gets fixed | leave the key out, or mark it |
 | a new Deface anchor without a spec asserting it matches | INV-9 | add the assertion in the same commit |

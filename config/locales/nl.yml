@@ -2,3 +2,4 @@ nl:
   label_project_workflows_global: Algemeen
   error_workflow_copy_source_project: Selecteer een brontracker, rol en project.
   error_workflow_copy_target: Selecteer doeltrackers, rollen en projecten.
+  error_workflow_copy_target_project: Een of meer geselecteerde doelprojecten bestaan niet.

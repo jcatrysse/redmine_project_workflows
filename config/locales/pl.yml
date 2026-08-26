@@ -2,3 +2,4 @@ pl:
   label_project_workflows_global: Ogólny
   error_workflow_copy_source_project: Wybierz źródłowy tracker, rolę i projekt.
   error_workflow_copy_target: Wybierz docelowe typy zgłoszeń, role i projekty.
+  error_workflow_copy_target_project: Co najmniej jeden z wybranych projektów docelowych nie istnieje.

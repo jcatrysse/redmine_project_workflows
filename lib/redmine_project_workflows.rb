@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'redmine_project_workflows/current'
+require_relative 'redmine_project_workflows/version_helper'
 require_relative 'redmine_project_workflows/services/resolver'
 require_relative 'redmine_project_workflows/services/transition_query'
 require_relative 'redmine_project_workflows/services/permission_query'
@@ -27,13 +29,21 @@ module RedmineProjectWorkflows
     end
   end
 
+  # Called from a to_prepare hook, so it runs again after every code reload in
+  # development. The guard makes a repeat application a no-op on a class that
+  # was not reloaded; on one that was, the fresh class gets the prepend it
+  # would otherwise have lost.
   def self.apply_patches
-    Issue.prepend(RedmineProjectWorkflows::Patches::IssuePatch)
-    WorkflowsController.prepend(RedmineProjectWorkflows::Patches::WorkflowsControllerPatch)
-    WorkflowTransition.singleton_class.prepend(RedmineProjectWorkflows::Patches::WorkflowTransitionPatch)
-    WorkflowPermission.singleton_class.prepend(RedmineProjectWorkflows::Patches::WorkflowPermissionPatch)
-    WorkflowRule.singleton_class.prepend(RedmineProjectWorkflows::Patches::WorkflowRulePatch)
-    WorkflowsHelper.prepend(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
-    Project.prepend(RedmineProjectWorkflows::Patches::ProjectPatch)
+    prepend_once(Issue, Patches::IssuePatch)
+    prepend_once(WorkflowsController, Patches::WorkflowsControllerPatch)
+    prepend_once(WorkflowTransition.singleton_class, Patches::WorkflowTransitionPatch)
+    prepend_once(WorkflowPermission.singleton_class, Patches::WorkflowPermissionPatch)
+    prepend_once(WorkflowRule.singleton_class, Patches::WorkflowRulePatch)
+    prepend_once(WorkflowsHelper, Patches::WorkflowsHelperPatch)
+    prepend_once(Project, Patches::ProjectPatch)
+  end
+
+  def self.prepend_once(target, patch)
+    target.prepend(patch) unless target.ancestors.include?(patch)
   end
 end

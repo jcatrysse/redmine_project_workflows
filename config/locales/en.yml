@@ -2,3 +2,4 @@ en:
   label_project_workflows_global: Generic
   error_workflow_copy_source_project: Please select a source tracker, role, and project.
   error_workflow_copy_target: Please select target trackers, roles, and projects.
+  error_workflow_copy_target_project: One or more selected target projects do not exist.

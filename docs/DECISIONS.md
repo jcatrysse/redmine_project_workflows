@@ -43,9 +43,39 @@
 | 2026-08-26 | CI | Migration reversibility (up → 0 → up) runs **before** the suite | `maintain_test_schema` reloads `db/schema.rb` when the suite starts and wipes the plugin's migration bookkeeping; after that `VERSION=0` silently does nothing and the check proves nothing. Borrowed from `redmine_ai_triage`, which paid for this one. |
 | 2026-08-26 | CI | `zeitwerk:check` added as a gate | Redmine pushes each plugin's `lib/` into the main Zeitwerk autoloader with eager loading, so a misnamed constant only breaks in production. Verified passing on 7.0 today. |
 | 2026-08-26 | docs | No `model.json`, `phasing.md`, `spikes/` or `technical-spec.md` | `redmine_ai_triage` needs them for a 25-task LLM pipeline. This plugin has one feature; a second planning document beside an eight-package plan would only be able to disagree with it. |
+| 2026-08-26 | WP0 | An entry a writer rejects is dropped **before** the delete, not only before the insert | Core destroys the row and then fails to create the replacement, so an unacceptable value clears the rule it names. Dropping the whole entry means a tampered or malformed request changes nothing. It also repairs a case core gets wrong: a transitions cell left entirely at "no change" arrived as an empty rule hash, which still contributed to the delete and inserted nothing. |
+| 2026-08-26 | WP0 | Permission field names are narrowed to existing `IssueCustomField` ids | Core accepts any run of digits. The matrix only ever offers the trackers' own custom fields, so requiring the field to exist cannot reject anything the UI submits. |
+| 2026-08-26 | WP0 | An invalid copy **target** is a validation error on the form; an invalid matrix **selector** value is a 404 | They are two different controls with two different sets of valid values (`all` belongs to the selector, never to the copy form). One is a form submission the operator can correct; the other is a hand-edited URL. |
+| 2026-08-26 | WP0 | `apply_patches` is called in the body of `init.rb`, not from a hook | Redmine's `PluginLoader` already loads every `init.rb` from inside a `to_prepare` block, so the body *is* the reload hook. `config.to_prepare` there is a silent no-op — see the correction to `CLAUDE.md`'s forbidden-constructs table. |
+| 2026-08-26 | WP0 | The request-scoped cache is `ActiveSupport::CurrentAttributes`, not `RequestStore` | Redmine 7.0 no longer bundles `request_store`, so `RequestStore` is not available on every supported version. `CurrentAttributes` is reset by the executor on all three. |
+| 2026-08-26 | WP0 | `spec/spec_helper.rb` no longer applies the patches itself when the boot did not | That fallback hid a change that left the plugin doing nothing in a real installation while the suite stayed green. `spec/plugin_conventions_spec.rb` asserts the boot instead. |
+| 2026-08-26 | WP0 | No grep-style scanner example was added, per the existing choice | The `Thread.current` removal is covered behaviourally instead. Jan's "Invariant enforcement" entry stands; it says revisit, and this was not the occasion. |
+| 2026-08-26 | dev | `dev/setup.sh` and `dev/run.sh` put rbenv's **shims** on `PATH`, not just rbenv itself | `command -v rbenv` succeeding does not mean the shims are on `PATH`; without them the ambient Ruby ran and the failure surfaced much later, as a Gemfile Ruby requirement. |
 
 ## Open — for Jan
 
-*(Nothing open. Items land here with their options, a plain-language
-explanation of each and a recommendation, while the build continues on the
-safest default.)*
+- **Choice:** `CLAUDE.md`'s forbidden-constructs table told us to move plugin
+  patches to `Rails.application.config.to_prepare`. That is a silent no-op in a
+  Redmine plugin's `init.rb`, and following it left the plugin doing nothing at
+  all. The table has been corrected in this session. Do you want it left as
+  corrected?
+  - **Options:** A) Leave the correction in place — the table now says to call
+    `apply_patches` in the body of `init.rb` and explains why a `to_prepare`
+    block never runs there. B) Revert to the old wording and record the trap
+    somewhere else instead.
+  - **Recommendation:** A — the table is the first thing a session reads, and
+    the old row would send every future session into the same trap; the
+    evidence is in the finding's `Resolution:` line and in the boot assertion in
+    `spec/plugin_conventions_spec.rb`.
+  - **Urgent?** no — we continued with A.
+
+- **Choice:** external F09 was written on the premise that Redmine bundles
+  `request_store`. Redmine 7.0 dropped it. The cache now uses
+  `ActiveSupport::CurrentAttributes`, which adds a small class of our own
+  (`RedmineProjectWorkflows::Current`) rather than a gem.
+  - **Options:** A) Keep `CurrentAttributes`. B) Add `request_store` to the
+    plugin's own `Gemfile` so the original design holds on 7.0 too. C) Drop the
+    cache entirely and accept one extra query per issue.
+  - **Recommendation:** A — it works identically on 5.1, 6.1 and 7.0, adds no
+    dependency, and Rails resets it around every request and job.
+  - **Urgent?** no — we continued with A.

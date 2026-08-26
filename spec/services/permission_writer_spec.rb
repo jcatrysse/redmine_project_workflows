@@ -166,4 +166,91 @@ describe RedmineProjectWorkflows::Services::PermissionWriter do
       )
     ).to exist
   end
+
+  # WP0 / external F05. These were characterization examples: the writer used
+  # to accept whatever the request contained, because insert_all runs no
+  # validations and the plugin routes core's own generic write path through
+  # this writer as well. INV-2: the whitelist is the validation.
+  describe 'server-side validation' do
+    let(:custom_field) do
+      IssueCustomField.create!(name: 'Workflow writer spec field', field_format: 'string')
+    end
+
+    it 'rejects a rule value that core validation rejects' do
+      expect do
+        WorkflowPermission.create!(
+          tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,
+          field_name: 'due_date', rule: 'bogus'
+        )
+      end.to raise_error(ActiveRecord::RecordInvalid)
+
+      WorkflowPermission.replace_permissions([tracker], [role],
+                                             { status.id.to_s => { 'due_date' => 'bogus' } })
+
+      expect(WorkflowPermission.where(project_id: nil, field_name: 'due_date')).not_to exist
+    end
+
+    it 'rejects a field name that does not exist' do
+      WorkflowPermission.replace_permissions([tracker], [role],
+                                             { status.id.to_s => { 'niet_bestaand_veld' => 'readonly' } })
+
+      expect(WorkflowPermission.pluck(:field_name)).not_to include('niet_bestaand_veld')
+    end
+
+    it 'rejects a custom field id that does not exist' do
+      described_class.replace_permissions(project, [tracker], [role],
+                                          { status.id.to_s => { '999999' => 'readonly' } })
+
+      expect(WorkflowPermission.pluck(:field_name)).not_to include('999999')
+    end
+
+    it 'accepts a custom field id that does exist' do
+      described_class.replace_permissions(project, [tracker], [role],
+                                          { status.id.to_s => { custom_field.id.to_s => 'readonly' } })
+
+      expect(
+        WorkflowPermission.where(project_id: project.id, field_name: custom_field.id.to_s)
+      ).to exist
+    end
+
+    it 'rejects a status id that does not exist' do
+      described_class.replace_permissions(project, [tracker], [role],
+                                          { '999999' => { 'subject' => 'readonly' } })
+
+      expect(WorkflowPermission.where(old_status_id: 999_999)).not_to exist
+    end
+
+    # A rejected value is dropped before the delete, not only before the
+    # insert: an unacceptable rule must change nothing, not clear the rule it
+    # names.
+    it 'leaves the stored rule alone when an invalid rule arrives for it' do
+      WorkflowPermission.create!(
+        tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,
+        field_name: 'subject', rule: 'readonly', project_id: project.id
+      )
+
+      described_class.replace_permissions(project, [tracker], [role],
+                                          { status.id.to_s => { 'subject' => 'bogus' } })
+
+      expect(
+        WorkflowPermission.find_by(project_id: project.id, old_status_id: status.id,
+                                   field_name: 'subject')&.rule
+      ).to eq('readonly')
+    end
+
+    it 'still removes a rule when the request clears it' do
+      WorkflowPermission.create!(
+        tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,
+        field_name: 'subject', rule: 'readonly', project_id: project.id
+      )
+
+      described_class.replace_permissions(project, [tracker], [role],
+                                          { status.id.to_s => { 'subject' => '' } })
+
+      expect(
+        WorkflowPermission.where(project_id: project.id, old_status_id: status.id,
+                                 field_name: 'subject')
+      ).not_to exist
+    end
+  end
 end

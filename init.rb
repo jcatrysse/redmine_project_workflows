@@ -16,7 +16,25 @@ rescue LoadError => e
 end
 require_relative 'lib/redmine_project_workflows'
 
-Rails.application.config.after_initialize do
-  RedmineProjectWorkflows.apply_patches
-  RedmineProjectWorkflows.load_deface_overrides!
-end
+# Applied here, in the body of init.rb, and deliberately not from a hook.
+#
+# Redmine's PluginLoader loads every init.rb from inside a to_prepare block, so
+# this file is re-executed after each code reload and the prepends land on the
+# classes the reload has just produced -- which is exactly what a to_prepare
+# hook is for.
+#
+# Registering one would not work: Rails::Application::Configuration#to_prepare
+# only appends to config.to_prepare_blocks, and the initializer that wires that
+# array into the reloader (:add_to_prepare_blocks) has already run by the time
+# any plugin's init.rb is loaded. A block registered here is never called, and
+# the whole plugin silently does nothing.
+#
+# config.after_initialize would work -- on a reload the :after_initialize load
+# hook has already fired, so the block runs immediately -- but it says the
+# opposite of what happens, and it registers a further callback on every
+# reload.
+RedmineProjectWorkflows.apply_patches
+
+# Deface registers its overrides with Deface rather than on a host class, and
+# `require` is a no-op the second time, so these are loaded once.
+RedmineProjectWorkflows.load_deface_overrides!

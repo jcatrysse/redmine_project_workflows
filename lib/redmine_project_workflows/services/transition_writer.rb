@@ -3,6 +3,16 @@
 module RedmineProjectWorkflows
   module Services
     class TransitionWriter
+      # The three columns of the transitions matrix.
+      RULES = %w[always author assignee].freeze
+      # What the matrix can submit for one cell: the checkbox and its paired
+      # hidden field. 'no_change' is stripped by the controller; anything else
+      # is not something the form can produce.
+      VALUES = ['0', '1', true, false].freeze
+      # Core stores transitions out of the "new issue" pseudo status as
+      # old_status_id 0, which is not an IssueStatus.
+      NEW_ISSUE_STATUS_ID = '0'
+
       def self.replace_transitions(project, trackers, roles, transitions)
         replace_transitions_for_project_id(project.id, trackers, roles, transitions)
       end
@@ -10,6 +20,10 @@ module RedmineProjectWorkflows
       def self.replace_transitions_for_project_id(project_id, trackers, roles, transitions)
         trackers = Array.wrap(trackers)
         roles = Array.wrap(roles)
+        return if trackers.empty? || roles.empty?
+
+        transitions = sanitize_transitions(transitions)
+        return if transitions.empty?
 
         WorkflowTransition.transaction do
           scope = WorkflowTransition.where(
@@ -22,6 +36,63 @@ module RedmineProjectWorkflows
           insert_transition_rows(rows)
         end
       end
+
+      # INV-2: the rows are written with insert_all, which runs no validations,
+      # so this whitelist *is* the validation. It restores core's
+      # validates_presence_of :new_status, which the plugin's routing of
+      # replace_transitions would otherwise have removed from the generic write
+      # path as well, and rejects rule names and cell values the matrix cannot
+      # produce.
+      #
+      # An entry that fails the whitelist is dropped before the delete, not
+      # only before the insert, so an unacceptable value changes nothing rather
+      # than removing the transition it names.
+      def self.sanitize_transitions(transitions)
+        status_ids = valid_status_ids
+
+        to_hash(transitions).each_with_object({}) do |(old_status_id, by_new_status), sanitized|
+          next unless by_new_status.respond_to?(:each)
+          next unless old_status_id.to_s == NEW_ISSUE_STATUS_ID || status_ids.include?(old_status_id.to_s)
+
+          row = sanitize_transition_row(by_new_status, status_ids)
+          sanitized[old_status_id] = row unless row.empty?
+        end
+      end
+      private_class_method :sanitize_transitions
+
+      def self.sanitize_transition_row(by_new_status, status_ids)
+        by_new_status.each_with_object({}) do |(new_status_id, transition_by_rule), row|
+          next unless transition_by_rule.respond_to?(:each)
+          next unless status_ids.include?(new_status_id.to_s)
+
+          rules = transition_by_rule.select { |rule, value| permitted_cell?(rule, value) }
+          row[new_status_id] = rules unless rules.empty?
+        end
+      end
+      private_class_method :sanitize_transition_row
+
+      def self.permitted_cell?(rule, value)
+        RULES.include?(rule.to_s) && VALUES.include?(value)
+      end
+      private_class_method :permitted_cell?
+
+      def self.valid_status_ids
+        IssueStatus.pluck(:id).to_set(&:to_s)
+      end
+      private_class_method :valid_status_ids
+
+      def self.to_hash(transitions)
+        return {} if transitions.nil?
+
+        if transitions.respond_to?(:to_unsafe_h)
+          transitions.to_unsafe_h
+        elsif transitions.respond_to?(:to_h)
+          transitions.to_h
+        else
+          transitions
+        end
+      end
+      private_class_method :to_hash
 
       def self.build_transition_rows(project_id, trackers, roles, transitions)
         rows = []
@@ -63,13 +134,7 @@ module RedmineProjectWorkflows
 
       def self.delete_transitions_for_scope(scope, transitions)
         table = WorkflowTransition.arel_table
-        transition_hash =
-          if transitions.respond_to?(:to_unsafe_h)
-            transitions.to_unsafe_h
-          else
-            transitions.to_h
-          end
-        conditions = transition_hash.each_with_object([]) do |(old_status_id, transitions_by_new_status), memo|
+        conditions = transitions.each_with_object([]) do |(old_status_id, transitions_by_new_status), memo|
           new_status_ids = transitions_by_new_status.keys.map(&:to_i)
           next if new_status_ids.empty?
 
