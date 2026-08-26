@@ -86,9 +86,13 @@ MySQL and MariaDB could not be run locally: no server for either is available
 in this container and the packages could not be installed. CI covered those six
 cells and they are green, so the WP0 code is verified on all nine.
 
-One follow-up commit (`19145de`) touches only `dev/setup.sh` and `dev/run.sh`,
-not the plugin. Its CI run was still going when this session ended; check it
-before starting WP1.
+Two follow-up commits touch only `dev/setup.sh`, `dev/run.sh` and this file --
+no plugin code -- so `35090347` is still the commit the nine green cells
+describe. Their own CI runs had not reported back when the session ended:
+run 4 shows `cancelled`, which is the workflow's own
+`concurrency: cancel-in-progress` superseding it when the next commit was
+pushed, not a failure. Confirm the newest run on `claude/dev` is green before
+starting WP1, and re-run it if it was cancelled the same way.
 
 ## Exact next step
 
