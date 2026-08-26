@@ -35,6 +35,8 @@
 | 2026-08-26 | `Issue#project=` and the status (finding G03) | Leave it as Redmine already behaves | Answered A. An issue moved into a project whose workflow does not use its status keeps that status and, in that project, has no transition it may make. Core has the same asymmetry, so nothing here is a regression; what per-project workflows change is that it can be reached without an administrator editing anything. Considered and rejected for now: resetting the status the way `#tracker=` does (it sits on the path of every issue save and every bulk move, and `safe_attributes=` assigns `project_id` before `tracker_id` on purpose, so a wrong order would reset statuses that should have been left alone) and refusing the move outright. |
 | 2026-08-26 | The builtin roles on the project screen | The project screen offers only the roles that have members in the project | Answered A. *Non member* and *Anonymous* go on following the generic workflow, and a system administrator can still give a project its own workflow for them from Administration → Workflow. Considered and rejected: listing them on public projects, where those roles really do act on the issues. |
 | 2026-08-26 | Where the settings tab attaches | `ProjectsController.helper`, never `ProjectsHelper.prepend` | Raised by Jan from `redmine_ai_triage`'s K-29. Many Redmine plugins take `project_settings_tabs` over with an alias chain; `alias_method` resolves through `ProjectsHelper.ancestors`, so with anything prepended there the neighbour copies *our* method and the copy's `super` finds nothing above `ProjectsHelper` — core's own method drops out and every settings page raises `NoMethodError`. Attaching to the controller's helper chain is immune by construction, in either load order. |
+| 2026-08-26 | WP8's flowchart | **C**: the local view only — "from here", and no drawing | Answered C. The status the issue is in, the statuses it can move to, what each move requires (anyone / only the author / only the assignee), and the statuses that can lead into this one. Considered and rejected for now: A) a layered SVG diagram, which is what Jira draws and needs a layout pass of the plugin's own plus a table beside it for screen readers, and B) a read-only copy of the administration tick-box grid. C is A's data without the layout, so A stays buildable on top of it later. |
+| 2026-08-26 | Order of the last two packages | **WP7 first, then WP8** | Jan's call, and WP8 will be started in a session of its own. So the release pass covers what exists at that point and WP8 carries its own README paragraph, CHANGELOG line and locale keys. |
 | 2026-08-26 | Bulk editing (field permissions) | The field-permissions matrix keeps only core's `»` copy control — no row or column actions | Answered **A** the same day it was raised. The transitions matrix is the one with the clicking in it; core has no row or column toggles on the field-permissions matrix to repair, its cells are four-valued rather than yes or no, and `»` already covers "the same from here on". B — the same three actions adapted to four values — stays available as a small work package of its own if somebody actually wants it. |
 
 ## Decided (autonomous)
@@ -153,30 +155,7 @@
 
 ## Open — for Jan
 
-- **Choice:** How should WP8 draw the "flowchart" of possible status changes?
-- **Options:**
-  A) **A layered diagram, drawn as SVG in the page** — boxes for statuses, arrows
-     for the transitions, laid out left to right from *new issue*, which is what
-     Jira shows. It is the thing you asked for, and it is the most work: the
-     plugin has to compute the layout itself, cope with long status names and
-     with both Redmine themes, and it still needs a plain table beside it because
-     a screen reader cannot read a drawing.
-  B) **A read-only version of the workflow grid you already know** — the same
-     tick-box matrix as the administration screen, greyed out, for this issue's
-     project, tracker and your roles. Nearly free to build, impossible to get
-     wrong, readable by anything — and it is a table, not a picture.
-  C) **Only the local view: "from here"** — the status the issue is in, the
-     statuses it can move to, what each move requires (anyone, only the author,
-     only the assignee), and which statuses can lead into this one. No picture and
-     no overview, but it answers the question somebody editing an issue actually
-     has.
-- **Recommendation:** **C first, then A on top of it.** C is the part that earns
-  its keep on an issue form and it is a prerequisite for A anyway — A is C's data
-  with a layout pass added — so building C first means the feature is useful one
-  commit in and the drawing is an increment rather than a gamble. B is the
-  fallback if A turns out to fight the themes.
-- **Urgent?** no — WP8 is not started, and WP6 is next in the plan either way.
-
-*(Items land here with their options, a plain-language explanation of each and a
-recommendation, while the build continues on the safest default. WP4's two and
-WP5's one were all answered A on 2026-08-26 and have moved up.)*
+*(Nothing open. WP8's one was answered **C** on 2026-08-26 and has moved up, as
+were WP4's two and WP5's one. Items land here with their options, a
+plain-language explanation of each and a recommendation, while the build
+continues on the safest default.)*

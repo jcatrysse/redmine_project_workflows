@@ -586,7 +586,9 @@ user's own roles grants it. Plus the statuses that can reach the current one, so
 **The whole map.** Every status in the effective workflow for this issue's
 project, tracker and the user's roles, and every transition between them,
 including core's `old_status_id = 0` row — the *new issue* pseudo-status, which
-is where a Jira-style diagram starts.
+is where a Jira-style diagram starts. *(Out of WP8 as built, per the decision
+below: the local view is what ships, and the whole map is what the SVG option
+would need.)*
 
 ### The map must not contradict the dropdown
 
@@ -611,24 +613,23 @@ modal's content comes from an action of the plugin's own. The resolver's hot pat
 (**INV-6**, **G6**) is untouched — an ordinary issue edit costs exactly what it
 costs today.
 
-The renderer is an open choice (`DECISIONS.md`), because a layered graph is real
-work and the cheap options are not obviously worse:
+**The renderer is the local view and nothing else** — decided **C** by Jan on
+2026-08-26. A `table.list` of *from → to → condition*: the statuses this issue
+can move to, the statuses that can lead into it, and what each move requires. No
+layout pass, no drawing, readable by anything.
 
-- **A layered inline SVG** — nodes placed by distance from *new issue*, edges as
-  arrowed paths. What the requirement asks for; needs a layering pass, a
-  barycentric ordering pass to keep crossings down, and a plan for long status
-  names and for both Redmine themes. Always accompanied by the table below, never
-  replaced by it — an SVG graph is not readable by a screen reader whatever is
-  put in its `aria` attributes.
-- **A read-only grid** — core's own workflow matrix, disabled, for this one
-  (project, tracker, role) triple. Nearly free, entirely core markup, perfectly
-  accessible, and not a flowchart.
-- **The local view alone** — "from here" and nothing else. Cheapest, answers the
-  question that is actually asked on an issue form, and drops the overview a
-  manager wants.
+That is a deliberate narrowing of the requirement, not a shortcut around it. The
+two rejected options were a **layered inline SVG** — what Jira draws, and what
+needs a layering pass, a crossing-reduction pass, a plan for long status names
+and for both Redmine themes, *and* this same table beside it, because no `aria`
+attribute makes a drawing readable by a screen reader — and a **read-only copy of
+the administration tick-box grid**, which is nearly free and is a matrix rather
+than a map.
 
-Whatever is chosen, the accessible representation is a `table.list` of
-*from → to → condition*, which is also the fallback where SVG cannot render.
+A is still reachable from here: a layered diagram is exactly this data with a
+layout pass added, so building the table first makes the drawing an increment
+rather than a gamble, and the table remains the accessible representation
+underneath it.
 
 ### Scope, authorization and cost
 

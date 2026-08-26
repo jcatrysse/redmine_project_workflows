@@ -320,10 +320,13 @@ Then:
   sprite. The INV-9 count rises, in `CLAUDE.md`, `design.md` and the spec's
   comment, with an assertion in `spec/integration/deface_overrides_spec.rb` that
   only this override can satisfy.
-- The renderer, per the answer to the open choice in `DECISIONS.md`: layered
-  inline SVG, a read-only grid, or the local "from here" view alone. Whichever is
-  chosen, a `table.list` of *from → to → condition* is the accessible
-  representation and the no-SVG fallback, never omitted.
+- The renderer: **the local "from here" view alone**, answered **C** by Jan on
+  2026-08-26. The status the issue is in, the statuses it can move to, what each
+  move requires — anyone with the role, only the author, only the assignee — and
+  the statuses that can lead into this one. A `table.list` of
+  *from → to → condition*, which needs no layout pass and is readable by
+  anything. **No drawing**: a layered SVG diagram (option A) stays buildable on
+  top of this later, because A is exactly this data with a layout pass added.
 - The honesty clause from `design.md`: the map says what the workflow allows, the
   dropdown stays the authority for what may be done now, and an edge the
   dropdown withholds carries the reason — core's own `transition_warning`
@@ -347,10 +350,10 @@ WP0 is independent. WP1 gates everything after it. WP3 needs WP1's scopes to
 report anything true; WP4 needs WP1 and reuses WP3's state labels. WP5 touches
 different files from WP4 and can run alongside it. WP6 needs WP1 (audit
 columns) and WP3 (where the compare view is reached from). WP8 needs WP1 (it
-resolves a scope like everything else) and nothing later, so it may be built
-before WP6 or after it; it is numbered last because it arrived last, not because
-it depends on WP7. WP7 comes last of all,
-after all strings exist — including WP8's.
+resolves a scope like everything else) and nothing later. **Jan chose WP7 first
+and then WP8**, in a session of its own, so the release pass covers what exists
+at that point and WP8 carries its own README paragraph, CHANGELOG line and
+locale keys rather than waiting for a second release pass.
 
 ## Definition of done
 
