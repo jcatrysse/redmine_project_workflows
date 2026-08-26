@@ -3,6 +3,7 @@ pl:
   error_workflow_copy_source_project: Wybierz źródłowy tracker, rolę i projekt.
   error_workflow_copy_target: Wybierz docelowe typy zgłoszeń, role i projekty.
   error_workflow_copy_target_project: Co najmniej jeden z wybranych projektów docelowych nie istnieje.
+  error_workflow_copy_target_tracker_or_role: Co najmniej jeden z wybranych docelowych typów zgłoszeń lub ról nie istnieje.
   label_project_workflow_scope: Przepływ pracy dla wybranych projektów
   label_project_workflow_state_inherits: Dziedziczy ogólny przepływ pracy
   label_project_workflow_state_own: Własny przepływ pracy

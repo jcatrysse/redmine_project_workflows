@@ -980,6 +980,170 @@ describe WorkflowsController, type: :controller do
     end
   end
 
+  # codex F01 and F02. Core reads a source tracker or role that names nothing
+  # as nil, which is also how it spells "same as the target", and drops a
+  # target tracker or role that names nothing from its `where(id: ...)`. Both
+  # readings are silent, and both make the copy that follows a different copy
+  # from the one that was asked for -- on a screen whose every write first
+  # deletes what the target pair already had.
+  describe 'copy selections that name something that does not exist' do
+    before do
+      WorkflowRule.delete_all
+      ProjectWorkflowScope.delete_all
+      WorkflowTransition.create!(
+        tracker_id: tracker.id, role_id: role.id,
+        old_status_id: old_status.id, new_status_id: new_status.id,
+        project_id: nil, author: false, assignee: false
+      )
+      WorkflowTransition.create!(
+        tracker_id: target_tracker.id, role_id: role.id,
+        old_status_id: old_status.id, new_status_id: project_status.id,
+        project_id: nil, author: false, assignee: false
+      )
+    end
+
+    def duplicate_with(overrides)
+      post :duplicate, params: {
+        source_tracker_id: tracker.id.to_s,
+        source_role_id: role.id.to_s,
+        source_project_id: 'global',
+        target_tracker_ids: [target_tracker.id.to_s],
+        target_role_ids: [target_role.id.to_s],
+        target_project_ids: [project.id.to_s]
+      }.merge(overrides)
+    end
+
+    # Every id in both tables, so that a rejected request is caught whether it
+    # inserted rows, deleted the target pair's own before failing, or recorded a
+    # scope for a copy that never happened (INV-3).
+    def workflow_snapshot
+      [WorkflowRule.order(:id).pluck(:id), ProjectWorkflowScope.order(:id).pluck(:id)]
+    end
+
+    it 'rejects a source tracker id that does not exist' do
+      expect { duplicate_with(source_tracker_id: '999999') }.not_to(change { workflow_snapshot })
+
+      expect(response).to have_http_status(:ok)
+      expect(response).to render_template(:copy)
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_source))
+    end
+
+    it 'rejects a source role id that does not exist' do
+      expect { duplicate_with(source_role_id: '999999') }.not_to(change { workflow_snapshot })
+
+      expect(response).to have_http_status(:ok)
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_source))
+    end
+
+    # `'1abc'.to_i` is 1, so core resolves this to whichever tracker has id 1.
+    it 'rejects a source tracker id that is not a number' do
+      expect { duplicate_with(source_tracker_id: "#{tracker.id}abc") }.not_to(change { workflow_snapshot })
+
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_source))
+    end
+
+    # Not in project context at all: the copy form's target project selector
+    # submits nothing when nothing is selected, and that request goes to core.
+    it 'rejects a source tracker id that does not exist when no project is named' do
+      expect do
+        post :duplicate, params: {
+          source_tracker_id: '999999',
+          source_role_id: role.id.to_s,
+          target_tracker_ids: [target_tracker.id.to_s],
+          target_role_ids: [target_role.id.to_s]
+        }
+      end.not_to(change { workflow_snapshot })
+
+      expect(response).to have_http_status(:ok)
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_source))
+    end
+
+    it 'rejects a source role id that is not a number' do
+      expect { duplicate_with(source_role_id: "#{role.id}abc") }.not_to(change { workflow_snapshot })
+
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_source))
+    end
+
+    # The pre-existing readings this guard must not intercept: a source that was
+    # left blank is still the project branch's own error, not the new one.
+    it 'leaves a blank source tracker to the branch that already reported it' do
+      expect { duplicate_with(source_tracker_id: '') }.not_to(change { workflow_snapshot })
+
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_source_project))
+    end
+
+    it 'rejects a target tracker id that does not exist' do
+      expect { duplicate_with(target_tracker_ids: [target_tracker.id.to_s, '999999']) }
+        .not_to(change { workflow_snapshot })
+
+      expect(response).to have_http_status(:ok)
+      expect(response).to render_template(:copy)
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_target_tracker_or_role))
+    end
+
+    it 'rejects a target role id that does not exist' do
+      expect { duplicate_with(target_role_ids: [target_role.id.to_s, '999999']) }
+        .not_to(change { workflow_snapshot })
+
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_target_tracker_or_role))
+    end
+
+    it 'rejects a target tracker id that is not a number' do
+      expect { duplicate_with(target_tracker_ids: ["#{target_tracker.id}abc"]) }
+        .not_to(change { workflow_snapshot })
+
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_target_tracker_or_role))
+    end
+
+    it 'rejects a target tracker id that does not exist when no project is named' do
+      expect do
+        post :duplicate, params: {
+          source_tracker_id: tracker.id.to_s,
+          source_role_id: role.id.to_s,
+          target_tracker_ids: [target_tracker.id.to_s, '999999'],
+          target_role_ids: [target_role.id.to_s]
+        }
+      end.not_to(change { workflow_snapshot })
+
+      expect(response).to have_http_status(:ok)
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_target_tracker_or_role))
+    end
+
+    it 'keeps the submitted target selection on the form it renders back' do
+      duplicate_with(target_tracker_ids: [target_tracker.id.to_s, '999999'])
+
+      expect(response).to render_template(:copy)
+      expect(assigns(:target_trackers).map(&:id)).to eq([target_tracker.id])
+      expect(assigns(:source_project_id)).to eq('global')
+    end
+
+    # The three legitimate readings of "any", none of which this may reject.
+    it 'still copies with any as the source tracker' do
+      duplicate_with(source_tracker_id: 'any')
+
+      expect(response).to have_http_status(:found)
+      expect(flash[:error]).to be_nil
+      expect(
+        WorkflowTransition.where(project_id: project.id, tracker_id: target_tracker.id,
+                                 role_id: target_role.id).count
+      ).to eq(1)
+    end
+
+    it 'still copies with any as the source role' do
+      duplicate_with(source_role_id: 'any', target_role_ids: [role.id.to_s])
+
+      expect(response).to have_http_status(:found)
+      expect(flash[:error]).to be_nil
+    end
+
+    it 'accepts the same target tracker id twice' do
+      duplicate_with(target_tracker_ids: [target_tracker.id.to_s, target_tracker.id.to_s])
+
+      expect(response).to have_http_status(:found)
+      expect(flash[:error]).to be_nil
+    end
+  end
+
   # The same de-duplication on the matrix selector: two identical ids used to
   # fail the "all ids resolved" count and produce a 404.
   it 'accepts the same project id twice in the matrix selector' do

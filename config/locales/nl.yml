@@ -3,6 +3,7 @@ nl:
   error_workflow_copy_source_project: Selecteer een brontracker, rol en project.
   error_workflow_copy_target: Selecteer doeltrackers, rollen en projecten.
   error_workflow_copy_target_project: Een of meer geselecteerde doelprojecten bestaan niet.
+  error_workflow_copy_target_tracker_or_role: Een of meer geselecteerde doeltrackers of -rollen bestaan niet.
   label_project_workflow_scope: Workflow voor de geselecteerde projecten
   label_project_workflow_state_inherits: Erft de algemene workflow
   label_project_workflow_state_own: Eigen workflow

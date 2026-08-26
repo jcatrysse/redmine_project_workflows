@@ -50,6 +50,14 @@ nothing had ever tested.
   lists, which is narrower than core, and a rejected entry is dropped before the
   delete so it leaves the rule it names alone rather than clearing it. The
   matrices cannot produce a rejected value; a hand-built request can.
+- The copy screen rejects a source or target tracker or role that does not
+  exist, instead of reading it as "any" or quietly dropping it. Redmine spells
+  "copy from every tracker" and "that tracker is gone" the same way — both are
+  `nil` — and drops an unknown target id from its query, so a stale form could
+  copy from a source nobody chose, or report success for a selection it had only
+  half applied. **This applies to the generic copy screen too,** with or without
+  a per-project workflow: a selection that names something real still behaves
+  exactly as before.
 
 ### Screens
 

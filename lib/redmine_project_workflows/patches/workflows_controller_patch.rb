@@ -129,9 +129,10 @@ module RedmineProjectWorkflows
 
       def duplicate
         load_project_options
+        find_sources_and_targets
+        return if invalid_copy_selection?
         return super unless project_context?
 
-        find_sources_and_targets
         source_project_id = params[:source_project_id].presence
         resolved_target_project_ids, invalid_target_project_ids = validated_target_project_ids
         if params[:source_tracker_id].blank? || params[:source_role_id].blank? ||
@@ -181,6 +182,69 @@ module RedmineProjectWorkflows
       end
 
       private
+
+      # The copy form's "which workflow" selectors, checked before anything is
+      # written, because every write on this screen first deletes what the
+      # target pair already had.
+      #
+      # Core cannot tell a selection from a mistake here. A source tracker or
+      # role that names nothing resolves to nil -- which is also how "same as
+      # the target" is spelled -- so a stale form naming a deleted tracker
+      # copies from every tracker instead of being reported (codex F01). A
+      # target tracker or role that names nothing is dropped from core's
+      # `where(id: ...)`, so a selection of one live tracker and one deleted
+      # one is applied to the live one and reported as a success (codex F02).
+      # Both are the rule the target *projects* have been held to since WP0,
+      # applied to the other three selectors.
+      #
+      # Checked for every request, not only for one that names a project: the
+      # copy form always renders both project selectors, but a multiple select
+      # with nothing selected submits nothing at all, and such a request is
+      # handed to core.
+      def invalid_copy_selection?
+        if unresolved_source_selection?
+          @source_project_id = nil
+          flash.now[:error] = l(:error_workflow_copy_source)
+        elsif unresolved_target_selection?
+          @source_project_id = params[:source_project_id].presence
+          flash.now[:error] = l(:error_workflow_copy_target_tracker_or_role)
+        else
+          return false
+        end
+        render :copy
+        true
+      end
+
+      def unresolved_source_selection?
+        unresolved_source?(params[:source_tracker_id], @source_tracker) ||
+          unresolved_source?(params[:source_role_id], @source_role)
+      end
+
+      # 'any' is a selection, and a selector left blank is already reported by
+      # the branch that owns it -- the project branch below, or core's own on a
+      # request that named no project. An id of any other shape has to resolve
+      # to the record it names, and the shape is checked as well as the record,
+      # because core resolves the id with `to_i`, so '12abc' silently means
+      # tracker 12.
+      def unresolved_source?(value, record)
+        value = value.to_s
+        return false if value.blank? || value == 'any'
+
+        !value.match?(/\A\d+\z/) || record.nil?
+      end
+
+      def unresolved_target_selection?
+        unresolved_target_ids(params[:target_tracker_ids], @target_trackers).present? ||
+          unresolved_target_ids(params[:target_role_ids], @target_roles).present?
+      end
+
+      # The submitted ids that no record answered, de-duplicated the same way
+      # validated_target_project_ids de-duplicates: an id repeated in the
+      # selection is one selection, not a missing record.
+      def unresolved_target_ids(values, records)
+        submitted = Array.wrap(values).reject(&:blank?).map(&:to_s).uniq
+        submitted - Array.wrap(records).map { |record| record.id.to_s }
+      end
 
       # A copy that lands in a project has to record the decision as well, or the
       # resolver ignores every row it just wrote (INV-3). copy_for_project moves

@@ -3,6 +3,7 @@ pt:
   error_workflow_copy_source_project: Selecione um rastreador, uma função e um projeto de origem.
   error_workflow_copy_target: Selecione rastreadores, papéis e projetos de destino.
   error_workflow_copy_target_project: Um ou mais projetos de destino selecionados não existem.
+  error_workflow_copy_target_tracker_or_role: Um ou mais rastreadores ou papéis de destino selecionados não existem.
   label_project_workflow_scope: Fluxo de trabalho para os projetos selecionados
   label_project_workflow_state_inherits: Herda o fluxo de trabalho genérico
   label_project_workflow_state_own: Fluxo de trabalho próprio

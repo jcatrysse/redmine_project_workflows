@@ -166,10 +166,45 @@
 | 2026-08-26 | WP8 | An **incoming** edge carries no availability | It ends at the status the issue is already in, so it is history rather than an action, and asking would answer "yes" for every one of them — the status list always offers the current status back. |
 | 2026-08-26 | WP8 | `TransitionMapQuery` takes **no** `tracker:` argument | Raised by the fresh-subagent review as a latent contract hole, and the fix went the other way from the one suggested. The query took a tracker, queried the edges for it, and still read the status and the status list off the issue -- consistent only because the controller had applied the form's tracker first. Handing it a tracker the issue was not carrying produced a map whose edges and whose "offered now" column described two different trackers, which is the exact contradiction the class exists to prevent; the reviewer demonstrated it. Moving the assignment *into* the query would have fixed it too, but a query object that mutates its argument is worse: reading everything from the one issue makes the contradiction unrepresentable instead of merely unlikely. |
 | 2026-08-26 | WP8 | A row naming a **deleted** status sorts last, not first | `position_of` returned -1 for any nil status record, which is right for core's "new issue" node and wrong for a row whose status has been removed -- it sorted ahead of every real status. Told apart by the **id** now (0 is the node), not by being nil. |
+| 2026-08-26 | Review (codex F01, F02) | The copy screen's four "which workflow" selectors are validated by **one** guard, before anything is written | Source tracker, source role, target trackers and target roles were the three selectors the target *projects* rule had never been applied to, and the two findings are the same defect read from two ends: core cannot tell "any" from "the record is gone", and cannot tell "one of these ids is gone" from "here is what survived". Every write on that screen deletes the target pair's rules first, so the guard runs before the branch that writes rather than inside it. |
+| 2026-08-26 | Review (codex F01) | The guard runs for **every** copy request, not only for one that names a project | The finding places the defect in the plugin's project branch, but the copy form's target project selector is a `multiple` select, and one with nothing selected submits nothing at all — so the request goes to core, unguarded, from the plugin's own form. Checking before the delegation costs one repeated `find_sources_and_targets` on a screen an administrator uses a handful of times a year. |
+| 2026-08-26 | Review (codex F01) | The shape of a source id is checked as well as the record it names | Core resolves the id with `to_i`, so `'12abc'` silently means tracker 12 — the same reason `validated_target_project_ids` has required `\A\d+\z` since WP0. |
+| 2026-08-26 | Review (codex F01) | An unresolvable source tracker or role is reported with core's `error_workflow_copy_source` | The plugin's own `error_workflow_copy_source_project` ("Please select a source tracker, role, and project") is the message for the *project* half of the source. Core's key names what is actually wrong, is already translated in every language Redmine ships, and leaves the two causes distinguishable on the screen. |
+| 2026-08-26 | Review (codex F02) | A target tracker or role that does not exist gets a key of its own, `error_workflow_copy_target_tracker_or_role` | Parallel to `error_workflow_copy_target_project`, and deliberately not merged with `error_workflow_copy_target`: "you selected nothing" and "what you selected is gone" send the administrator to look at different things. Added and translated in all eight locale files, per the locales rule. |
 
 ## Open — for Jan
 
-*(Nothing open. WP8's two were both answered **A** on 2026-08-26 and have moved
-up, as were WP7's one, WP8's renderer choice (**C**), WP4's two and WP5's one.
-Items land here with their options, a plain-language explanation of each and a
+*(WP8's two were both answered **A** on 2026-08-26 and have moved up, as were
+WP7's one, WP8's renderer choice (**C**), WP4's two and WP5's one. Items land
+here with their options, a plain-language explanation of each and a
 recommendation, while the build continues on the safest default.)*
+
+### The copy form when no target project is selected (finding C01)
+
+- **Choice:** what should *Administration → Workflow → Copy* do when the
+  administrator selects no target project at all?
+- **Background:** the target project control is a multi-select with nothing
+  preselected, and a multi-select with nothing selected sends no parameter. The
+  request therefore looks to the plugin like a request that never mentioned
+  projects, and it is handed to Redmine's own copy — which rewrites the
+  **generic** workflow, the one every project that has not overridden it
+  inherits, and reports success. The plugin's own error text already says a
+  target project is required; that check is simply never reached on this path.
+- **Options:**
+  - **A)** Refuse the request, with the error the wording already promises.
+    Safest for the data. The cost: a bare Redmine-shaped request to
+    `/workflows/duplicate` — one carrying no plugin parameter at all, as a
+    script or another plugin might post — stops working.
+  - **B)** Preselect *Generic* in the target project selector, so the form
+    always submits a target and what runs is what the form shows. Nothing that
+    works today stops working; the destructive default becomes the visible one
+    instead of the invisible one.
+  - **C)** Leave it. Redmine behaves this way with the plugin uninstalled, and
+    an administrator who ignores a control gets the pre-plugin outcome.
+- **Recommendation:** **B**, and then **A** on top of it once you are happy that
+  nothing in your installation posts a bare copy request — B removes the
+  surprise without removing a request shape, and A is the one that makes the
+  slip impossible.
+- **Urgent?** no — nothing regressed here; this is Redmine's behaviour and the
+  plugin inherited it. It blocks no work package. Recorded in
+  `docs/review/findings/2026-08-26-copy-form-observations.md`.

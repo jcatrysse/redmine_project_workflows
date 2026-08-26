@@ -3,6 +3,7 @@ en:
   error_workflow_copy_source_project: Please select a source tracker, role, and project.
   error_workflow_copy_target: Please select target trackers, roles, and projects.
   error_workflow_copy_target_project: One or more selected target projects do not exist.
+  error_workflow_copy_target_tracker_or_role: One or more selected target trackers or roles do not exist.
   label_project_workflow_scope: Workflow for the selected projects
   label_project_workflow_state_inherits: Inherits the generic workflow
   label_project_workflow_state_own: Own workflow
