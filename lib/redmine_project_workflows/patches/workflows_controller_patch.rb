@@ -195,7 +195,8 @@ module RedmineProjectWorkflows
       # `where(id: ...)`, so a selection of one live tracker and one deleted
       # one is applied to the live one and reported as a success (codex F02).
       # Both are the rule the target *projects* have been held to since WP0,
-      # applied to the other three selectors.
+      # applied to the four selectors that had never been held to it: source
+      # tracker, source role, target trackers, target roles.
       #
       # Checked for every request, not only for one that names a project: the
       # copy form always renders both project selectors, but a multiple select
