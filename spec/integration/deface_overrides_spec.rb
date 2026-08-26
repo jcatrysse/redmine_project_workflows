@@ -17,12 +17,12 @@ describe WorkflowsController, type: :controller do
   let(:role)    { roles(:roles_001) }
   let(:tracker) { trackers(:trackers_001) }
 
-  # There are fourteen overrides across twelve files, and each needs an assertion
+  # There are fifteen overrides across twelve files, and each needs an assertion
   # that only *it* can satisfy. `include('project_id[]')` was not one: the
   # selector and the hidden field both render that name, so either could have
   # stopped matching without the suite noticing. Thirteen of them are on the
-  # workflow screens and are asserted here; the fourteenth is on the issue form
-  # and is asserted in the IssuesController group at the foot of this file.
+  # workflow screens and are asserted here; the other two are on the issue form
+  # and are asserted in the IssuesController group at the foot of this file.
   def hidden_project_field
     /<input[^>]*type="hidden"[^>]*name="project_id\[\]"/
   end
@@ -385,14 +385,19 @@ describe WorkflowsController, type: :controller do
   end
 end
 
-# WP8 / INV-9. The fourteenth override, and the only one outside the workflow
-# screens: the link to the workflow panel, beside core's own status select on the
-# issue form.
+# WP8 / INV-9. The fourteenth and fifteenth overrides, the only two outside the
+# workflow screens: the link to the workflow panel, beside core's own status
+# control on the issue form.
 #
-# The anchor is core's `f.select :status_id` expression, byte-identical in 5.1,
-# 6.1 and 7.0 -- unlike the help icon rendered directly after it, which 6.0
-# turned into an SVG sprite. The assertion only this override can satisfy is the
-# link's own path: nothing else on an issue form renders it.
+# Two of them because core renders that control two different ways -- a select
+# when the workflow permits something, and a plain label when it does not, which
+# is exactly what an own *empty* workflow produces. Both anchors are
+# byte-identical in 5.1, 6.1 and 7.0, unlike the help icon rendered directly
+# after the select, which 6.0 turned into an SVG sprite.
+#
+# The assertion only these can satisfy is the link's own path: nothing else on an
+# issue form renders it. What tells the two apart is whether the status select is
+# on the page at all.
 describe IssuesController, type: :controller do
   render_views
   fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members,
@@ -443,6 +448,39 @@ describe IssuesController, type: :controller do
     else
       expect(link).not_to include('<svg')
     end
+  end
+
+  # The fifteenth override, and the reason it exists.
+  #
+  # An own empty workflow permits nothing, so `new_statuses_allowed_to` returns
+  # [] -- it appends the issue's own status only when the workflow permitted
+  # something -- and core then renders no select, no help icon and no modal, only
+  # a plain label. The first override anchors on the select, so it renders
+  # nothing here: the panel would have been unreachable in the one case it exists
+  # for. This is the example that caught it.
+  it 'injects the link where core renders no status select at all' do
+    issue = Issue.create!(project: project, tracker: tracker, status: new_status,
+                          author_id: 2, subject: 'deface override spec')
+    give_own_workflow(project, tracker, roles(:roles_001))
+
+    get :edit, params: { id: issue.id }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include('id="issue_status_id"')
+    path = issue_workflow_map_path(issue, tracker_id: tracker.id)
+    expect(response.body).to include(ERB::Util.html_escape(path))
+  end
+
+  # ... and it must not double up where core *does* render the select, which is
+  # what a second anchor on the same page would produce.
+  it 'injects the link exactly once where core renders the select' do
+    issue = Issue.create!(project: project, tracker: tracker, status: new_status,
+                          author_id: 2, subject: 'deface override spec')
+
+    get :edit, params: { id: issue.id }
+
+    expect(response.body).to include('id="issue_status_id"')
+    expect(response.body.scan('project-workflow-map-link').size).to eq(1)
   end
 
   # Out of scope on purpose: a selection can span projects and trackers, so one

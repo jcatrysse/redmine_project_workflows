@@ -249,9 +249,10 @@ the repeats inside a project but not across projects. Recorded as finding G02.
 
 ## Views
 
-Fourteen Deface overrides in twelve files. Eleven are on the administration
+Fifteen Deface overrides in twelve files. Eleven are on the administration
 screens; two are on `workflows/_form`, which the project matrices render as
-well, so one pair serves both; and the last is on the issue form:
+well, so one pair serves both; and the last two are on the issue form, one per
+branch of the way core renders the status control:
 
 | View | Anchor | Adds |
 | --- | --- | --- |
@@ -269,6 +270,7 @@ well, so one pair serves both; and the last is on the issue form:
 | `workflows/_form` | the column header (`td[data-erb-style]`, bottom) | the column's three actions |
 | `workflows/_form` | the row header (`td.name`, bottom) | the row's three actions |
 | `issues/_attributes` | the `f.select :status_id` expression (after) | the link to the workflow panel (WP8) |
+| `issues/_attributes` | the `l(:field_status)` expression (after) | the same link, where core renders no select — the own-empty case |
 
 The summary page's count cell is a *surround* on one side and a *replace* on the
 other because the two halves belong on either side of core's heading, and

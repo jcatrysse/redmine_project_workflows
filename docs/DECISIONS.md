@@ -159,9 +159,30 @@
 | 2026-08-26 | WP7 | `.rubocop_todo.yml` is annotated by hand, and anything added to it needs a reason | A generated list says which cop is off in which file and nothing about whether that is debt or a decision, and this one is almost entirely decisions — core's own method bodies, and `insert_all` in the writers, which INV-2 requires. 198 offences in 21 files became 50 in 8; the file's header names the three groups the rest fall into. |
 | 2026-08-26 | WP7 | `TransitionWriter.transition_row` takes keyword arguments | The one `Metrics/ParameterLists` offence worth fixing rather than excluding: seven positional parameters ending in two booleans, so `transition_row(a, b, c, d, e, false, false)` put the author and assignee flags in an order nothing at the call site named, and swapping them writes a workflow permitting the opposite of what was asked for. |
 
+| 2026-08-26 | WP8 | The panel gets a **controller of its own**, with no permission of its own | It reveals the workflow governing an issue the reader is already looking at, so `Issue.visible` (or, on the new-issue form, the project plus `add_issues`) is the whole authorization. Every action on `ProjectWorkflowsController` is behind `view_project_workflow`, and requiring that to read the workflow governing your own issue would hide the panel from the people it is for. `spec/controllers/project_workflow_maps_controller_spec.rb` asserts the action count, so a second action there cannot be added without a decision about how it is authorized. |
+| 2026-08-26 | WP8 | The link carries the form's **tracker**, and the controller applies it to the issue before drawing the map | Core re-renders the whole issue form on a tracker change, so the link is rebuilt with it. Applying it is the same reconciliation `Issue#new_statuses_allowed_to` performs to pick its initial status — keep the status where the new tracker's own workflow uses it, otherwise that tracker's default — which is what makes the map and the status list read from one object rather than two. Considered and rejected: describing the issue as saved (the panel would then contradict the very dropdown it is beside), and duplicating core's private initial-status logic in the service. |
+| 2026-08-26 | WP8 | A move's condition is worded *"only when the user is the author"*, in three keys of its own | Not the comparison screen's `label_project_workflow_condition_author` (*"also when the user is the author"*). There the label names one of core's three whole grids, which is core's framing; here the conditions of a single move have been collapsed, so a move naming only the author grid is a move **only** the author may make and "also" says the opposite of the truth. Both grids at once is one phrase rather than two joined by a comma, because "only the author" beside "only the assignee" reads as a contradiction. The unconditional case keeps the shared key, because there it means the same thing on both screens. |
+| 2026-08-26 | WP8 | **Two** Deface overrides on `issues/_attributes`, not one | Caught by a probe, not by reasoning: core renders the status control two ways, and the second — a plain label instead of a select — is exactly what an own **empty** workflow produces, because `new_statuses_allowed_to` appends the issue's own status only when the workflow permitted something. A single anchor on `f.select :status_id` therefore withheld the panel in the one case the panel exists for. INV-9 count 13 → 15. |
+| 2026-08-26 | WP8 | An **incoming** edge carries no availability | It ends at the status the issue is already in, so it is history rather than an action, and asking would answer "yes" for every one of them — the status list always offers the current status back. |
+
 ## Open — for Jan
 
-*(Nothing open. WP7's one was answered **A** on 2026-08-26 and has moved up, as
-were WP8's renderer choice (**C**), WP4's two and WP5's one. Items land here with
-their options, a plain-language explanation of each and a recommendation, while
-the build continues on the safest default.)*
+- **Choice:** WP8 is a user-visible feature added after the CHANGELOG already
+  described **0.1.0** as a release. Does it go *inside* 0.1.0, or does the plugin
+  become **0.2.0**?
+- **Options:**
+  A) Leave it in 0.1.0 — one release containing everything, which is what
+     actually ships if you merge `claude/dev` once. *(in place)*
+  B) Bump `init.rb` to 0.2.0 and give WP8 a heading of its own.
+- **Recommendation:** **A** — 0.1.0 has never been tagged or published and `main`
+  is still pre-WP1, so the first release anybody can install already contains
+  WP8; a 0.2.0 heading would describe an upgrade path from a version that never
+  existed.
+- **Urgent?** no — we continued with A. Switching to B later is one line in
+  `init.rb` and one heading in `CHANGELOG.md`, and `spec/plugin_conventions_spec.rb`
+  asserts the two agree, so it cannot be done by halves.
+
+*(WP7's one was answered **A** on 2026-08-26 and has moved up, as were WP8's
+renderer choice (**C**), WP4's two and WP5's one. Items land here with their
+options, a plain-language explanation of each and a recommendation, while the
+build continues on the safest default.)*
