@@ -157,7 +157,8 @@ so nothing there regressed.
 
 **What it could not run, and did not claim:** MySQL and MariaDB. There is no such
 host on disk in this container and no `mysqld` binary. Three of the nine CI cells
-are therefore unverified locally for WP8; CI covers them.
+are therefore unverified *locally* for WP8 — and CI covers them: run 58 on the
+head is green on all nine cells plus RuboCop.
 
 ### What the QA pass added on its own
 
@@ -201,7 +202,7 @@ format: 'js')`, which is what core's status and tracker selects post to.
 | Locale parity | eight files, **91** keys each (was 74) |
 | Independent review | run in a **fresh subagent**, against a pristine copy of the commit in three hosts of its own. Six findings, all acted on; see above |
 | The map's query cost | **five**, measured on all three versions, and the same five for a workflow three times the size. The example asserts six as the ceiling |
-| CI | **not yet run for WP8.** The last green run is 48, on `6a3dbdd`, which is pre-WP8. Six commits have been pushed since |
+| CI | **run 58 green on all ten jobs — nine cells plus RuboCop — on the head, `89360e3`**, every cell through the migration reversibility, backfill, zeitwerk and spec gates. Runs 52 to 56 were green too, one per WP8 commit; **57 reads "cancelled" because the next push superseded it** — that is the concurrency group, not a failure. This is what covers the three **MySQL and MariaDB** cells nothing in this container could exercise locally |
 
 **The "fails on the old code" checks, run rather than assumed.** Each was done by
 putting one file back to its state before the commit and leaving the rest in
@@ -232,12 +233,13 @@ one carries an example asserting the argument is now refused.
 
 **Watch CI, and then it is Jan's turn.** There is no WP9. Concretely:
 
-1. **Read the CI run for `6bc67c1`** — nine matrix cells plus RuboCop. It has not
-   run yet for any WP8 commit, and MySQL and MariaDB are the three cells nothing
-   in this session could exercise locally. If a cell is red, that is the next
-   session's whole job. (A run reading "cancelled" is the concurrency group
-   superseding it after the next push; read the *head's* run, not the newest
-   completed one.)
+1. **Nothing to check first.** CI **run 58 is green on all ten jobs** for the
+   head, `89360e3` — nine cells plus RuboCop, each through migration
+   reversibility, backfill, zeitwerk and the specs. That is what establishes
+   nine-cell coverage of WP8 rather than assuming it, and in particular the three
+   **MySQL and MariaDB** cells nothing in this container could run. (Run 57 reads
+   "cancelled": the concurrency group superseded it when the next commit was
+   pushed. Read the *head's* run, not the newest completed one.)
 2. **Nothing else is queued.** WP0..WP8 are done, `spec/characterization/` is
    empty, and the two open findings are deliberate. The plugin is ready for Jan
    to review the branch and ask for the merge.
@@ -559,7 +561,7 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-There is no WP9. If the CI run for `6bc67c1` is green on all ten jobs, the
-honest answer to "carry on" is that the plan is finished and the branch is
-waiting on Jan — say so rather than inventing work. The "Exact next step"
-section above lists what he could ask for next if he wants more.
+There is no WP9, and CI is green on the head. So the honest answer to "carry on"
+is that the plan is finished and the branch is waiting on Jan — say so rather
+than inventing work. The "Exact next step" section above lists what he could ask
+for next if he wants more.
