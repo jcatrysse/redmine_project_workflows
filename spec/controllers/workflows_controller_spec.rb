@@ -53,6 +53,8 @@ describe WorkflowsController, type: :controller do
   end
 
   it 'limits used statuses to the selected project in edit view' do
+    give_own_workflow(project, tracker, role)
+    give_own_workflow(other_project, tracker, role)
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,
@@ -191,6 +193,7 @@ describe WorkflowsController, type: :controller do
   end
 
   it 'includes global and project statuses when used statuses only with combined selection' do
+    give_own_workflow(project, tracker, role)
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,
@@ -256,6 +259,8 @@ describe WorkflowsController, type: :controller do
   end
 
   it 'includes statuses from all projects when project_id=all is selected' do
+    give_own_workflow(project, tracker, role)
+    give_own_workflow(other_project, tracker, role)
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,
@@ -969,6 +974,72 @@ describe WorkflowsController, type: :controller do
       expect(WorkflowTransition.where(project_id: nil, tracker_id: target_tracker.id,
                                       role_id: target_role.id).count).to eq(1)
       expect(ProjectWorkflowScope.count).to eq(0)
+    end
+  end
+
+  describe 'the used-statuses filter (external F04)' do
+    before { WorkflowTransition.delete_all }
+
+    def generic_transition(from, to, for_role: role)
+      WorkflowTransition.create!(
+        tracker_id: tracker.id, role_id: for_role.id,
+        old_status_id: from.id, new_status_id: to.id,
+        project_id: nil, author: false, assignee: false
+      )
+    end
+
+    it 'shows the generic statuses for a project that inherits' do
+      generic_transition(old_status, new_status)
+
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: [project.id.to_s], used_statuses_only: '1' }
+
+      # Before this it found no rows for the project, .presence fell back to
+      # every status, and the filter silently did nothing.
+      expect(assigns(:statuses).map(&:id)).to contain_exactly(old_status.id, new_status.id)
+      expect(assigns(:statuses).size).to be < IssueStatus.count
+    end
+
+    it 'shows the generic statuses for a project that inherits on the permissions screen' do
+      generic_transition(old_status, new_status)
+
+      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
+                                  project_id: [project.id.to_s], used_statuses_only: '1' }
+
+      expect(assigns(:statuses).map(&:id)).to contain_exactly(old_status.id, new_status.id)
+    end
+
+    it 'falls back to every status for a project whose own workflow is empty' do
+      generic_transition(old_status, new_status)
+      give_own_workflow(project, tracker, role)
+      Role.all.select(&:consider_workflow?).each do |other|
+        give_own_workflow(project, tracker, other) unless other == role
+      end
+
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: [project.id.to_s], used_statuses_only: '1' }
+
+      # Nothing is in use, and an empty matrix cannot be filled in. This is the
+      # one case where showing everything is the right answer -- it is what core
+      # does on a fresh installation too.
+      expect(assigns(:statuses).size).to eq(IssueStatus.count)
+    end
+
+    it 'still shows the generic statuses when no project is selected at all' do
+      generic_transition(old_status, new_status)
+
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id], used_statuses_only: '1' }
+
+      expect(assigns(:statuses).map(&:id)).to contain_exactly(old_status.id, new_status.id)
+    end
+
+    it 'leaves the checkbox off alone' do
+      generic_transition(old_status, new_status)
+
+      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                           project_id: [project.id.to_s], used_statuses_only: '0' }
+
+      expect(assigns(:statuses).size).to eq(IssueStatus.count)
     end
   end
 end

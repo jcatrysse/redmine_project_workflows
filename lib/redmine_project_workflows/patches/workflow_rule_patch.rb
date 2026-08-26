@@ -7,6 +7,19 @@ module RedmineProjectWorkflows
       # type the plugin knows how to copy.
       COPYABLE_TYPES = %w[WorkflowTransition WorkflowPermission].freeze
 
+      # Every column that carries meaning in a workflow row. Two rows that agree
+      # on all of them say the same thing twice.
+      #
+      # `rule` is in the list on purpose. Two field-permission rows for the same
+      # (project, tracker, role, status, field) with *different* rules are not
+      # duplicates but a contradiction, and deleting one of them silently would
+      # be choosing an answer on the administrator's behalf. Exact duplicates
+      # can always be removed without changing what the workflow permits.
+      DUPLICATE_KEY_COLUMNS = %i[
+        project_id tracker_id role_id old_status_id new_status_id
+        author assignee field_name rule type
+      ].freeze
+
       def copy_for_project(source_project_id, target_project_id, source_tracker, source_role, target_trackers, target_roles)
         unless (source_tracker.nil? || source_tracker.is_a?(Tracker)) &&
             (source_role.nil? || source_role.is_a?(Role)) &&
@@ -193,6 +206,39 @@ module RedmineProjectWorkflows
 
       def copy_one(source_tracker, source_role, target_tracker, target_role)
         copy_one_for_project(nil, nil, source_tracker, source_role, target_tracker, target_role)
+      end
+
+      # Removes exact duplicate rows, keeping the oldest of each set.
+      #
+      # There is no unique index behind this and there cannot be a portable one:
+      # the key contains project_id and field_name, both nullable, and every
+      # supported database treats NULLs in a unique index as distinct -- so the
+      # generic rows, which are the majority, would not be covered at all.
+      # PostgreSQL 15 could express it with NULLS NOT DISTINCT and MySQL 8 with a
+      # functional index; MariaDB can do neither, and 5.1 has to run on older
+      # PostgreSQL. See docs/design.md (external F06).
+      #
+      # So this is a repair tool rather than a constraint: rake
+      # redmine_project_workflows:deduplicate_workflow_rules. Duplicates matter
+      # because the matrix compares row counts against the size it expects and
+      # renders a cell as a checkbox or as a mixed dropdown accordingly.
+      #
+      # The two populations are swept separately, so the generic pass cannot
+      # touch a project row or the other way round (INV-1, INV-4).
+      def delete_duplicate_rules!
+        [where(project_id: nil), where.not(project_id: nil)].sum do |scope|
+          delete_duplicates_within(scope)
+        end
+      end
+
+      def delete_duplicates_within(scope)
+        duplicate_keys = scope.group(DUPLICATE_KEY_COLUMNS).having('COUNT(*) > 1').count.keys
+        return 0 if duplicate_keys.empty?
+
+        duplicate_keys.sum do |key|
+          ids = scope.where(DUPLICATE_KEY_COLUMNS.zip(Array(key)).to_h).order(:id).pluck(:id)
+          where(id: ids.drop(1)).delete_all
+        end
       end
 
       def delete_existing_rules_for_project(project_id, copy_pairs, skipped_pairs)

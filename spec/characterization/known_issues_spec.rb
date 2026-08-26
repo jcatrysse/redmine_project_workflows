@@ -40,15 +40,4 @@ describe WorkflowsController, type: :controller do
       expect(with_project).to eq(2)   # only one generic rule exists
     end
   end
-
-  describe 'used statuses filter' do
-    it 'falls back to every status for a project without rules of its own' do
-      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
-                                 old_status_id: s1.id, new_status_id: s2.id, project_id: nil)
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: [project.id.to_s], used_statuses_only: '1' }
-      shown = assigns(:statuses).size
-      expect(shown).to eq(IssueStatus.count)
-    end
-  end
 end

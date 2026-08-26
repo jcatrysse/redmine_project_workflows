@@ -128,15 +128,63 @@ widen that (**INV-7**).
 These are the places where core reads workflow data without knowing about
 projects. Each one is either handled or deliberately left alone.
 
+This is the complete list: every place in Redmine 5.1, 6.1 and 7.0 that names
+`WorkflowRule`, `WorkflowTransition` or `WorkflowPermission`, walked in WP2.
+
 | Core code | Concern | Treatment |
 | --- | --- | --- |
 | `Issue#new_statuses_allowed_to` | which transitions a user may make | **always** replaced by the plugin, inheritance included — core's own query carries no `project_id` predicate, so falling back to it would let one project read another's rules (INV-4). The body is core's, byte-identical in 5.1, 6.1 and 7.0, with the two project-blind lookups replaced |
 | `Issue#workflow_rule_by_attribute` | field permissions | same |
-| `Project#rolled_up_statuses` | fills the status filter and the status report | project-aware, and **no role filter** — core has none either, and adding one empties the list for projects without members |
-| `Tracker#issue_status_ids` | whether a status survives a tracker change | left as a global union on purpose: narrowing it to generic rules would strip a status from an issue in a project whose own workflow uses it. The two call sites in `Issue` are made project-aware instead |
-| `WorkflowsController#index` | the summary page | counts per scope rather than mixing project and generic rows |
-| `WorkflowRule.copy` (role and tracker copy) | duplicating a role or tracker | project rules and their scopes are copied along, so a copied role is a working copy |
+| `Issue#tracker=` | whether the issue keeps its status when the tracker changes | replaced. Core asks `Tracker#issue_status_ids`, a union across every project, and resets the status to the new tracker's default when the answer is no; the plugin asks the issue's own project's effective workflow, with no role filter, exactly as core has none |
+| `Project#rolled_up_statuses` | fills the status filter and the status report | replaced: one (project, tracker) pair per project in the tree, each resolved against its own scope and then unioned (INV-6), with **no role filter** — core has none either, and adding one empties the list for projects without members. Two queries whatever the size of the tree |
+| `Tracker#issue_status_ids`, `Tracker#issue_statuses` | which statuses a tracker's workflow uses | left as a global union on purpose: narrowing them to generic rules would strip a status from an issue in a project whose own workflow uses it. Both call sites in `Issue` are project-aware instead. Core itself no longer reads `issue_statuses`; a plugin that does gets the wide answer |
+| `WorkflowsController#index` | the summary page | **still core's.** Counts mix project and generic rows — WP3 |
+| `WorkflowsController#edit`, `#permissions` | the two matrices | replaced, with an explicit `project_id` predicate for the selection |
+| `WorkflowsController#find_statuses` | the "only used statuses" checkbox | replaced: the effective workflow of the selection, not the rows physically stored against it. A selection whose workflow is genuinely empty still falls back to every status, which is the only way an empty matrix can be filled in |
+| `WorkflowsController#update`, `#update_permissions` | saving a matrix | routed through `TransitionWriter` / `PermissionWriter` (INV-1, INV-2) |
+| `WorkflowsController#duplicate` | the copy screen | `WorkflowRule.copy_for_project`, with the scopes recorded for whatever was copied. Without plugin parameters it falls through to core's `.copy`, which stays generic-only |
+| `WorkflowTransition.replace_transitions`, `WorkflowPermission.replace_permissions` | core's own write API | routed through the two writers, so the generic path is validated as well |
+| `WorkflowRule.copy` / `.copy_one` | the copy screen's generic path | `copy_one` is project-scoped, so a generic copy deletes only generic rows. Core's own body has no `project_id` predicate in its delete and would take a project's rules with it |
+| `Role#copy_workflow_rules`, `Tracker#copy_workflow_rules` | duplicating a role or tracker | replaced by `WorkflowRule.copy_with_projects`: the project rules and their scopes come along, an own *empty* workflow included, so a copied role is a working copy |
+| `WorkflowPermission.rules_by_status_id` | core's `permissions` action | project-blind, and unreachable once the plugin is installed because that action is replaced. Left alone; a plugin that calls it directly gets every project's rows |
+| `IssueStatus.new_statuses_allowed` and `IssueStatus#new_statuses_allowed_to` | a status's own transition list | project-blind, and core no longer calls either — `Issue#new_statuses_allowed_to` is the only caller and the plugin replaces it. There is no project in scope at that call, so there is nothing to narrow it with; left alone |
 | `IssueStatus#delete_workflow_rules` | deleting a status | no change needed — it deletes by status id, which covers project rows too |
+| `Role#workflow_rules`, `Tracker#workflow_rules` (`dependent: :delete_all`) | deleting a role or tracker | no change needed — the association covers project rows, and migration 004's foreign keys cascade the scopes |
+| `Project` destroy | deleting a project | no change needed — migration 003's foreign key cascades the rules, migration 004's the scopes |
+| `Redmine::DefaultData::Loader` | the default workflow on a fresh install | no change needed — it creates rows without a `project_id`, which is exactly the generic workflow |
+
+### Why there is no unique index on `workflows`
+
+The canonical key would have to be
+(`project_id`, `tracker_id`, `role_id`, `old_status_id`, `new_status_id`,
+`author`, `assignee`, `field_name`, `rule`, `type`), and two of those columns
+are nullable: `project_id` is NULL for every generic row and `field_name` is
+NULL for every transition. PostgreSQL, MySQL and MariaDB all treat NULLs in a
+unique index as distinct, so such an index would not constrain the generic
+rows at all — and those are the majority. PostgreSQL 15 could say
+`NULLS NOT DISTINCT` and MySQL 8 could index an expression; MariaDB can do
+neither, and Redmine 5.1 has to run on older PostgreSQL. Core has no unique
+index here either.
+
+What the plugin does instead: the writers cannot produce a duplicate within one
+save (`spec/services/workflow_idempotency_spec.rb` holds them to it, generic and
+project), and `rake redmine_project_workflows:deduplicate_workflow_rules`
+repairs a database that already has some — exact duplicates only, because two
+field-permission rows that disagree are a contradiction for an administrator to
+settle, not a duplicate to delete. Two administrators saving the same matrix at
+the same moment can still produce duplicates; that race is core's as well
+(external F06).
+
+### The indexes on `workflows`
+
+Migrations 001 and 002 added four; migration 005 drops the two that could never
+be chosen over the others, because every index is paid for on every insert and a
+workflow save inserts a whole matrix. What remains is one index per query shape:
+
+| Index | Serves |
+| --- | --- |
+| (`project_id`, `tracker_id`, `role_id`, `old_status_id`, `type`) | the transition queries |
+| (`project_id`, `tracker_id`, `role_id`, `old_status_id`, `field_name`, `type`) | the field-permission queries |
 
 ## Views
 

@@ -313,18 +313,28 @@ module RedmineProjectWorkflows
         find_statuses
       end
 
+      # "Only display statuses that are used by this tracker" -- the checkbox
+      # above both matrices.
+      #
+      # It used to filter on the physically selected project ids, so for a
+      # project that inherits it found no rows at all, .presence then fell back
+      # to *every* status, and the filter silently switched itself off in exactly
+      # the case where it was wanted (external F04). It now asks for the
+      # effective workflow of the selection: a project that inherits answers with
+      # the generic statuses, one with its own workflow answers with its own, and
+      # a project whose workflow is deliberately empty answers with nothing --
+      # which still falls back to every status, because that is the only way an
+      # administrator can fill an empty matrix in.
+      #
+      # The role filter is core's own, kept as it is: the question is which
+      # statuses the workflow uses, not which the selected roles use.
       def find_statuses
         @used_statuses_only = (params[:used_statuses_only] == '0' ? false : true)
         if @trackers && @used_statuses_only
-          role_ids = Role.all.select(&:consider_workflow?).map(&:id)
-          project_ids = selected_project_ids
-          status_ids = WorkflowTransition.where(
-            tracker_id: @trackers.map(&:id),
-            role_id: role_ids,
-            project_id: project_ids
-          ).where(
-            'old_status_id <> new_status_id'
-          ).distinct.pluck(:old_status_id, :new_status_id).flatten.uniq
+          status_ids = RedmineProjectWorkflows::Services::StatusListQuery.status_ids_for_pairs(
+            pairs: workflow_project_ids.product(@trackers.map(&:id)),
+            role_ids: Role.all.select(&:consider_workflow?).map(&:id)
+          )
           @statuses = IssueStatus.where(id: status_ids).sorted.to_a.presence
         end
         @statuses ||= IssueStatus.sorted.to_a
