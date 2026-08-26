@@ -46,6 +46,31 @@ module RedmineProjectWorkflows
       'decoration-red' if project_workflows_svg_icons? && count.zero?
     end
 
+    # A collapsible fieldset's legend, as core draws it above the author and
+    # assignee halves of the transitions matrix. 5.1 puts the label in a legend
+    # whose CSS class carries the arrow; 6.0 and later keep that class -- core
+    # still sets it -- and put an SVG sprite in front of the label.
+    def project_workflows_collapsible_legend(label, expanded)
+      body =
+        if project_workflows_svg_icons?
+          sprite_icon(expanded ? 'angle-down' : 'angle-right', rtl: !expanded) + ' '.html_safe + label
+        else
+          label
+        end
+      content_tag(:legend, body, onclick: 'toggleFieldset(this);',
+                                class: "icon icon-#{expanded ? 'expanded' : 'collapsed'}")
+    end
+
+    # The expander core puts in front of a group heading inside a table. Same
+    # split as above: a non-breaking space on 5.1, an SVG sprite from 6.0.
+    #
+    # The space is the character rather than the &nbsp; entity core writes, so
+    # that nothing has to be marked html_safe to render it.
+    def project_workflows_row_group_expander
+      body = project_workflows_svg_icons? ? sprite_icon('angle-down') : "\u00A0"
+      content_tag(:span, body, class: 'expander icon icon-expanded', onclick: 'toggleRowGroup(this);')
+    end
+
     # A link carrying one of core's icons, drawn the way the host draws icons:
     # an SVG sprite on 6.0 and later, a background image behind the CSS class on
     # 5.1. The class is set either way -- core keeps it on 7.0 too, for spacing.

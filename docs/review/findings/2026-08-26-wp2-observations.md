@@ -142,7 +142,7 @@ batching itself is _(open — WP6)_.
 
 ### G03 — `Issue#project=` does not re-check the status against the new project
 
-- **Status:** open
+- **Status:** open — deferred, with a decision recorded
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** correctness
@@ -174,7 +174,14 @@ move, or leave it — is a user-visible behaviour change and belongs with WP4's
 project-scoped work, not with a query fix. `docs/design.md` now carries the row
 saying so, which is what its claim to be a complete walk required.
 
-**Resolution:** _(open — WP4)_
+**Resolution:** WP4 examined it and left core's behaviour in place, on purpose.
+The repair sits on the path of every issue save and every bulk move, and
+`safe_attributes=` assigns `project_id` before `tracker_id` deliberately, so a
+wrong ordering would reset statuses that should have been left alone — a data
+change that is not easily undone, where doing nothing is exactly what Redmine
+does today. Recorded as open choice 1 in `docs/DECISIONS.md`, with the three
+options, what each would feel like to a user, and a recommendation. It stays
+open until Jan answers.
 
 ---
 

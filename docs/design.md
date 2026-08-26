@@ -123,6 +123,40 @@ enabled in that project and the roles that actually have members there. Every
 action authorizes against the project it acts on, and no request parameter can
 widen that (**INV-7**).
 
+Both permissions live under the issue tracking module and both map
+`projects#settings` as well as the plugin's own actions, because the tab is
+rendered from that action. `manage_project_workflow` requires membership;
+`view_project_workflow` is a read permission, so it keeps working in a closed
+project while managing does not.
+
+As built:
+
+| Path | Action | Permission |
+| --- | --- | --- |
+| `projects/:project_id/workflow/transitions` | the transitions matrix | either |
+| `projects/:project_id/workflow/permissions` | the field permissions matrix | either |
+| `PATCH` on either | save that matrix | manage |
+| `projects/:project_id/workflow/scope` | enable (`POST`) / return to inheritance (`DELETE`) | manage |
+| `projects/:project_id/workflow/scope/clear` | empty the matrix | manage |
+
+The project matrix edits **one tracker and one role at a time**. The
+administration screens edit a selection at once and need a third "no change"
+state in every cell for it; the settings tab is the list here, and each line
+opens its own matrix, so every cell is a plain yes or no. The tracker and the
+role are matched against the two lists above rather than queried, because Rails
+resolves `where(id: ['1e5'])` to record 1 and the shape of an id is therefore
+not something to rely on.
+
+The generic workflow is the read-only reference: a combination the project has
+not taken over renders the generic rules as disabled checkboxes, which is how
+core already draws a cell that cannot be changed, with the three actions above
+it. Once the project has a scope the grid is core's own `workflows/_form`
+partial, unchanged, so the project matrix cannot drift from the administration
+one. Saving while the project still inherits is refused rather than accepted:
+the writers create the scope a project write implies, so accepting it would
+turn "save" into "enable", and the three actions of INV-3 stay the only way to
+take a workflow over.
+
 ## Integration points in Redmine core
 
 These are the places where core reads workflow data without knowing about
@@ -152,7 +186,7 @@ This is the complete list: every place in Redmine 5.1, 6.1 and 7.0 that names
 | `Role#workflow_rules`, `Tracker#workflow_rules` (`dependent: :delete_all`) | deleting a role or tracker | no change needed — the association covers project rows, and migration 004's foreign keys cascade the scopes |
 | `Project` destroy | deleting a project | no change needed — migration 003's foreign key cascades the rules, migration 004's the scopes |
 | `Redmine::DefaultData::Loader` | the default workflow on a fresh install | no change needed — it creates rows without a `project_id`, which is exactly the generic workflow |
-| `Issue#project=` | moving an issue to another project | **not handled, deliberately.** It re-checks the *tracker* against the new project and never the *status*, so an issue moved into a project whose own workflow does not use its status lands on a status that project cannot leave. Core has the same asymmetry — it is not a regression — but per-project workflows make it reachable without an administrator changing anything. Repairing it changes behaviour a user can see, which is a WP4 conversation and not a query fix; recorded as finding G03 |
+| `Issue#project=` | moving an issue to another project | **not handled, deliberately.** It re-checks the *tracker* against the new project and never the *status*, so an issue moved into a project whose own workflow does not use its status lands on a status that project cannot leave. Core has the same asymmetry — it is not a regression — but per-project workflows make it reachable without an administrator changing anything. WP4 looked at it and left it: the repair sits on the path of every issue save and every bulk move, and `safe_attributes=` assigns `project_id` before `tracker_id` on purpose, so a wrong order would reset statuses that should have been left alone. Finding G03, and an open choice in `DECISIONS.md` |
 
 ### Why there is no unique index on `workflows`
 
@@ -263,7 +297,19 @@ page.
 
 The project settings screen is not a Deface override: it is a tab added by
 patching `ProjectsHelper#project_settings_tabs`, rendering the plugin's own
-views.
+views. The tab list is data, so adding an entry to it is an append rather than a
+match against rendered markup, with no anchor to go stale. Its entry names the
+controller action it leads to rather than a permission, because two permissions
+reach it and somebody who may manage a workflow must see the tab without also
+holding the permission to view it.
+
+Redmine renders **every** tab's partial on every visit to the settings page --
+`showTab` only hides and shows what is already there -- so the tab's rows are
+loaded in `ProjectsController#settings`, patched. The method rather than a
+callback: core's `#update` calls `settings` itself and then renders its view, and
+a callback would have left the tab without its rows on a failed save. The rows
+are `Services::InventoryQuery` over a single project, so the tab costs four
+queries whatever the number of trackers and roles.
 
 ## Supported versions
 

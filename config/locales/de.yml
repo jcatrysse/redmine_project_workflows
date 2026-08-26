@@ -47,3 +47,14 @@ de:
   button_project_workflow_inventory_show_all: Jedes Projekt, jeden Tracker und jede Rolle anzeigen
   button_project_workflow_inventory_open_matrices: Workflow-Matrizen öffnen
   error_project_workflow_inventory_filter: Ein oder mehrere Filterwerte existieren nicht mehr und wurden ignoriert.
+  permission_view_project_workflow: Workflow des Projekts ansehen
+  permission_manage_project_workflow: Workflow des Projekts verwalten
+  label_project_workflow_project_scope: Workflow dieses Projekts
+  label_project_workflow_open_matrix: Diesen Workflow öffnen
+  text_project_workflow_tab_description: Eine Zeile je Tracker und Rolle, über die dieses Projekt entscheiden kann. Die Zahl gibt an, wie viele Regeln das Projekt selbst hat; die Beschriftung sagt, ob diese Regeln gelten oder der allgemeine Workflow.
+  text_project_workflow_tab_nothing_to_configure: "Hier gibt es noch nichts einzustellen: dieses Projekt hat keinen Tracker aktiviert oder keine Rolle mit Mitgliedern, die an einem Workflow teilnimmt."
+  text_project_workflow_project_enable_copy_confirm: Diesem Projekt einen eigenen Workflow für diesen Tracker und diese Rolle geben, beginnend als Kopie des allgemeinen?
+  text_project_workflow_project_enable_empty_confirm: Diesem Projekt einen eigenen, leeren Workflow für diesen Tracker und diese Rolle geben? Es ist nichts erlaubt, bis Sie Regeln hinzufügen.
+  text_project_workflow_readonly_generic: Dieses Projekt erbt den allgemeinen Workflow für diesen Tracker und diese Rolle. Er wird unten als Referenz gezeigt; geben Sie dem Projekt einen eigenen Workflow, um ihn zu ändern.
+  text_project_workflow_readonly_own: Dies ist der eigene Workflow des Projekts. Um ihn zu ändern, benötigen Sie das Recht, den Workflow dieses Projekts zu verwalten.
+  notice_project_workflow_not_own: Dieses Projekt erbt den allgemeinen Workflow für diesen Tracker und diese Rolle, daher wurde nichts gespeichert. Geben Sie dem Projekt zuerst einen eigenen Workflow.

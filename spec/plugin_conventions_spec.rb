@@ -33,6 +33,48 @@ describe RedmineProjectWorkflows do
     expect(WorkflowTransition.singleton_class.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowTransitionPatch)
     expect(WorkflowPermission.singleton_class.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowPermissionPatch)
     expect(WorkflowRule.singleton_class.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowRulePatch)
+    expect(ProjectsController.ancestors).to include(RedmineProjectWorkflows::Patches::ProjectsControllerPatch)
+    expect(ProjectsHelper.ancestors).to include(RedmineProjectWorkflows::Patches::ProjectsHelperPatch)
+  end
+
+  # WP4. The permissions are declared inside Redmine::Plugin.register, which is
+  # a different mechanism from the patches above and fails differently: a
+  # permission that never reaches Redmine::AccessControl cannot be granted to
+  # any role, so the settings tab would be invisible to everyone but an
+  # administrator and no spec that logs one in would notice.
+  it 'registers its two project permissions under the issue tracking module' do
+    %i[view_project_workflow manage_project_workflow].each do |name|
+      permission = Redmine::AccessControl.permission(name)
+
+      expect(permission).not_to be_nil, "#{name} is not registered"
+      expect(permission.project_module).to eq(:issue_tracking)
+      # Both have to reach projects#settings: that is the action the tab is
+      # rendered from, so without it a role holding only one of them could not
+      # open the page the tab lives on.
+      expect(permission.actions).to include('projects/settings')
+      expect(permission.actions).to include('project_workflows/transitions')
+    end
+  end
+
+  it 'lets only the managing permission write' do
+    view = Redmine::AccessControl.permission(:view_project_workflow)
+    manage = Redmine::AccessControl.permission(:manage_project_workflow)
+
+    expect(view.actions).not_to include('project_workflows/update_transitions')
+    expect(view.actions).not_to include('project_workflows/enable')
+    expect(manage.actions).to include('project_workflows/update_transitions')
+    expect(manage.actions).to include('project_workflows/update_permissions')
+    %w[enable inherit clear].each do |action|
+      expect(manage.actions).to include("project_workflows/#{action}")
+    end
+  end
+
+  # Reading a workflow is a read action, so it goes on working in a closed
+  # project; managing one is not, so it stops there.
+  it 'marks viewing as a read action and managing as a write' do
+    expect(Redmine::AccessControl.permission(:view_project_workflow)).to be_read
+    expect(Redmine::AccessControl.permission(:manage_project_workflow)).not_to be_read
+    expect(Redmine::AccessControl.permission(:manage_project_workflow)).to be_require_member
   end
 end
 

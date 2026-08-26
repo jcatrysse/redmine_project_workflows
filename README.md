@@ -12,6 +12,9 @@ covered by CI only.
 ## Features
 
 - Project-specific status transitions and field permissions.
+- A **Workflow** tab in project settings, so a project can run its own workflow
+  without a system administrator — behind two permissions.
+- A **Workflow inventory** answering which projects have taken a workflow over.
 - Optimised SQL performance for bulk workflow transition/permission updates.
 
 ## Installation
@@ -50,6 +53,33 @@ covered by CI only.
    per project, tracker and role, with the state in words and a link into the
    matrix it describes. It shows only the projects that decided something unless
    you ask for everything.
+
+### Letting a project manage its own workflow
+
+Two permissions, under *Issue tracking* in **Administration → Roles**:
+
+- **View the project's workflow** — read the project's own **Workflow** tab.
+- **Manage the project's workflow** — give the project its own workflow, edit
+  it, empty it, and return it to the generic one. For that project only.
+
+A role that has either one gets a **Workflow** tab in **Project settings**, with
+one line per tracker the project has enabled and role that somebody holds in it.
+Each line says which of the three states above that combination is in, how many
+rules the project holds itself, and offers the actions that would change it.
+Clicking the number opens that combination's matrix.
+
+Three things are worth knowing:
+
+- **One combination at a time.** The project matrix edits one tracker and one
+  role; the tab is the list. The administration screens are still where you edit
+  many at once.
+- **A combination the project has not taken over is read-only**, and shows the
+  generic workflow — which is exactly what applies to it — so you can see what
+  you would be copying before you copy it.
+- **The builtin roles are not on the tab.** *Non member* and *Anonymous* have no
+  members in any project, so they go on following the generic workflow. A system
+  administrator can still give a project its own workflow for them from
+  **Administration → Workflow**.
 
 ## Maintenance
 

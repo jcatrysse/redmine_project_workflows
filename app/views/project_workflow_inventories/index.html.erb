@@ -68,7 +68,7 @@
         <% cell = row.cells[rule_type] %>
         <td class="project-workflow-<%= rule_type %>">
           <%= project_workflow_inventory_count_link(cell, row, rule_type) %>
-          <%= project_workflow_inventory_state_tag(cell) %>
+          <%= project_workflow_state_tag(cell.state) %>
         </td>
       <% end %>
     </tr>

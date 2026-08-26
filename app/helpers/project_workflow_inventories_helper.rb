@@ -4,7 +4,10 @@
 # ProjectWorkflowInventoriesController: Rails' include_all_helpers only reaches
 # the host application's app/helpers, not a plugin's.
 module ProjectWorkflowInventoriesHelper
-  include RedmineProjectWorkflows::VersionHelper
+  # The state labels, the rule-type labels and the version-conditional icon
+  # shapes: the same three states on the same two matrices as the project
+  # settings tab, so they are named in one place.
+  include ProjectWorkflowsHelper
 
   # One filter control: a multiple select over a list the server built, with
   # an explicit "all" entry that submits nothing.
@@ -19,29 +22,6 @@ module ProjectWorkflowInventoriesHelper
 
     select_tag(name, options, multiple: selected_ids.size > 1, id: id, class: 'expandable') +
       project_workflows_toggle_multiselect_tag
-  end
-
-  # The state of one cell, as text. Three states have to stay tellable apart
-  # (INV-3) and "own empty workflow" is a deliberate configuration, so it is
-  # named rather than marked as a fault. The class only carries colour; it
-  # never carries the meaning.
-  def project_workflow_inventory_state_tag(cell)
-    key =
-      case cell.state
-      when :own then :label_project_workflow_state_own
-      when :own_empty then :label_project_workflow_state_own_empty
-      else :label_project_workflow_state_inherits
-      end
-    content_tag(:span, l(key), class: "project-workflow-scope-state #{cell.state}")
-  end
-
-  # Which of the two matrices a column is about.
-  def project_workflow_rule_type_label(rule_type)
-    if rule_type == ProjectWorkflowScope::PERMISSIONS
-      l(:label_fields_permissions)
-    else
-      l(:label_status_transitions)
-    end
   end
 
   # The filters currently in force, so that a link from this page can change

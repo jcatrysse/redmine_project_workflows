@@ -47,3 +47,14 @@ es:
   button_project_workflow_inventory_show_all: Mostrar todos los proyectos, tipos y perfiles
   button_project_workflow_inventory_open_matrices: Abrir las matrices del flujo de trabajo
   error_project_workflow_inventory_filter: Uno o más valores de filtro ya no existen y se han ignorado.
+  permission_view_project_workflow: Ver el flujo de trabajo del proyecto
+  permission_manage_project_workflow: Gestionar el flujo de trabajo del proyecto
+  label_project_workflow_project_scope: Flujo de trabajo de este proyecto
+  label_project_workflow_open_matrix: Abrir este flujo de trabajo
+  text_project_workflow_tab_description: Una línea por cada tipo y perfil sobre el que este proyecto puede decidir. El número indica cuántas reglas tiene el proyecto mismo; la etiqueta dice si son esas reglas las que se aplican o el flujo de trabajo genérico.
+  text_project_workflow_tab_nothing_to_configure: "Todavía no hay nada que configurar aquí: este proyecto no tiene ningún tipo activado, ni ningún perfil con miembros que participe en un flujo de trabajo."
+  text_project_workflow_project_enable_copy_confirm: ¿Dar a este proyecto su propio flujo de trabajo para este tipo y perfil, partiendo de una copia del genérico?
+  text_project_workflow_project_enable_empty_confirm: ¿Dar a este proyecto su propio flujo de trabajo, vacío, para este tipo y perfil? No se permitirá nada hasta que añada reglas.
+  text_project_workflow_readonly_generic: Este proyecto hereda el flujo de trabajo genérico para este tipo y perfil. Se muestra abajo como referencia; dé al proyecto su propio flujo de trabajo para cambiarlo.
+  text_project_workflow_readonly_own: Este es el flujo de trabajo propio del proyecto. Cambiarlo requiere el permiso para gestionar el flujo de trabajo de este proyecto.
+  notice_project_workflow_not_own: Este proyecto hereda el flujo de trabajo genérico para este tipo y perfil, por lo que no se guardó nada. Dé primero al proyecto su propio flujo de trabajo.

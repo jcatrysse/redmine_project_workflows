@@ -19,7 +19,7 @@
 | WP1 | Scopes: table, model, resolver, backfill | **done** |
 | WP2 | Correctness at the core seams | **done** |
 | WP3 | Summary and inventory | **done** |
-| WP4 | Project settings tab and permissions | not started |
+| WP4 | Project settings tab and permissions | **done** |
 | WP5 | Bulk editing in the matrix | not started |
 | WP6 | Compare, audit, undo | not started |
 | WP7 | Documentation, locales, release | not started |
@@ -176,6 +176,17 @@ Three things came out differently from what this bullet list assumed:
 **Done when** authorization specs cover: no permission, view only, manage, and
 an attempt to write to another project. This is the only place where
 non-administrators write workflow data; it carries the heaviest test coverage.
+
+**Done.** All four, plus the read-only reference. Two things were decided on the
+way. The project matrix edits **one** tracker and one role at a time — the
+settings tab is the list, and one combination per matrix keeps every cell a
+plain yes or no instead of needing the administration screens' third "no change"
+state. And saving a matrix while the project still inherits is **refused**:
+the writers create the scope a project write implies, so accepting it would
+collapse "enable" into "save". Finding G03 was looked at and deliberately left
+as core behaves; it is an open choice in `DECISIONS.md` with a recommendation.
+The per-project entry point to the inventory is the tab itself, which shows the
+same rows for one project.
 
 ## WP5 — Bulk editing in the matrix
 

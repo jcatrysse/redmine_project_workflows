@@ -7,6 +7,26 @@ Redmine::Plugin.register :redmine_project_workflows do
   url 'https://github.com/jcatrysse/redmine_project_workflows'
   version '0.0.3'
   requires_redmine version_or_higher: '5.0'
+
+  # WP4. Both permissions map projects#settings, because that is the action the
+  # settings tab is rendered from: without it a role that may read its own
+  # project's workflow could not open the page the tab lives on. Redmine's own
+  # :manage_categories is declared exactly this way.
+  #
+  # The screens themselves are the plugin's, under /projects/:project_id/workflow,
+  # and every one of them authorizes against the project in its own path
+  # (INV-7). The administration screens stay administrator-only.
+  project_module :issue_tracking do
+    permission :view_project_workflow,
+               { projects: :settings,
+                 project_workflows: %i[transitions permissions] },
+               read: true
+    permission :manage_project_workflow,
+               { projects: :settings,
+                 project_workflows: %i[transitions permissions update_transitions update_permissions
+                                       enable inherit clear] },
+               require: :member
+  end
 end
 
 begin

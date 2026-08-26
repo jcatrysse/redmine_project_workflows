@@ -50,3 +50,14 @@ pl:
   button_project_workflow_inventory_show_all: Pokaż każdy projekt, typ zagadnienia i rolę
   button_project_workflow_inventory_open_matrices: Otwórz macierze przepływu pracy
   error_project_workflow_inventory_filter: Co najmniej jedna wartość filtra już nie istnieje i została pominięta.
+  permission_view_project_workflow: Podgląd przepływu pracy projektu
+  permission_manage_project_workflow: Zarządzanie przepływem pracy projektu
+  label_project_workflow_project_scope: Przepływ pracy tego projektu
+  label_project_workflow_open_matrix: Otwórz ten przepływ pracy
+  text_project_workflow_tab_description: Jeden wiersz na typ zagadnienia i rolę, o których ten projekt może decydować. Liczba oznacza, ile reguł ma sam projekt; etykieta mówi, czy obowiązują te reguły, czy ogólny przepływ pracy.
+  text_project_workflow_tab_nothing_to_configure: "Nie ma tu jeszcze nic do ustawienia: ten projekt nie ma włączonego żadnego typu zagadnienia ani żadnej roli z członkami, która bierze udział w przepływie pracy."
+  text_project_workflow_project_enable_copy_confirm: Nadać temu projektowi własny przepływ pracy dla tego typu zagadnienia i roli, zaczynając od kopii ogólnego?
+  text_project_workflow_project_enable_empty_confirm: Nadać temu projektowi własny, pusty przepływ pracy dla tego typu zagadnienia i roli? Nic nie będzie dozwolone, dopóki nie dodasz reguł.
+  text_project_workflow_readonly_generic: Ten projekt dziedziczy ogólny przepływ pracy dla tego typu zagadnienia i roli. Poniżej pokazano go dla odniesienia; nadaj projektowi własny przepływ pracy, aby go zmienić.
+  text_project_workflow_readonly_own: To jest własny przepływ pracy projektu. Jego zmiana wymaga uprawnienia do zarządzania przepływem pracy tego projektu.
+  notice_project_workflow_not_own: Ten projekt dziedziczy ogólny przepływ pracy dla tego typu zagadnienia i roli, więc nic nie zostało zapisane. Najpierw nadaj projektowi własny przepływ pracy.

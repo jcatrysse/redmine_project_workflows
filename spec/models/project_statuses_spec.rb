@@ -3,7 +3,12 @@
 require_relative '../spec_helper'
 
 describe Project, type: :model do
-  fixtures :projects, :roles, :trackers, :issue_statuses, :enabled_modules, :members, :member_roles
+  # projects_trackers is declared even though the examples below arrange the
+  # pairs they need: without it the table holds whatever the previous spec file
+  # left there, and #rolled_up_statuses walks a whole project tree, so an
+  # undeclared row on a subproject changes the answer.
+  fixtures :projects, :roles, :trackers, :issue_statuses, :enabled_modules, :members, :member_roles,
+           :projects_trackers
 
   let(:project) { projects(:projects_001) }
   let(:other_project) { projects(:projects_002) }
@@ -48,9 +53,15 @@ describe Project, type: :model do
     expect(status_ids).not_to include(project_status.id)
   end
 
+  # other_project rather than project: #rolled_up_statuses answers for a whole
+  # project tree, and eCookbook has four descendants. A scope on the parent says
+  # nothing about them (INV-6), so they go on reading the generic rules and the
+  # generic status is legitimately in the parent's answer. OnlineStore is a leaf,
+  # which is what makes "the generic status is *not* in the answer" the right
+  # assertion.
   it 'returns project-specific statuses for scoped roles' do
     WorkflowTransition.delete_all
-    give_own_workflow(project, tracker, role)
+    give_own_workflow(other_project, tracker, role)
     WorkflowTransition.create!(
       tracker_id: tracker.id,
       role_id: role.id,
@@ -65,12 +76,12 @@ describe Project, type: :model do
       role_id: role.id,
       old_status_id: old_status.id,
       new_status_id: project_status.id,
-      project_id: project.id,
+      project_id: other_project.id,
       author: false,
       assignee: false
     )
 
-    status_ids = project.rolled_up_statuses.pluck(:id)
+    status_ids = other_project.rolled_up_statuses.pluck(:id)
 
     expect(status_ids).to include(project_status.id)
     expect(status_ids).not_to include(global_status.id)

@@ -1,0 +1,33 @@
+<%#
+  The three actions of INV-3 for one project, tracker, role and kind of rule.
+
+  Only the actions that would change something are offered: a combination that
+  inherits can be taken over, one that has been taken over can be emptied or
+  given back. The project is in the path, so nothing here can act on another
+  project (INV-7).
+
+  Locals: project, tracker, role, rule_type, state, back_url (optional).
+%>
+<% selection = { tracker_id: tracker.id, role_id: role.id, rule_type: rule_type } %>
+<% selection[:back_url] = back_url if defined?(back_url) && back_url.present? %>
+<span class="project-workflow-scope-actions">
+  <% if state == :inherits %>
+    <%= link_to l(:button_project_workflow_enable_copy),
+                project_workflow_scope_path(project, selection.merge(source: 'copy')),
+                method: :post,
+                data: { confirm: l(:text_project_workflow_project_enable_copy_confirm) } %>
+    <%= link_to l(:button_project_workflow_enable_empty),
+                project_workflow_scope_path(project, selection.merge(source: 'empty')),
+                method: :post,
+                data: { confirm: l(:text_project_workflow_project_enable_empty_confirm) } %>
+  <% else %>
+    <%= link_to l(:button_project_workflow_clear),
+                clear_project_workflow_scope_path(project, selection),
+                method: :post,
+                data: { confirm: l(:text_project_workflow_clear_confirm) } %>
+    <%= link_to l(:button_project_workflow_inherit),
+                project_workflow_scope_path(project, selection),
+                method: :delete,
+                data: { confirm: l(:text_project_workflow_inherit_confirm) } %>
+  <% end %>
+</span>
