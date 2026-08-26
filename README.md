@@ -131,7 +131,8 @@ list. What that means when you save:
   assignee* — and each of the three is left alone on its own, whatever the other
   two say. (Before 0.1.1 it was not: one changed column dragged the other two
   down with it.)
-- **Every cell you do change is written to all of them.** One click on a
+- **Every cell you do change is written to all of them** — all of them that have
+  a workflow of their own, that is; see the next-but-one point. One click on a
   checkbox with three trackers, two roles and ten projects selected writes sixty
   workflows. Whenever one cell stands for more than one workflow, a sentence above
   the matrix gives that number for the selection you have; and a row or column
