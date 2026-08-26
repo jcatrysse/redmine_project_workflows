@@ -49,24 +49,56 @@ module RedmineProjectWorkflows
         result
       end
 
+      # Core's setter, with its one project-blind lookup replaced. Core asks the
+      # tracker whether it uses the current status anywhere -- a global union
+      # across every project (INV-4) -- and resets the status to the tracker's
+      # default when it does not. The question the issue actually needs is
+      # whether *its own project's* effective workflow for the new tracker uses
+      # that status.
+      #
+      # Tracker#issue_status_ids itself is deliberately left alone: narrowing
+      # the global list to the generic rules would take a status away from an
+      # issue in a project whose own workflow uses it, and this call site is the
+      # one place with a project in hand (claude F02).
+      #
+      # No role filter, exactly as core has none here. An issue with no project
+      # yet reads the generic workflow, which is the same choice
+      # #new_statuses_allowed_to already makes.
+      #
+      # The body is core's, byte-identical in 5.1, 6.1 and 7.0.
+      def tracker=(tracker)
+        tracker_was = self.tracker
+        association(:tracker).writer(tracker)
+        if tracker != tracker_was
+          if status == tracker_was.try(:default_status)
+            self.status = nil
+          elsif status && tracker && effective_status_ids_for(tracker).exclude?(status.id)
+            self.status = nil
+          end
+          reassign_custom_field_values
+          @workflow_rule_by_attribute = nil
+        end
+        self.status ||= default_status
+        self.tracker
+      end
+
       # Core's method, with its two project-blind lookups replaced: the status
       # list that decides the initial status after a tracker change, and the
       # transition query itself. See #workflow_rule_by_attribute for why core is
       # not called for the inheriting case either.
+      #
+      # The status list carries no role filter, for the same reason as in
+      # #tracker= above: this decides whether the issue *keeps* its status
+      # across a tracker change, and a status that only another role's workflow
+      # uses is still the issue's status. Core has no role filter here either.
       def new_statuses_allowed_to(user=User.current, include_default=false)
-        roles = roles_for_workflow(user)
-
         initial_status = nil
         if new_record?
           # nop
         elsif tracker_id_changed?
           if Tracker.where(id: tracker_id_was, default_status_id: status_id_was).any?
             initial_status = default_status
-          elsif RedmineProjectWorkflows::Services::StatusListQuery.status_ids_for_project(
-            project: project,
-            trackers: tracker,
-            role_ids: roles.map(&:id)
-          ).include?(status_id_was)
+          elsif effective_status_ids_for(tracker).include?(status_id_was)
             initial_status = IssueStatus.find_by_id(status_id_was)
           else
             initial_status = default_status
@@ -104,6 +136,15 @@ module RedmineProjectWorkflows
 
 
       private
+
+      # The project-aware stand-in for core's Tracker#issue_status_ids at the
+      # two call sites above.
+      def effective_status_ids_for(tracker)
+        RedmineProjectWorkflows::Services::StatusListQuery.effective_status_ids(
+          project: project,
+          tracker: tracker
+        )
+      end
 
       # See RedmineProjectWorkflows::Current for why the cache is held there and
       # not in Thread.current or RequestStore.

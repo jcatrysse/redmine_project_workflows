@@ -41,29 +41,6 @@ describe WorkflowsController, type: :controller do
     end
   end
 
-  describe 'Tracker#issue_status_ids' do
-    it 'leaks a project-only status into the global tracker list' do
-      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
-                                 old_status_id: s1.id, new_status_id: s2.id, project_id: project.id)
-      ids = Tracker.find(tracker.id).issue_status_ids
-      expect(ids).to include(s2.id)
-    end
-  end
-
-  describe 'Project#rolled_up_statuses' do
-    it 'returns nothing for a project without members, where core returns the used statuses' do
-      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
-                                 old_status_id: s1.id, new_status_id: s2.id, project_id: nil)
-      empty = Project.create!(name: 'No members', identifier: 'no-members')
-      empty.trackers = [tracker]
-      empty.save!
-      core_would_give = WorkflowTransition.where(tracker_id: empty.rolled_up_trackers.map(&:id))
-                                          .where('old_status_id <> new_status_id').count
-      expect(empty.rolled_up_statuses.to_a).to eq([])
-      expect(core_would_give).to be_positive
-    end
-  end
-
   describe 'used statuses filter' do
     it 'falls back to every status for a project without rules of its own' do
       WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,

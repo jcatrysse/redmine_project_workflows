@@ -30,11 +30,12 @@ module RedmineProjectWorkflows
         ).distinct.pluck(:role_id)
       end
 
-      # Called after any write that creates or removes a scope, so that a
-      # request which changes the configuration and then reads it back does not
-      # answer from the cache it has just invalidated.
+      # Called after any write that creates or removes a scope. Clears every
+      # request-scoped cache that reads the scope table, not only this one:
+      # StatusListQuery answers from one too, and a request that changed the
+      # configuration must not read back what it has just invalidated.
       def self.reset_cache!
-        RedmineProjectWorkflows::Current.scoped_role_ids = nil
+        RedmineProjectWorkflows::Current.reset_workflow_caches!
       end
 
       def initialize(project_id:, tracker_id:, role_ids:)
