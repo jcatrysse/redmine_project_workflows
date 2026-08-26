@@ -75,10 +75,27 @@ They must never mean the same thing in the database (**INV-3**):
 
 `ScopeWriter` is the only place that creates or removes a scope. "Enable" acts
 only on the combinations that currently inherit, so pressing it twice does not
-discard what the first press produced. Saving a project matrix goes on calling
-`ScopeWriter.ensure_scopes`, which creates a scope where there is none and never
-removes one — deleting the last rule of a project leaves the scope standing,
-which is exactly what makes the empty state expressible.
+discard what the first press produced. Deleting the last rule of a project
+leaves the scope standing, which is exactly what makes the empty state
+expressible.
+
+**Saving a matrix never creates a scope.** The three actions above are the only
+way to take a workflow over, on *every* screen — the project's own tab, where
+`ProjectWorkflowsController` has refused a save while inheriting since WP4, and
+the administration matrices, which used to accept one. `ScopeWriter.ensure_scopes`
+created the scope a project write implied and is gone; the writers call
+`touch_scopes` and write only into the (tracker, role) combinations the project
+has already taken over, returning the number they refused.
+
+The reason is that the administration grid shows what the selection *stores*, so
+a project that inherits renders as an empty matrix. Pressing Save on it — even
+with nothing touched — therefore wrote that emptiness back as an own **empty**
+workflow, in which no issue in the project can change status at all. That is the
+state ADR-001 names as the one to keep unreachable by accident, and the reason
+"enable" defaults to copying the generic rules. The panel above the grid now says
+how many combinations of the selection inherit, that they are the empty-looking
+ones, and that Save will not change them; after a save, a warning says how many
+were left alone.
 
 "Enable" defaults to copying because a scope **replaces**: an empty scope means
 no transition is permitted at all, and arriving there by accident would freeze
@@ -176,14 +193,15 @@ This is the complete list: every place in Redmine 5.1, 6.1 and 7.0 that names
 | `WorkflowsController#index` | the summary page | replaced: the count carries an explicit `project_id` predicate for the selection, so a project's rules can never be added into the generic totals. Without plugin parameters the selection is the generic workflow alone, which is exactly what core counted before any project had its own |
 | `WorkflowsController#edit`, `#permissions` | the two matrices | replaced, with an explicit `project_id` predicate for the selection |
 | `WorkflowsController#find_statuses` | the "only used statuses" checkbox | replaced: the effective workflow of the selection, not the rows physically stored against it. A selection whose workflow is genuinely empty still falls back to every status, which is the only way an empty matrix can be filled in |
-| `WorkflowsController#update`, `#update_permissions` | saving a matrix | routed through `TransitionWriter` / `PermissionWriter` (INV-1, INV-2) |
+| `WorkflowsController#update`, `#update_permissions` | saving a matrix | routed through `TransitionWriter` / `PermissionWriter` (INV-1, INV-2), which delete **per rule** rather than per cell: one cell of the transitions grid is three controls over two stored rows, each of which can independently be left at core's *no change*, so a delete keyed on the cell removed rows nobody had submitted a value for |
 | `WorkflowsController#duplicate` | the copy screen | `WorkflowRule.copy_for_project`, with the scopes recorded for whatever was copied. Without plugin parameters it falls through to core's `.copy`, which stays generic-only — but not before `invalid_copy_selection?`, which runs on **every** request and rejects a source tracker or role, or a target tracker or role, that was supplied and did not resolve. Core reads such an id as "any" or drops it from its `where`, so the copy that ran was not the copy that was asked for (codex F01, F02) |
 | `WorkflowTransition.replace_transitions`, `WorkflowPermission.replace_permissions` | core's own write API | routed through the two writers, so the generic path is validated as well |
 | `WorkflowRule.copy` / `.copy_one` | the copy screen's generic path | `copy_one` is project-scoped, so a generic copy deletes only generic rows. Core's own body has no `project_id` predicate in its delete and would take a project's rules with it |
 | `Role#copy_workflow_rules`, `Tracker#copy_workflow_rules` | duplicating a role or tracker | replaced by `WorkflowRule.copy_with_projects`: the project rules and their scopes come along, an own *empty* workflow included, so a copied role is a working copy |
 | `WorkflowPermission.rules_by_status_id` | core's `permissions` action | project-blind, and unreachable once the plugin is installed because that action is replaced. Left alone; a plugin that calls it directly gets every project's rows |
 | `IssueStatus.new_statuses_allowed` and `IssueStatus#new_statuses_allowed_to` | a status's own transition list | project-blind, and core no longer calls either — `Issue#new_statuses_allowed_to` is the only caller and the plugin replaces it. There is no project in scope at that call, so there is nothing to narrow it with; left alone |
-| `IssueStatus#delete_workflow_rules` | deleting a status | no change needed — it deletes by status id, which covers project rows too |
+| `IssueStatus#delete_workflow_rules` | deleting a status | no change needed — it deletes by status id, which covers project rows too. Worth knowing rather than fixing: a project whose own workflow used only that status is left with a scope and no rules, which is an own *empty* workflow. That is the scope model answering correctly — the project did decide to run its own workflow — and nothing warns |
+| `issue_statuses/index.html.erb` | the *not used by any workflow* badge beside a status | **left alone.** It asks `WorkflowTransition.where('old_status_id = ? OR new_status_id = ?').exists?` with no `project_id` predicate, on 5.1, 6.1 and 7.0 alike, so with the plugin installed the badge is computed across the generic rules and every project's. That is the better answer for a status a project uses, and the wrong one for a project row with no scope, which applies to nothing (INV-3). It is a badge, not a gate — the Delete link beside it is rendered unconditionally — and correcting it would mean a sixteenth Deface override, one more anchor to go stale (INV-9), for a hint |
 | `Role#workflow_rules`, `Tracker#workflow_rules` (`dependent: :delete_all`) | deleting a role or tracker | no change needed — the association covers project rows, and migration 004's foreign keys cascade the scopes |
 | `Project` destroy | deleting a project | no change needed — migration 003's foreign key cascades the rules, migration 004's the scopes |
 | `Redmine::DefaultData::Loader` | the default workflow on a fresh install | no change needed — it creates rows without a `project_id`, which is exactly the generic workflow |
@@ -239,6 +257,35 @@ not free. Accepted rather than fixed: it is one admin screen, the growth is
 linear, and the alternative (a tuple `IN (VALUES …)` predicate) is spelled
 differently on each of the three databases.
 
+### What an administration save costs
+
+The administration screens take a selection, and "all projects" is one of the
+things they take. A save then writes the whole matrix once per project: for each
+one, a `touch_scopes` UPDATE, one DELETE per rule group and the inserted rows in
+batches of a thousand. The row count is the honest part of that — a matrix of
+*s* statuses is about *s²* cells, and the operator asked for it — but the round
+trips are not, so the two places that used to make one statement per combination
+no longer do: scopes are created with `insert_all` in batches of a thousand
+(`ScopeWriter::INSERT_BATCH_SIZE`), and the whole save is one transaction rather
+than one per project.
+
+What remains one statement per combination is `WorkflowRule.copy_generic_to_project`,
+which *give own workflow* calls once per (project, tracker, role) it enables. It
+is an `INSERT ... SELECT` whose only difference between calls is the target
+project id, so the set-based form would be a join against a literal list of
+triples — spelled three different ways across PostgreSQL, MySQL and MariaDB.
+Accepted rather than fixed, for the same reason as the `OR` growth below: it is
+one administration action, the growth is linear, and the confirmation dialog
+already says how many combinations it is about to touch.
+
+The project selector the plugin adds to those screens materialises every project
+in the installation, archived ones included, as `<option>` elements — on the
+summary page, both matrices, the copy screen and the inventory's filters. Core's
+workflow screens have no such control, so this is a cost the plugin introduces.
+Accepted at this size: it is the administration section, the list is the same one
+Redmine renders on its own project pages, and narrowing it would mean deciding
+which projects an administrator may not configure.
+
 `Issue#tracker=` is the one place the resolution sits on a user's path, and only
 when the tracker actually changes — an ordinary issue save asks nothing. A
 single tracker change is two queries. A **bulk** tracker change is two per
@@ -283,9 +330,11 @@ The scope panel renders only when the selection contains at least one real
 project. An administrator who does not use the plugin sees core's screens
 unchanged.
 
-All ten anchors exist verbatim in Redmine 5.1, 6.1 and 7.0, and
-`workflows/edit`, `permissions` and `copy` are byte-identical between 6.1 and
-7.0. The two on `workflows/_form` are header *cells* rather than the toggle
+The fifteen overrides in the table above hang on twelve distinct anchors -- ten
+on the administration screens, where three of them serve `workflows/edit` and
+`workflows/permissions` alike, and two on the issue form. All twelve exist
+verbatim in Redmine 5.1, 6.1 and 7.0, and `workflows/edit`, `permissions` and
+`copy` are byte-identical between 6.1 and 7.0. The two on `workflows/_form` are header *cells* rather than the toggle
 expression inside them, because 5.1 writes that toggle as a bare
 `link_to_function` and 6.0 and later as `toggle_checkboxes_link` — while the two
 cells are identical on all three, and anchoring on the cell puts the actions

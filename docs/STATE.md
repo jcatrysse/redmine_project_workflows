@@ -6,196 +6,164 @@
 
 ## Current position
 
-- **Work package:** WP0 through **WP8** are **done**, and have been since the
-  session before this one. `docs/implementation-plan.md` runs WP0..WP8 and every
-  row of its table reads *done*. There is no WP9. What happens now is the
-  **review loop** in `docs/review/`: an outside reviewer files findings, a
-  fixing session acts on them. This session was a fixing session.
-- **What exists:** the plugin at **0.1.0** — the scope model (WP1), the core
-  seams (WP2), the per-scope summary page and inventory (WP3), the Workflow tab
-  in project settings behind two permissions (WP4), row and column actions on
-  every transition matrix (WP5), an audit trail, a project-versus-generic
-  comparison screen and a counter with undo (WP6), the documentation, locale and
-  release pass (WP7), and the workflow panel on the issue form (WP8).
-- **Branch:** `claude/dev`, pinned in `CLAUDE.md`. It overrides whatever name the
-  environment gives a session — this one started on
-  `claude/codex-plugin-review-2026-3r2wgk`, which **did not exist on the remote
-  and was never pushed**, and checked out `claude/dev` before touching anything.
-  **Pull before you start**, and note that the *local* ref can be stale even when
-  the remote is current: `git checkout -B claude/dev origin/claude/dev` is the
-  safe form.
+- **Work package:** WP0 through **WP8** are done and have been for two sessions.
+  `docs/implementation-plan.md` runs WP0..WP8 and every row reads *done*. There
+  is no WP9. What happens now is the **review loop** in `docs/review/`.
+- **This session was both roles at once** — a review *and* the fix for what it
+  found, because Jan asked for both in one go. The findings file is
+  `docs/review/findings/2026-08-26-claude-second-review.md`, and unlike a pure
+  review it went to `claude/dev` with the fixes rather than to `main` on its own:
+  the reason `docs/review/README.md` sends a findings file to `main` is so that
+  another session can act on it, and this session acted on it.
+- **What exists:** the plugin at **0.1.1**. 0.1.0 is the scope model and the
+  eight work packages; 0.1.1 is this session, which is two major fixes on the
+  path "an administrator presses Save" plus nine smaller ones.
+- **Branch:** `claude/dev`, pinned in `CLAUDE.md`. This session started on
+  `claude/redmine-workflows-plugin-review-zpjyfv`, which held the same commit as
+  `claude/dev`, and checked out `claude/dev` before touching anything.
+  `git checkout -B claude/dev origin/claude/dev` is the safe form.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open choices:** **none.** This session raised one — what the copy screen
-  should do when no target project is selected (finding C01) — and Jan answered
-  **B** the same day. It is implemented, and the row has moved up into
-  "Decided (Jan)" in `docs/DECISIONS.md`.
-- **Open findings:** **two**, both deliberate: `G02` and `G03` from the earlier
-  runs, each recorded with the reasoning for leaving it. Everything else across
-  every findings file is closed. To check for yourself:
-  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` (one further hit is
-  a line in `TEMPLATE.md`, which is not a finding).
-- **`spec/characterization/`:** still **gone**, since WP3. The convention stands
-  and is written down in `dev/README.md`: a defect that is found but not yet
-  fixed is pinned there first.
+- **Open findings:** **two**, both deliberate and both recorded with the
+  reasoning: `G02` and `G03` from the earlier runs. This session adds one
+  `wont-fix` (`R05`, the project selector lists every project) and one `invalid`
+  (`R09`, checked against core and withdrawn); everything else across every
+  findings file is closed. To check:
+  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` — two hits plus a
+  line in `TEMPLATE.md`, which is not a finding.
+- **`spec/characterization/`:** still **gone**, since WP3.
+- **Open choices:** none. Everything decided this session is Class A or a Class B
+  with the safest reversible default taken and logged in `docs/DECISIONS.md`.
 
 ## What this session produced
 
-A fixing session against **`docs/review/findings/2026-08-26-codex.md`** — a
-review run by ChatGPT Codex on `db381fc`, read-only, no suite run. Two findings,
-one major and one minor. Both are now **fixed**, in `7ff8293` and its three
-follow-ups; the head of `claude/dev` is `4db60dd`.
+A full independent review of `9a1a9ef`, then the fixes for all of it. Thirteen
+findings; the two that matter are both on the administration matrix's Save.
 
-### The defect, which was one defect and not two
+### R01 — a cell left at *(No change)* was deleted anyway
 
-Redmine's `WorkflowsController#find_sources_and_targets` — byte-identical on
-5.1, 6.1 and 7.0 — resolves the copy screen's four "which workflow" selectors
-loosely, and neither loss is reported:
+One cell of the transitions matrix is **three controls** (`always`, `author`,
+`assignee`) over **two stored rows**. Each of the three can independently render
+as a `<select>` defaulting to core's *no change*, which the controller strips
+before the writer sees it — and the writer's delete was keyed on
+`(old_status_id, new_status_id)` alone. So one submitted column deleted the rows
+of the other two, in every workflow of the selection, and reported success.
 
-- A **source** tracker or role id that names nothing resolves to `nil`. So does
-  the deliberate `any` selection, which `WorkflowRule.copy` reads as "use the
-  target's own". The two are then indistinguishable: `source_tracker_id=999999`
-  with a real role copies *that role's rules from every tracker*, and reports
-  success.
-- A **target** tracker or role id that names nothing is simply dropped by
-  `where(id: values)`. One live tracker plus one deleted one is applied to the
-  live one, and reported as success for both.
+Reachable from the **default state of the screen**: with two workflows that
+disagree about a transition, the `always` cell is a mixed dropdown while the
+`author` and `assignee` cells are unchecked checkboxes with their hidden `0`.
+Save without touching anything, and the transition is gone. Because the plugin
+routes core's own `WorkflowTransition.replace_transitions` through this writer,
+it applied to the **generic** workflow too — a change to what stock Redmine does,
+confirmed by calling core's implementation through `Method#super_method` side by
+side with the plugin's.
 
-Every write on that screen deletes the target pair's existing rules before
-inserting, so in both cases what ran was a *destructive* copy that nobody asked
-for. The plugin makes this worse than core does, because it can apply one
-request to several projects at once — which is why Codex filed it here.
+The delete is now per rule group, and the shared author/assignee row is read
+before the delete so that a flag left at *no change* survives — which is what
+core's row-by-row update does.
 
-### The fix
+### R02 — Save turned "inherits" into "own empty workflow"
 
-`WorkflowsControllerPatch#duplicate` now calls **`invalid_copy_selection?`**
-before anything is written:
+`ProjectWorkflowsController` has refused a save while inheriting since WP4 and
+`docs/design.md` states the rule. The administration screens did not implement
+it, and two halves made it dangerous: the grid shows the rules the selection
+holds *itself*, so an inheriting project renders **empty** (measured, against a
+generic workflow that had the transition), and Save then wrote that emptiness
+back as an own *empty* workflow — in which no issue in the project can change
+status at all. With **All** selected, for every project at once.
 
-- A source selector supplied as anything other than `any` must be an all-digit
-  id that resolved to a record. The **shape** is checked as well as the record,
-  because core resolves with `to_i`, so `'12abc'` silently meant tracker 12.
-- Every submitted **target** id must appear among the records core resolved,
-  de-duplicated first — the exact-set rule the target *projects* have been held
-  to since WP0, now covering all four selectors. It costs no query: the
-  comparison uses the records `find_sources_and_targets` had already loaded.
+The writers now write only into combinations the project has already taken over
+and return how many they refused; `ScopeWriter.ensure_scopes` is gone, so
+creating a scope is `.enable` and nothing else. The controller warns and
+withholds the success notice when nothing was written, and the panel says so
+above the grid before anything is pressed.
 
-**The part that was wider than the findings said.** Both findings place the
-defect in the plugin's project branch. But `#duplicate` hands a request that
-carries no project parameter to core, and the copy form's target project
-selector is a `multiple` select — one with nothing selected submits **nothing at
-all**. So the unguarded path was reachable from the plugin's own form, not only
-from a hand-built request. The guard therefore runs on **every** request, before
-the delegation to core.
+### The other eleven
 
-**Messages.** An unresolvable source tracker or role reports core's own
-`error_workflow_copy_source` ("Please select a source tracker or role"), which
-names what is actually wrong and is already translated in every language Redmine
-ships. A target tracker or role that does not exist gets a new plugin key,
-`error_workflow_copy_target_tracker_or_role`, added and translated in all eight
-locale files — parallel to `error_workflow_copy_target_project`, and deliberately
-not merged with it, because "you selected nothing" and "what you selected is
-gone" send an administrator to look at different things.
+`R03` core's issue-status badge reads `workflows` with no project predicate and
+was missing from the design's "complete list" — documented, not changed, because
+it is a badge rather than a gate. `R04` scope creation batched with `insert_all`.
+`R05` the project selector lists every project — recorded as a cost, left.
+`R06` `Issue#workflow_rule_by_attribute` is private again. `R07` the helper
+injected into core's `issues/_attributes` is guarded with `respond_to?`.
+`R08` a malformed matrix submission is rejected rather than raising. `R09`
+withdrawn as invalid. `R10` the "ten anchors" sentence in `design.md`.
+`R11` `locales_spec` asserts plural forms, and es/pt/pl use Redmine's own words.
+`R12` the threshold field is `type=number min=0`. `R13` a matrix save is one
+transaction.
 
-### The finding this session raised, reported, and then fixed on Jan's answer
+### The specs that had to change, and why that is not a weakening
 
-**C01**, in `docs/review/findings/2026-08-26-copy-form-observations.md`. Found
-while widening the guard, confirmed, major. It was reported rather than fixed —
-`CLAUDE.md` says an out-of-scope defect goes into a findings file, not into the
-diff — and **Jan answered B the same day**, so it is fixed too, in `a559b6a`.
-
-Selecting **no target project at all** on the copy screen sends the request to
-core, which rewrites the **generic** workflow — the one every project that has
-not overridden it inherits — and reports "Successful update". The plugin's own
-error text already promises a target project is required
-("Please select target trackers, roles, **and projects**"); that check is simply
-never reached on this path, because a `multiple` select with nothing selected
-submits no parameter. Nothing regressed — this is Redmine's behaviour and the
-plugin inherited it — but the plugin's form is what makes the slip easy.
-
-**Jan chose B:** the target project control preselects *Generic* when nothing
-else is selected, so the form always submits a target and the copy that runs is
-the copy the form shows. One local on `_copy_project_selector.html.erb`
-(`default_global`), passed by the target selector's override only.
-
-Two consequences worth knowing. **Option A is now largely moot but still
-available:** with a target always submitted, every submission from the plugin's
-own form carries project context and is validated by `#duplicate` rather than
-handed to core — so the only way left to reach core's generic rewrite is a
-hand-built request carrying no plugin parameter at all, or deliberately clearing
-the control with ctrl-click. And the **source** project control is deliberately
-unchanged: blank there already means the generic workflow, it destroys nothing,
-and the source tracker and role beside it are blank-by-default as well, which is
-core's own convention for "not chosen yet".
-
-### The review roles, and one that could not run
-
-Implementer, independent reviewer, QA and UX all ran. The **independent review
-was done in this same context, not in a fresh subagent** — `CLAUDE.md` asks for a
-fresh one "if a subagent mechanism is available", and this session was started
-with subagents explicitly disallowed. Read the review pass accordingly: it is
-self-review, which defends its own reasoning, and it is the weakest of the four
-gates this session. What it did produce, each of which became an example:
-
-- The symmetric malformed id (a source **role** shaped like `'2abc'`), because a
-  guard tested on one of two selectors is how one of two places gets missed.
-- The **no-project-named** path, for a bad source *and* for a bad target.
-- A **blank** source tracker, asserting the new guard does **not** intercept it
-  and the pre-existing message is still the one shown.
-- The snapshot the examples compare is both tables — `workflows` **and**
-  `project_workflow_scopes` — so a rejected request that recorded a scope for a
-  copy that never happened (INV-3) would be caught too.
-- Two examples with `render_views`, because a rejection is a **screen**: the copy
-  form has to come back carrying the message rather than raising on a selection
-  that only half resolved. Controller specs here do not render views by default,
-  so `render_template(:copy)` alone proves only which template *would* have been
-  chosen.
+Nineteen existing examples arranged project rules by calling a writer and relying
+on it to create the scope — an arrangement that relied on the defect. They now
+give the project its own workflow first. Four asserted the old behaviour outright
+(`.ensure_scopes`, and *"creates one for each tracker and role it wrote"*); those
+are inverted or moved onto `.enable`. Two model specs now reach
+`workflow_rule_by_attribute` with `send`, as core's own tests do, because it is
+private again.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **585 examples, 0 failures** (was 566; 19 added) |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **585 examples, 0 failures**, and again with `--seed 777` before C01 was fixed |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **585 examples, 0 failures**, and again with `--seed 4242` before C01 was fixed |
-| Fails on the old code (C01's three view examples) | **one of the three**, and by design: the other two are regression guards that must pass on both sides — the source control untouched, and a submitted target selection kept rather than having *Generic* added to it. Verified by restoring both changed files to their `e9f2443` state and re-running |
-| Fails on the old code (the copy guard) | **12 of the 16 new examples**, run rather than assumed: the patch file restored to its `db381fc` state with `git show db381fc:<path> > <path>`, the block run, then `git checkout -- <path>`. Ten had written a workflow row and redirected with the success notice instead of rejecting; two more render the copy page and look for the message on it, and found a redirect. The other four are positive controls that must pass on **both** sides — `any` as a source tracker, `any` as a source role, the same target tracker id submitted twice, and a blank source tracker still reporting the older message |
-| RuboCop | 91 files, no offences, **no new `.rubocop_todo.yml` entry** |
-| `zeitwerk:check` | passes on the 7.0 host |
-| Migration up → 0 → up | clean on the 7.0 host, run **before** its suite. This session adds no migration |
-| Locale parity | eight files, **92** keys each (was 91) |
-| MySQL / MariaDB | **not run** — no such server and no `mysqld` in this container. Three of the nine cells are unverified locally; CI covers them |
-| CI | **green, including the C01 fix.** Run **67** on `9905f6c` — the branch head, carrying `a559b6a` — succeeded, as did run **66** on `e9f2443` and run **65** on `6852fa2`. A run's conclusion is `success` only when every job in it is, and this workflow is ten jobs. Run **63** on `250c8b3` — which carries the entire code change — succeeded on **all ten jobs**: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Run **65** on `6852fa2` is green too. That is what covers the three **MySQL and MariaDB** cells nothing in this container could run. Runs 61, 62 and 64 read "cancelled": the concurrency group superseded each of them when the next commit was pushed, which is not a failure — read the run for the commit you care about, not the newest completed one |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **618 examples, 0 failures** (was 585; 33 added) |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **618 examples, 0 failures** |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **618 examples, 0 failures** |
+| Plugin suite, 7.0-stable + **MariaDB 10.11** | **618 examples, 0 failures** |
+| Fails on the old code | **19 of the new examples**, run rather than assumed: committed the fix, wrote the `9a1a9ef` version of `lib/` and the two changed partials back with `git show`, ran, then `git checkout -- .`. The rest are positive controls that must pass on both sides |
+| Migration up → 0 → up | clean on all four hosts, run **before** each suite; schema checked by hand on 7.0 (no `workflows.project_id`, no `project_workflow_scopes`). This session adds no migration |
+| Backfill check | `dev/check-backfill.sh` passes on the 7.0 host |
+| RuboCop | 92 files, no offences, **no new `.rubocop_todo.yml` entry** |
+| `zeitwerk:check` | passes on the 7.0 host (one new file, `services/matrix_scope.rb`) |
+| JavaScript gate | `node dev/check-bulk-js.mjs` — all thirty-two checks |
+| Locale parity | eight files, **94** keys each (was 92) |
+| MySQL 8.4, and 5.1/6.1 on MySQL and MariaDB | **not run** — five of the nine cells are unverified locally; CI covers them |
+| CI | **not yet run on this commit.** Read it before believing the five cells above |
 
 ## Exact next step
 
-**It is Jan's turn.**
-
-1. **Nothing to check first.** CI is green on all ten jobs for every commit of
-   this session that carries code — the copy guard (run 63 on `250c8b3`) and the
-   C01 fix (run 67 on `9905f6c`). Only one commit lands after run 67: this line
-   itself, docs only. See the CI row above for the "cancelled" runs, which are the
-   concurrency group superseding a run and not failures.
-2. **Nothing else is queued.** WP0..WP8 are done, `spec/characterization/` is
-   empty, and the three open findings are all deliberate — `C01` is waiting on
-   Jan, `G02` and `G03` were both recorded with the reasoning for leaving them.
-   The branch is waiting for Jan to review it and ask for the merge.
-3. **If Jan answers C01,** the fix is small and lives in one place:
-   `#duplicate`'s delegation to core (`return super unless project_context?`) for
-   option A, or
-   `app/views/redmine_project_workflows/_copy_project_selector.html.erb` for
-   option B. Either needs a controller example and, for B, a view example — and
-   B changes what an administrator sees, so it needs a line in the CHANGELOG.
-4. If Jan wants more than that, the candidates already written down are: the
-   **layered SVG diagram** (option A in `docs/DECISIONS.md`, which is WP8's data
-   with a layout pass added); the **issue show page**, deliberately out of WP8's
-   scope; **row and column actions on the field-permissions matrix** (option B,
-   declined the day it was raised, still available); and finding **G02**, if the
-   cross-project bulk tracker change ever matters in practice.
+1. **Read CI on the head of `claude/dev`.** Five of the nine cells were not run
+   here. Nothing in the change is database-specific — the one new SQL shape is an
+   `insert_all` of scope rows and an Arel `OR` of (tracker, role) pairs, both of
+   which the four cells that did run exercise — but that is an argument, not a
+   run.
+2. **Then it is Jan's turn.** `docs/review/findings/2026-08-26-claude-second-review.md`
+   is the readable account of what was wrong and what was done about it; the
+   CHANGELOG's 0.1.1 entry is the same thing for a user.
+3. The one behaviour change worth his eye is **R02**: an administrator who
+   selects a project that inherits and presses Save now gets a warning and no
+   change, where before the project silently took the workflow over. Reversing it
+   is `writable_pairs` in the two writers.
+4. If he wants more, the candidates already written down are unchanged: the
+   layered SVG diagram, the issue show page, row and column actions on the
+   field-permissions matrix, and finding `G02`.
 
 ## Known traps
 
-Everything below cost time at least once. The first two are new this session;
-the eleven after them came from WP8, and the rest from the work packages before it.
+Everything below cost time at least once. The first five are new this session;
+the rest are carried forward.
 
+- **A cell of a matrix is not the unit a delete may key on.** Three controls
+  over two rows, each of which can independently be left at "no change": the key
+  is (cell, rule group), and the two flags inside the shared row need finer
+  handling still. Whenever a screen submits several controls under one key, ask
+  which of them the delete is allowed to speak for.
+- **A grid that renders what the selection *stores* lies about what applies.**
+  The administration matrix shows a project's own rules, so a project that
+  inherits renders as an empty grid — which reads as "nothing is permitted" and
+  is the opposite of the truth. The panel above it is the only thing that can say
+  so, and it has to, because the grid is the part people read.
+- **`git checkout -- .` after a red-on-old-code run restores to HEAD.** Which is
+  right *only if the fix is committed first*. Commit, then `git show <old>:<path>
+  > <path>`, run, then `git checkout -- .`. Carried over from last session and
+  used correctly this time; keeping it here because it is the trap most likely to
+  destroy work.
+- **PostgreSQL and MariaDB both stop when the container is idle.** `pg_isready`
+  and `mariadb -e 'SELECT VERSION()'` before blaming a spec: a dead server shows
+  up as `ConnectionNotEstablished` in a `before(:suite)` hook, which reads like a
+  broken spec_helper.
+- **`Array#sort` raises on booleans.** `pluck(:author, :assignee).sort` is
+  `comparison of Array with Array failed`, because `false <=> true` is nil. Sort
+  by a mapped key.
 - **Proving an example red on the old code: stash the one file, not the tree.**
   `git stash push lib/…/the_one_file.rb`, run the suite, `git stash pop`. What
   makes this go wrong is stashing too much: a new locale key has to **stay** in

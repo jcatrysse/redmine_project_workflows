@@ -5,7 +5,7 @@ Redmine::Plugin.register :redmine_project_workflows do
   author 'Jan Catrysse'
   description 'Project workflows for Redmine'
   url 'https://github.com/jcatrysse/redmine_project_workflows'
-  version '0.1.0'
+  version '0.1.1'
   # 5.1 rather than 5.0: CI runs 5.1, 6.1 and 7.0 and nothing has ever tested
   # 5.0, so declaring it was a claim with nothing behind it.
   #

@@ -126,7 +126,11 @@ list. What that means when you save:
   transitions matrix such a cell becomes a dropdown where an agreeing cell is a
   plain checkbox, so you can see at a glance which cells disagree; on the field
   permissions matrix every cell is a dropdown already, and *(No change)* is one
-  more entry in it.
+  more entry in it. On the transitions matrix one cell is three of these — the
+  plain grid and the two below it, *when the user is the author* and *…the
+  assignee* — and each of the three is left alone on its own, whatever the other
+  two say. (Before 0.1.1 it was not: one changed column dragged the other two
+  down with it.)
 - **Every cell you do change is written to all of them.** One click on a
   checkbox with three trackers, two roles and ten projects selected writes sixty
   workflows. Whenever one cell stands for more than one workflow, a sentence above
@@ -138,6 +142,13 @@ list. What that means when you save:
   twice does not discard what the first press produced. *Empty this workflow*
   touches only combinations that already have their own. *Return to the generic
   workflow* deletes both the rules and the record of the decision.
+- **Saving does not give a project a workflow of its own.** Those three actions
+  are the only thing that does. A combination that still inherits shows as an
+  empty matrix — the grid shows the rules the selection holds *itself*, and an
+  inheriting one holds none — and Save leaves it exactly as it was rather than
+  writing that emptiness back. The panel above the matrix says how many
+  combinations of your selection are in that state, and a message after the save
+  says how many it left alone.
 - **Generic is not a project.** Selecting it alongside real projects edits the
   generic workflow as one more member of the selection; it cannot be given its
   own workflow, emptied as a scope, or returned to inheritance, because it *is*

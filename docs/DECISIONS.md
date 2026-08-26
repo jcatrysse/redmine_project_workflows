@@ -180,3 +180,42 @@ up, as were WP8's two (**A**), WP7's one, WP8's renderer choice (**C**), WP4's
 two and WP5's one. Items land here with their options, a plain-language
 explanation of each and a recommendation, while the build continues on the
 safest default.)*
+
+## Decided (autonomous) — 2026-08-26, review-fix session
+
+- **A matrix save never creates a scope, on any screen.** The administration
+  matrices used to; the project's own tab has refused since WP4. Class B (it
+  changes what an administrator sees), decided rather than deferred because the
+  old behaviour could hand a project an own *empty* workflow from a Save nobody
+  had touched, which ADR-001 names as the state to keep unreachable by accident.
+  Reversible: `TransitionWriter.writable_pairs` / `PermissionWriter.writable_pairs`
+  are the whole of it. Options considered — (A) refuse, and say how many
+  combinations were left alone; (B) keep enabling but ask for confirmation first;
+  (C) render the generic workflow read-only for an inheriting selection, as the
+  project screen does. **A** shipped: B still enables on one click-through and
+  leaves two screens disagreeing about what Save means; C is a bigger change to
+  core's own grid and does not answer a *mixed* selection, where some
+  combinations inherit and others do not. Half of C shipped anyway as a sentence:
+  the panel says the empty-looking combinations are the inheriting ones.
+- **The transitions writer deletes per rule, not per cell.** Not a choice so much
+  as core's own semantics restored; recorded because the delete/insert shape is
+  what makes the writer fast and it now carries one extra SELECT for the cells
+  whose author or assignee column was submitted.
+- **`ScopeWriter` creates scopes with `insert_all`.** The forbidden-constructs
+  table bans `insert_all` outside the two rule writers because it skips
+  validation (INV-2). Nothing here comes from a request: the ids are resolved
+  from the database and the rule type is checked against `RULE_TYPES` by a guard
+  that replaces the model's `validates_inclusion_of`. Same argument `ScopeCopier`
+  already makes for its raw `INSERT ... SELECT`.
+- **Two duplicate-flag rows are merged with OR, not by picking one.** When the
+  table holds two author/assignee rows for one cell — which no constraint
+  prevents — the writer now reads them to preserve a flag left at *(No change)*.
+  Picking one would depend on the order the database returned them and would
+  differ between PostgreSQL and MySQL; OR is deterministic and is what the matrix
+  already renders, since it draws a checked box for either flag.
+- **`issue_statuses/index`'s project-blind query is left alone.** Documented in
+  `docs/design.md` instead. It drives a badge, not a gate, and correcting it
+  would cost a sixteenth Deface override.
+- **The project selector goes on listing every project.** Recorded as a cost in
+  `docs/design.md`. Narrowing it would mean deciding which projects an
+  administrator may not configure.

@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.1.1
+
+Two defects on the path "an administrator presses Save", found by a review of
+0.1.0 and fixed here. Both could lose configuration silently, and one of them
+changed what stock Redmine does.
+
+**Upgrading:** no migration. Nothing in the database changes.
+
+### Fixed
+
+- **A cell left at *(No change)* is left alone.** One cell of the transitions
+  matrix is three controls — the plain grid and the *author* and *assignee* grids
+  below it — over two stored rows. The writer deleted on the cell rather than on
+  the rule, so a single changed column deleted the rows of the other two: a
+  selection where one workflow permitted a transition and another did not lost
+  that transition on the next save, and reported "Successful update". Because the
+  plugin routes Redmine's own `WorkflowTransition.replace_transitions` through
+  that writer, this applied to the generic workflow as well as to a project's.
+- **Saving a matrix no longer gives a project a workflow of its own.** The
+  administration grid shows the rules the selection holds *itself*, so a project
+  that inherits renders empty — and pressing Save wrote that emptiness back as an
+  own **empty** workflow, in which no issue in the project can change status.
+  Saving now writes only into combinations the project has already taken over,
+  says how many it left alone, and the panel above the matrix says so before
+  anything is pressed. The three state actions are the only way to take a
+  workflow over, on every screen; the project's own tab already worked this way.
+- A malformed matrix submission is rejected instead of raising, on the
+  administration screens as it already was on a project's own.
+- A matrix save is one transaction over the whole selection, so a failure part
+  way through no longer leaves half of it rewritten.
+- `Issue#workflow_rule_by_attribute` is private again, as it is in Redmine.
+- The link the plugin adds to the issue form no longer raises if another plugin
+  renders Redmine's issue form from a controller of its own.
+- The threshold field on the settings screen refuses anything that is not a
+  whole number, rather than accepting it and quietly using the default.
+- Spanish, Portuguese and Polish used two or three different words for *tracker*
+  and *role* between them; all three now use Redmine's own.
+
+### Changed
+
+- Giving many projects their own workflow at once no longer makes one database
+  round trip per combination.
+
 ## 0.1.0
 
 The release that makes "this project has its own workflow" a thing the database
