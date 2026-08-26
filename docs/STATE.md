@@ -21,12 +21,15 @@
   both continued on the safe default and neither blocking. Whether to override
   core's "only used statuses" label, and whether a real unique constraint on
   `workflows` is worth making `project_id` NOT NULL.
-- **Open findings:** 4. Three were already open and are scheduled outside WP2 —
+- **Open findings:** 6. Three were already open and are scheduled outside WP2 —
   claude F01 (the summary page counts project rules as generic, WP3), claude F06
   (row and column bulk actions skip mixed cells, WP5) and external F11 (the
-  README understates the operational risks, WP7). One is new and was noticed
-  rather than looked for: G01 in
-  `docs/review/findings/2026-08-26-wp2-observations.md`.
+  README understates the operational risks, WP7). Three came out of this
+  session, in `docs/review/findings/2026-08-26-wp2-observations.md`: G02 (a
+  cross-project bulk tracker change is an N+1, WP6), G03 (`Issue#project=` does
+  not re-check the status against the new project, WP4) and G04 (the "all
+  projects" filter builds one OR branch per overriding project, wont-fix). G01
+  and G05 from the same file are fixed.
 - **`spec/characterization/`:** one file, **one** example — the summary page's
   count. It belongs to WP3. The plan's WP2 said "done when this directory is
   empty"; that was wrong and has been corrected in place, because that last
@@ -101,27 +104,69 @@ can fill an empty matrix in, and it is what core does on a fresh installation.
    strict prefix. Every index is paid for on every insert, and a workflow save
    inserts a whole matrix.
 
-**One finding noticed and not fixed.** Core declares
+**An information leak, found while building and then fixed.** Core declares
 `find_trackers_roles_and_statuses_for_edit` *before* `require_admin`, and the
-plugin's override of it calls `render_404` for a project id that does not
+plugin's override of it called `render_404` for a project id that does not
 resolve. Rendering from a `before_action` halts the chain, so `require_admin`
-never runs: `/workflows/edit?project_id[]=99999999` answers 404 to an anonymous
-visitor while an id that exists answers 302 to the login page. Project ids can
-therefore be enumerated without logging in. Minor, measured, and WP4's — that
-package touches every authorization decision in this controller anyway.
+never ran: `/workflows/edit?project_id[]=99999999` answered 404 to an anonymous
+visitor while an id that exists answered 302 to the login page, so project ids
+could be enumerated without logging in. It was first recorded for WP4 (finding
+G01); the review role argued the repair is a few lines, because every action
+that reads the selector already runs after authorization, and it was right. The
+callback now only collects the invalid ids and the five actions return on them.
+
+**The independent review, run in a fresh context, found two more defects.** Both
+are fixed:
+
+1. **The request cache went stale after a rule-only write.** The cached status
+   list is derived from the rules, but only the scope-creating paths reset it —
+   so emptying a matrix, saving into a project that already had a scope, saving
+   the generic matrix, either copy path and the duplicate sweep all left the old
+   answer standing. Not reachable over HTTP today, because every writing action
+   redirects, but wrong for anything scripted and wrong the moment WP4 renders
+   after a write. The comment on `Current` stated a contract the code did not
+   meet, which is how it survived.
+2. **Copying a role or a tracker was O(trackers × projects) round trips** — 381
+   statements for three trackers and thirty overriding projects, inside one
+   transaction. The rule copy is now one `INSERT … SELECT` per (tracker, role)
+   carrying `project_id` through unchanged, and the scope copy one per rule type
+   with a `NOT EXISTS` guard. The scope copy moved into its own service,
+   `Services::ScopeCopier`; between it and `ScopeWriter` they are still the only
+   places that create or remove a scope.
+
+The review also caught that **two of the eight Deface overrides shared one
+assertion**: the selector and the hidden field both render `project_id[]`, so
+`include('project_id[]')` could not tell them apart and either could have
+stopped matching unnoticed — which is precisely what INV-9 exists to prevent.
+Each override now has an assertion only it can satisfy, and the count was wrong
+in two documents: `CLAUDE.md` said five, `docs/design.md` tabulated seven.
+
+And it caught a **false claim in a comment**: the request cache's rationale said
+core builds a fresh `Tracker` instance per issue on a bulk tracker change. It
+does not — `IssuesController#bulk_edit` hands one instance to the whole
+selection and core memoises on it, so core asks its equivalent question once for
+any number of issues. The plugin asks it once per distinct project. That N+1 is
+recorded as finding G02 rather than fixed: batching it needs an
+`IssuesController` hook WP2 has no other reason to open, and the alternative
+re-introduces the system-wide scope read external F07 was raised to remove.
+`Issue#tracker=` queries only when the tracker actually changes, so this is not
+the issue hot path.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | 222 examples, 0 failures |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | 222 examples, 0 failures |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | 222 examples, 0 failures |
-| CI, all nine cells + RuboCop | green on `775c956`, `5a5e0d3`, `c382b3f` and `9e2a530` (runs 12–15) |
-| RuboCop | 60 files, no offences |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | 238 examples, 0 failures |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | 238 examples, 0 failures |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | 238 examples, 0 failures |
+| CI, all nine cells + RuboCop | green on `775c956`, `5a5e0d3`, `c382b3f` and `9e2a530` (runs 12–15); see below for the two later commits |
+| RuboCop | 61 files, no offences |
+| Independent review | run in a fresh context on the WP2 diff; every finding either fixed or recorded with its reason |
 | `zeitwerk:check` | "All is good!" on 5.1, 6.1 and 7.0 |
 | Migration reversibility up → 0 → up | clean on 5.1, 6.1 and 7.0, on freshly built hosts, before any suite ran — and asserted to leave no plugin table, no `workflows.project_id` and no plugin index behind |
-| Backfill (`dev/check-backfill.sh`) | passes on 5.1, 6.1 and 7.0 |
+| Backfill (`dev/check-backfill.sh`) | passes on 5.1, 6.1 and 7.0 against PostgreSQL, and on 7.0 against MariaDB 10.11 |
+| Plugin suite, 7.0-stable + **MariaDB 10.11** | 238 examples, 0 failures — the first local run against MariaDB in this project |
+| Migration reversibility on MariaDB | up → 0 → up clean, and `VERSION=0` leaves no table, column or index behind on InnoDB too |
 | `rake redmine_project_workflows:deduplicate_workflow_rules` | discovered by the plugin loader and runs on all three |
 | New specs against the old code | see below |
 
@@ -134,10 +179,30 @@ by putting one file back and leaving the rest of WP2 in place:
 | `patches/issue_patch.rb` | the 3 new examples that state the project-aware tracker change |
 | the two new prepends in `lib/redmine_project_workflows.rb` | 4 of the 9 new copy examples |
 | `patches/workflows_controller_patch.rb` | the 2 new used-statuses examples |
+| the five files the review pass changed | 7 of its new examples — 4 cache invalidation, 3 authorization |
 
-MySQL and MariaDB could not be run locally: no server for either is available in
-this container and the packages could not be installed. CI covered those six
-cells on every WP2 commit.
+**MariaDB can be run locally after all, and it caught a real defect.** Earlier
+sessions recorded that neither MySQL nor MariaDB could be installed in this
+container. `apt-get install -y mariadb-server` worked this time, and
+`dev/setup.sh 7.0-stable mysql 3.3.6` builds a host against it. Doing so
+explained a CI failure that PostgreSQL and MySQL both missed — see below. MySQL
+proper is still only covered by CI.
+
+**A CI failure this session was a real defect, found on the one database no
+local run covered.** The orphan sweep added to `dev/check-backfill.sh` used
+`DELETE FROM projects_trackers pt WHERE NOT EXISTS (…)`. PostgreSQL accepts the
+table alias and so does MySQL 8.4; **MariaDB 10.11 rejects it** in a
+single-table DELETE, so all three MariaDB cells failed the backfill gate on
+`3432efd` while the other six passed. Rewritten without the alias
+(`WHERE project_id NOT IN (SELECT id FROM projects)`) and verified on both
+MariaDB and PostgreSQL, including the poisoned-database case.
+
+Worth recording *how* that went wrong: the aliased form was first tested with
+`mariadb -e "DELETE …" | head -3`, which printed no error and returned 0 — but
+the `0` was `head`'s exit status, not MariaDB's, and MariaDB echoes the failing
+statement rather than raising visibly there. The conclusion "both forms work"
+was drawn from that. Running the real script against a real host is what
+actually settled it.
 
 **One local gate failed once, and it was the environment rather than the code.**
 `dev/check-backfill.sh` failed on 7.0 with "backfill produced []". The cause was
@@ -199,9 +264,32 @@ Everything below cost time at least once. The first six are new this session.
 - **`.or` must come before `.distinct`, not after.** ActiveRecord refuses to
   combine relations that differ in `distinct`, so an OR chain has to be built
   first and made distinct at the end. `StatusListQuery` does exactly that.
+- **MariaDB 10.11 rejects a table alias in a single-table `DELETE`.**
+  PostgreSQL and MySQL 8.4 both accept it, so a statement can pass six of the
+  nine cells and fail three. `DELETE FROM t alias WHERE …` has to be written
+  without the alias.
+- **`mariadb -e "…" | head` reports `head`'s exit status, not MariaDB's**, and
+  MariaDB echoes a failing statement instead of an obvious error. A quick CLI
+  probe through a pipe can say "it works" when it does not.
+- **MariaDB *can* be installed in this container** — `apt-get install -y
+  mariadb-server libmariadb-dev`, then `mariadbd --user=mysql
+  --datadir=/var/lib/mysql --socket=/run/mysqld/mysqld.sock` in the background,
+  a `redmine` user with `GRANT ALL`, and `dev/setup.sh <branch> mysql <ruby>`.
+  Earlier sessions recorded that it could not be; that is no longer true, and it
+  is worth the four minutes for anything touching SQL.
 - **A unique index cannot enforce a key with a nullable column** on any of the
   three supported databases. This is why external F06 was answered with an
   idempotency test and a repair task rather than a constraint.
+- **A cache built from the rules is not invalidated by the scope writer.**
+  `Resolver.reset_cache!` clears both request caches, but it has to be *called*,
+  and three of the write paths did not. If you add a cache, ask which table it
+  actually depends on, not which table decides the answer.
+- **InnoDB refuses to drop the last index with a foreign key's column
+  leftmost** (MySQL error 1553). Migration 005 checks for its replacement first.
+- **Rendering from a Redmine `before_action` answers before `require_admin`.**
+  Core declares its own finders before the authorization callback, so anything
+  a plugin renders from one of them is returned to whoever asked. Collect and
+  let the action decide.
 - **A migration's effect is invisible to the process that ran it.**
   `connection.table_exists?` still answered `true` after `drop_table` in the
   same `rails runner`, so a check written in one process proves nothing.

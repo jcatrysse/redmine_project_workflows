@@ -38,9 +38,11 @@ bundle exec rails runner "
   # leaves rows behind for an id the projects sequence will hand out again --
   # after which Project.create! below dies on projects_trackers_unique and the
   # failure looks like a backfill defect. Sweep the orphans first.
+  # No table alias: MariaDB 10.11 rejects one in a single-table DELETE, where
+  # PostgreSQL and MySQL 8 accept it. NOT IN is safe here because projects.id
+  # is never NULL.
   ActiveRecord::Base.connection.delete(
-    'DELETE FROM projects_trackers pt WHERE NOT EXISTS' \
-    ' (SELECT 1 FROM projects p WHERE p.id = pt.project_id)'
+    'DELETE FROM projects_trackers WHERE project_id NOT IN (SELECT id FROM projects)'
   )
   Project.where(identifier: ['$SRC', '$DST']).each do |project|
     project.trackers.clear
