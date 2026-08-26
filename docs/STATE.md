@@ -17,10 +17,11 @@
   `claude/docs-review-tj7zpb`, which the environment had prescribed; nothing was
   committed there.
 - **`main`:** unchanged. Jan asks for the merge himself.
-- **Open choices:** two, both in `docs/DECISIONS.md` under "Open — for Jan",
-  both continued on the safe default and neither blocking. Whether to override
-  core's "only used statuses" label, and whether a real unique constraint on
-  `workflows` is worth making `project_id` NOT NULL.
+- **Open choices:** none. WP2's two were answered A on 2026-08-26 — leave core's
+  "only used statuses" label alone, and no unique constraint on `workflows`
+  (keep `project_id` nullable and repair with the rake task). Both were already
+  the implemented default, so no code changed; they have moved up into
+  `docs/DECISIONS.md` under "Decided (Jan)".
 - **Open findings:** 5, plus one marked wont-fix. Three were already open and
   are scheduled outside WP2 —
   claude F01 (the summary page counts project rules as generic, WP3), claude F06

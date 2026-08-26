@@ -30,6 +30,8 @@
 | 2026-08-26 | Invariant enforcement | Text in CLAUDE.md, no scanner spec | Considered and rejected: a spec that greps for forbidden constructs and fails the build, as `redmine_ai_triage` does. Revisit if an invariant is breached in practice. |
 | 2026-08-26 | Plugin patch hook | Patches are applied in the body of `init.rb`; the corrected `CLAUDE.md` row stands | Answered A. `Rails.application.config.to_prepare` in a plugin's `init.rb` is a silent no-op: `:add_to_prepare_blocks` has already consumed `config.to_prepare_blocks` by the time Redmine's `PluginLoader` loads the file, and following the old wording disabled the plugin entirely while the suite stayed green. Considered and rejected: reverting the table and recording the trap elsewhere. |
 | 2026-08-26 | Request-scoped cache | `ActiveSupport::CurrentAttributes`, as `RedmineProjectWorkflows::Current` | Answered A. Rails resets it around every request and job on 5.1, 6.1 and 7.0, and it adds no dependency. Considered and rejected: adding `request_store` to the plugin's own Gemfile (Redmine 7.0 dropped the gem), and dropping the cache entirely (one extra query per issue where a list renders many). |
+| 2026-08-26 | The "only used statuses" label | Leave core's wording alone | Answered A. The filter now means "the statuses the selected workflow uses", and with a project selected that project's workflow is what "this tracker" refers to there anyway. Considered and rejected: overriding the text when a project is selected, which needs two more Deface anchors and a spec for each (INV-9) to change "used by this tracker" into something barely different. |
+| 2026-08-26 | A unique constraint on `workflows` | No; keep `project_id` nullable and repair with the rake task | Answered A. The only visible symptom of a duplicate row is a matrix cell drawn as a mixed dropdown instead of a checkbox, and `rake redmine_project_workflows:deduplicate_workflow_rules` clears that in seconds. The residual race — two administrators saving the same matrix at the same instant — stays, and is core's as much as the plugin's. Considered and rejected: `project_id` NOT NULL with 0 for the generic workflow, which would make a plain unique index work on all three databases but changes what every query and `docs/design.md` mean by "generic", and would need an ADR. |
 
 ## Decided (autonomous)
 
@@ -90,41 +92,6 @@
 
 ## Open — for Jan
 
-*(A build never waits for one of these: the safest reversible default is
-already in place and named below.)*
-
-### The label on the "only used statuses" checkbox
-
-- **Choice:** should the checkbox above the two workflow matrices still read
-  "Only display statuses that are used by this tracker"?
-- **Options:**
-  A) Leave core's label alone. The filter now shows the statuses the *selected
-     workflow* uses, and when a project is selected that project's workflow is
-     what "this tracker" means there anyway.
-  B) Override the text when a project is selected, to something like "Only
-     display statuses used by the selected workflow". This needs two more
-     Deface anchors (one per matrix view) and a spec for each, because an
-     override that stops matching produces no error, only a missing label.
-- **Recommendation:** A. The behaviour is now the one the reviewer asked for,
-  and the wording difference is small enough that it does not pay for two more
-  places the plugin can quietly come unstuck from core's markup.
-- **Urgent?** no — we continued with A.
-
-### A real unique constraint on the `workflows` table
-
-- **Choice:** do we want the database to refuse duplicate workflow rows?
-- **Options:**
-  A) No. Keep `project_id` nullable, where NULL means "the generic workflow",
-     and live with the repair task. Two administrators saving the same matrix
-     at the same instant can still create duplicates; core has the same race
-     and has never closed it.
-  B) Yes, at the price of the data model: make `project_id` `NOT NULL` and use
-     `0` for the generic workflow. Then a plain unique index works on all three
-     databases. It is a migration over Redmine's own table, it changes what
-     `docs/design.md` and every query mean by "generic", and it would need an
-     ADR.
-- **Recommendation:** A. The defect it prevents is two identical rows, whose
-  only visible effect is that a matrix cell renders as a mixed dropdown instead
-  of a checkbox, and the repair task fixes that in seconds. B trades a real
-  data-model complication for it.
-- **Urgent?** no — we continued with A.
+*(Nothing open. Items land here with their options, a plain-language
+explanation of each and a recommendation, while the build continues on the
+safest default. Both of WP2's were answered A on 2026-08-26 and have moved up.)*
