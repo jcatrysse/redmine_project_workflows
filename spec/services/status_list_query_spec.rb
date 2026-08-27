@@ -208,12 +208,15 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
     end
   end
 
-  # The two properties that make grouping the overriding pairs safe. Written
-  # before the grouping existed and confirmed to pass on the per-pair form too,
-  # because the risk finding F11 names is a fix that breaches an invariant while
-  # every existing example stays green. One says what grouping must not lose --
-  # a generic role only some of the pairs answer for -- and the other what a
-  # merged branch must still read: every project in the group, not the first.
+  # The three properties that make grouping the overriding pairs safe. The first
+  # two were written before the grouping existed and confirmed to pass on the
+  # per-pair form as well, because the risk finding F11 names is a fix that
+  # breaches an invariant while every existing example stays green. They say, in
+  # order: what grouping must not lose (a generic role only some of the pairs
+  # answer for), what a merged branch must still read (every project in the
+  # group, not the first), and what the group *key* protects (a row under no
+  # scope stays unread). Each was confirmed to fail against the wrong
+  # implementation it is about, rather than argued for.
   describe 'projects that override different parts of the same tracker' do
     let(:other_role) { roles(:roles_002) }
     let(:other_project_status) { issue_statuses(:issue_statuses_004) }
@@ -234,7 +237,13 @@ describe RedmineProjectWorkflows::Services::StatusListQuery do
     # tracker answers for that role itself, which is why `excluded` is an
     # intersection across the whole pair set. Computing it per group -- the
     # obvious mistake to make once the pairs are grouped -- drops both generic
-    # rows here, and nothing else in this file would notice (INV-5, F11).
+    # rows here (INV-5, F11).
+    #
+    # F11 said no example covered this. That was too strong: 'reads each project
+    # in the list against its own scope' above catches the same mistake, and
+    # measuring found it does. This is the sharper case and worth having beside
+    # it -- two non-empty *disjoint* role sets, every pair holding a scope, so
+    # the intersection is empty for a reason no single-role example can show.
     it 'keeps both generic roles reachable when each project overrides only one' do
       give_own_workflow(project, tracker, role)
       give_own_workflow(other_project, tracker, other_role)
