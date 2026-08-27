@@ -6,170 +6,250 @@
 
 ## Current position
 
-- **Work package:** WP0 through **WP8** are done and have been for two sessions.
-  `docs/implementation-plan.md` runs WP0..WP8 and every row reads *done*. There
-  is no WP9. What happens now is the **review loop** in `docs/review/`.
-- **This session was both roles at once** — a review *and* the fix for what it
-  found, because Jan asked for both in one go. The findings file is
-  `docs/review/findings/2026-08-26-claude-second-review.md`, and unlike a pure
-  review it went to `claude/dev` with the fixes rather than to `main` on its own:
-  the reason `docs/review/README.md` sends a findings file to `main` is so that
-  another session can act on it, and this session acted on it.
-- **What exists:** the plugin at **0.1.1**. 0.1.0 is the scope model and the
-  eight work packages; 0.1.1 is this session, which is two major fixes on the
-  path "an administrator presses Save" plus nine smaller ones.
+- **Work package:** WP0 through **WP8** are done and have been for three
+  sessions. `docs/implementation-plan.md` runs WP0..WP8 and every row reads
+  *done*. There is no WP9. What happens now is the **review loop** in
+  `docs/review/`.
+- **This session was the fixer**, on a review somebody else ran. Codex reviewed
+  `ed4073d` and found two things; its own session had no GitHub credentials, so
+  its findings file never reached the repository and arrived as this session's
+  prompt instead. It is transcribed as
+  `docs/review/findings/2026-08-27-codex.md`, with the resolutions filled in, so
+  the loop in `docs/review/README.md` has the file it expects.
+- **What exists:** the plugin at **0.1.2**. 0.1.0 is the scope model and the
+  eight work packages; 0.1.1 is the two matrix-save repairs; 0.1.2 is this
+  session — one blocker and one concurrency defect, both about two people
+  pressing a button at the same moment.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. This session started on
-  `claude/redmine-workflows-plugin-review-zpjyfv`, which held the same commit as
-  `claude/dev`, and checked out `claude/dev` before touching anything.
-  `git checkout -B claude/dev origin/claude/dev` is the safe form.
-- **`main`:** unchanged. Jan asks for the merge himself. Worth knowing before he
-  does: `main` still carries the *old* CI setup — `.github/workflows/rspec-51.yml`
-  and `rspec-60.yml`, two cells — while the nine-cell `specs.yml` exists only on
-  `claude/dev`. The merge replaces the two with the matrix; the two names linger
-  in GitHub's workflow list afterwards with no file behind them, which is
-  cosmetic.
+  `claude/matrix-saves-review-findings-qshowv`, which the environment minted,
+  and checked out `claude/dev` before touching anything, as the pin requires.
+  `git checkout -B claude/dev origin/claude/dev` is the safe form — the local
+  branch in a fresh container can be dozens of commits behind the remote.
+- **`main`:** unchanged. Jan asks for the merge himself. Still worth knowing
+  before he does: `main` carries the *old* two-cell CI (`rspec-51.yml`,
+  `rspec-60.yml`) while the nine-cell `specs.yml` exists only on `claude/dev`.
+  The merge replaces them; the two old names linger in GitHub's workflow list
+  with no file behind them, which is cosmetic.
 - **Open findings:** **one** — `G02`, the batching pass for a cross-project bulk
-  tracker change, deferred with the reasoning recorded. `G03` had been left at
-  `open — deferred` in its findings file although Jan **answered it A** the same
-  day; `docs/DECISIONS.md` had the answer and the findings file did not, so the
-  status is corrected to `wont-fix` and the two documents now agree. This session
-  adds one `wont-fix` (`R05`, the project selector lists every project) and one
-  `invalid` (`R09`, checked against core and withdrawn); everything else across
-  every findings file is closed. To check:
+  tracker change, deferred with the reasoning recorded. Both of this session's
+  findings are closed as `fixed`. To check:
   `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` — one hit plus a
   line in `TEMPLATE.md`, which is not a finding.
 - **`spec/characterization/`:** still **gone**, since WP3.
-- **Open choices:** none. Everything decided this session is Class A or a Class B
-  with the safest reversible default taken and logged in `docs/DECISIONS.md`.
+- **Open choices:** **one**, and it is not urgent — whether a bulk
+  scope-creating statement should be allowed at all, which is an ADR question.
+  See "Open choices" below and `docs/DECISIONS.md`.
 
 ## What this session produced
 
-A full independent review of `9a1a9ef`, then the fixes for all of it. Thirteen
-findings; the two that matter are both on the administration matrix's Save.
+Both findings are about concurrency, and both were invisible in a suite that
+runs one thing at a time.
 
-### R01 — a cell left at *(No change)* was deleted anyway
+### F01 — scopes were created with a statement that skips what it cannot insert
 
-One cell of the transitions matrix is **three controls** (`always`, `author`,
-`assignee`) over **two stored rows**. Each of the three can independently render
-as a `<select>` defaulting to core's *no change*, which the controller strips
-before the writer sees it — and the writer's delete was keyed on
-`(old_status_id, new_status_id)` alone. So one submitted column deleted the rows
-of the other two, in every workflow of the selection, and reported success.
+`ScopeWriter.create_scopes` used `insert_all`, which `CLAUDE.md` allows only in
+the two rule writers. The 0.1.1 session had made that choice deliberately, for
+the round trips, and argued it in a comment and in `docs/DECISIONS.md`. The rule
+is a gate (G7), and a decision log does not lift one — but the interesting part
+is that the argument was also wrong on its own terms. `insert_all` is the
+*skipping* form of the statement: a row that collides with an existing one is
+dropped without a word, where the comment claimed it would raise. So two
+administrators pressing *give own workflow* for the same tracker and role were
+both told every scope had been created, and the second one went on to clear the
+rules the first one had just copied and copy the generic workflow over them.
 
-Reachable from the **default state of the screen**: with two workflows that
-disagree about a transition, the `always` cell is a mixed dropdown while the
-`author` and `assignee` cells are unchecked checkboxes with their hidden `0`.
-Save without touching anything, and the transition is gone. Because the plugin
-routes core's own `WorkflowTransition.replace_transitions` through this writer,
-it applied to the **generic** workflow too — a change to what stock Redmine does,
-confirmed by calling core's implementation through `Method#super_method` side by
-side with the plugin's.
+It is one validated `save!` per combination again, and — the half that damages
+data — `create_scopes` returns the combinations whose row it actually inserted,
+which is what `enable` now clears and copies into. A duplicate arrives as either
+`RecordInvalid` (the uniqueness validation's SELECT saw the winner) or
+`RecordNotUnique` (the winner committed between that SELECT and this INSERT);
+those two mean "somebody else got here first" and are the only failures
+swallowed. Each row is written inside a savepoint, because on PostgreSQL one
+failed statement makes every later statement of the same transaction fail too,
+and one lost race must not take the rest of the selection with it.
 
-The delete is now per rule group, and the shared author/assignee row is read
-before the delete so that a flag left at *no change* survives — which is what
-core's row-by-row update does.
+The cost is one round trip per combination where 0.1.1 made one per thousand.
+That is the open choice below.
 
-### R02 — Save turned "inherits" into "own empty workflow"
+### F02 — a save could write rules a moment after their scope was deleted
 
-`ProjectWorkflowsController` has refused a save while inheriting since WP4 and
-`docs/design.md` states the rule. The administration screens did not implement
-it, and two halves made it dangerous: the grid shows the rules the selection
-holds *itself*, so an inheriting project renders **empty** (measured, against a
-generic workflow that had the transition), and Save then wrote that emptiness
-back as an own *empty* workflow — in which no issue in the project can change
-status at all. With **All** selected, for every project at once.
+Whether a project runs its own workflow for a (tracker, role) was read with an
+ordinary unlocked query, and the rules were written afterwards on the strength
+of that answer. A *return to the generic workflow* running in between deleted
+the scope and its rules; the save then wrote its rules anyway, and they stayed
+in the table under no scope. The resolver ignores them — a project without a
+scope follows the generic workflow (INV-3) — so the save reported success over
+a change that never took effect, and left rows nothing would ever read.
 
-The writers now write only into combinations the project has already taken over
-and return how many they refused; `ScopeWriter.ensure_scopes` is gone, so
-creating a scope is `.enable` and nothing else. The controller warns and
-withholds the success notice when nothing was written, and the panel says so
-above the grid before anything is pressed.
+The check and the write are one decision now: `MatrixScope#writable_pairs` takes
+`SELECT … FOR UPDATE` on the exact scope rows, inside the transaction that then
+writes, and `return_to_inheritance` and `clear_rules` take the same locks before
+either of their deletes. Every path takes scope rows before workflow rows, which
+is what makes the two queue rather than deadlock. The lock is taken by primary
+key, in id order, in a second statement, and what *that* statement returns is
+the answer rather than what the first one found — a row this transaction had to
+wait for, and which the transaction it waited for deleted, is simply absent from
+it. By primary key because InnoDB would otherwise gap-lock a mostly empty range;
+in id order because two callers must take the same locks in the same order.
 
-### And the word "inherits", which Jan asked about afterwards
+Whichever of the two loses is the one that changes nothing: a save that arrives
+second is refused for that combination and counted among the ones it left alone,
+exactly as if the project had been following the generic workflow when the form
+was opened — which by then it is.
 
-He read the plugin's own screens and asked what workflow inheritance was, since
-Redmine has none. That is the strongest kind of wording bug report there is: the
-maintainer misreading his own product. The first of the three states now says
-**"Follows the generic workflow"** in all eight languages -- seven strings each.
+### The tests, and the one that could not be written the obvious way
 
-The **internal** vocabulary is unchanged on purpose, and `docs/DECISIONS.md` says
-so, so that a later session does not "fix" the difference by reverting the
-strings: the state symbol is still `:inherits`, so are the locale key names,
-`ScopeWriter.return_to_inheritance`, the `project-workflow-scope-state inherits`
-CSS class a theme may already target, and INV-6's own wording. The words on
-screen and the words in the code are allowed to differ where the code's word is
-precise and the screen's word was not.
+Ten new examples, **nine of them red on `ed4073d`** and run that way rather
+than assumed. The tenth is a positive control: a *generic* write must not go
+looking for a scope to lock, and the old code satisfied that by not locking
+anything at all.
 
-### The other eleven
+- `spec/plugin_conventions_spec.rb` greps `app/`, `lib/` and `db/` and fails
+  unless `.insert_all` appears in the two rule writers and nowhere else. G7 says
+  the forbidden-constructs table has to grep clean; this is that grep, executable.
+- `spec/services/scope_writer_spec.rb` covers the scope that appears after the
+  check (nothing created, the winner's rules untouched — the old code reported
+  one created and overwrote them), a row that loses the narrow race while the
+  rest of the selection still goes in, and a row the model rejects for any other
+  reason, which raises instead of being reported as somebody else's.
+- `spec/services/workflow_concurrency_spec.rb` is new. Four single-connection
+  examples subscribe to `sql.active_record` and assert the shape: the `FOR
+  UPDATE` on `project_workflow_scopes` precedes the first write to `workflows`,
+  for a transitions save, for a field-permissions save and for a return to the
+  generic workflow, and is not taken for a generic write. Two more run a **real
+  second connection** — the group turns transactional fixtures off, because
+  everything the example arranges would otherwise be invisible to the other
+  connection — and assert the outcome for both commit orders.
 
-`R03` core's issue-status badge reads `workflows` with no project predicate and
-was missing from the design's "complete list" — documented, not changed, because
-it is a badge rather than a gate. `R04` scope creation batched with `insert_all`.
-`R05` the project selector lists every project — recorded as a cost, left.
-`R06` `Issue#workflow_rule_by_attribute` is private again. `R07` the helper
-injected into core's `issues/_attributes` is guarded with `respond_to?`.
-`R08` a malformed matrix submission is rejected rather than raising. `R09`
-withdrawn as invalid. `R10` the "ten anchors" sentence in `design.md`.
-`R11` `locales_spec` asserts plural forms, and es/pt/pl use Redmine's own words.
-`R12` the threshold field is `type=number min=0`. `R13` a matrix save is one
-transaction.
-
-### The specs that had to change, and why that is not a weakening
-
-Nineteen existing examples arranged project rules by calling a writer and relying
-on it to create the scope — an arrangement that relied on the defect. They now
-give the project its own workflow first. Four asserted the old behaviour outright
-(`.ensure_scopes`, and *"creates one for each tracker and role it wrote"*); those
-are inverted or moved onto `.enable`. Two model specs now reach
-`workflow_rule_by_attribute` with `send`, as core's own tests do, because it is
-private again.
+The two-connection pair is the only place in this suite where a test waits on
+wall-clock time, and it is worth knowing why. One transaction is hooked between
+its lock and its write and waits **1.5 seconds** for the other one to finish.
+Under the fix the other one is stopped dead on the scope row, so the whole
+window elapses and the example costs 1.5 seconds; without the fix it finishes in
+milliseconds and the wait ends early, which is exactly the interleaving that
+used to leave rules under no scope. There is no way to ask a database "is that
+other transaction blocked?" portably, so the price of testing this at all is
+three seconds of suite time.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **619 examples, 0 failures** (was 585; 34 added) |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **619 examples, 0 failures** |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **619 examples, 0 failures** |
-| Plugin suite, 7.0-stable + **MariaDB 10.11** | **619 examples, 0 failures** |
-| Fails on the old code | **19 of the new examples**, run rather than assumed: committed the fix, wrote the `9a1a9ef` version of `lib/` and the two changed partials back with `git show`, ran, then `git checkout -- .`. The rest are positive controls that must pass on both sides |
-| Migration up → 0 → up | clean on all four hosts, run **before** each suite; schema checked by hand on 7.0 (no `workflows.project_id`, no `project_workflow_scopes`). This session adds no migration |
-| Backfill check | `dev/check-backfill.sh` passes on the 7.0 host |
-| RuboCop | 92 files, no offences, **no new `.rubocop_todo.yml` entry** |
-| `zeitwerk:check` | passes on the 7.0 host (one new file, `services/matrix_scope.rb`) |
-| JavaScript gate | `node dev/check-bulk-js.mjs` — all thirty-two checks |
-| Locale parity | eight files, **94** keys each (was 92) |
-| MySQL 8.4, and 5.1/6.1 on MySQL and MariaDB | not run **locally** — five of the nine cells; CI covers them, see the row below |
-| CI | **green.** Ordinary `push` runs cover this session: run **71** on `13871c2` (all the code), run **74** on `61c1e1c` and run **75** on `732438c`, each ten jobs — nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each cell through migration reversibility, the backfill check, `zeitwerk:check` and the specs. The wording commit `6ef3fc3` is covered by run **78**. Naming a run for *this* file is a regress — every correction to this row is itself a commit — so the rule instead: every commit of this session that carries code has a green ten-job run, and a run appears several minutes **after** the push, not immediately. Several runs read "cancelled" (70, 72, 73, 76): that is the concurrency group superseding a run, not a failure — read the run for the commit you care about |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **629 examples, 0 failures** (was 619; 10 added) |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **629 examples, 0 failures** |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **629 examples, 0 failures** |
+| Plugin suite, 6.1-stable + **MariaDB 10.11** | **629 examples, 0 failures** |
+| Plugin suite, 7.0-stable + **MariaDB 10.11** | **629 examples, 0 failures** |
+| Fails on the old code | **9 of the 10 new examples**, run rather than assumed: `git stash push -- lib/`, sync, run, `git stash pop`. The fix was *uncommitted* at that point, which is the one case where the stash form is safe — see the traps |
+| Migration up → 0 → up | **clean on 7.0-stable + MariaDB**, leftover `[]` — no plugin table, no `workflows.project_id`. This session adds no migration, so it is a re-check rather than a new claim, and it had to be done on a database rebuilt from core migrations only: see the traps |
+| RuboCop | **93 files, no offences**, no new `.rubocop_todo.yml` entry |
+| JavaScript gate | not re-run: nothing in `_bulk_script.html.erb` changed |
+| Locale parity | unchanged — no locale key was added or removed |
+| MySQL 8.4, and the remaining cells | not run locally — **five of the nine cells ran here**; CI covers the other four |
+| CI | to be read on the pushed head. Every commit of this session that carries code gets a ten-job run — nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop — and the run appears **several minutes after** the push, not immediately |
 
 ## Exact next step
 
-1. **Nothing to check first**, beyond reading the run for the head. CI is green
-   on every commit of this session that carries code.
-2. **It is Jan's turn.** `docs/review/findings/2026-08-26-claude-second-review.md`
-   is the readable account of what was wrong and what was done about it; the
-   CHANGELOG's 0.1.1 entry is the same thing for a user.
-3. The one behaviour change worth his eye is **R02**: an administrator who
-   selects a project that inherits and presses Save now gets a warning and no
-   change, where before the project silently took the workflow over. Reversing it
-   is `writable_pairs` in the two writers.
+1. **Read CI on the head of `claude/dev`.** The concurrency spec is the one
+   thing here that has never run on MySQL 8.4, and the whole point of the
+   nine-cell matrix is that "green on my machine" is four of nine. If a cell is
+   red, it will be in `spec/services/workflow_concurrency_spec.rb` and the
+   likely cause is lock behaviour rather than the plugin's logic.
+2. **Then it is Jan's turn.** `docs/review/findings/2026-08-27-codex.md` is the
+   readable account; the CHANGELOG's 0.1.2 entry is the same thing for a user.
+3. The open choice below wants an answer eventually, not now.
 4. If he wants more, the candidates already written down are unchanged: the
    layered SVG diagram, the issue show page, row and column actions on the
    field-permissions matrix, and finding `G02`.
 
+## Open choices
+
+- **Choice:** should creating scopes in bulk be allowed to use one statement for
+  many rows, and if so, written down where?
+- **Options:** **A)** leave it — one validated insert per combination, which is
+  what every other model write in Redmine does, and *give own workflow* stays as
+  slow as the selection is large. **B)** write an ADR that permits a bulk scope
+  create in `ScopeWriter` only, and amend the forbidden-constructs table to name
+  it, so the rule means what the code does. **C)** keep the ban and make the
+  action chunked or asynchronous instead.
+- **Recommendation:** **A** for now, **B** if anybody meets the slow case — the
+  round trips are inside one transaction on one administration action, and
+  nobody has reported it.
+- **Urgent?** no. The safe behaviour is what shipped.
+
+## Development environment — how to rebuild it
+
+Nothing survives the container. From a fresh one, in this order:
+
+```sh
+apt-get update -qq && apt-get install -y rsync libpq-dev mariadb-server libmariadb-dev
+service postgresql start
+su postgres -c "psql -c \"CREATE ROLE redmine LOGIN CREATEDB SUPERUSER PASSWORD 'redmine';\""
+service mariadb start
+mysql -uroot -e "CREATE USER IF NOT EXISTS 'redmine'@'localhost' IDENTIFIED BY 'redmine';
+                 CREATE USER IF NOT EXISTS 'redmine'@'127.0.0.1' IDENTIFIED BY 'redmine';
+                 GRANT ALL PRIVILEGES ON *.* TO 'redmine'@'localhost' WITH GRANT OPTION;
+                 GRANT ALL PRIVILEGES ON *.* TO 'redmine'@'127.0.0.1' WITH GRANT OPTION;"
+
+dev/setup.sh 6.1-stable postgresql          # ambient ruby 3.3.6 is right for 6.1 and 7.0
+dev/setup.sh 7.0-stable postgresql
+dev/setup.sh 6.1-stable mysql               # "mysql" here means the local MariaDB
+dev/setup.sh 5.1-stable postgresql 3.2.6    # 5.1 needs Ruby 3.2 — rbenv has 3.1.6, 3.2.6, 3.3.6
+dev/run.sh .redmine/6.1-stable-postgresql   # syncs the working tree, then runs the whole suite
+```
+
+Each host takes a few minutes to build and about half a minute to run. RuboCop
+is a separate bundle:
+
+```sh
+BUNDLE_GEMFILE=.github/lint/Gemfile bundle install
+BUNDLE_GEMFILE=.github/lint/Gemfile bundle exec ruby \
+  "$(BUNDLE_GEMFILE=.github/lint/Gemfile bundle info rubocop --path)/exe/rubocop"
+```
+
 ## Known traps
 
-Everything below cost time at least once. The first five are new this session;
+Everything below cost time at least once. The first few are new this session;
 the rest are carried forward.
 
-- **A push here takes several minutes to produce a CI run, and this session drew
-  the wrong conclusion from that.** Two pushes showed no run after ten minutes of
-  polling, so `specs.yml` was dispatched by hand and STATE was written to say
-  that pushing does not trigger CI. It does: runs 70 to 76 are all `push` events,
-  they simply arrive late. The manual dispatch was unnecessary, and run **77**
-  cancelled run **76** — the automatic run for the same commit — through the
-  concurrency group. Wait longer before concluding that a mechanism is broken,
-  and check the `event` field on the run rather than only its number.
+- **A migration reversibility check needs a database built from *core*
+  migrations only, and a host that has run the suite has neither.** The suite's
+  `maintain_test_schema` dumps `db/schema.rb` **including** the plugin's table
+  and column, and `rake db:drop db:create db:migrate` then loads that dump — so
+  the plugin's structures are back with no migration bookkeeping behind them,
+  `VERSION=0` prints nothing at all, and the check silently proves nothing.
+  Redmine does not track `db/schema.rb`, so there is nothing to `git checkout`:
+  **delete** it, then `db:drop db:create db:migrate`, then the plugin migrate,
+  and only then `VERSION=0`. Redmine records plugin versions in
+  `schema_migrations` as `<n>-<plugin_id>` rows, so
+  `select version from schema_migrations where version like '%-%'` coming back
+  empty is the symptom to check for. CI avoids all of this by running the check
+  **before** the suite, on a host built minutes earlier.
+- **`bundle exec rubocop` says "command not found: rubocop" even after a clean
+  `bundle install`.** Bundler 4 in this container does not put the gem's
+  executable on the path. The gem is installed and works — call its `exe/`
+  script directly, as in the block above. Ten minutes went into re-running
+  `bundle install` and reading its output for an error that was not there.
+- **A backgrounded command reports "completed" while it is still running.** The
+  harness watches the shell that `nohup … &` returns from, not the process. Both
+  a `dev/setup.sh` and a suite run were read as finished on the strength of that
+  notification, and the log was mid-`bundle install` in one case and mid-suite in
+  the other. Wait for the log to say so — `until grep -q 'examples,' <log>; do
+  sleep 5; done` — and never quote a result the log has not printed.
+- **A concurrency test needs the fixtures to be *committed*.** The suite runs
+  each example inside a transaction, so a second connection sees none of what the
+  example arranged. `self.use_transactional_tests = false` for that group, and
+  clean up in an `after` hook, because nothing else will.
+- **`git stash push -- lib/` is safe only while the fix is uncommitted.** Once
+  it is committed the stash has nothing to save, exits 0, says so quietly, and
+  the "old code" run is the new code passing itself. Committed fix →
+  `git show <old-sha>:<path> > <path>`, run, `git checkout -- <path>`.
+- **The Bash working directory persists between calls, and `cd .redmine/<host>`
+  makes `git` answer for Redmine's checkout.** A `git stash push` typed from
+  there stashes nothing and says "No local changes to save", which reads like the
+  plugin's tree being clean. Prefix with
+  `cd /home/user/redmine_project_workflows &&`.
+
 - **A cell of a matrix is not the unit a delete may key on.** Three controls
   over two rows, each of which can independently be left at "no change": the key
   is (cell, rule group), and the two flags inside the shared row need finer

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.1.2
+
+Two findings from a review of 0.1.1, both about what happens when two people
+press a button at the same moment, and one of them about a rule this repository
+states absolutely.
+
+**Upgrading:** no migration. Nothing in the database changes.
+
+### Fixed
+
+- **Giving a project its own workflow reports what it created, and clears only
+  that.** The scope rows were written with one statement for many rows, which
+  skips a row that somebody else has just created — without saying so. Two
+  administrators pressing *give own workflow* for the same tracker and role
+  were therefore both told every scope had been created, and the second one
+  went on to clear the rules the first one had just copied and copy the generic
+  workflow over them. Each row is now written and validated on its own, and
+  only the combinations actually created are counted, cleared and copied into.
+- **A save no longer leaves rules behind that nothing will read.** Whether a
+  project runs its own workflow for a tracker and role was read once and acted
+  on afterwards, so a save running beside a *return to the generic workflow*
+  could write its rules just after the scope they belong to had been deleted.
+  Those rules stay in the table, the resolver ignores them — a project without
+  a scope follows the generic workflow — and the save reports success over a
+  change that never took effect. The two are now one decision: a save holds the
+  scope rows it depends on until it has written, and returning to the generic
+  workflow waits for it, or goes first and the save is refused and says so.
+
 ## 0.1.1
 
 Two defects on the path "an administrator presses Save", found by a review of

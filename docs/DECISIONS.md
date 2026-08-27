@@ -175,11 +175,35 @@
 
 ## Open — for Jan
 
-*(Nothing open. Finding **C01** was answered **B** on 2026-08-26 and has moved
-up, as were WP8's two (**A**), WP7's one, WP8's renderer choice (**C**), WP4's
-two and WP5's one. Items land here with their options, a plain-language
+*(One open item, below. Finding **C01** was answered **B** on 2026-08-26 and has
+moved up, as were WP8's two (**A**), WP7's one, WP8's renderer choice (**C**),
+WP4's two and WP5's one. Items land here with their options, a plain-language
 explanation of each and a recommendation, while the build continues on the
 safest default.)*
+
+- **Choice:** Should creating scopes in bulk be allowed to use one statement
+  for many rows, and if so, written down where?
+  **Background:** *Give own workflow* creates one row per (project, tracker,
+  role). With every project selected on a large installation that is tens of
+  thousands of rows, and as of today it is one round trip each, because the
+  one-statement form (`insert_all`) is banned outside the two rule writers and
+  the 0.1.1 session had used it here anyway. Restoring the rule is F01 of the
+  2026-08-27 review and is done; what it costs is speed on one administration
+  action.
+  **Options:** A) Leave it. One validated insert per combination, which is what
+  every other model write in Redmine does, and the action stays as slow as the
+  selection is large. B) Write an ADR that permits a *bulk scope create* — one
+  statement for many rows in `ScopeWriter` only, with the same
+  "nothing here comes from a request" argument `ScopeCopier` already makes for
+  its raw `INSERT ... SELECT` — and amend the forbidden-constructs table to
+  name it. That is faster, and it makes the rule mean what the code does. C)
+  Keep the ban and make the action asynchronous or chunked instead, which is a
+  bigger change and a new moving part.
+  **Recommendation:** **A** for now, **B** if anybody actually meets the slow
+  case: the round trips are inside one transaction on one administration
+  action, and nobody has reported it. B is an ADR conversation rather than a
+  code decision, which is why it is here rather than done.
+  **Urgent?** no — the safe behaviour is what shipped.
 
 ## Decided (autonomous) — 2026-08-26, review-fix session
 
@@ -225,3 +249,31 @@ safest default.)*
 | Date | Question | Answer | Notes |
 | --- | --- | --- | --- |
 | 2026-08-26 | What the first of the three states is called, on screen | "Follows the generic workflow", not "Inherits…" | Jan raised it himself, having read the plugin's own screens and asked what workflow inheritance was — Redmine has none, and the word suggested a project tree that INV-6 explicitly rules out. Changed in all eight locale files, for the label, the mixed-selection count, the two read-only sentences, the refused-save notice, the panel note and the comparison sentence. The **internal** vocabulary is deliberately unchanged: the state symbol is still `:inherits`, so are the locale key names, `ScopeWriter.return_to_inheritance`, the `project-workflow-scope-state inherits` CSS class a theme may already target, and INV-6's wording. Renaming those is churn with nothing visible behind it, and the CSS class is somebody's hook. A later session should not "fix" the difference between the two by reverting the strings. |
+
+## Decided (autonomous) — 2026-08-27, review-fix session
+
+- **Scope creation goes back to one validated `save!` per combination.** The
+  forbidden-constructs table in `CLAUDE.md` bans `insert_all` outside the two
+  rule writers, and 0.1.1's entry above argued its way around it. Class A, not
+  a judgement call: the table is a gate (G7), a decision log does not lift one,
+  and the argument was wrong on its own terms as well — `insert_all` skips
+  conflicting rows rather than raising on them, so a scope somebody else had
+  just created was reported as created here too. The entry above stands as a
+  record of what was decided then; this is what is true now. Whether a bulk
+  boundary *should* exist is an ADR question and is under "Open — for Jan".
+- **`enable` acts on what it created, not on what it meant to create.**
+  `ScopeWriter.create_scopes` returns the combinations whose row it actually
+  inserted, and the clearing and copying of rules follows that list. Two
+  administrators pressing the button together no longer means the second one
+  overwrites the first one's freshly copied rules.
+- **A rule write locks the scope rows it depends on.** `writable_pairs` takes
+  `SELECT ... FOR UPDATE` on the exact scope rows, inside the transaction that
+  then writes the rules, and *return to the generic workflow* and *empty the
+  matrix* take the same locks first. Class A — it is the ordinary fix for a
+  check-then-act race, it is invisible when nothing is concurrent, and the
+  alternative was leaving rules in the table that no resolver would ever read.
+  The lock is taken by primary key, in id order, in a second statement: by
+  primary key because InnoDB would otherwise gap-lock a mostly empty range, in
+  id order because two callers must take the same locks in the same order, and
+  in a second statement because what it returns — not what the first statement
+  found — is the answer.
