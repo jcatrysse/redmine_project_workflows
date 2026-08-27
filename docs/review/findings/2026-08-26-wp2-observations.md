@@ -138,6 +138,31 @@ with WP6's performance work.
 `docs/DECISIONS.md` and in `docs/design.md`, which now states the cost. The
 batching itself is _(open — WP6)_.
 
+**Re-measured 2026-08-27** (F11 session), on `4162e7f`, 7.0-stable + PostgreSQL
+16, because WP6 has since been marked done and this was quietly left behind:
+**the finding still stands, unchanged.** Ten issues in ten projects, each issue
+on a status that is *not* the old tracker's default: **22 statements**, against
+the reviewer's 21. Ten issues in one project: **2**. With all ten projects
+overriding that tracker: **20**. So it is two statements per distinct project
+either way — one against the scope table, one against `workflows` — and the
+request cache collapses the repeats inside a project only, exactly as reported.
+
+One trap found in the measuring, worth more than the figures: **an issue whose
+status *is* the old tracker's default status never reaches the query at all.**
+`Issue#tracker=` sets `status = nil` on that branch before asking anything, so
+the first attempt at this measurement reported *2 statements for ten projects
+and 0 for one* — a tenfold improvement that was really a fixture arranging for
+the wrong branch to run. Any future batching test has to pick a non-default
+status, and say why.
+
+What is *not* re-opened here: F11's grouping does not help this path, because
+each call still resolves exactly one pair. A real fix needs the whole
+`edited_issues` set in one call, which needs a hook in `IssuesController` — a new
+patch surface, and one more copied core method in the F03 digest table. That is
+a Class B decision for Jan rather than a fixer's, and it is written up in
+`docs/DECISIONS.md` under *Open — for Jan* with the two cheaper partial options
+and what each costs.
+
 ---
 
 ### G03 — `Issue#project=` does not re-check the status against the new project

@@ -6,227 +6,186 @@
 
 ## Current position
 
-- **Work package:** WP0 through **WP8** are done and have been for five
-  sessions. `docs/implementation-plan.md` runs WP0..WP8 and every row reads
-  *done*. There is no WP9. What happens now is the **review loop** in
-  `docs/review/`.
-- **This session was the fixer** on `docs/review/findings/2026-08-27-bundled.md`
-  — a review that bundled *three* independent reviews of `03a1ab0` and
-  re-verified every claim in them, filing 21 findings.
-- **Nineteen of the 21 are `fixed`, one is `wont-fix` by Jan's answer (F21), and
-  one is `open` on purpose (F11).** All three carry a `Resolution:` line saying
-  why, so nothing in that file is silent. Every one of the 19 also carries a
-  `Resolution:` line saying what was done, how it was verified, and — where it
-  happened — what the writing of the test found that the finding had not said.
-- **What exists:** the plugin at **0.1.4**. 0.1.0 is the scope model and the
+- **Work package:** WP0 through **WP8** are done and have been for six sessions.
+  `docs/implementation-plan.md` runs WP0..WP8 and every row reads *done*. There is
+  no WP9. What happens now is the **review loop** in `docs/review/`.
+- **This session did the two things the previous one left**, in that order: it
+  read CI, which had never run on the previous session's nine commits, and it
+  fixed **F11**, the one finding that had been left open on purpose.
+- **CI had nothing to say.** Run **103** on `5912355` — the previous session's
+  head — was **green on all eleven jobs**: nine matrix cells (Redmine 5.1, 6.1
+  and 7.0 × PostgreSQL, MySQL and MariaDB), RuboCop and the bulk-action
+  JavaScript gate. That matters more than a green usually does, because three of
+  those nine commits could only be judged by a MySQL or MariaDB cell: F09's
+  `TIMESTAMP '...'` literal, F20's migration-003 change on a COPY-algorithm
+  rebuild, and F03's core-method digest table, which is measured on PostgreSQL
+  hosts and read on all nine. All three passed everywhere.
+- **`docs/review/findings/2026-08-27-bundled.md` now has no open finding.** Of its
+  21: twenty `fixed`, one `wont-fix` by Jan's answer (F21). Every one carries a
+  `Resolution:` line.
+- **One finding elsewhere is still open, and the previous STATE was wrong to
+  imply otherwise:** **G02** in `docs/review/findings/2026-08-26-wp2-observations.md`
+  — a cross-project bulk tracker change asks the database twice per project. It
+  was re-measured this session and **stands**; it is not fixed, and it is now a
+  filed choice for Jan rather than a note deferred to a work package that has
+  since been marked done. See *Open choices*.
+- **What exists:** the plugin at **0.1.5**. 0.1.0 is the scope model and the
   eight work packages; 0.1.1 the two matrix-save repairs; 0.1.2 the two
-  concurrency repairs; 0.1.3 one operability defect and seven edges; 0.1.4 is
-  this session.
+  concurrency repairs; 0.1.3 one operability defect and seven edges; 0.1.4
+  nineteen findings from the bundled review; 0.1.5 is this session's one.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. This session started on
-  `claude/review-findings-2026-08-27-aeun9v`, which the environment minted, and
-  moved to `claude/dev` immediately, as the pin requires. Nine commits, each
-  pushed and verified with `git ls-remote --heads origin`.
-- **`main`:** untouched by this session. Jan asks for the merge himself. Two
-  things still true from last session: `main` carries the *old* two-cell CI while
-  the ten-job `specs.yml` exists only on `claude/dev`, and `origin/main`'s
-  history is **unrelated** to `origin/claude/dev`'s — they share no merge base,
-  so the merge needs `--allow-unrelated-histories` or a deliberate replacement of
-  `main`'s tree.
-- **Open findings across the whole repository:** **two**. `F11` in this run's
-  file, and `G02` (the batching pass for a cross-project bulk tracker change) in
-  `docs/review/findings/2026-08-26-wp2-observations.md`. Check with
-  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`.
-- **`spec/characterization/`:** still **gone**, since WP3.
-- **Open choices for Jan:** **none.** F21 was the only one, and **Jan answered it
-  `A` on 2026-08-27**: no event log; `created_by` and `updated_by` remain the
-  whole audit story. All three places were changed together — the findings file's
-  `Status:` line, `docs/DECISIONS.md`, and this file — because the one time only
-  the ledger was updated (`G03`) the findings file spent a session saying `open`
-  after the answer had been given.
+  `claude/docs-review-40quew`, which the environment minted, and moved to
+  `claude/dev` immediately, as the pin requires. One commit, `4162e7f`, pushed
+  and verified with `git ls-remote --heads origin`.
+- **`main`:** untouched by this session. Jan asks for the merge himself. Still
+  true: `main` carries the *old* two-cell CI while the eleven-job `specs.yml`
+  exists only on `claude/dev`, and `origin/main`'s history is **unrelated** to
+  `origin/claude/dev`'s — they share no merge base, so a merge needs
+  `--allow-unrelated-histories`.
+- **Open choices for Jan:** **one**, filed this session and not urgent — G02's
+  batching. Nothing is blocked on it; the default (leave it) is what ships.
 
 ## What this session produced
 
-Nine commits, one per group of findings, in the order the fixer prompt set. The
-two majors first.
+One commit, one finding, and a measurement of a second finding that was not
+touched.
 
-### F01 — the copy screen wrote rules before it locked the scope table (major)
+### F11 — the status filter's query grew with the number of projects (minor)
 
-The defect 0.1.2 removed from three write paths, still standing on the fourth.
-`WorkflowsController#duplicate` wrote `workflows` for every target project and
-only then read `project_workflow_scopes` to decide which combinations needed a
-scope — check-then-act, on the one path nobody re-checked. `docs/design.md` had
-meanwhile recorded "every path therefore takes scope rows before workflow rows",
-a universal claim written on the strength of three paths having been changed.
+`StatusListQuery` built its second statement as an `OR` of one branch per
+(project, tracker) pair that owns its workflow. `docs/design.md` had priced that
+in as an accepted cost and located it on **one** administration screen — the
+matrix with *all projects* selected. It was two screens: the same query is
+`Project#rolled_up_statuses`, which fills the status filter and the status report
+on **every project issue list**. A tree of 300 subprojects with four overriding
+trackers is roughly 1,200 branches and ~90 KB of SQL per page view.
 
-**The quiet outcome was reproduced rather than read**, which the fixer prompt
-asked for specifically. Two live connections driven from Rails on 7.0-stable +
-PostgreSQL 16, with a scope carrying no rules (the state `clear_rules` leaves):
-old code gave `project rules=1  scope exists=false` — one rule in `workflows`
-under no scope, invisible to the resolver, no error, "Successful update". With
-the lock: `rules=0  scope=false`, a clean return-last-wins.
+`#override_conditions` now groups the overriding pairs by **(tracker, sorted
+role-id set)** and emits one condition per group carrying a `project_id` *list*.
+Every project that answers for the same roles for the same tracker — which is
+exactly what copying a workflow to a subtree produces — shares one branch, so the
+branch count follows configuration *variety* rather than project count. INV-4
+allows a list verbatim, no project tree is walked (INV-6), and no answer changes.
 
-`ScopeWriter.lock_scopes_for_copy` is now the first statement in the copy's
-transaction, over combinations computed by `WorkflowRule.copy_pairs_for_project`
-— extracted out of `copy_for_project` so the lock set and the write share **one**
-copy of the skip rule. Ascending primary key order, both rule types, so it queues
-against `lock_combinations`' three callers rather than deadlocking with them.
+**The whole difficulty of this finding was that the wrong fix passes the suite**,
+which is why the previous session deliberately did not start it late in the day.
+Two wrong fixes, both of which give wrong answers with every pre-existing example
+green:
 
-### F03 — nothing would have noticed Redmine changing under the plugin (major)
+1. computing the excluded generic roles **per group** instead of intersecting
+   across the whole pair set — a generic role is out of reach only when *every*
+   pair for that tracker answers for it (INV-5, INV-6);
+2. grouping by **tracker alone** with the role sets unioned — that reads a
+   project against roles it does not answer for, which an orphaned rule row makes
+   visible (INV-3).
 
-The plugin reimplements core methods rather than extending them, because core's
-queries carry no `project_id` predicate and there is no `super` to fall through
-to without breaching INV-4. That is right, and its standing cost is that a change
-underneath is silent: the plugin's own specs assert the plugin's answers, not
-core's. It has already happened twice to `Issue#new_statuses_allowed_to`, both
-times semantically.
+Both were implemented on purpose and reverted, to watch a gate fire. Five
+examples went in: three semantic (two written **before** the change and confirmed
+green on the old code, one new) and two statement-shape ones. `generic_conditions`
+is unchanged, and both it and the new method now say in comments that its
+intersection is load-bearing, so a later grouping pass cannot move it by accident.
 
-`spec/upstream/core_drift_spec.rb` + `core_method_digests.yml`, over a new
-`Services::CoreMethodDigest`: core's body for every shadowed method, read off the
-host through `UnboundMethod#super_method` and `RubyVM::AbstractSyntaxTree.of`,
-normalised, digested, compared against a table keyed by Redmine minor. Plus an
-**oracle** half — `super_method` binds, so core's implementation is callable, and
-four examples assert the plugin agrees with it where nothing is overridden while
-one asserts it stops agreeing once a project owns its workflow.
+### G02 — re-measured, not fixed
 
-**Eighteen methods, not the eleven the review counted, and discovered at runtime
-rather than listed.** The delegates drift too, and two of the copies are private
-in core — one of them `Issue#workflow_rule_by_attribute`, which decides which
-fields are read-only or required. A first draft used `instance_methods(false)`
-alone and silently covered thirteen of fifteen.
+`Issue#tracker=` asks the plugin which statuses a tracker's workflow uses, cached
+per (project, tracker) for the length of the request. Core memoises the same
+answer on one `Tracker` instance for a whole bulk edit, so a cross-project bulk
+tracker change costs two statements per distinct project against core's one for
+the lot. Measured again on today's code: **22** statements for ten issues in ten
+projects, **2** for ten issues in one project, **20** when all ten projects
+override that tracker.
 
-The **6.1 host was built for this**, so the table covers all three minors and no
-CI cell meets an unmeasured Redmine. Measured: 6.1 and 7.0 identical on all
-eighteen; 5.1 differs in exactly three, the controller actions. `requires_redmine`
-was **not** narrowed — an out-of-range Redmine then refuses to boot until an
-administrator deletes the plugin directory — and an unmeasured minor is therefore
-*reported*, not failed.
-
-### The other seventeen
-
-- **F02** `docs/design.md`'s lock-order sentence now names four paths, says why a
-  sample became a universal, and states the qualification it really carries.
-- **F04** the resolver's hot path is one statement, no join, no `DISTINCT`.
-- **F05** the administration matrices do no work before `require_admin` — one
-  guard clause in the patched finder, deliberately **not** a scoped
-  `prepend_before_action`, which would have *deleted* core's registration.
-- **F06** a save the whitelist partly refused now names how many values it
-  refused. A third count on `MatrixSaveResult`, and one new locale key
-  translated by hand in all eight files.
-- **F07** the JavaScript gate is a CI job. **F08** the INV-9 override count is
-  asserted. **F15** focus moves to the undo region before the link is hidden.
-- **F09** both timestamp writers build the value in Ruby. `CURRENT_TIMESTAMP` is
-  UTC only on PostgreSQL.
-- **F10** the inventory's cost is documented per mode, with measured figures.
-- **F12** the plugin's `Gemfile` names only `deface`. **F13** CI declares
-  `permissions: contents: read` and prints the tested Redmine commit.
-- **F14** `normalize_permissions_params` deleted after checking all three
-  checkouts. **F16** the copy screen's labels are associated. **F17** a save with
-  no matrix says nothing was saved.
-- **F18** two traps written down: the callback-dedupe one, and INV-4's single
-  deliberate exception, with a gate keeping it at one.
-- **F19** every workflow write logs one line, through one service that holds the
-  "ids and counts only" rule.
-- **F20** README says what the migrations cost; migration 003 prints its row
-  tally; `docs/design.md` records the COPY-algorithm rebuild.
+Not fixed, and deliberately: the only real fix needs the whole `edited_issues`
+set in one call, which needs a hook in `IssuesController` — a new patch surface
+and one more copied core method for the drift gate to watch, on a controller that
+differs between 5.1 and 6.x. That is Jan's call, filed with two cheaper partial
+options. F11's grouping does not help here, because each call still resolves
+exactly one pair.
 
 ## What the tests found that the findings had not
 
-Worth its own section, because five of these are the difference between a gate
-and the appearance of one.
-
-- **The F03 oracle passed over a deliberately broken plugin — twice over.** No
-  fixture role had `consider_workflow?` false, so the two role lists agreed; and
-  worse, the examples ran against `Issue.new`, which resolves from core's
-  `old_status_id = 0` pseudo-status, so **they were comparing two empty arrays**.
-  Only probing the gate found that. Fixed with a saved issue and a role holding
-  `view_issues` only; the same reversion now fails `[1, 2, 4]` against `[1, 2]`.
-- **A YAML digest of all zeros parsed as an Integer.** Found while probing the
-  drift gate with a wrong digest. The table's values are quoted now.
-- **The F08 override-name grep found seventeen names for fifteen overrides**, because
-  two overrides render form fields whose own markup carries `name:`. Wrong in the
-  direction that hides a missing override. Names now come from inside each
-  `Deface::Override.new` call.
-- **The F04 assertion "no subquery" was the wrong gate** and failed against the
-  correct fix: the recommended shape *keeps* an `IN` subquery, because `IN` is
-  already a semi-join. What goes is the join, the `DISTINCT`, and the subquery
-  selecting `workflows.id` for the join to look the row up again.
-- **The F10 assertion "the two query counts are equal" was also wrong.** The
-  small selection costs 5 and the large one 3, because a count query is skipped
-  when there is nothing to count. The property is a bound, not equality.
-- **The F12 assertion `not_to include('rspec-rails')` failed on the file's own
-  comment** explaining which gems had been removed. It reads declarations now.
-- **The F15 checks, inserted between an existing scenario and the `cells` it
-  depended on, broke it** — the exact state leak `dev/check-bulk-js.mjs`'s header
-  warns about.
-- **F14's finding said "there is no spec".** There were two, asserting that the
-  transposed payload *was* accepted. They were **inverted rather than deleted**,
-  which says strictly more.
+- **Rails factors the predicates common to every branch out of an `OR`.** The
+  first draft of the shape gate counted `tracker_id` occurrences — which is 1
+  whatever the branch count, so it asserted nothing at all. What stays one per
+  branch is the `project_id` predicate (`IS NULL` for the generic branch, an id
+  or a list per configuration), and that is also adapter-independent text. This
+  is the third shape assertion in two sessions that had to be measured before it
+  could be trusted (F04, F10, F11).
+- **The finding's claim that no example covered the risky case was too strong.**
+  An existing example — *reads each project in the list against its own scope* —
+  already catches the intersection-versus-union mistake. The example written for
+  it is still worth having, because it is the sharper case (two non-empty
+  disjoint role sets, every pair holding a scope), but the gate that nothing else
+  covered turned out to be a *third* one: a rule row a project holds under **no**
+  scope while a sibling answers for that role. That is the semantic gate on the
+  group key, and it was found by asking what each wrong implementation would
+  actually break rather than by re-reading the finding.
+- **The bind parameter list still grows with the number of overriding projects.**
+  One parameter per project id, so PostgreSQL's ceiling of 65,535 per statement
+  is *raised*, not removed. `docs/design.md` says so rather than claiming the
+  growth is gone.
+- **The first G02 measurement reported a tenfold improvement that did not
+  exist.** An issue whose status *is* the old tracker's default status never
+  reaches the query: `Issue#tracker=` sets `status = nil` on that branch before
+  asking anything. Ten projects read as *2 statements* and one project as *0*.
+  The fixture had arranged for the wrong branch. Same shape as the previous
+  session's `Issue.new` trap, in a different method.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **717 examples, 0 failures** (was 671; 46 added) |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **717 examples, 0 failures** |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **717 examples, 0 failures** on the final tree. Run because the 6.1 host was built for F03's digest table, so **three** of the nine cells were exercised locally this session rather than the usual two |
-| Migrations up → 0 → up | **clean on 5.1 and 7.0**, run **twice** — after F09 changed migration 004 and again after F20 changed migration 003 — each time on a database rebuilt from *core* migrations only (`db/schema.rb` deleted, `db:drop db:create db:migrate`) and **before** the suite touched that host. Leftovers `[]`, plugin rows in `schema_migrations` `[]` |
-| `dev/check-backfill.sh` | **green on 5.1 and 7.0** after both migration changes |
-| Migration 003's orphan delete | **exercised with an orphan actually present**, which CI has never done: `-> 1 rows`, row gone afterwards. Also confirmed the old `execute` form printed no count at all |
-| Fails on the old code | **19 of the 46 new examples**, run rather than assumed, per group against the immediately preceding commit. Each finding's `Resolution:` line names its own count and names the companions that pass on both. Three findings (F19's logging, F03's table, F12's gate) are new-code gates with no old behaviour to be wrong, and say so |
-| Gates proved by *firing* | three: the F08 override count (a real sixteenth override added → `expected: 15 got: 16`), the F03 digest (a wrong digest → the method, both digests and core's `source_location` named), and the F03 oracle (core's pre-5.1 role list restored → `[1, 2, 4]` vs `[1, 2]`) |
-| RuboCop | **104 files, no offences**, through `.github/lint/Gemfile`, and **no new `.rubocop_todo.yml` entry**. Six `Metrics` limits were crossed and all six fixed by extracting rather than relaxing — see the traps |
-| Locale parity | **8 files × 97 keys**, no difference. One key added, translated by hand in all eight |
-| JavaScript gate | **34 checks pass** (was 28; F15 added six), and it is **a CI job now** |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **722 examples, 0 failures** (was 717; 5 added) |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **722 examples, 0 failures** |
+| Fails on the old code | **2 of the 5**, run rather than assumed: both shape examples, with the predicted numbers — 5 branches against 2, and 4 against 3. The other three are the safety net and were confirmed green on the old code *first*, which is what the finding asked for |
+| Gates proved by *firing* | **three wrong implementations, each reverted**: `excluded` reduced with `|` instead of `&` (the new intersection example fails, and one pre-existing example with it); grouping by tracker alone with the role sets unioned (the orphan-row example and one shape example fail); and the pre-change per-pair form (both shape examples fail) |
+| RuboCop | **104 files, no offences**, through `.github/lint/Gemfile`, no new `.rubocop_todo.yml` entry |
+| JavaScript gate | **34 checks pass** |
+| Migrations up → 0 → up | **clean on 7.0**, run **before** the suite touched that host. Nothing in this session changes a migration, and CI runs the same gate on all nine cells |
+| Forbidden-constructs greps | clean: no `workflows` query without a `project_id` predicate, no `insert_all` outside the two writers, no `Thread.current` cache, no `to_prepare` in `init.rb` (every hit is a comment explaining the rule) |
 | MySQL, MariaDB | **not run locally** — no server in this container. CI covers six of the nine cells |
-| CI | **not yet run for this session's commits.** Run 90 was the last known green, on `03a1ab0`, which is the commit the review examined. The nine commits since have not been through CI, so the MySQL and MariaDB cells have seen none of this work — see "Exact next step" |
+| CI, previous session's work | run **103** on `5912355`: **green on all 11 jobs** |
+| CI, this session's commit | run **104** on `4162e7f`: **green on all 11 jobs**, so the grouping has been through all nine cells — the MySQL and MariaDB spellings of a `project_id` list included |
 
 ## Exact next step
 
-1. **Read CI first, and expect it to have something to say.** Nine commits went
-   in without CI feedback, and three of them touch things only a MySQL or MariaDB
-   cell can judge: F09's `TIMESTAMP '...'` literal (accepted by all three in
-   theory, unmeasured on two), F20's migration 003 change on a COPY-algorithm
-   rebuild, and F03's digest table, which is measured from PostgreSQL hosts but
-   read on all nine. The digest is the one to watch: it is normalised source text
-   and should be adapter-independent, but it has never run on a MySQL cell.
-2. **Then F11**, the last open finding, with its four steps written into the
-   findings file. Step 1 is the important one: write the missing example — two
-   projects overriding the same role for the same tracker, with a generic row for
-   that role — and confirm it passes on today's code *before* touching
-   `generic_conditions`. Grouping without hoisting its cross-pair `excluded` set
-   breaches INV-5 while every existing example stays green.
-3. **Then it is Jan's turn.** `docs/review/findings/2026-08-27-bundled.md` is the
-   readable account of all 21 findings; the CHANGELOG's 0.1.4 entry is the same
-   thing for a user.
-4. **No choices are waiting.** F21 was answered `A` on the day it was filed.
+1. **Nothing is outstanding from this session.** Run 104 is green on all nine
+   cells, so the one thing only a MySQL or MariaDB cell could judge — how each
+   renders a one-element `project_id` list, `= 1` versus `IN (1)` — is settled.
+   The shape examples count `project_id` occurrences precisely so that either
+   spelling passes.
+2. **It is Jan's turn.** Every finding in
+   `docs/review/findings/2026-08-27-bundled.md` is closed, and the only open one
+   anywhere is G02, which is a filed choice rather than work. The readable
+   account for a user is the CHANGELOG's 0.1.5 entry.
+3. **If a next session is asked to keep going anyway**, the honest options in
+   order of value are: a fresh **review run** (a new findings file — the last one
+   examined `03a1ab0`, which is now eleven commits behind), or G02 option **C**
+   if Jan has answered, or nothing at all. Do **not** invent a WP9.
 
 ## Open choices
 
-**None.** One was filed and Jan answered it the same day.
+**One**, filed 2026-08-27 by this session. It is in `docs/DECISIONS.md` under
+*Open — for Jan* with the full options; the short form:
 
-- **F21 — should scope changes carry an append-only event log?** **A: leave it.**
-  `created_by` and `updated_by` are the whole audit story; the question operators
-  actually ask — how does this project's workflow differ from the generic one —
-  already has a screen. No table, no retention policy, no ADR-002. **A later
-  session must not add an event-log table on the grounds that the audit trail is
-  thin: it is thin on purpose.** Option **B**, the event log, is what gets
-  re-opened — with an ADR — if the second question below is ever actually asked.
-- **What the answer does *not* cover, because F19 landed in the same session.**
-  Every workflow write now logs one line: action, rule type, actor id,
-  project/tracker/role ids, and the counts written, skipped and refused. That is
-  an *operational* record and not an audit trail — not queryable, not retained on
-  any policy, not attached to the project, and it goes wherever the host sends
-  its log. So *"what did that request do"* is answerable to somebody with log
-  access, and *"who removed this transition, and when"* is not. That gap is now a
-  decision rather than an omission, which is the whole point of recording it here.
+- **G02 — a bulk tracker change spanning many projects asks twice per project.**
+  **A)** leave it — one rare action is slower than core, an ordinary issue save
+  asks nothing. **B)** patch Redmine's issues controller so the whole selection
+  resolves in one query — the only real fix, bought with the plugin's most
+  fragile kind of coupling. **C)** a half measure with no new patch: projects
+  that have *not* taken over the tracker all share one answer, so ~11 statements
+  instead of 22 where nothing is overridden and no change where everything is.
+  **Recommendation: A now, C if it is ever felt. Not urgent.**
 
-One thing this session decided rather than repaired, called out here as well as in
-the ledger because it is user-visible: **a shipped migration was changed.** F09's
-timestamp fix went into migration 004 as well as into the live code path. An
-installation that has already migrated keeps the values it wrote — they are not
-displayed anywhere, so this is invisible — and one migrating from now on gets
-correct ones. The alternative was to fix only the live path and knowingly ship a
-statement already diagnosed as wrong.
+And still standing from before, because a later session must not undo them:
+
+- **F21 — no event log for scope changes. Answered `A` by Jan on 2026-08-27.**
+  `created_by` and `updated_by` are the whole audit story. **A later session must
+  not add an event-log table on the grounds that the audit trail is thin: it is
+  thin on purpose.** What the answer does not cover: F19's per-write log line is
+  an *operational* record, not an audit trail — so "what did that request do" is
+  answerable to somebody with log access and "who removed this transition, and
+  when" is not. That gap is a decision, recorded here.
 
 ## Development environment (rebuild from scratch in a fresh session)
 
@@ -238,13 +197,13 @@ apt-get update -qq && apt-get install -y rsync libpq-dev
 pg_ctlcluster 16 main start
 su postgres -c "psql -c \"CREATE ROLE redmine LOGIN CREATEDB PASSWORD 'redmine';\""
 
-# a Redmine host with the plugin in it (about four minutes each; run them in
-# the background in parallel). All three are worth building now: F03's digest
-# table is measured per Redmine minor, so a change to a copied method has to be
-# re-measured on each.
+# a Redmine host with the plugin in it (about two minutes each; run them in the
+# background in parallel). Two are enough for ordinary work; build the third
+# when a change touches a method in F03's digest table, which is measured per
+# Redmine minor.
 dev/setup.sh 5.1-stable postgresql 3.2.6
-dev/setup.sh 6.1-stable postgresql 3.3.6
 dev/setup.sh 7.0-stable postgresql 3.3.6
+dev/setup.sh 6.1-stable postgresql 3.3.6
 
 # the migration gates, BEFORE the suite, per host. RAILS_ENV=test has to be in
 # the same invocation. If the suite has already run on that host, the database
@@ -259,12 +218,18 @@ dev/check-backfill.sh .redmine/7.0-stable-postgresql 3.3.6
 
 # sync the working tree and run the suite
 RUBY_VERSION=3.3.6 dev/run.sh .redmine/7.0-stable-postgresql
+RUBY_VERSION=3.2.6 dev/run.sh .redmine/5.1-stable-postgresql
 
 # one spec file only (dev/run.sh always runs the whole directory)
 dev/sync.sh .redmine/7.0-stable-postgresql
 (cd .redmine/7.0-stable-postgresql && RAILS_ENV=test RBENV_VERSION=3.3.6 \
   PATH="/opt/rbenv/shims:$PATH" bundle exec rspec \
-  plugins/redmine_project_workflows/spec/upstream/core_drift_spec.rb)
+  plugins/redmine_project_workflows/spec/services/status_list_query_spec.rb)
+
+# what SQL a service actually issues, which is how the F11 shape gate was
+# written (a script under the scratchpad, run against a host)
+(cd .redmine/7.0-stable-postgresql && RAILS_ENV=test RBENV_VERSION=3.3.6 \
+  PATH="/opt/rbenv/shims:$PATH" bundle exec rails runner /path/to/probe.rb)
 
 # regenerate F03's digest table for one host (do this ONLY after deciding the
 # plugin's copy must follow core's change -- never before)
@@ -272,7 +237,7 @@ dev/sync.sh .redmine/7.0-stable-postgresql
   PATH="/opt/rbenv/shims:$PATH" bundle exec rails runner \
   'RedmineProjectWorkflows::Services::CoreMethodDigest.digests.sort.each { |k, v| puts "  %s: %p" % [k.inspect, v] }')
 
-# the JavaScript gate (also a CI job now)
+# the JavaScript gate (also a CI job)
 node dev/check-bulk-js.mjs
 
 # lint (rubocop's binaries are not on PATH by default in this container)
@@ -290,9 +255,35 @@ prerequisites and the MySQL variant.
 Everything below cost time at least once. The first group is new this session;
 the rest is carried forward.
 
+- **An `OR` of ActiveRecord relations does not put every predicate in every
+  branch.** Rails factors out what all the branches share, so a statement built
+  from four conditions on the same base scope names the base condition and the
+  tracker **once**. Any assertion about "how many branches" has to count
+  something that is genuinely per branch — here the `project_id` predicate —
+  and the only way to know which is to print the SQL from a `rails runner`
+  probe before writing the expectation.
+- **`Issue#tracker=` asks the workflow nothing when the issue is on the old
+  tracker's default status.** It sets `status = nil` on that branch and returns.
+  So a query-count measurement, or any example about what a tracker change reads,
+  needs an issue on a **non-default** status — and should say why in a comment,
+  because the cheap branch makes a broken measurement look like a spectacular
+  improvement (ten projects read as 2 statements instead of 22).
+- **A one-element list in `where(project_id: [id])` renders as `= 1`, not
+  `IN (1)`.** Harmless, but an assertion that greps for `IN` fails on the group
+  that happens to hold one project. Match on the column name.
+- **`git reset --hard origin/claude/dev` on a fresh container is right, and the
+  divergence it discards is not local work.** This container's local
+  `claude/dev` was five commits of the *unrelated* `main` lineage; `git checkout`
+  reported "5 and 50 different commits each", which reads like something to
+  preserve. `git merge-base --is-ancestor A B; echo $?` is the check that cannot
+  lie — and the branch the environment minted (here `claude/docs-review-40quew`)
+  already pointed at the real remote head, so nothing needed rescuing.
+
+Everything from here down is carried forward from earlier sessions.
+
 - **A gate that has never fired is a claim about nothing, and only a probe tells
-  you which kind you have.** Three gates were built this session and all three
-  were *deliberately made to fail* before being trusted. Two of the three were
+  you which kind you have.** Three gates were built in the 0.1.4 session and all
+  three were *deliberately made to fail* before being trusted. Two of the three were
   broken when first written and passed anyway: F03's oracle compared two empty
   arrays (see the next entry), and the override-name grep counted seventeen names
   for fifteen overrides. Neither would ever have failed. **Add the gate, then
@@ -331,8 +322,8 @@ the rest is carried forward.
   and the `cells` it depends on breaks it.** Exactly the state leak that file's
   own header warns about, met from the other direction. Append after the
   scenario that owns the variable, or `reset()` and build your own.
-- **Six `Metrics` limits were crossed this session and all six were fixed by
-  extracting.** They are already relaxed in `.rubocop.yml` with a stated
+- **Six `Metrics` limits were crossed in the 0.1.4 session and all six were
+  fixed by extracting.** They are already relaxed in `.rubocop.yml` with a stated
   rationale, so crossing one is a real signal. What came out of it, and all of it
   is a genuine improvement rather than placation:
   `Patches::WorkflowsControllerCopy` (the copy screen's four helpers),
@@ -555,7 +546,7 @@ Everything from here down is carried forward from earlier sessions.
   "commit first" is part of the recipe rather than an aside.
 - **…and `git checkout -- <path>` afterwards restores it to `HEAD`, which throws
   an *uncommitted* fix away.** The mirror image of the trap above, and it cost
-  this session the C01 view fix once: writing the old version over the file,
+  an earlier session the C01 view fix once: writing the old version over the file,
   running, then `git checkout --` left the old version in place, because `HEAD`
   did not yet carry the new one. `git status` then shows the spec file modified
   and the fix silently gone. **Commit the fix first**, then restore from the
@@ -830,7 +821,6 @@ Everything from here down is carried forward from earlier sessions.
   data: { confirm: ... }` works. The row and column actions and the undo do not
   depend on it — they are `link_to_function` with an `onclick`.
 
-
 ## Carrying on
 
 Prompt for the next session:
@@ -839,17 +829,19 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-There is no WP9 and the plan is finished, so "carry on" means the review loop.
-Two things are genuinely waiting, in this order, and neither is invented work:
+There is no WP9 and the plan is finished, so "carry on" means the review loop —
+and the review loop is, for the moment, **empty of work**. In order:
 
-1. **CI has not run on any of this session's nine commits.** Run 90 was the last
-   known green, on the commit the review examined. Read the run for the head
-   before anything else — three changes can only be judged by a MySQL or MariaDB
-   cell, and `docs/STATE.md`'s "Exact next step" says which.
-2. **F11 is the one open finding**, with its four steps written into
-   `docs/review/findings/2026-08-27-bundled.md`. Do step 1 first: it is the
-   example that makes the rest safe, because the obvious fix breaches INV-5 while
-   every existing example stays green.
+1. **Nothing is waiting from the last session.** Run 104 on `4162e7f` is green
+   on all eleven jobs; the branch is green at its head.
+2. **Nothing else is waiting either.** Every finding in the bundled review is closed and
+   the only open finding anywhere, G02, is a filed choice for Jan with a
+   recommendation and a safe default already in place. Do not start B on it
+   without an answer: it opens a new patch surface.
+3. **If more work is wanted rather than needed**, the honest choice is a fresh
+   **review run** against the current head — the last one examined `03a1ab0`,
+   which is now eleven commits behind, and a review session writes a findings
+   file and touches no code (`docs/review/README.md` and `PROMPT.md`).
 
-After that the branch is waiting on Jan. F21 is answered (`A`, no event log), so
-there is no open question to chase.
+Do not invent a work package. An empty queue is the correct state for a branch
+that is waiting on its maintainer.

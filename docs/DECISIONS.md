@@ -175,14 +175,40 @@
 
 ## Open — for Jan
 
-*(Nothing open. Items land here with their options, a plain-language explanation
-of each and a recommendation, while the build continues on the safest default.
-Everything filed here has been answered: the two of 2026-08-27 — the review
+*(Items land here with their options, a plain-language explanation of each and a
+recommendation, while the build continues on the safest default. Everything
+filed here before 2026-08-27 has been answered: the two of that day — the review
 loop's branch (**F09**) and whether the `.codex/` scripts should come back
 (**F08**) — were answered **A and A** the same day and have moved up, as was the
 bulk scope-create question; finding **C01** was answered **B** on 2026-08-26, as
 were WP8's two (**A**), WP7's one, WP8's renderer choice (**C**), WP4's two and
 WP5's one.)*
+
+- **Choice (finding G02, filed 2026-08-26, re-measured 2026-08-27):** a bulk
+  tracker change spanning many projects asks the database twice per project,
+  where stock Redmine asks once for the whole selection. Measured again on
+  `4162e7f`: ten issues in ten projects cost **22** statements, ten issues in one
+  project **2**. Should the plugin batch it?
+  - **A — leave it.** Nothing is wrong; it is slower than core on one action,
+    changing the tracker of issues spread across many projects at once. An
+    ordinary issue save asks nothing, because the plugin only looks when the
+    tracker actually changes.
+  - **B — patch Redmine's issues controller** so the whole selection is resolved
+    in one go. This is the only option that reaches one query for the lot. The
+    cost is a new place where the plugin reaches into Redmine's own code — the
+    thing that goes stale when Redmine changes, and one more method for the
+    drift gate to watch — on a controller that differs between 5.1 and 6.x/7.0.
+  - **C — a half measure with no new patch.** Projects that have *not* taken
+    over that tracker all get the same answer, so it could be computed once per
+    request instead of once per project: about **11** statements instead of 22
+    where nothing is overridden, and no change at all (**20**) where every
+    project has its own workflow. Cheap, reversible, and it adds a second cache
+    to a path an issue save touches.
+  - **Recommendation:** **A for now, C if it is ever felt.** The action is rare,
+    the cost is invisible below a few dozen projects, and B is the only real fix
+    but buys its speed with the plugin's most fragile kind of coupling — which
+    the drift gate exists precisely because we already have too much of.
+  - **Urgent?** no — nothing is blocked, and the default (A) is what ships.
 
 ## Decided (autonomous) — 2026-08-26, review-fix session
 
