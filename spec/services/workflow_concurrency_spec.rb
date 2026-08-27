@@ -11,11 +11,12 @@ require_relative '../spec_helper'
 # follows the generic workflow), so the save reported success over a change
 # that had no effect and left rows behind that nothing would ever read.
 #
-# Two kinds of example here. The first pair is single-connection and asserts
-# the shape: the lock is taken, on the scope table, before anything is written.
-# The second pair runs a real second connection and asserts the outcome for
-# both commit orders, because a lock that is taken and does not cover the right
-# rows would satisfy the first pair and none of the second.
+# Two kinds of example here. The first four are single-connection and assert
+# the shape: the lock is taken, on the scope table, before anything is written
+# -- by both writers, and not at all by a generic write. The last two run a
+# real second connection and assert the outcome for both commit orders, because
+# a lock that is taken and does not cover the right rows would satisfy the first
+# four and none of the last two.
 describe 'Concurrent scope decisions' do
   fixtures :projects, :roles, :trackers, :issue_statuses, :users, :enumerations
 
