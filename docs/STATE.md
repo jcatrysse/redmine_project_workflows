@@ -137,6 +137,7 @@ exactly one pair.
 | --- | --- |
 | Plugin suite, 7.0-stable + PostgreSQL 16 | **722 examples, 0 failures** (was 717; 5 added) |
 | Plugin suite, 5.1-stable + PostgreSQL 16 | **722 examples, 0 failures** |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **722 examples, 0 failures**, on a host built at the end of the session — **three** of the nine cells were exercised locally rather than the usual two |
 | Fails on the old code | **2 of the 5**, run rather than assumed: both shape examples, with the predicted numbers — 5 branches against 2, and 4 against 3. The other three are the safety net and were confirmed green on the old code *first*, which is what the finding asked for |
 | Gates proved by *firing* | **three wrong implementations, each reverted**: `excluded` reduced with `|` instead of `&` (the new intersection example fails, and one pre-existing example with it); grouping by tracker alone with the role sets unioned (the orphan-row example and one shape example fail); and the pre-change per-pair form (both shape examples fail) |
 | RuboCop | **104 files, no offences**, through `.github/lint/Gemfile`, no new `.rubocop_todo.yml` entry |
@@ -204,6 +205,7 @@ su postgres -c "psql -c \"CREATE ROLE redmine LOGIN CREATEDB PASSWORD 'redmine';
 dev/setup.sh 5.1-stable postgresql 3.2.6
 dev/setup.sh 7.0-stable postgresql 3.3.6
 dev/setup.sh 6.1-stable postgresql 3.3.6
+# each took about two minutes in this container, not the four an older note said
 
 # the migration gates, BEFORE the suite, per host. RAILS_ENV=test has to be in
 # the same invocation. If the suite has already run on that host, the database
