@@ -2,12 +2,37 @@
 
 ## 0.1.5
 
-One finding, the last one open from the review of 0.1.3: the query behind the
-status filter grew with the number of projects that have their own workflow, on
-a screen ordinary users open rather than on an administration screen.
+The last finding left open from the review of 0.1.3 — the query behind the status
+filter grew with the number of projects that have their own workflow, on a screen
+ordinary users open rather than on an administration screen — and then the four
+things a follow-up review of that work found. Two of those four were introduced
+by the round of fixes before them, which is the ordinary cost of a large change
+and the reason the follow-up review happened at all.
+
+**No version of its own for the follow-up:** 0.1.5 has never been released — it
+exists on the development branch, `main` still carries 0.0.3, and there is no tag
+— so the four fixes belong in the entry for the version that is about to carry
+them rather than in one that would suggest an upgrade step between two states
+nobody has run.
 
 ### Fixed
 
+- **A save that refuses some of the values it was sent no longer overstates how
+  many.** The administration screens write a selection one population at a time
+  (the generic workflow, then each selected project), and the count of refused
+  values was added up once per population: submitting one unacceptable value with
+  *all projects* selected on a five-hundred-project installation reported that
+  five hundred values had been refused and five hundred rules left unchanged. The
+  number now counts the request, which is what the sentence beside it has always
+  claimed. Only reachable through a hand-built request or an API client — no
+  screen can submit a value the plugin refuses — and the same is true of the next
+  item.
+- **A malformed matrix that arrives as a list no longer produces a server
+  error.** The four save screens deliberately turn a payload that is not a matrix
+  into "nothing was saved" rather than a crash, and that guard covered a plain
+  text payload but not a list one: `transitions[]=x` answered 500 from inside the
+  code written to prevent exactly that. It is now refused the same way, on all
+  four.
 - **The status filter and the status report on a project issue list no longer
   get slower as more subprojects take over their workflow.** The query that
   answers "which statuses does this project's workflow use" asked about each
@@ -25,6 +50,15 @@ a screen ordinary users open rather than on an administration screen.
 - The same query is behind the administration matrix with *all projects*
   selected, where the growth was already known and had been accepted. It is
   bounded there too now.
+- Two spec assertions were **corrected**, not relaxed: both demanded the
+  multiplied refusal count described above, and one of them explained that
+  number in its own comment as though it were the requirement.
+- The writers now settle what a payload whose keys are not text means — they
+  accept it and normalise what survives their whitelist — which closes a
+  server error reachable from the plugin's own internal write API, though not
+  from any request.
+- One log line reads the validated value in scope instead of the raw request
+  parameter two screens away. Nothing behaved differently.
 - Five tests, three of them written before the change and confirmed to pass on
   the old code, because the two plausible wrong ways to group projects together
   give wrong answers that no existing test would have caught. Each wrong version

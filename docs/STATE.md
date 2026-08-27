@@ -6,201 +6,189 @@
 
 ## Current position
 
-- **Work package:** WP0 through **WP8** are done and have been for six sessions.
-  `docs/implementation-plan.md` runs WP0..WP8 and every row reads *done*. There is
-  no WP9. What happens now is the **review loop** in `docs/review/`.
-- **This session did the two things the previous one left**, in that order: it
-  read CI, which had never run on the previous session's nine commits, and it
-  fixed **F11**, the one finding that had been left open on purpose.
-- **CI had nothing to say.** Run **103** on `5912355` — the previous session's
-  head — was **green on all eleven jobs**: nine matrix cells (Redmine 5.1, 6.1
-  and 7.0 × PostgreSQL, MySQL and MariaDB), RuboCop and the bulk-action
-  JavaScript gate. That matters more than a green usually does, because three of
-  those nine commits could only be judged by a MySQL or MariaDB cell: F09's
-  `TIMESTAMP '...'` literal, F20's migration-003 change on a COPY-algorithm
-  rebuild, and F03's core-method digest table, which is measured on PostgreSQL
-  hosts and read on all nine. All three passed everywhere.
-- **`docs/review/findings/2026-08-27-bundled.md` now has no open finding.** Of its
-  21: twenty `fixed`, one `wont-fix` by Jan's answer (F21). Every one carries a
-  `Resolution:` line.
-- **One finding elsewhere was still open, and the previous STATE was wrong to
-  imply otherwise:** **G02** in `docs/review/findings/2026-08-26-wp2-observations.md`
-  — a cross-project bulk tracker change asks the database twice per project. It
-  was re-measured this session and **stands** as a fact; **Jan answered it the
-  same day** — `A for now, B if it becomes an issue later` — so it is
-  `wont-fix for now` rather than work, and the eventual fix is named. See
-  *Open choices*.
-- **What exists:** the plugin at **0.1.5**. 0.1.0 is the scope model and the
-  eight work packages; 0.1.1 the two matrix-save repairs; 0.1.2 the two
-  concurrency repairs; 0.1.3 one operability defect and seven edges; 0.1.4
-  nineteen findings from the bundled review; 0.1.5 is this session's one.
-- **Branch:** `claude/dev`, pinned in `CLAUDE.md`. This session started on
-  `claude/docs-review-40quew`, which the environment minted, and moved to
-  `claude/dev` immediately, as the pin requires. One commit, `4162e7f`, pushed
-  and verified with `git ls-remote --heads origin`.
-- **`main`:** untouched by this session. Jan asks for the merge himself. Still
-  true: `main` carries the *old* two-cell CI while the eleven-job `specs.yml`
-  exists only on `claude/dev`, and `origin/main`'s history is **unrelated** to
-  `origin/claude/dev`'s — they share no merge base, so a merge needs
-  `--allow-unrelated-histories`.
-- **Open choices for Jan:** **none.** One was filed this session, G02's batching,
-  and answered the same day: leave it, and when it is ever felt the fix is B —
-  patch `IssuesController` so a bulk edit resolves in one call — **not** the
-  cheaper half measure C.
+- **Work package:** WP0 through **WP8** are done and have been for seven
+  sessions. `docs/implementation-plan.md` runs WP0..WP8 and every row reads
+  *done*. There is no WP9. What happens now is the **review loop** in
+  `docs/review/`.
+- **This session was the fixer** on `docs/review/findings/2026-08-27-bundled-followup.md`
+  — a review of what the *previous* fixing session did with the twenty findings
+  of `2026-08-27-bundled.md`. Four findings, no blocker and no major: two minor,
+  two nits.
+- **All four are answered: three `fixed`, one `invalid`.** No findings file
+  anywhere has an open finding — `grep -rn '^- \*\*Status:\*\* open'
+  docs/review/findings/` matches only `TEMPLATE.md`.
+- **The `invalid` one is worth knowing about before reading anything else.**
+  F03 said F10 of the previous run had silently dropped one of its own
+  sub-items. It had not: F10's `Resolution:` carries a paragraph declining that
+  sub-item explicitly, it was present at `9ce1921` (the commit the review
+  examined), and `git log -S` names the commit that added it. So the previous
+  run's findings file was **not** edited, and what survives of F03 is a habit
+  rather than a repair — see the traps.
+- **Two of the three fixes repaired defects the previous round introduced**,
+  which is what that review existed to find: F01 (a refused-value count
+  multiplied by the size of the selection) came from the fix for F06, and F04
+  (a log line reading the raw parameter) from the fix for F19. F02, the guard
+  that raised on an array payload, was pre-existing and had been moved unchanged
+  into a new file.
+- **What exists:** the plugin at **0.1.5**, still unreleased — `main` carries
+  0.0.3 and there is no tag. This session **did not bump the version**: the four
+  fixes went into 0.1.5's existing `CHANGELOG.md` entry, which now covers both
+  rounds, so `init.rb` and the newest changelog heading still agree (there is a
+  spec that asserts they do). A version whose only difference from another one
+  nobody has run is not worth minting.
+- **Branch:** `claude/dev`, pinned in `CLAUDE.md`. This session started there
+  already in sync (`--is-ancestor` clean), which is the first time no branch
+  rescue was needed. Four commits, each pushed and verified with
+  `git ls-remote --heads origin`.
+- **`main`:** untouched. Jan asks for the merge himself, and the two histories
+  are still **unrelated** — no merge base, so a merge needs
+  `--allow-unrelated-histories`. `main` also still carries the old two-cell CI.
+- **Open choices for Jan:** **one**, filed this session and not urgent — what
+  the refused-values count should mean (F01). The safest reversible default is
+  implemented; the alternative costs eight locale files. See *Open choices*.
 
 ## What this session produced
 
-One commit, one finding, and a measurement of a second finding that was not
-touched.
+Four commits: one per minor finding, then the two nits together, then the
+memory files.
 
-### F11 — the status filter's query grew with the number of projects (minor)
+### F01 — one refused value reported itself once per project (minor)
 
-`StatusListQuery` built its second statement as an `OR` of one branch per
-(project, tracker) pair that owns its workflow. `docs/design.md` had priced that
-in as an accepted cost and located it on **one** administration screen — the
-matrix with *all projects* selected. It was two screens: the same query is
-`Project#rolled_up_statuses`, which fills the status filter and the status report
-on **every project issue list**. A tree of 300 subprojects with four overriding
-trackers is roughly 1,200 branches and ~90 KB of SQL per page view.
+`MatrixSaveResult` carries three counts, and the two administration actions write
+one **population** per selected project (`Generic`, then each project) and sum the
+results. `written` and `skipped` count *combinations*, so summing is right.
+`rejected` counts *submitted values* — and there is one submission however many
+populations it reaches, so summing it multiplied one bad value by the size of the
+selection. One unacceptable value with "all projects" selected on a
+five-hundred-project installation told the operator that five hundred values were
+refused and five hundred rules left unchanged. **That is the defect class F06 was
+filed for, inside the sentence F06 added.**
 
-`#override_conditions` now groups the overriding pairs by **(tracker, sorted
-role-id set)** and emits one condition per group carrying a `project_id` *list*.
-Every project that answers for the same roles for the same tracker — which is
-exactly what copying a workflow to a subtree produces — shares one branch, so the
-branch count follows configuration *variety* rather than project count. INV-4
-allows a list verbatim, no project tree is walked (INV-6), and no answer changes.
+`#+` now sums two members and takes the **maximum** of the third. Not the two
+shapes the finding sketched: counting outside the per-population loop duplicates
+the whitelist outside the writer (the "one rule in two places" mistake this
+repository has had four findings about), and dividing by the number of
+populations needs a denominator `#+` does not have and would round. The maximum
+is exact for the shape that exists — both whitelists are built from
+installation-wide lists, so every population refuses the same leaves — and it
+degrades to "the most any one population refused" rather than to a product if
+that ever changes.
 
-**The whole difficulty of this finding was that the wrong fix passes the suite**,
-which is why the previous session deliberately did not start it late in the day.
-Two wrong fixes, both of which give wrong answers with every pre-existing example
-green:
+**Two existing assertions were wrong and were corrected.** Saying that out loud
+is required by `docs/review/README.md` rule 2, because a diff stat cannot tell a
+correction from a weakening. Both demanded `count: 2` for a request carrying one
+bad value, and one of them *explained* the 2 in its own comment as "one rejected
+leaf per project of the selection" — the defect written down as the
+specification. A third assertion elsewhere in the same file was already correct
+at `count: 1` and is untouched; it is what made the other two look plausible.
 
-1. computing the excluded generic roles **per group** instead of intersecting
-   across the whole pair set — a generic role is out of reach only when *every*
-   pair for that tracker answers for it (INV-5, INV-6);
-2. grouping by **tracker alone** with the role sets unioned — that reads a
-   project against roles it does not answer for, which an orphaned rule row makes
-   visible (INV-3).
+### F02 — the guard against a 500 raised a 500 (minor)
 
-Both were implemented on purpose and reverted, to watch a gate fire. Five
-examples went in: three semantic (two written **before** the change and confirmed
-green on the old code, one new) and two statement-shape ones. `generic_conditions`
-is unchanged, and both it and the new method now say in comments that its
-intersection is load-bearing, so a later grouping pass cannot move it by accident.
+Both `to_plain_hash` copies asked `respond_to?(:to_h)`. `Array` answers yes and
+then raises — `['x'].to_h` is `TypeError: wrong element type String at 0` — so
+`?transitions[]=x` produced a 500 from inside the method whose entire purpose is
+to turn a malformed matrix into a polite rejection, on all four save entry
+points. Both now ask what the value **is**, which is the question the loops one
+level down already ask. Two edits rather than one shared method, because the
+divergence F14 recorded is still real.
 
-### G02 — re-measured, filed, and answered the same day
+The finding also asked for a decision about a Hash whose **keys are not
+Strings**, the other shape Rails can produce. Decided: the writers accept any key
+answering `to_s` and `to_i` and normalise what survives the whitelist to Strings;
+the controller guards do not coerce keys, because the path that can carry
+non-String keys — core's own `replace_transitions`, routed through the writer for
+INV-1 — never passes through them. Symbol keys were not merely untested but a
+**live 500**: they passed the whitelist (`:"1".to_s` is `"1"`) and then reached
+`Symbol#to_i`, which does not exist.
 
-`Issue#tracker=` asks the plugin which statuses a tracker's workflow uses, cached
-per (project, tracker) for the length of the request. Core memoises the same
-answer on one `Tracker` instance for a whole bulk edit, so a cross-project bulk
-tracker change costs two statements per distinct project against core's one for
-the lot. Measured again on today's code: **22** statements for ten issues in ten
-projects, **2** for ten issues in one project, **20** when all ten projects
-override that tracker.
+### F04 — one log line, one word (nit)
 
-Not fixed, and deliberately: the only real fix needs the whole `edited_issues`
-set in one call, which needs a hook in `IssuesController` — a new patch surface
-and one more copied core method for the drift gate to watch, on a controller that
-differs between 5.1 and 6.x. That was Jan's call rather than a fixer's, and he
-answered it the same day: **`A for now, B if it becomes an issue later`** — leave
-it, and when it is ever felt, do the real fix rather than the half measure. The
-finding is `wont-fix for now` and carries the whole answer, including why C is
-*not* a cheap substitute for B. F11's grouping does not help this path, because
-each call still resolves exactly one pair.
+`params[:rule_type]` → `@rule_type`. Nothing behaved differently: the
+`before_action` renders 404 for anything else, which is exactly why **no test was
+added** — an example asserting the log names `transitions` passes identically
+before and after, and one reaching the log with a third value cannot exist. The
+`Resolution:` says so rather than inventing a test that restates the guard.
 
-## What the tests found that the findings had not
+## What the work found that the findings had not
 
-- **Rails factors the predicates common to every branch out of an `OR`.** The
-  first draft of the shape gate counted `tracker_id` occurrences — which is 1
-  whatever the branch count, so it asserted nothing at all. What stays one per
-  branch is the `project_id` predicate (`IS NULL` for the generic branch, an id
-  or a list per configuration), and that is also adapter-independent text. This
-  is the third shape assertion in two sessions that had to be measured before it
-  could be trusted (F04, F10, F11).
-- **The finding's claim that no example covered the risky case was too strong.**
-  An existing example — *reads each project in the list against its own scope* —
-  already catches the intersection-versus-union mistake. The example written for
-  it is still worth having, because it is the sharper case (two non-empty
-  disjoint role sets, every pair holding a scope), but the gate that nothing else
-  covered turned out to be a *third* one: a rule row a project holds under **no**
-  scope while a sibling answers for that role. That is the semantic gate on the
-  group key, and it was found by asking what each wrong implementation would
-  actually break rather than by re-reading the finding.
-- **The bind parameter list still grows with the number of overriding projects.**
-  One parameter per project id, so PostgreSQL's ceiling of 65,535 per statement
-  is *raised*, not removed. `docs/design.md` says so rather than claiming the
-  growth is gone.
-- **The first G02 measurement reported a tenfold improvement that did not
-  exist.** An issue whose status *is* the old tracker's default status never
-  reaches the query: `Issue#tracker=` sets `status = nil` on that branch before
-  asking anything. Ten projects read as *2 statements* and one project as *0*.
-  The fixture had arranged for the wrong branch. Same shape as the previous
-  session's `Issue.new` trap, in a different method.
+- **F03's premise was false, and only `git show` on the reviewed commit could
+  establish that** rather than a fixer's memory of his own previous session. The
+  paragraph the finding says is missing is the sixth of seven in a long
+  `Resolution:`.
+- **Symbol keys were a live 500, not a hypothetical.** The finding raised
+  non-String keys as "worth thinking about at the same time"; thinking about it
+  turned up a path where the whitelist *accepts* a payload and the writer then
+  raises on it two methods later. Integer keys, which look like the same case,
+  already worked — every comparison downstream is `.to_s` or `.to_i`.
+- **The array payload is only dangerous at the top level.** `?permissions[1][]=x`
+  was already safe, because every nested level tests `is_a?(Hash)` or
+  `respond_to?(:each)`. So the fix is one line in each guard and not a recursive
+  sweep — established by running all five shapes rather than by reading.
+- **`Array#to_h` is the trap, not `Array#respond_to?(:to_h)`.** A guard written
+  as a capability check reads as careful and is not: `respond_to?` is true of the
+  exact class that breaks it. This is the third finding in three runs whose whole
+  content is a check that asks the wrong question about a value.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **722 examples, 0 failures** (was 717; 5 added) |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **722 examples, 0 failures** |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **722 examples, 0 failures**, on a host built at the end of the session — **three** of the nine cells were exercised locally rather than the usual two |
-| Fails on the old code | **2 of the 5**, run rather than assumed: both shape examples, with the predicted numbers — 5 branches against 2, and 4 against 3. The other three are the safety net and were confirmed green on the old code *first*, which is what the finding asked for |
-| Gates proved by *firing* | **three wrong implementations, each reverted**: `excluded` reduced with `|` instead of `&` (the new intersection example fails, and one pre-existing example with it); grouping by tracker alone with the role sets unioned (the orphan-row example and one shape example fail); and the pre-change per-pair form (both shape examples fail) |
-| RuboCop | **104 files, no offences**, through `.github/lint/Gemfile`, no new `.rubocop_todo.yml` entry |
-| JavaScript gate | **34 checks pass** |
-| Migrations up → 0 → up | **clean on 7.0 and 5.1**. On 7.0 before the suite touched the host; on 5.1 afterwards, which meant rebuilding the database from *core* migrations first (`rm -f db/schema.rb`, `db:drop db:create db:migrate`) or the check proves nothing. Leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`. `dev/check-backfill.sh` green on 5.1 after re-migrating up. Nothing in this session changes a migration; CI runs the same gate on all nine cells |
-| Forbidden-constructs greps | clean: no `workflows` query without a `project_id` predicate, no `insert_all` outside the two writers, no `Thread.current` cache, no `to_prepare` in `init.rb` (every hit is a comment explaining the rule) |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **735 examples, 0 failures** (was 722; thirteen added) |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **735 examples, 0 failures** |
+| Red on the old code | **eleven of the thirteen**, run per commit against the code as it stood. F01: six (two corrected assertions, one new four-population controller example that reported **4**, three struct examples where the five-hundred-population case reported **500**). F02: five (four array-payload examples failing with the `TypeError` itself, and the symbol-key example with `NoMethodError: undefined method 'to_i' for an instance of Symbol`). The other two — integer keys, and the leaf count of a non-String-keyed payload — passed before and exist so the decision is stated in both directions |
+| Reproduced before fixing | F02's five payload shapes re-run against both guards in plain Ruby: the finding's table reproduces exactly. F01's multiplication read off the summation and then demonstrated by the failing examples above |
+| Migrations up → 0 → up | **clean on both hosts, run BEFORE the suite touched either** — after `VERSION=0`: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`; after the re-migrate: both back |
+| RuboCop | **105 files, no offences**, through `.github/lint/Gemfile`, and **no** `.rubocop.yml` or `.rubocop_todo.yml` change — one new spec file absorbed without relaxing a cop. No `Metrics` limit was crossed, so nothing needed extracting this time |
+| JavaScript gate | **34 checks pass** (`node dev/check-bulk-js.mjs`) |
+| Locale files | **untouched.** F01's option A was chosen partly so that they would be |
+| Version gate | `init.rb` 0.1.5 = the newest `CHANGELOG.md` heading, which now covers both rounds |
 | MySQL, MariaDB | **not run locally** — no server in this container. CI covers six of the nine cells |
-| CI, previous session's work | run **103** on `5912355`: **green on all 11 jobs** |
-| CI, this session's commit | run **104** on `4162e7f`: **green on all 11 jobs**, so the grouping has been through all nine cells — the MySQL and MariaDB spellings of a `project_id` list included |
+| CI | run **109** was green on all eleven jobs for `9ce1921`, the commit reviewed. This session's four commits are covered by the run named in the session report |
 
 ## Exact next step
 
-1. **Nothing is outstanding from this session.** Run 104 is green on all nine
-   cells, so the one thing only a MySQL or MariaDB cell could judge — how each
-   renders a one-element `project_id` list, `= 1` versus `IN (1)` — is settled.
-   The shape examples count `project_id` occurrences precisely so that either
-   spelling passes.
-2. **It is Jan's turn, and nothing is waiting on him either.** Every finding in
-   `docs/review/findings/2026-08-27-bundled.md` is closed; G02 is
-   `wont-fix for now` by his answer of the same day. **No findings file anywhere
-   has an open finding** — `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`
-   matches only `TEMPLATE.md`. The readable account for a user is the CHANGELOG's
-   0.1.5 entry.
-3. **If a next session is asked to keep going anyway**, the honest options in
-   order of value are: a fresh **review run** (a new findings file — the last one
-   examined `03a1ab0`, which is now a dozen commits behind), or nothing at all.
-   **Not** G02: its answer is "leave it, and B if it becomes an issue later", and
-   neither half of that is an instruction to start now. Do **not** invent a WP9.
+1. **Read CI for the head.** Nothing in this session is adapter-sensitive — no
+   migration changed, no SQL changed, the only shipped-code changes are two
+   guards, one struct method and one variable — but the rule is to read it
+   rather than to reason about it.
+2. **Then it is Jan's turn.** Every finding in every findings file is closed or
+   decided. The readable account for a user is `CHANGELOG.md`'s 0.1.5 entry,
+   which now covers both rounds; the readable account for a maintainer is the two
+   findings files.
+3. **One choice is waiting** and it is not blocking: F01's wording (below).
+4. **If a next session is asked to keep going anyway**: a fresh review run is the
+   only honest option, and it would be the third on the same code. Do **not**
+   invent a WP9, and do **not** re-open the previous run's "Checked and not
+   filed" table — 24 claims, thirteen rejected or already decided, four of them
+   by Jan on 2026-08-27 with an explicit instruction not to re-open them.
 
 ## Open choices
 
-**None.** One was filed by this session and **answered by Jan the same day**, so
-it is recorded here as an answer a later session must not quietly revisit:
+**One**, filed 2026-08-27 by this session. Full options in `docs/DECISIONS.md`
+under *Open — for Jan*; the short form:
 
-- **G02 — a bulk tracker change spanning many projects asks the database twice
-  per project**, where core asks once for the whole selection (22 statements for
-  ten issues in ten projects, 2 for ten in one). **Answered `A for now, B if it
-  becomes an issue later`.** So: left as it is, and when somebody does feel it,
-  the fix is **B** — resolve the whole `edited_issues` set in one call, which
-  means patching `IssuesController`. **The half measure C was not chosen**, and
-  that matters more than the yes: a later session must not reach for it as "the
-  cheap version of B", because it adds a second cache to a path every issue save
-  touches and still leaves the cost linear in the number of projects. Note this
-  is *not* the recommendation the session gave (it recommended A now, C later);
-  Jan's answer names B, and B's price is one more copied core method in F03's
-  digest table on a controller that differs between 5.1 and 6.x, so it needs the
-  table re-measured on all three minors.
+- **F01 — what should the refused-values count count?** **A)** the values in the
+  request, whatever the selection was resolved into — **implemented**, one line
+  in `MatrixSaveResult#+`, and no locale file changes. **B)** keep the total and
+  reword the sentence to name refusals across the selection — nothing changes in
+  code, and it needs a new phrasing in **eight** locale files, six of which would
+  be unreviewed translation presented as translation; it also asks the operator
+  to care how many populations a selection resolved into. **Recommendation: A**,
+  which is in place. **Not urgent** — reachable only through a hand-built request
+  or an API client either way.
 
 And still standing from before, because a later session must not undo them:
 
+- **G02 — a bulk tracker change spanning many projects asks twice per project.**
+  **Answered by Jan on 2026-08-27: `A for now, B if it becomes an issue later`.**
+  Left as it is; when it is ever felt, the fix is **B** (resolve the whole
+  `edited_issues` set in one call, which means patching `IssuesController`), and
+  **not** the half measure C. Status `wont-fix for now`.
 - **F21 — no event log for scope changes. Answered `A` by Jan on 2026-08-27.**
   `created_by` and `updated_by` are the whole audit story. **A later session must
   not add an event-log table on the grounds that the audit trail is thin: it is
-  thin on purpose.** What the answer does not cover: F19's per-write log line is
-  an *operational* record, not an audit trail — so "what did that request do" is
-  answerable to somebody with log access and "who removed this transition, and
-  when" is not. That gap is a decision, recorded here.
+  thin on purpose.** F19's per-write log line is an *operational* record, not an
+  audit trail.
 
 ## Development environment (rebuild from scratch in a fresh session)
 
@@ -219,7 +207,6 @@ su postgres -c "psql -c \"CREATE ROLE redmine LOGIN CREATEDB PASSWORD 'redmine';
 dev/setup.sh 5.1-stable postgresql 3.2.6
 dev/setup.sh 7.0-stable postgresql 3.3.6
 dev/setup.sh 6.1-stable postgresql 3.3.6
-# each took about two minutes in this container, not the four an older note said
 
 # the migration gates, BEFORE the suite, per host. RAILS_ENV=test has to be in
 # the same invocation. If the suite has already run on that host, the database
@@ -240,12 +227,11 @@ RUBY_VERSION=3.2.6 dev/run.sh .redmine/5.1-stable-postgresql
 dev/sync.sh .redmine/7.0-stable-postgresql
 (cd .redmine/7.0-stable-postgresql && RAILS_ENV=test RBENV_VERSION=3.3.6 \
   PATH="/opt/rbenv/shims:$PATH" bundle exec rspec \
-  plugins/redmine_project_workflows/spec/services/status_list_query_spec.rb)
+  plugins/redmine_project_workflows/spec/services/matrix_save_result_spec.rb)
 
-# what SQL a service actually issues, which is how the F11 shape gate was
-# written (a script under the scratchpad, run against a host)
-(cd .redmine/7.0-stable-postgresql && RAILS_ENV=test RBENV_VERSION=3.3.6 \
-  PATH="/opt/rbenv/shims:$PATH" bundle exec rails runner /path/to/probe.rb)
+# what a guard or a service actually does to a value, without Rails in the way:
+# plain ruby against a reproduction of the method is how F02 was established
+/opt/rbenv/versions/3.3.6/bin/ruby -e '...'
 
 # regenerate F03's digest table for one host (do this ONLY after deciding the
 # plugin's copy must follow core's change -- never before)
@@ -270,6 +256,34 @@ prerequisites and the MySQL variant.
 
 Everything below cost time at least once. The first group is new this session;
 the rest is carried forward.
+
+- **`respond_to?` is the wrong question to ask a value whose type is the
+  problem.** `Array` responds to `to_h` and raises when you call it. A guard
+  written as a capability check reads as careful and is not: ask `is_a?(Hash)`.
+  The same shape has now produced three findings in three runs — a check that
+  asks something adjacent to what it needs to know.
+- **A sub-item's answer should open with the sub-item's subject.** F10's
+  declination of its own last sub-item is written down in full, and a careful
+  reviewer still filed a finding saying it was missing — because it is the sixth
+  paragraph of seven and opens with "The one thing I did not do". Findable by
+  reading to the end is not findable by grep. (And before believing such a
+  finding: `git show <reviewed-commit>:<file>`, because the fixer's memory of his
+  own previous session is the least trustworthy source in the room.)
+- **A count that is summed across populations has to be a count *of* something
+  per population.** `written` and `skipped` count combinations and add;
+  `rejected` counts submitted values and must not. Whenever a struct is combined
+  with `sum`, ask that question of every member — the multiplication is invisible
+  in a diff and a spec had encoded it as though it were the requirement.
+- **A spec comment that explains a number is where a wrong number hides.** The
+  assertion that locked F01 in came with a comment deriving the multiplied count
+  from the selection — so the suite documented the defect as the specification,
+  and reading the comment was more misleading than reading the assertion alone.
+- **`Symbol#to_i` does not exist.** A payload whose keys are Symbols passes a
+  whitelist built on `.to_s` and then dies in code built on `.to_i`. If two
+  methods normalise a key differently, one of them is a 500 waiting for a caller
+  that is not a web request.
+
+Everything from here down is carried forward from earlier sessions.
 
 - **An `OR` of ActiveRecord relations does not put every predicate in every
   branch.** Rails factors out what all the branches share, so a statement built
@@ -846,19 +860,20 @@ Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
 There is no WP9 and the plan is finished, so "carry on" means the review loop —
-and the review loop is, for the moment, **empty of work**. In order:
+and the loop is **empty of work** again. In order:
 
-1. **Nothing is waiting from the last session.** Run 104 on `4162e7f` is green
-   on all eleven jobs; the branch is green at its head.
-2. **Nothing else is waiting either.** Every finding in every findings file is
-   closed or decided: the bundled review's 21 are twenty `fixed` and one
-   `wont-fix`, and G02 is `wont-fix for now` by Jan's answer. Do not start G02's
-   option B unprompted — the answer was "if it becomes an issue later", and it
-   opens a new patch surface on a core controller.
-3. **If more work is wanted rather than needed**, the honest choice is a fresh
-   **review run** against the current head — the last one examined `03a1ab0`,
-   which is now eleven commits behind, and a review session writes a findings
-   file and touches no code (`docs/review/README.md` and `PROMPT.md`).
+1. **Read CI for the head** and act on it if it is red. Nothing this session
+   touched is adapter-sensitive, but reading beats reasoning.
+2. **Nothing else is waiting.** Twenty-four findings across the two 2026-08-27
+   files are closed, decided, or `invalid`, each with a `Resolution:` line. One
+   choice is with Jan (F01's wording) and its default is implemented.
+3. **If more work is wanted rather than needed**, a fresh **review run** against
+   the current head is the only honest option — and it would be the third review
+   of the same code, so expect its yield to be low and its false-positive rate to
+   be higher: this run filed four findings and one of the four was wrong about a
+   file it had read. A reviewer should check a "this was not answered" claim
+   against the reviewed commit before filing it.
 
-Do not invent a work package. An empty queue is the correct state for a branch
-that is waiting on its maintainer.
+Do not invent a work package, and do not re-open the previous run's "Checked and
+not filed" table: 24 claims, thirteen rejected or already decided, four of them
+by Jan on 2026-08-27 with an explicit instruction not to re-open them.
