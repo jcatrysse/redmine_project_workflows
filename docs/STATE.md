@@ -13,17 +13,20 @@
 - **This session was the fixer**, on a review somebody else ran. An independent
   Claude session reviewed `ed4073d`, found nine things, and pushed
   `docs/review/findings/2026-08-27-claude.md` to `main`. All nine are answered:
-  **seven `fixed`**, one **`adjusted`** (F04 — the defect is real and the
-  reviewer's reasoning about it was not; the `Resolution:` line says how), and one
-  (**F09**) left at `question` because it is Jan's to settle. Nothing is left at
-  `open`.
+  **eight `fixed`** and one **`adjusted`** (F04 — the defect is real and the
+  reviewer's reasoning about it was not; the `Resolution:` line says how).
+  Nothing is left at `open` or `question`. F09 was filed as a `question` because
+  it was not a fixer's to settle, and **Jan answered it the same day** — see
+  "Open choices" below.
 - **Where the answered findings file is:** on `claude/dev`, which is what
   `docs/review/README.md` prescribes — a fixer pushes to `claude/dev`, a reviewer
   pushes a findings file to `main`. So the copy on **`main` still reads nine
-  `open` findings** and will until Jan merges. A next reviewer who reads `main`
-  rather than `claude/dev` would see nine open findings that are all answered,
-  which is the shape of the mistake `G03` made. That is also half of what F09 is
-  about.
+  `open` findings** and will until Jan merges. That trap is no longer implicit:
+  `docs/review/README.md` now says out loud that a fixer answers the file on
+  `claude/dev` and that `main`'s copy therefore keeps the original statuses, and
+  tells the reader to take a findings file from `claude/dev` before believing its
+  `Status:` lines. It was the shape of the mistake `G03` made, and it was half of
+  what F09 was about.
 - **What exists:** the plugin at **0.1.3**. 0.1.0 is the scope model and the
   eight work packages; 0.1.1 is the two matrix-save repairs; 0.1.2 is the two
   concurrency repairs; 0.1.3 is this session — one operability defect that bites
@@ -55,10 +58,14 @@
   `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` — one hit plus a
   line in `TEMPLATE.md`, which is not a finding.
 - **`spec/characterization/`:** still **gone**, since WP3.
-- **Open choices:** **two**, both in `docs/DECISIONS.md` under "Open — for Jan",
-  and neither blocking anything: F09 (does the review loop go on naming `main`?)
-  and whether the deleted `.codex/` scripts should come back. Both were left at
-  the safest reversible default and both are one revert away.
+- **Open choices:** **none.** The two this session filed, Jan answered the same
+  day: **A and A** — the review loop names `claude/dev` rather than `main`
+  (F09), and the deleted `.codex/` scripts stay deleted (F08). Both are in
+  `docs/DECISIONS.md` under "Decided (Jan) — 2026-08-27", and the "Open — for
+  Jan" section is empty. That matters for a reason this repository has already
+  been bitten by: `G03` spent a session marked *open* in its findings file after
+  Jan had answered it, because only the ledger was updated. Here the findings
+  file, the ledger and this file were all changed together.
 
 ## What this session produced
 
@@ -294,23 +301,31 @@ per `CLAUDE.md`: it is outside the eight findings this session was given.
 2. **Then it is Jan's turn.** `docs/review/findings/2026-08-27-claude.md` is the
    readable account of all nine findings with a `Resolution:` line on each; the
    CHANGELOG's 0.1.3 entry is the same thing for a user.
-3. Two choices are waiting in `docs/DECISIONS.md` under "Open — for Jan", and
-   neither blocks anything: whether `docs/review/README.md` goes on naming
-   `main` (F09), and whether the `.codex/` scripts come back (F08).
+3. **No choices are waiting.** Both were answered on the day they were filed.
 4. If he wants more code, the candidates already written down are unchanged: the
    layered SVG diagram, the issue show page, row and column actions on the
    field-permissions matrix, and finding `G02`.
 
 ## Open choices
 
-Two, both in `docs/DECISIONS.md` under "Open — for Jan" with options and a
-recommendation, and both already implemented at the safest reversible default:
+**None.** Two were filed and both were answered by Jan the same day, **A and A**:
 
 - **F09 — does the review loop go on telling a reviewer to review `main`?**
-  Recommendation **A**: change the sentence to name `claude/dev`, and merge when
-  a release is due anyway. Nothing was changed; the finding is at `question`.
-- **F08 — should the deleted `.codex/` scripts come back?** Recommendation
-  **A**: leave them deleted. `git log -- .codex` restores them.
+  **A: change the sentence.** A reviewer reviews `claude/dev`; `main` stays where
+  it is and means "last released". `docs/review/README.md`'s Branches table and
+  `docs/review/PROMPT.md`'s checkout block are changed, and three things went in
+  with the sentence because each was a way the loop could still mislead: the
+  cycle diagram now says a fixer answers the file on `claude/dev` so `main`'s
+  copy keeps the original statuses; both files record that `main` and
+  `claude/dev` share **no merge base**, so the eventual merge needs
+  `--allow-unrelated-histories` and a reviewer must not attempt it; and
+  `PROMPT.md` uses `git checkout -B claude/dev origin/claude/dev` rather than
+  `pull --ff-only`, which aborts when a fresh container's local branch is itself
+  unrelated to the remote — as it was here. Option **B**, merging into `main`,
+  is kept for when a release is due.
+- **F08 — should the deleted `.codex/` scripts come back?** **A: leave them
+  deleted.** `dev/` is the only supported path and `dev/README.md` says so.
+  `git log -- .codex` recovers them if that ever changes.
 
 One thing this session decided rather than deferred, and it is user-visible, so
 it is called out here as well as in the ledger: **a matrix save where every cell

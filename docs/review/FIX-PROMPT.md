@@ -7,12 +7,25 @@ finding, you act on each one, and you leave none at `open` without saying why.
 
 ```bash
 git fetch origin --prune
-git checkout claude/dev || git checkout -b claude/dev origin/claude/dev
-git pull --ff-only
+git checkout -B claude/dev origin/claude/dev
+git merge-base --is-ancestor claude/dev origin/claude/dev && echo "in sync"
 ```
 
 `CLAUDE.md` pins this branch and it overrides whatever name the environment
-gave this session. Findings files live on `main`, so fetch that too:
+gave this session.
+
+`checkout -B` rather than `checkout` and `pull --ff-only`. The local
+`claude/dev` in a fresh container can have a history **unrelated** to the
+remote's — no merge base at all — and then `pull --ff-only` aborts with "Not
+possible to fast-forward" while `git status` reports something like "5 and 50
+different commits", which reads like local work worth preserving and is not.
+Do not diagnose that with `git merge-base A B` piped into anything: an *empty*
+merge base piped into `xargs git log -1` prints **HEAD**, which looks exactly
+like a merge base that happens to be your own commit. `--is-ancestor` and its
+exit status cannot mislead.
+
+Findings files live on `main`, whose history is unrelated to this branch's, so
+fetch it rather than merging it:
 
 ```bash
 git log --oneline origin/main -5     # has a reviewer pushed since you branched?

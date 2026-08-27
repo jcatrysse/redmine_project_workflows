@@ -175,44 +175,14 @@
 
 ## Open — for Jan
 
-*(Items land here with their options, a plain-language explanation of each and a
-recommendation, while the build continues on the safest default. The bulk
-scope-create question filed here on 2026-08-27 was answered **A** the same day
-and has moved up; finding **C01** was answered **B** on 2026-08-26, as were
-WP8's two (**A**), WP7's one, WP8's renderer choice (**C**), WP4's two and
+*(Nothing open. Items land here with their options, a plain-language explanation
+of each and a recommendation, while the build continues on the safest default.
+Everything filed here has been answered: the two of 2026-08-27 — the review
+loop's branch (**F09**) and whether the `.codex/` scripts should come back
+(**F08**) — were answered **A and A** the same day and have moved up, as was the
+bulk scope-create question; finding **C01** was answered **B** on 2026-08-26, as
+were WP8's two (**A**), WP7's one, WP8's renderer choice (**C**), WP4's two and
 WP5's one.)*
-
-- **Choice:** should `docs/review/README.md` go on telling a reviewer to review
-  the head of `main`? (Finding **F09** of the 2026-08-27 review, left at
-  `question` because it is not a fixer's to settle.)
-- **Options:** **A)** Change the sentence to name `claude/dev`, and leave `main`
-  where it is — `main` then means "last released", which is a defensible thing
-  for it to mean. **B)** Merge `claude/dev` into `main` and keep the sentence,
-  which makes the loop's own documentation true again and gives the review
-  history a stable base, at the cost of doing the merge now rather than when you
-  want to release.
-- **Recommendation:** **A**, and **B** whenever the release is due anyway. The
-  sentence costs nothing to correct and the merge should be driven by wanting to
-  release, not by a review prompt. Worth knowing either way: `origin/main` is
-  still at `6c17b31`, three commits from before 0.1.0, and its history is
-  **unrelated** to `origin/claude/dev`'s — they share no merge base, so the
-  merge, when it comes, needs `--allow-unrelated-histories` or a deliberate
-  replacement of `main`'s tree.
-- **Urgent?** no — we changed nothing and reviewed `claude/dev`, as the previous
-  reviewer did.
-
-- **Choice:** the three `.codex/` setup scripts were deleted (finding **F08**).
-  Do you want them back?
-- **Options:** **A)** Leave them deleted. `dev/` is the supported path and
-  `dev/README.md` now says so. **B)** Restore them and keep them current — which
-  means updating them for Redmine 7.0 and for the `.redmine/<branch>-<db>`
-  layout, and fixing the `rsync` that would otherwise copy every built host into
-  the plugin directory.
-- **Recommendation:** **A**. Nothing in the repository, in CI or in any document
-  referred to them; they named Redmine 6.0 as supported and 7.0 not at all; and
-  both Codex sessions that reviewed this repository this week had no host and
-  never ran them. `git log -- .codex` brings them back if you disagree.
-- **Urgent?** no — done, and reversible with one revert.
 
 ## Decided (autonomous) — 2026-08-26, review-fix session
 
@@ -293,6 +263,8 @@ WP5's one.)*
 | Date | Question | Answer | Notes |
 | --- | --- | --- | --- |
 | 2026-08-27 | Whether creating scopes in bulk may use one statement for many rows | **A — leave it.** One validated insert per combination; no bulk boundary, no ADR | Asked because restoring the forbidden-constructs rule (F01 of the 2026-08-27 review) costs *give own workflow* one round trip per (project, tracker, role) where 0.1.1 made one per thousand. **A** was the recommendation and is now the decision, so the shape in `ScopeWriter.create_scopes` is the intended one rather than a default awaiting review: one `ProjectWorkflowScope#save!` per combination, validations and all. Considered and rejected: **B**, an ADR permitting a bulk scope create in `ScopeWriter` only — faster, and it would have made the rule mean what the code does, but it widens a gate that exists precisely because it is narrow; and **C**, chunking or backgrounding the action, which is a bigger change and a new moving part for a cost nobody has reported. What this closes off, so that a later session does not re-open it as an optimisation: the round trips in `create_scopes` are **not** a performance defect to be fixed with `insert_all`. If the slow case is ever actually met, it is B that gets re-opened — with an ADR — not the code. |
+| 2026-08-27 | Whether the review loop goes on telling a reviewer to review the head of `main` | **A — change the sentence.** A reviewer reviews `claude/dev`; `main` stays where it is and means "last released" | Finding **F09**, left at `question` by the fixer because it was not a fixer's to settle. `main` was three commits from before 0.1.0 while `claude/dev` carried eight work packages and three review rounds more, so a reviewer following the old instruction would have spent a session on code that no longer exists — and the findings-file format records the commit without checking it against the branch. `docs/review/README.md`'s Branches table and `docs/review/PROMPT.md`'s checkout block both changed; three further corrections went in with the sentence, because each was a way the loop could still mislead: the cycle diagram now says that a fixer answers a findings file on `claude/dev`, **so `main`'s copy keeps the original statuses** (the `G03` shape, stated out loud at last); both files record that `main` and `claude/dev` share **no merge base**, so the eventual merge needs `--allow-unrelated-histories` and a reviewer must not attempt it to make the old sentence true; and `PROMPT.md` uses `git checkout -B claude/dev origin/claude/dev` rather than `pull --ff-only`, which aborts when a fresh container's local branch is itself unrelated to the remote. Considered and rejected for now: **B**, merging `claude/dev` into `main` — kept for when a release is due, which is what the recommendation said and what was chosen. |
+| 2026-08-27 | Whether the three deleted `.codex/` setup scripts should come back | **A — leave them deleted.** `dev/` is the only supported path and `dev/README.md` says so | Finding **F08**. Nothing in the repository, in CI or in any document referred to them; `redmine_clone.sh` named `5.1-stable, 6.0-stable, 6.1-stable` as the supported set, which is neither the current one nor a subset of it; and its `rsync -a --delete --exclude "$REDMINE_DIR/"` did not exclude `.redmine/`, so running it from a working checkout would have copied every built host into the plugin directory. Both Codex sessions that reviewed this repository that week had no host at all, so nothing was using them. Considered and rejected: **B**, restoring and maintaining them — that means carrying a second, differently shaped setup path for a harness nobody was running it from. `git log -- .codex` recovers them if that changes. |
 
 ## Decided (autonomous) — 2026-08-27, second review-fix session
 

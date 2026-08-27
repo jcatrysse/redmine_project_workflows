@@ -14,10 +14,11 @@ Three roles, three prompts, one shared file format:
 ## The cycle
 
 ```
-review session  ->  findings file committed to main
+review session  ->  reviews claude/dev, commits its findings file to main
                         |
-fix session     ->  reads every open finding, fixes or answers each one,
-                    updates its Status, pushes to claude/dev
+fix session     ->  brings that file onto claude/dev, reads every open finding,
+                    fixes or answers each one, updates its Status, pushes to
+                    claude/dev -- so main's copy keeps the original statuses
                         |
 review session  ->  a new run, a new findings file (never edits an old one)
 ```
@@ -29,8 +30,26 @@ history of what was found and what was done about it stays readable.
 
 | Role | Reviews | Pushes to |
 | --- | --- | --- |
-| **Reviewer** | the head of `main` | its findings file, to `main` |
+| **Reviewer** | the head of `claude/dev`, unless Jan says otherwise | its findings file, to `main` |
 | **Fixer** | `claude/dev` | `claude/dev` only |
+
+A reviewer reviews **`claude/dev`, not `main`** — answered **A** by Jan on
+2026-08-27, on finding F09 of that day's review. `main` means "last released",
+and it is a long way behind: at the time of that answer it stood at `6c17b31`,
+three commits from before 0.1.0, while `claude/dev` carried eight work packages
+and three review rounds more. A reviewer who took the old instruction literally
+would spend a session on code that no longer exists, and the file format records
+the commit without checking it against the branch. Two consequences worth
+knowing:
+
+* the two branches' histories are **unrelated** — `git merge-base main claude/dev`
+  prints nothing — so `main` is not an ancestor of anything you are reviewing,
+  and a merge, when Jan wants one, needs `--allow-unrelated-histories`;
+* a findings file therefore lives on `main` while the code it describes lives on
+  `claude/dev`. A fixer brings the file across (`FIX-PROMPT.md` says how) and
+  answers it **there**, so once a fixing session has run, `main`'s copy still
+  reads `open` for findings that are closed. Read a findings file from
+  `claude/dev` before believing its `Status:` lines.
 
 `CLAUDE.md` pins the development branch and keeps code off `main`. A reviewer's
 findings file is the single documented exception, because other sessions have

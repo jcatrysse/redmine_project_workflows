@@ -11,13 +11,24 @@ stale checkout. Do this first:
 
 ```bash
 git fetch origin --prune
-git checkout main && git pull --ff-only
+git checkout -B claude/dev origin/claude/dev
 git rev-parse --short HEAD    # put this in your findings file
 ```
 
-Review the head of `main` unless you were told otherwise. Read `docs/STATE.md`
-only **after** checking out — a stale STATE.md describes finished work and
-reads perfectly plausibly.
+Review the head of **`claude/dev`** unless you were told otherwise (answered
+**A** by Jan on 2026-08-27; `docs/review/README.md` gives the reasoning). `main`
+means "last released" and is a long way behind, so reviewing it would be a
+session spent on code that no longer exists.
+
+`checkout -B` rather than `checkout` and `pull --ff-only`: the local
+`claude/dev` in a fresh container can have a history *unrelated* to the remote's,
+and `pull --ff-only` then aborts with "Not possible to fast-forward" while
+`git status` reports a divergence that reads like local work worth keeping. It
+is not. `git merge-base --is-ancestor claude/dev origin/claude/dev` is the check
+that cannot mislead.
+
+Read `docs/STATE.md` only **after** checking out — a stale STATE.md describes
+finished work and reads perfectly plausibly.
 
 ## 1. What this software is
 
@@ -133,4 +144,7 @@ Two things reviewers get wrong here:
   or `nit` rather than inflating it.
 
 Then commit the file to `main` and verify the push landed. That is the only
-thing a reviewer pushes.
+thing a reviewer pushes — the findings file goes to `main` even though the code
+you reviewed is on `claude/dev`, because that is where other sessions look for
+it. Push only the file: do not merge, rebase or otherwise move `claude/dev`'s
+code onto `main`, whose history is unrelated to it.
