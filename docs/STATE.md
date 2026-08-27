@@ -397,6 +397,22 @@ the rest is carried forward.
   `xargs git log --oneline -1` prints **HEAD**, which reads exactly like a merge
   base that happens to be the local head. Use
   `git merge-base --is-ancestor A B; echo $?` instead, which cannot lie.
+- **A scoped `prepend_before_action` DELETES the unconditional registration it
+  looks like it is adding to.** ActiveSupport's callback dedupe compares only
+  *kind* and *filter* — `Callback#duplicates?` → `matches?(kind, filter)` — and
+  `only:` is stored as a separate `:if` condition, not in the filter. So
+  `prepend_before_action :require_admin, only: [:edit, :update]` on
+  `WorkflowsController` removes core's own unconditional `before_action
+  :require_admin` and leaves `index`, `copy` and `duplicate` **ungated**. Read in
+  the Rails source at `v6.1.7`, `v7.2.2` and `main`. Nothing in the plugin does
+  this — the entry is here because it is precisely the "improvement" a session
+  working on the administration screens' callback order reaches for, and
+  `docs/DECISIONS.md:93` had rejected it for a weaker reason. The fix that is
+  safe is a **guard clause inside the patched finder**, which is what
+  `find_trackers_roles_and_statuses_for_edit` now carries (finding F05):
+  `User.current` is already correct there, because `ApplicationController`
+  registers `user_setup` before `WorkflowsController`'s own callbacks on all
+  three supported versions.
 - **`dev/run.sh` needs `RUBY_VERSION` for the 5.1 host, and the symptom is a
   missing gem.** Without it the ambient Ruby 3.3.6 runs against a bundle
   installed under `ruby/3.2.0`, and the error is

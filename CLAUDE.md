@@ -44,6 +44,17 @@ task description seems to ask for it.
   `workflows` carries an explicit `project_id` predicate — `nil` for generic,
   an id (or list) for projects. A query without one silently mixes two
   populations, which is how the summary page came to count wrong.
+  **One deliberate exception, and only one:** `WorkflowRule.copy_one_with_projects`
+  (`workflow_rule_patch.rb`), whose `delete_all` carries no `project_id` and
+  whose `INSERT … SELECT` two lines below carries `project_id` through the
+  select list. Both statements span the two populations *on purpose*, because
+  "duplicate this role including every project's workflow" is defined that way,
+  and the one-statement form is what keeps copying a role from being 500 round
+  trips per tracker. It is named here so it stops being re-found every review
+  (finding F18) — and because the plausible repair is worse than the state:
+  scoping only the `DELETE` leaves the `INSERT` spanning both populations two
+  lines below and risks half-copying a duplicated role. Anything else without a
+  `project_id` predicate is a finding.
 - **INV-5 A scope replaces, it never merges.** There is no additive override
   and there are no negative rules. If a project has a scope for
   (tracker, role, rule type), the generic rules for that combination do not

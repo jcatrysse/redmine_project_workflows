@@ -207,6 +207,36 @@ describe RedmineProjectWorkflows do
     )
   end
 
+  # F18. INV-4 says *any* query against `workflows` carries an explicit
+  # project_id predicate, and one method deliberately breaks the letter of it:
+  # WorkflowRule.copy_one_with_projects, whose delete_all spans both populations
+  # and whose INSERT ... SELECT carries project_id through the select list,
+  # because "duplicate this role including every project's workflow" is defined
+  # that way.
+  #
+  # It had no record either way, so it was re-found every review and the
+  # plausible repair -- scoping the DELETE alone -- is worse than the state,
+  # because the INSERT two lines below still spans them. CLAUDE.md now names it
+  # as the single exception; this pins the "single".
+  #
+  # A grep for the exception rather than for compliance, deliberately. Asserting
+  # that no *other* statement lacks a predicate would need to parse relations
+  # built across the query services, and a regex that tried would fail on the
+  # ones that name project_id two method calls away. What can be checked cheaply
+  # is that the *comment* naming the exception, and the method it names, still
+  # exist and are still one.
+  it 'has exactly one method carrying INV-4\'s deliberate exception' do
+    root = File.expand_path('..', __dir__)
+    marked = Dir.glob("#{root}/{app,lib,db}/**/*.rb").select do |file|
+      File.read(file).include?("INV-4's one deliberate exception")
+    end
+
+    expect(marked.map { |file| file.sub("#{root}/", '') })
+      .to contain_exactly('lib/redmine_project_workflows/patches/workflow_rule_patch.rb')
+    expect(WorkflowRule).to respond_to(:copy_one_with_projects)
+    expect(File.read("#{root}/CLAUDE.md")).to include('copy_one_with_projects')
+  end
+
   # Reading a workflow is a read action, so it goes on working in a closed
   # project; managing one is not, so it stops there.
   it 'marks viewing as a read action and managing as a write' do

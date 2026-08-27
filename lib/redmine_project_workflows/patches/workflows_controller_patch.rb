@@ -367,7 +367,31 @@ module RedmineProjectWorkflows
       # project ids exist, answering 404 for one that does not and a redirect to
       # the login page for one that does (finding G01). The invalid ids are
       # collected here and every action decides, after authorization.
+      # The guard prepares data and does not authorize: `require_admin`, declared
+      # after this callback, still decides, and every consumer of @trackers,
+      # @statuses and @projects runs after it. Returning early only means a
+      # request that is going to be refused does not pay for the preparation
+      # first (finding F05). `user_setup` is registered in ApplicationController
+      # before WorkflowsController's own callbacks on all three supported
+      # versions, so User.current is already correct here.
+      #
+      # What it stops: with ?project_id[]=all&tracker_id[]=all an anonymous GET
+      # ran Project.sorted.map(&:id) over every project row, one scope query
+      # with an IN list of every project id, and one OR query with a branch per
+      # (project, tracker) that overrides something. Core runs one bounded
+      # WorkflowTransition query here, so this is an amplification of core's own
+      # ordering rather than a new exposure -- but core's scales with the number
+      # of trackers and the plugin's with the number of projects.
+      #
+      # Deliberately NOT a second `require_admin`, scoped with `only:`.
+      # docs/DECISIONS.md:93 rejected that once; the sharper reason is that
+      # ActiveSupport's callback dedupe compares only kind and filter, and
+      # `only:` is stored as a separate `:if` condition -- so prepending one
+      # would *remove* core's unconditional registration and leave `index`,
+      # `copy` and `duplicate` ungated. See docs/STATE.md's traps list.
       def find_trackers_roles_and_statuses_for_edit
+        return unless User.current.admin?
+
         find_roles
         find_trackers
         load_project_options

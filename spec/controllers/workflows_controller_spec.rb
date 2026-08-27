@@ -1850,4 +1850,56 @@ describe WorkflowsController, type: :controller do
       expect(index_of_first_rule_write(statements)).not_to be_nil
     end
   end
+  # F05. Core declares find_trackers_roles_and_statuses_for_edit *before*
+  # require_admin, byte-identically on 5.1, 6.1 and 7.0. G01 closed the
+  # information leak that came out of that ordering by moving every render out
+  # of the callback; the *work* stayed, and the plugin's replacement added to it.
+  # With ?project_id[]=all&tracker_id[]=all an unauthenticated request ran
+  # Project.sorted.map(&:id) over every project row, a scope query with an IN
+  # list of every project id, and an OR query with a branch per (project,
+  # tracker) -- all before anyone had checked who was asking. Noise on fifty
+  # projects; tens of milliseconds and megabytes of ActiveRecord objects per
+  # anonymous GET on five thousand, repeatable at will.
+  #
+  # The fix is one guard clause inside the patched finder. Deliberately NOT a
+  # second, scoped require_admin: docs/DECISIONS.md:93 rejected that, and
+  # ActiveSupport's callback dedupe compares only kind and filter -- `only:` is
+  # a separate :if condition -- so `prepend_before_action :require_admin,
+  # only: [...]` would DELETE core's unconditional registration and leave index,
+  # copy and duplicate ungated (F18).
+  describe 'the work the administration matrices do before authorization' do
+    def edit_the_whole_installation
+      get :edit, params: { project_id: ['all'], tracker_id: ['all'], role_id: [role.id.to_s] }
+    end
+
+    it 'runs no plugin query for an unauthenticated request' do
+      @request.session[:user_id] = nil
+
+      statements = statements_during { edit_the_whole_installation }
+
+      expect(statements.grep(/project_workflow_scopes/i)).to be_empty
+      expect(statements.grep(/\bfrom\s+\W?workflows\W/i)).to be_empty
+      expect(assigns(:statuses)).to be_nil
+    end
+
+    it 'runs no plugin query for a logged-in non-administrator' do
+      @request.session[:user_id] = 2
+
+      statements = statements_during { edit_the_whole_installation }
+
+      expect(response).to have_http_status(:forbidden)
+      expect(statements.grep(/project_workflow_scopes/i)).to be_empty
+      expect(assigns(:projects)).to be_nil
+    end
+
+    # The guard prepares data and does not authorize -- require_admin still
+    # decides -- so an administrator must see exactly what they saw before.
+    it 'still prepares everything for an administrator' do
+      edit_the_whole_installation
+
+      expect(response).to have_http_status(:ok)
+      expect(assigns(:statuses)).to be_present
+      expect(assigns(:projects)).to be_present
+    end
+  end
 end

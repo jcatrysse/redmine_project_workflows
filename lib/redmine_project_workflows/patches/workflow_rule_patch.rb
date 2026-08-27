@@ -214,6 +214,19 @@ module RedmineProjectWorkflows
       # project the source knows nothing about would make the two halves of the
       # same method behave differently. Core only ever calls this on a role or
       # tracker it has just created, so in practice there is nothing to delete.
+      #
+      # **This is INV-4's one deliberate exception, and CLAUDE.md names it as
+      # such.** The `delete_all` carries no `project_id` predicate and the
+      # INSERT ... SELECT carries `project_id` through the select list, so both
+      # statements span the generic and project populations. Do not "repair" the
+      # DELETE alone: the INSERT two lines down spans them too, and scoping one
+      # without the other risks half-copying a duplicated role. Reported as a
+      # finding twice now (F18); the answer is that the reach is the definition.
+      #
+      # Also why F01's lock is not extended here, and why extending it would be
+      # a no-op that looked like a fix: core calls Role#copy_workflow_rules and
+      # Tracker#copy_workflow_rules only on a record it has just created, so
+      # there are no target rows and no scope rows to contend for.
       def copy_one_with_projects(source_tracker, source_role, target_tracker, target_role)
         return false if source_tracker == target_tracker && source_role == target_role
 
