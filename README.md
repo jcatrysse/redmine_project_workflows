@@ -50,8 +50,13 @@ one of them has surprised somebody.
   narrower than core: core accepts any run of digits as a field name, the plugin
   accepts only a core field or an existing custom field id. An entry that fails
   is dropped before anything is deleted, so it leaves the rule it names alone
-  rather than clearing it. In practice this only shows up for a hand-built
-  request; the matrices themselves cannot produce a rejected value.
+  rather than clearing it — and the screen says so instead of reporting a save,
+  which is the other half of that promise. In practice this only shows up for a
+  hand-built request; the matrices themselves cannot produce a rejected value.
+- **A save that changes nothing says so.** Redmine reports *Successful update*
+  for a matrix save where every control was left at *(No change)*; this plugin
+  tells you nothing was saved, because the same message has to cover the case
+  where the values you sent were not accepted.
 - **Uninstalling is a data change, not just a code change.** See
   [Upgrading and uninstalling](#upgrading-and-uninstalling).
 

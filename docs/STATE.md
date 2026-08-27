@@ -282,7 +282,7 @@ per `CLAUDE.md`: it is outside the eight findings this session was given.
 | Locale parity | **8 files × 96 keys**, no difference. Two keys added, translated by hand in all eight |
 | JavaScript gate | not re-run: nothing in `_bulk_script.html.erb` changed |
 | MySQL, MariaDB, and 6.1 | **not run locally** — two of the nine cells ran here; CI covers the other seven |
-| CI | pushed; the run appears **several minutes after** the push rather than immediately. Every commit of this session that carries code gets a ten-job run — nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop |
+| CI | **run 84 green — all ten jobs**, nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, on the tree carrying every F01–F08 change. So the four cells this container did not run — MySQL 8.4 and the MariaDB pair — have seen that code. The **review pass on top of it is not yet confirmed**: run 85 was *cancelled* by the concurrency group when the next commit was pushed (which is what a cancelled run here almost always means — see the traps), and the head's run was still in flight when this session ended. Checking it is step 1 of "Exact next step". A run appears several minutes after the push, and naming the number beats saying "green", because every correction to this row is itself a commit and a new run |
 
 ## Exact next step
 
