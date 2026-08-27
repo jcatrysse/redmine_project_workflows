@@ -329,6 +329,35 @@ Migration 005 declines to drop anything if the first of those two is missing:
 migration 003's foreign key needs an index with `project_id` leftmost, and
 InnoDB refuses to drop the last one.
 
+**One more InnoDB fact, which this section used to leave a reader to assume had
+been considered (finding F20).** Migration 003's `add_foreign_key` is the only
+operation in all five migrations that **rebuilds the table**, and only on MySQL
+and MariaDB: MySQL's online-DDL documentation is explicit that the `INPLACE`
+algorithm for adding a foreign key is supported only when `foreign_key_checks` is
+disabled, and Rails' `add_foreign_key` does not disable it — so it runs under the
+COPY algorithm on six of the nine supported cells.
+
+That is a fact to know rather than a blocker, and the reason is worth recording so
+it is not re-filed: `workflows` is an **O(configuration)** table, not an O(data)
+one — it does not grow with issues, journals or time — and, decisively, project
+rows **cannot exist while 001, 002 and 003 run**, because 001 is what creates the
+column and all three run in one rake invocation. Measured on a synthetic
+`workflows` of 900,000 rows / 80 MB (25 trackers × 20 roles × 30 statuses, dense
+in both rule types, ten to fifty times larger than realistic) on PostgreSQL
+16.13: about **7.4 s** of DDL in total, of which the four `CREATE INDEX`
+statements are 1.6–2.3 s each, the foreign key 77 ms, migration 003's orphan
+delete 129 ms matching **zero** rows, and migration 004's backfill over 450,000
+rows 204 ms.
+
+`CREATE INDEX CONCURRENTLY`, adapter-specific online DDL, a preflight rake task
+and splitting 003 in two are all **rejected**, with the reason recorded here so
+the next review does not re-open it: `disable_ddl_transaction!` would put INV-8's
+reversibility gate at risk on the PostgreSQL cells and splitting 003 would put it
+at risk on all nine, permanently — to speed up statements that take under a second
+on the population that actually exists when they run. What was genuinely missing
+was documentation, and the operator-facing half of it is now in `README.md` under
+Installation.
+
 ### What the resolution costs
 
 `StatusListQuery` resolves a set of (project, tracker) pairs in two queries: one
@@ -616,13 +645,38 @@ plugin's own, at `/project_workflow_inventories`, listing one row per (project,
 tracker, role) with a column per rule type. The state is a text label — *Own
 workflow*, *Own empty workflow*, *Inherits the generic workflow* — and the
 number next to it is the project's own rule count, never the generic one, so it
-always matches the matrix the cell links to. It defaults to the combinations
-that have decided something; asked for everything, it addresses the product of
-projects, trackers and roles arithmetically rather than building it, so a page
-costs the same on an installation with three projects and one with three
-thousand. `Services::InventoryQuery` answers it in at most five queries per
-page — the deviating combinations, the scopes, one count per rule type, and the
-users its audit line names.
+always matches the matrix the cell links to. `Services::InventoryQuery` answers
+it in at most five queries per page — the deviating combinations, the scopes, one
+count per rule type, and the users its audit line names.
+
+**What a page costs, per mode**, because this paragraph used to claim constant
+cost without saying which mode it meant (finding F10):
+
+| Mode | Cost of one page |
+| --- | --- |
+| *everything* | **constant.** The product of projects × trackers × roles is never materialised: the total is a multiplication and a page is addressed arithmetically |
+| *deviations only* — the **default** | **linear in the number of decisions actually taken.** Every matching scope triple is plucked, materialised, sorted in Ruby, and only then sliced to the page |
+
+The Ruby half of the linear branch, measured on Ruby 3.3.6: 10,000 triples 24 ms
+and ~1 MB retained; 100,000 251 ms and ~9 MB; 1,000,000 2.8 s and ~92 MB — per
+page change, since the memo is per-request by design. At the sizes this plugin's
+own model produces that is a non-event: a scope row exists per *decision actually
+taken*, and a million of them would mean essentially every project overriding
+essentially everything, which contradicts the premise the whole plugin rests on.
+The figures are recorded so that the next reader optimises the branch that is
+actually linear, if it ever matters.
+
+Moving the ordering into SQL is **rejected**, and it is worth saying why rather
+than leaving it to be re-proposed: the order comes from `lft`, `position` and
+`(builtin, position)`, all integer columns, so determinism is not what is at
+stake — and the cost is a permanent three-table join, a duplicated copy of three
+core ordering scopes, and a pagination path to re-prove on nine cells. If the
+constant is ever worth reducing, a single packed integer sort key inside
+`#deviating_triples` is order-preserving here (each index is strictly bounded by
+its list's size) and touches no SQL.
+
+The project settings tab is unaffected by any of this: it asks for a single
+project with *deviations only* off, and takes the bounded branch.
 
 The project settings screen is not a Deface override: it is a tab added by
 overriding `project_settings_tabs`, rendering the plugin's own views. The tab

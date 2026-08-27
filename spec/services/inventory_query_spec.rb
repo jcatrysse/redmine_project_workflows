@@ -280,4 +280,64 @@ describe RedmineProjectWorkflows::Services::InventoryQuery do
       expect(counts.first).to eq(counts.last)
     end
   end
+
+  # F10. The class comment claimed a page costs the same on an installation with
+  # three projects and one with three thousand, without saying which mode it was
+  # about. It is true of `everything` and false of `deviations_only`, which is the
+  # DEFAULT: that branch plucks every matching triple, materialises it, sorts it
+  # in Ruby and only then slices to the page.
+  #
+  # The comment and docs/design.md now say so with measured figures. What a spec
+  # can add is the *property*, so that the corrected claim cannot rot the way the
+  # wrong one did: the bounded mode's cost must not grow with the selection.
+  describe 'what a page costs' do
+    def queries_during
+      count = 0
+      subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+        count += 1 unless payload[:name].to_s.match?(/SCHEMA|TRANSACTION/)
+      end
+      yield
+      count
+    ensure
+      ActiveSupport::Notifications.unsubscribe(subscriber)
+    end
+
+    def page(projects, deviations_only:)
+      query = build(projects: projects, trackers: [tracker], roles: [role],
+                    deviations_only: deviations_only)
+      [query.total, query.rows(offset: 0, limit: 10)]
+    end
+
+    it 'asks the same number of queries for a large selection as a small one' do
+      many = Array.new(12) do |index|
+        Project.create!(name: "Inventory cost #{index}", identifier: "inventory-cost-#{index}")
+      end
+      # Force both lists before counting: a lazily loaded record inside the
+      # counted block reads exactly like an N+1 and is not (docs/STATE.md).
+      small = [project]
+      many.each(&:id)
+
+      rows = nil
+      few = queries_during { page(small, deviations_only: false) }
+      lots = queries_during { rows = page(many, deviations_only: false).last }
+
+      # Bounded, not equal. The two selections can differ by a query or two in
+      # either direction -- a count query is skipped when there is nothing to
+      # count, so the *small* selection here is the more expensive one. What must
+      # hold is that neither grows with the number of projects.
+      expect([few, lots]).to all(be <= 5)
+      # ...and that the large selection really was large, or the bound above is
+      # a claim about nothing.
+      expect(rows.size).to eq(10)
+    end
+
+    # And the default mode is bounded in queries too -- it is bounded in
+    # *queries* and linear in *rows*, which is exactly the distinction the old
+    # comment lost.
+    it 'asks a bounded number of queries in the deviations mode as well' do
+      give_own_workflow(project, tracker, role)
+
+      expect(queries_during { page([project], deviations_only: true) }).to be <= 5
+    end
+  end
 end

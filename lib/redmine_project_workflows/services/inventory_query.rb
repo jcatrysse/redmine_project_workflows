@@ -13,12 +13,46 @@ module RedmineProjectWorkflows
     #   everything        the rows are the full product of the filtered
     #                     projects, trackers and roles
     #
-    # The product is never materialised: #total is a multiplication and a page
-    # is addressed arithmetically, so a page costs the same on an installation
-    # with three projects and one with three thousand. Whatever the mode, one
-    # page is at most five queries -- the deviating combinations, the scopes, one
-    # count per rule type, and the users named by the scopes' audit columns --
-    # and never one per row (G6).
+    # Whatever the mode, one page is at most five queries -- the deviating
+    # combinations, the scopes, one count per rule type, and the users named by
+    # the scopes' audit columns -- and never one per row (G6).
+    #
+    # The cost per mode, because the sentence that used to stand here said a page
+    # costs the same on an installation with three projects and one with three
+    # thousand, without saying which mode it was about (finding F10):
+    #
+    #   everything        constant. The product is never materialised: #total is a
+    #                     multiplication and a page is addressed arithmetically by
+    #                     #product_slice.
+    #   deviations_only   linear in the number of decisions actually taken, and
+    #                     this is the DEFAULT. #deviating_triples plucks every
+    #                     matching triple, materialises it, sorts it in Ruby and
+    #                     only then slices [offset, limit]; #total pays the same.
+    #
+    # Measured on Ruby 3.3.6, the Ruby half of that alone: 10,000 triples 24 ms
+    # and about 1 MB retained; 100,000 251 ms and 9 MB; 1,000,000 2.8 s and 92 MB.
+    # Per page change, because the memo is per-instance and per-request by design.
+    #
+    # At the sizes this plugin's own model produces that is a non-event -- a scope
+    # row exists per *decision actually taken*, and a million of them would mean
+    # essentially every project overriding essentially everything, which
+    # contradicts the premise that the generic workflow keeps working for projects
+    # that do not override it. The numbers are here so that the next reader
+    # optimises the branch that is actually linear, if it ever matters, rather
+    # than the one the old comment pointed at.
+    #
+    # Deliberately NOT moved into SQL, which the source review proposed: the order
+    # comes from `lft`, `position` and `(builtin, position)`, all integer columns,
+    # so the determinism argument is not what is at stake, and the cost is a
+    # permanent three-table join plus a duplicated copy of three core ordering
+    # scopes plus a pagination path to re-prove on nine cells. If the constant is
+    # ever worth reducing it is available inside #deviating_triples without
+    # touching SQL -- a single packed integer sort key in place of the
+    # three-element array, order-preserving here because each index is strictly
+    # bounded by its list's size.
+    #
+    # The project settings tab is unaffected: it passes deviations_only: false for
+    # a single project and takes the bounded branch.
     class InventoryQuery
       # What one cell of the table says: which of the three states of INV-3
       # this (project, tracker, role, rule type) is in, and how many rules of

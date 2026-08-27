@@ -92,6 +92,33 @@ one of them has surprised somebody.
 environment it is given and defaults to **development**, so leaving it off
 migrates the wrong database and tells you it worked.
 
+### What the migrations do, and what that costs
+
+The migrations change Redmine's own `workflows` table: they add a nullable
+`project_id` column, four indexes and a foreign key to `projects`, drop two
+indexes the new ones replace, and create one table of the plugin's own
+(`project_workflow_scopes`). `VERSION=0` removes all of it and returns the
+installation to stock behaviour; that reversal is tested on every supported
+Redmine and database on every push.
+
+The size to expect is smaller than "a core table" suggests: `workflows` holds one
+row per configured rule, so it grows with trackers, roles and statuses and **not**
+with issues, journals or time. A large installation has tens of thousands of rows
+there, not millions. On a synthetic table of 900,000 rows — ten to fifty times
+larger than realistic — the whole of this plugin's DDL measured about **7.4
+seconds** on PostgreSQL 16, most of it index creation.
+
+Two things worth knowing before you run it on a large MySQL or MariaDB
+installation. Adding the foreign key is the one operation in all five migrations
+that rebuilds the table: MySQL supports the in-place algorithm for adding a
+foreign key only when `foreign_key_checks` is off, and Rails does not turn it off.
+And one migration deletes workflow rows naming a project that no longer exists —
+it prints the number it deleted, and on an installation upgrading into this plugin
+that number is always 0, because project-specific rows cannot exist before the
+column that holds them.
+
+Take a backup, as with any migration that touches a core table.
+
 ## Usage
 
 1. Go to **Administration → Workflow**.
