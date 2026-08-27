@@ -5,7 +5,7 @@ nl:
   error_workflow_copy_target_project: Een of meer geselecteerde doelprojecten bestaan niet.
   error_workflow_copy_target_tracker_or_role: Een of meer geselecteerde doeltrackers of -rollen bestaan niet.
   label_project_workflow_scope: Workflow voor de geselecteerde projecten
-  label_project_workflow_state_inherits: Erft de algemene workflow
+  label_project_workflow_state_inherits: "Volgt de algemene workflow"
   label_project_workflow_state_own: Eigen workflow
   label_project_workflow_state_own_empty: Eigen lege workflow
   label_project_workflow_count_own:
@@ -15,8 +15,8 @@ nl:
     one: "%{count} eigen lege workflow"
     other: "%{count} eigen lege workflows"
   label_project_workflow_count_inherits:
-    one: "%{count} erft de algemene workflow"
-    other: "%{count} erven de algemene workflow"
+    one: "%{count} volgt de algemene workflow"
+    other: "%{count} volgen de algemene workflow"
   button_project_workflow_enable_copy: Eigen workflow geven (kopie van de algemene)
   button_project_workflow_enable_empty: Eigen lege workflow geven
   button_project_workflow_clear: Deze workflow leegmaken
@@ -56,15 +56,15 @@ nl:
   text_project_workflow_tab_nothing_to_configure: "Er is hier nog niets in te stellen: dit project heeft geen tracker geactiveerd, of geen rol met leden die aan een workflow deelneemt."
   text_project_workflow_project_enable_copy_confirm: Dit project een eigen workflow geven voor deze tracker en rol, beginnend als een kopie van de algemene?
   text_project_workflow_project_enable_empty_confirm: Dit project een eigen, lege workflow geven voor deze tracker en rol? Er is niets toegestaan tot u regels toevoegt.
-  text_project_workflow_readonly_generic: Dit project erft de algemene workflow voor deze tracker en rol. Hieronder staat die ter referentie; geef het project een eigen workflow om er iets aan te wijzigen.
+  text_project_workflow_readonly_generic: "Dit project volgt de algemene workflow voor deze tracker en deze rol. Hieronder staat die ter referentie; geef het project een eigen workflow om er iets aan te wijzigen."
   text_project_workflow_readonly_own: Dit is de eigen workflow van het project. Om hem te wijzigen hebt u het recht nodig om de workflow van dit project te beheren.
-  notice_project_workflow_not_own: Dit project erft de algemene workflow voor deze tracker en rol, dus er is niets opgeslagen. Geef het project eerst een eigen workflow.
+  notice_project_workflow_not_own: "Dit project volgt de algemene workflow voor deze tracker en deze rol, dus er is niets opgeslagen. Geef het project eerst een eigen workflow."
   text_project_workflow_scope_inheriting_note:
-    one: "%{count} combinatie in deze selectie erft nog de algemene workflow. De matrix hieronder toont alleen de regels die de selectie zelf bewaart, dus die combinatie lijkt leeg, en opslaan verandert er niets aan — geef haar eerst een eigen workflow."
-    other: "%{count} combinaties in deze selectie erven nog de algemene workflow. De matrix hieronder toont alleen de regels die de selectie zelf bewaart, dus die combinaties lijken leeg, en opslaan verandert er niets aan — geef ze eerst een eigen workflow."
+    one: "%{count} combinatie in deze selectie volgt nog de algemene workflow. De matrix hieronder toont alleen de regels die de selectie zelf bewaart, dus die combinatie lijkt leeg, en opslaan verandert er niets aan — geef haar eerst een eigen workflow."
+    other: "%{count} combinaties in deze selectie volgen nog de algemene workflow. De matrix hieronder toont alleen de regels die de selectie zelf bewaart, dus die combinaties lijken leeg, en opslaan verandert er niets aan — geef ze eerst een eigen workflow."
   notice_project_workflow_save_skipped_inheriting:
-    one: "%{count} combinatie van project, tracker en rol erft nog de algemene workflow en is niet gewijzigd. Geef haar eerst een eigen workflow."
-    other: "%{count} combinaties van project, tracker en rol erven nog de algemene workflow en zijn niet gewijzigd. Geef ze eerst een eigen workflow."
+    one: "%{count} combinatie van project, tracker en rol volgt nog de algemene workflow en is niet gewijzigd. Geef haar eerst een eigen workflow."
+    other: "%{count} combinaties van project, tracker en rol volgen nog de algemene workflow en zijn niet gewijzigd. Geef ze eerst een eigen workflow."
   label_project_workflow_bulk_row: 'Zet de hele rij "%{name}" op %{value}'
   label_project_workflow_bulk_column: 'Zet de hele kolom "%{name}" op %{value}'
   text_project_workflow_bulk_confirm: 'Deze actie raakt %{count} workflowregel(s). Doorgaan?'
@@ -84,16 +84,16 @@ nl:
   label_project_workflow_condition_always: Iedereen met deze rol
   label_project_workflow_condition_author: Ook wanneer de gebruiker de auteur is
   label_project_workflow_condition_assignee: Ook wanneer de gebruiker de toegewezen persoon is
-  text_project_workflow_compare_description: De workflow van dit project vervangt de algemene workflow voor dit tracker en deze rol; wat hieronder staat is dus het volledige verschil. Er wordt niets samengevoegd en er geldt niets meer uit de algemene workflow.
-  text_project_workflow_compare_counts: Dit project heeft %{project} eigen regel(s) voor dit tracker en deze rol; de algemene workflow heeft %{generic}.
-  text_project_workflow_compare_identical: De eigen workflow van dit project is identiek aan de algemene workflow voor dit tracker en deze rol.
-  text_project_workflow_compare_inherits: Dit project erft de algemene workflow voor dit tracker en deze rol, dus er is niets te vergelijken.
+  text_project_workflow_compare_description: De workflow van dit project vervangt de algemene workflow voor deze tracker en deze rol; wat hieronder staat is dus het volledige verschil. Er wordt niets samengevoegd en er geldt niets meer uit de algemene workflow.
+  text_project_workflow_compare_counts: Dit project heeft %{project} eigen regel(s) voor deze tracker en deze rol; de algemene workflow heeft %{generic}.
+  text_project_workflow_compare_identical: De eigen workflow van dit project is identiek aan de algemene workflow voor deze tracker en deze rol.
+  text_project_workflow_compare_inherits: "Dit project volgt de algemene workflow voor deze tracker en deze rol, dus er is niets te vergelijken."
   button_project_workflow_bulk_undo: Ongedaan maken
   text_project_workflow_bulk_changed: '%{cells} cel(len) gewijzigd, %{rules} workflowregel(s).'
   text_project_workflow_bulk_undone: 'Ongedaan gemaakt: %{cells} cel(len) teruggezet.'
   text_project_workflow_bulk_unsaved: Er is nog niets opgeslagen. Druk op Opslaan om deze wijzigingen door te voeren.
   label_project_workflow_comparison: Workflowvergelijking
-  text_project_workflow_compare_unreachable_field: Minstens één verschil hieronder betreft een veld dat dit tracker niet meer aanbiedt; de eigen matrix van het project kan het dus niet tonen of wijzigen. Een systeembeheerder kan zo'n regel via Beheer verwijderen.
+  text_project_workflow_compare_unreachable_field: Minstens één verschil hieronder betreft een veld dat deze tracker niet meer aanbiedt; de eigen matrix van het project kan het dus niet tonen of wijzigen. Een systeembeheerder kan zo'n regel via Beheer verwijderen.
   label_project_workflow_map: Workflow voor dit issue
   label_project_workflow_map_scope: Welke workflow geldt
   label_project_workflow_map_from_here: Statuswijzigingen die hier zijn toegestaan

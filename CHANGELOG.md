@@ -36,7 +36,18 @@ changed what stock Redmine does.
 - The threshold field on the settings screen refuses anything that is not a
   whole number, rather than accepting it and quietly using the default.
 - Spanish, Portuguese and Polish used two or three different words for *tracker*
-  and *role* between them; all three now use Redmine's own.
+  and *role* between them; all three now use Redmine's own. Dutch said *dit
+  tracker* where it meant *deze tracker*.
+
+### Changed — wording
+
+- The first of the three states is now **"Follows the generic workflow"**, in all
+  eight languages, where it used to say *Inherits*. Redmine has no workflow
+  inheritance and this plugin does not add any: a project either has taken a
+  (tracker, role) over or it has not, and there is no inheritance between
+  projects at all. "Inherits" suggested a project tree that does not exist, and
+  it misled the plugin's own maintainer. The change is to the words on screen
+  only — no setting, no data, no behaviour.
 
 ### Changed
 

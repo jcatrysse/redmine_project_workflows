@@ -5,7 +5,7 @@ it:
   error_workflow_copy_target_project: Uno o più progetti di destinazione selezionati non esistono.
   error_workflow_copy_target_tracker_or_role: Uno o più tracker o ruoli di destinazione selezionati non esistono.
   label_project_workflow_scope: Workflow per i progetti selezionati
-  label_project_workflow_state_inherits: Eredita il workflow generico
+  label_project_workflow_state_inherits: "Segue il workflow generico"
   label_project_workflow_state_own: Workflow proprio
   label_project_workflow_state_own_empty: Workflow proprio vuoto
   label_project_workflow_count_own:
@@ -15,8 +15,8 @@ it:
     one: "%{count} workflow proprio vuoto"
     other: "%{count} workflow propri vuoti"
   label_project_workflow_count_inherits:
-    one: "%{count} eredita il workflow generico"
-    other: "%{count} ereditano il workflow generico"
+    one: "%{count} segue il workflow generico"
+    other: "%{count} seguono il workflow generico"
   button_project_workflow_enable_copy: Assegna un workflow proprio (copia del generico)
   button_project_workflow_enable_empty: Assegna un workflow proprio vuoto
   button_project_workflow_clear: Svuota questo workflow
@@ -56,15 +56,15 @@ it:
   text_project_workflow_tab_nothing_to_configure: "Qui non c'è ancora nulla da configurare: questo progetto non ha alcun tracker attivo, o nessun ruolo con membri che partecipi a un workflow."
   text_project_workflow_project_enable_copy_confirm: Dare a questo progetto un workflow proprio per questo tracker e ruolo, partendo da una copia di quello generico?
   text_project_workflow_project_enable_empty_confirm: Dare a questo progetto un workflow proprio e vuoto per questo tracker e ruolo? Nulla sarà permesso finché non aggiungi delle regole.
-  text_project_workflow_readonly_generic: Questo progetto eredita il workflow generico per questo tracker e ruolo. È mostrato qui sotto come riferimento; dai al progetto un workflow proprio per modificarlo.
+  text_project_workflow_readonly_generic: "Questo progetto segue il workflow generico per questo tracker e ruolo. È mostrato qui sotto come riferimento; dai al progetto un workflow proprio per modificarlo."
   text_project_workflow_readonly_own: Questo è il workflow proprio del progetto. Per modificarlo serve il permesso di gestire il workflow di questo progetto.
-  notice_project_workflow_not_own: Questo progetto eredita il workflow generico per questo tracker e ruolo, quindi non è stato salvato nulla. Dai prima al progetto un workflow proprio.
+  notice_project_workflow_not_own: "Questo progetto segue il workflow generico per questo tracker e ruolo, quindi non è stato salvato nulla. Dai prima al progetto un workflow proprio."
   text_project_workflow_scope_inheriting_note:
-    one: "%{count} combinazione di questa selezione eredita ancora il workflow generico. La matrice qui sotto mostra solo le regole che la selezione possiede, quindi quella combinazione appare vuota e il salvataggio non la modifica — dalle prima un workflow proprio."
-    other: "%{count} combinazioni di questa selezione ereditano ancora il workflow generico. La matrice qui sotto mostra solo le regole che la selezione possiede, quindi quelle combinazioni appaiono vuote e il salvataggio non le modifica — dai loro prima un workflow proprio."
+    one: "%{count} combinazione di questa selezione segue ancora il workflow generico. La matrice qui sotto mostra solo le regole che la selezione possiede, quindi quella combinazione appare vuota e il salvataggio non la modifica — dalle prima un workflow proprio."
+    other: "%{count} combinazioni di questa selezione seguono ancora il workflow generico. La matrice qui sotto mostra solo le regole che la selezione possiede, quindi quelle combinazioni appaiono vuote e il salvataggio non le modifica — dai loro prima un workflow proprio."
   notice_project_workflow_save_skipped_inheriting:
-    one: "%{count} combinazione di progetto, tracker e ruolo eredita ancora il workflow generico e non è stata modificata. Dalle prima un workflow proprio."
-    other: "%{count} combinazioni di progetto, tracker e ruolo ereditano ancora il workflow generico e non sono state modificate. Dai loro prima un workflow proprio."
+    one: "%{count} combinazione di progetto, tracker e ruolo segue ancora il workflow generico e non è stata modificata. Dalle prima un workflow proprio."
+    other: "%{count} combinazioni di progetto, tracker e ruolo seguono ancora il workflow generico e non sono state modificate. Dai loro prima un workflow proprio."
   label_project_workflow_bulk_row: 'Imposta tutta la riga "%{name}" su %{value}'
   label_project_workflow_bulk_column: 'Imposta tutta la colonna "%{name}" su %{value}'
   text_project_workflow_bulk_confirm: 'Questa azione riguarda %{count} regola/e del workflow. Continuare?'
@@ -87,7 +87,7 @@ it:
   text_project_workflow_compare_description: Il workflow di questo progetto sostituisce quello generico per questo tracker e questo ruolo, quindi quanto segue è la differenza completa. Nulla viene unito e nulla del workflow generico si applica più.
   text_project_workflow_compare_counts: Questo progetto ha %{project} regole proprie per questo tracker e questo ruolo; il workflow generico ne ha %{generic}.
   text_project_workflow_compare_identical: Il workflow proprio di questo progetto è identico a quello generico per questo tracker e questo ruolo.
-  text_project_workflow_compare_inherits: Questo progetto eredita il workflow generico per questo tracker e questo ruolo, quindi non c'è nulla da confrontare.
+  text_project_workflow_compare_inherits: "Questo progetto segue il workflow generico per questo tracker e questo ruolo, quindi non c'è nulla da confrontare."
   button_project_workflow_bulk_undo: Annulla
   text_project_workflow_bulk_changed: '%{cells} cella/e modificata/e, %{rules} regola/e di workflow.'
   text_project_workflow_bulk_undone: 'Annullato: %{cells} cella/e ripristinata/e.'

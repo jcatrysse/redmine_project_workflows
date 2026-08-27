@@ -5,7 +5,7 @@ pt:
   error_workflow_copy_target_project: Um ou mais projetos de destino selecionados não existem.
   error_workflow_copy_target_tracker_or_role: Um ou mais tipos ou funções de destino selecionados não existem.
   label_project_workflow_scope: Fluxo de trabalho para os projetos selecionados
-  label_project_workflow_state_inherits: Herda o fluxo de trabalho genérico
+  label_project_workflow_state_inherits: "Segue o fluxo de trabalho genérico"
   label_project_workflow_state_own: Fluxo de trabalho próprio
   label_project_workflow_state_own_empty: Fluxo de trabalho próprio vazio
   label_project_workflow_count_own:
@@ -15,15 +15,15 @@ pt:
     one: "%{count} fluxo de trabalho próprio vazio"
     other: "%{count} fluxos de trabalho próprios vazios"
   label_project_workflow_count_inherits:
-    one: "%{count} herda o fluxo de trabalho genérico"
-    other: "%{count} herdam o fluxo de trabalho genérico"
+    one: "%{count} segue o fluxo de trabalho genérico"
+    other: "%{count} seguem o fluxo de trabalho genérico"
   button_project_workflow_enable_copy: Dar fluxo de trabalho próprio (cópia do genérico)
   button_project_workflow_enable_empty: Dar fluxo de trabalho próprio vazio
   button_project_workflow_clear: Esvaziar este fluxo de trabalho
   button_project_workflow_inherit: Voltar ao fluxo de trabalho genérico
   text_project_workflow_scope_help: Um fluxo de trabalho próprio substitui o genérico; nunca é acrescentado a ele. Um fluxo de trabalho próprio vazio não permite nada.
-  text_project_workflow_enable_copy_confirm: Dar a este projeto o seu próprio fluxo de trabalho, a partir de uma cópia do genérico? Afeta %{count} combinação(ões) de projeto, tipo e perfil.
-  text_project_workflow_enable_empty_confirm: Dar a este projeto o seu próprio fluxo de trabalho, vazio? Nada será permitido até que adicione regras. Afeta %{count} combinação(ões) de projeto, tipo e perfil.
+  text_project_workflow_enable_copy_confirm: Dar a este projeto o seu próprio fluxo de trabalho, a partir de uma cópia do genérico? Afeta %{count} combinação(ões) de projeto, tipo e função.
+  text_project_workflow_enable_empty_confirm: Dar a este projeto o seu próprio fluxo de trabalho, vazio? Nada será permitido até que adicione regras. Afeta %{count} combinação(ões) de projeto, tipo e função.
   text_project_workflow_clear_confirm: Remover todas as regras deste fluxo de trabalho? O projeto mantém o seu fluxo próprio, mas este não permitirá nada.
   text_project_workflow_inherit_confirm: Voltar ao fluxo de trabalho genérico? As regras próprias do projeto são eliminadas.
   notice_project_workflow_enabled_copy:
@@ -52,19 +52,19 @@ pt:
   permission_manage_project_workflow: Gerir o fluxo de trabalho do projeto
   label_project_workflow_project_scope: Fluxo de trabalho deste projeto
   label_project_workflow_open_matrix: Abrir este fluxo de trabalho
-  text_project_workflow_tab_description: Uma linha por cada tipo e perfil sobre o qual este projeto pode decidir. O número indica quantas regras o próprio projeto tem; a etiqueta diz se são essas regras que se aplicam ou o fluxo de trabalho genérico.
-  text_project_workflow_tab_nothing_to_configure: "Ainda não há nada para configurar aqui: este projeto não tem nenhum tipo ativado, nem nenhum perfil com membros que participe num fluxo de trabalho."
-  text_project_workflow_project_enable_copy_confirm: Dar a este projeto o seu próprio fluxo de trabalho para este tipo e perfil, a partir de uma cópia do genérico?
-  text_project_workflow_project_enable_empty_confirm: Dar a este projeto o seu próprio fluxo de trabalho, vazio, para este tipo e perfil? Nada será permitido até que adicione regras.
-  text_project_workflow_readonly_generic: Este projeto herda o fluxo de trabalho genérico para este tipo e perfil. É mostrado abaixo como referência; dê ao projeto o seu próprio fluxo de trabalho para o alterar.
+  text_project_workflow_tab_description: Uma linha por cada tipo e função sobre os quais este projeto pode decidir. O número indica quantas regras o próprio projeto tem; a etiqueta diz se são essas regras que se aplicam ou o fluxo de trabalho genérico.
+  text_project_workflow_tab_nothing_to_configure: "Ainda não há nada para configurar aqui: este projeto não tem nenhum tipo ativado, nem nenhuma função com membros que participe num fluxo de trabalho."
+  text_project_workflow_project_enable_copy_confirm: Dar a este projeto o seu próprio fluxo de trabalho para este tipo e esta função, a partir de uma cópia do genérico?
+  text_project_workflow_project_enable_empty_confirm: Dar a este projeto o seu próprio fluxo de trabalho, vazio, para este tipo e esta função? Nada será permitido até que adicione regras.
+  text_project_workflow_readonly_generic: "Este projeto segue o fluxo de trabalho genérico para este tipo e esta função. É mostrado abaixo como referência; dê ao projeto o seu próprio fluxo de trabalho para o alterar."
   text_project_workflow_readonly_own: Este é o fluxo de trabalho próprio do projeto. Alterá-lo exige a permissão para gerir o fluxo de trabalho deste projeto.
-  notice_project_workflow_not_own: Este projeto herda o fluxo de trabalho genérico para este tipo e perfil, pelo que nada foi guardado. Dê primeiro ao projeto o seu próprio fluxo de trabalho.
+  notice_project_workflow_not_own: "Este projeto segue o fluxo de trabalho genérico para este tipo e esta função, pelo que nada foi guardado. Dê primeiro ao projeto o seu próprio fluxo de trabalho."
   text_project_workflow_scope_inheriting_note:
-    one: "%{count} combinação desta seleção ainda herda o fluxo de trabalho genérico. A matriz abaixo mostra apenas as regras que a seleção possui, pelo que essa combinação aparece vazia e guardar não a altera — dê-lhe primeiro o seu próprio fluxo de trabalho."
-    other: "%{count} combinações desta seleção ainda herdam o fluxo de trabalho genérico. A matriz abaixo mostra apenas as regras que a seleção possui, pelo que essas combinações aparecem vazias e guardar não as altera — dê-lhes primeiro o seu próprio fluxo de trabalho."
+    one: "%{count} combinação desta seleção segue ainda o fluxo de trabalho genérico. A matriz abaixo mostra apenas as regras que a seleção possui, pelo que essa combinação aparece vazia e guardar não a altera — dê-lhe primeiro o seu próprio fluxo de trabalho."
+    other: "%{count} combinações desta seleção seguem ainda o fluxo de trabalho genérico. A matriz abaixo mostra apenas as regras que a seleção possui, pelo que essas combinações aparecem vazias e guardar não as altera — dê-lhes primeiro o seu próprio fluxo de trabalho."
   notice_project_workflow_save_skipped_inheriting:
-    one: "%{count} combinação de projeto, tipo e perfil ainda herda o fluxo de trabalho genérico e não foi alterada. Dê-lhe primeiro o seu próprio fluxo de trabalho."
-    other: "%{count} combinações de projeto, tipo e perfil ainda herdam o fluxo de trabalho genérico e não foram alteradas. Dê-lhes primeiro o seu próprio fluxo de trabalho."
+    one: "%{count} combinação de projeto, tipo e função segue ainda o fluxo de trabalho genérico e não foi alterada. Dê-lhe primeiro o seu próprio fluxo de trabalho."
+    other: "%{count} combinações de projeto, tipo e função seguem ainda o fluxo de trabalho genérico e não foram alteradas. Dê-lhes primeiro o seu próprio fluxo de trabalho."
   label_project_workflow_bulk_row: 'Definir toda a linha "%{name}" para %{value}'
   label_project_workflow_bulk_column: 'Definir toda a coluna "%{name}" para %{value}'
   text_project_workflow_bulk_confirm: 'Esta ação afeta %{count} regra(s) de fluxo de trabalho. Continuar?'
@@ -81,19 +81,19 @@ pt:
   label_project_workflow_compare_condition: Aplica-se a
   label_project_workflow_compare_in_project: Neste projeto
   label_project_workflow_compare_in_generic: No fluxo de trabalho genérico
-  label_project_workflow_condition_always: Qualquer pessoa com este perfil
+  label_project_workflow_condition_always: Qualquer pessoa com esta função
   label_project_workflow_condition_author: Também quando o utilizador é o autor
   label_project_workflow_condition_assignee: Também quando o utilizador é o responsável
-  text_project_workflow_compare_description: O fluxo de trabalho deste projeto substitui o genérico para este tipo de tarefa e este perfil, pelo que o que se segue é a diferença completa. Nada é combinado e nada do fluxo de trabalho genérico se aplica ainda.
-  text_project_workflow_compare_counts: Este projeto tem %{project} regra(s) própria(s) para este tipo de tarefa e este perfil; o fluxo de trabalho genérico tem %{generic}.
-  text_project_workflow_compare_identical: O fluxo de trabalho próprio deste projeto é idêntico ao genérico para este tipo de tarefa e este perfil.
-  text_project_workflow_compare_inherits: Este projeto herda o fluxo de trabalho genérico para este tipo de tarefa e este perfil, pelo que não há nada a comparar.
+  text_project_workflow_compare_description: O fluxo de trabalho deste projeto substitui o genérico para este tipo e esta função, pelo que o que se segue é a diferença completa. Nada é combinado e nada do fluxo de trabalho genérico se aplica ainda.
+  text_project_workflow_compare_counts: Este projeto tem %{project} regra(s) própria(s) para este tipo e esta função; o fluxo de trabalho genérico tem %{generic}.
+  text_project_workflow_compare_identical: O fluxo de trabalho próprio deste projeto é idêntico ao genérico para este tipo e esta função.
+  text_project_workflow_compare_inherits: "Este projeto segue o fluxo de trabalho genérico para este tipo e esta função, pelo que não há nada a comparar."
   button_project_workflow_bulk_undo: Desfazer
   text_project_workflow_bulk_changed: '%{cells} célula(s) alterada(s), %{rules} regra(s) de fluxo de trabalho.'
   text_project_workflow_bulk_undone: 'Desfeito: %{cells} célula(s) reposta(s).'
   text_project_workflow_bulk_unsaved: Ainda não foi guardado nada. Prima Guardar para aplicar estas alterações.
   label_project_workflow_comparison: Comparação de fluxos de trabalho
-  text_project_workflow_compare_unreachable_field: Pelo menos uma diferença abaixo refere-se a um campo que este tipo de tarefa já não oferece, pelo que a matriz própria do projeto não o pode mostrar nem alterar. Um administrador de sistema pode remover essa regra na Administração.
+  text_project_workflow_compare_unreachable_field: Pelo menos uma diferença abaixo refere-se a um campo que este tipo já não oferece, pelo que a matriz própria do projeto não o pode mostrar nem alterar. Um administrador de sistema pode remover essa regra na Administração.
   label_project_workflow_map: Fluxo de trabalho desta tarefa
   label_project_workflow_map_scope: Que fluxo de trabalho se aplica
   label_project_workflow_map_from_here: Mudanças de estado permitidas a partir daqui
@@ -102,8 +102,8 @@ pt:
   text_project_workflow_map_authority: É isto que o fluxo de trabalho permite. A lista de estados no formulário continua a ser a referência para o que pode fazer neste momento; cada diferença entre as duas é explicada abaixo.
   text_project_workflow_map_no_outgoing: Este fluxo de trabalho não permite qualquer mudança de estado a partir daqui.
   text_project_workflow_map_no_incoming: Este fluxo de trabalho não permite qualquer mudança de estado para este.
-  text_project_workflow_map_no_roles: Não tem neste projeto nenhum perfil que participe num fluxo de trabalho, pelo que nenhuma mudança de estado é permitida.
-  text_project_workflow_map_own_empty: Este projeto tem o seu próprio fluxo de trabalho para este tipo de tarefa e este perfil, e não contém qualquer regra, pelo que nenhuma mudança de estado é permitida. É uma configuração deliberada e não uma falha.
+  text_project_workflow_map_no_roles: Não tem neste projeto nenhuma função que participe num fluxo de trabalho, pelo que nenhuma mudança de estado é permitida.
+  text_project_workflow_map_own_empty: Este projeto tem o seu próprio fluxo de trabalho para este tipo e esta função, e não contém qualquer regra, pelo que nenhuma mudança de estado é permitida. É uma configuração deliberada e não uma falha.
   text_project_workflow_map_requires_author: Só o autor da tarefa pode fazer esta alteração.
   text_project_workflow_map_requires_assignee: Só a pessoa atribuída pode fazer esta alteração.
   text_project_workflow_map_requires_author_or_assignee: Só o autor ou a pessoa atribuída pode fazer esta alteração.

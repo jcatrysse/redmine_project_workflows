@@ -30,7 +30,7 @@ one of them has surprised somebody.
   copy screen to apply one workflow to several projects.
 - **Roles resolve independently, and the result is a union.** A user who holds
   two roles in a project may make any transition either role permits. A project
-  can override one role and inherit for another.
+  can override one role and follow the generic workflow for another.
 - **An issue can end up on a status its project cannot leave.** Move an issue
   into a project whose workflow does not use its current status, or change a
   workflow under issues that are already open, and those issues sit on a status
@@ -38,8 +38,8 @@ one of them has surprised somebody.
   an administrator edits the generic workflow; per-project workflows just make
   it reachable more often. The comparison screen (below) is the fastest way to
   see it coming.
-- **The plugin answers `Issue#new_statuses_allowed_to` itself**, for inheriting
-  projects too, rather than falling back to Redmine's own query — Redmine's
+- **The plugin answers `Issue#new_statuses_allowed_to` itself**, for the projects
+  that follow the generic workflow too, rather than falling back to Redmine's own query — Redmine's
   carries no `project_id` and would let one project read another's rules. If
   another plugin patches the same method, load order decides which of you wins.
 - **Installing it changes the generic workflow screens too, slightly.** The
@@ -96,7 +96,7 @@ migrates the wrong database and tells you it worked.
 3. A project has its own workflow only once you give it one. The panel above the
    matrix says which of three states the selection is in and offers the three
    actions that move between them:
-   - **Inherits the generic workflow** — nothing is stored for this project.
+   - **Follows the generic workflow** — nothing is stored for this project.
    - **Own workflow** — only the project's own rules apply; the generic ones do
      not. A project workflow *replaces*, it never adds.
    - **Own empty workflow** — the project has its own workflow and it permits
@@ -139,21 +139,22 @@ list. What that means when you save:
   action asks for confirmation once it would pass the threshold in the plugin's
   settings.
 - **The three state actions act only where they mean something.** *Give own
-  workflow* touches only the combinations that currently inherit, so pressing it
-  twice does not discard what the first press produced. *Empty this workflow*
-  touches only combinations that already have their own. *Return to the generic
-  workflow* deletes both the rules and the record of the decision.
+  workflow* touches only the combinations that currently follow the generic one,
+  so pressing it twice does not discard what the first press produced. *Empty
+  this workflow* touches only combinations that already have their own. *Return
+  to the generic workflow* deletes both the rules and the record of the
+  decision.
 - **Saving does not give a project a workflow of its own.** Those three actions
-  are the only thing that does. A combination that still inherits shows as an
-  empty matrix — the grid shows the rules the selection holds *itself*, and an
-  inheriting one holds none — and Save leaves it exactly as it was rather than
-  writing that emptiness back. The panel above the matrix says how many
-  combinations of your selection are in that state, and a message after the save
-  says how many it left alone.
+  are the only thing that does. A combination that still follows the generic
+  workflow shows as an empty matrix — the grid shows the rules the selection
+  holds *itself*, and a combination that has taken nothing over holds none — and
+  Save leaves it exactly as it was rather than writing that emptiness back. The
+  panel above the matrix says how many combinations of your selection are in
+  that state, and a message after the save says how many it left alone.
 - **Generic is not a project.** Selecting it alongside real projects edits the
   generic workflow as one more member of the selection; it cannot be given its
-  own workflow, emptied as a scope, or returned to inheritance, because it *is*
-  what inheritance points at.
+  own workflow, emptied as a scope, or handed back, because it *is* the workflow
+  the other entries fall back to.
 
 ### Letting a project manage its own workflow
 
@@ -219,9 +220,9 @@ for field permissions, *Different* with both values.
 
 There is no "wins" column, because there is no contest: once a project has its
 own workflow, the generic rules for that combination do not apply at all. A
-combination the project still inherits says there is nothing to compare, and one
-whose rules happen to match the generic ones says so in a sentence rather than
-showing an empty table.
+combination the project has not taken over says there is nothing to compare —
+its workflow *is* the generic one — and one whose rules happen to match the
+generic ones says so in a sentence rather than showing an empty table.
 
 Next to the state on the tab and in the inventory, **Updated by … ago** says who
 last changed those rules. The date the decision was taken is kept separately from
@@ -244,9 +245,10 @@ that field concludes the feature does not exist.
 the question the status list cannot:
 
 - **Which workflow applies**, in the same three words the rest of the plugin
-  uses: *Own workflow*, *Own empty workflow*, or *Inherits the generic workflow*.
+  uses: *Own workflow*, *Own empty workflow*, or *Follows the generic workflow*.
   One line per role you hold, because a role can be overridden while the next one
-  inherits, and what you see on the form is the union of both. Where you may
+  follows the generic workflow, and what you see on the form is the union of
+  both. Where you may
   change it, there is a link; where you may not, there is no link rather than one
   that answers *403*.
 - **Status changes allowed from here**, with what each one requires — anyone with

@@ -219,3 +219,9 @@ safest default.)*
 - **The project selector goes on listing every project.** Recorded as a cost in
   `docs/design.md`. Narrowing it would mean deciding which projects an
   administrator may not configure.
+
+## Decided (Jan) — 2026-08-26
+
+| Date | Question | Answer | Notes |
+| --- | --- | --- | --- |
+| 2026-08-26 | What the first of the three states is called, on screen | "Follows the generic workflow", not "Inherits…" | Jan raised it himself, having read the plugin's own screens and asked what workflow inheritance was — Redmine has none, and the word suggested a project tree that INV-6 explicitly rules out. Changed in all eight locale files, for the label, the mixed-selection count, the two read-only sentences, the refused-save notice, the panel note and the comparison sentence. The **internal** vocabulary is deliberately unchanged: the state symbol is still `:inherits`, so are the locale key names, `ScopeWriter.return_to_inheritance`, the `project-workflow-scope-state inherits` CSS class a theme may already target, and INV-6's wording. Renaming those is churn with nothing visible behind it, and the CSS class is somebody's hook. A later session should not "fix" the difference between the two by reverting the strings. |

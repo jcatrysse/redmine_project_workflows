@@ -5,7 +5,7 @@ es:
   error_workflow_copy_target_project: Uno o varios de los proyectos de destino seleccionados no existen.
   error_workflow_copy_target_tracker_or_role: Uno o varios de los tipos o perfiles de destino seleccionados no existen.
   label_project_workflow_scope: Flujo de trabajo para los proyectos seleccionados
-  label_project_workflow_state_inherits: Hereda el flujo de trabajo genérico
+  label_project_workflow_state_inherits: "Sigue el flujo de trabajo genérico"
   label_project_workflow_state_own: Flujo de trabajo propio
   label_project_workflow_state_own_empty: Flujo de trabajo propio vacío
   label_project_workflow_count_own:
@@ -15,8 +15,8 @@ es:
     one: "%{count} flujo de trabajo propio vacío"
     other: "%{count} flujos de trabajo propios vacíos"
   label_project_workflow_count_inherits:
-    one: "%{count} hereda el flujo de trabajo genérico"
-    other: "%{count} heredan el flujo de trabajo genérico"
+    one: "%{count} sigue el flujo de trabajo genérico"
+    other: "%{count} siguen el flujo de trabajo genérico"
   button_project_workflow_enable_copy: Dar flujo de trabajo propio (copia del genérico)
   button_project_workflow_enable_empty: Dar flujo de trabajo propio vacío
   button_project_workflow_clear: Vaciar este flujo de trabajo
@@ -56,15 +56,15 @@ es:
   text_project_workflow_tab_nothing_to_configure: "Todavía no hay nada que configurar aquí: este proyecto no tiene ningún tipo activado, ni ningún perfil con miembros que participe en un flujo de trabajo."
   text_project_workflow_project_enable_copy_confirm: ¿Dar a este proyecto su propio flujo de trabajo para este tipo y perfil, partiendo de una copia del genérico?
   text_project_workflow_project_enable_empty_confirm: ¿Dar a este proyecto su propio flujo de trabajo, vacío, para este tipo y perfil? No se permitirá nada hasta que añada reglas.
-  text_project_workflow_readonly_generic: Este proyecto hereda el flujo de trabajo genérico para este tipo y perfil. Se muestra abajo como referencia; dé al proyecto su propio flujo de trabajo para cambiarlo.
+  text_project_workflow_readonly_generic: "Este proyecto sigue el flujo de trabajo genérico para este tipo y perfil. Se muestra abajo como referencia; dé al proyecto su propio flujo de trabajo para cambiarlo."
   text_project_workflow_readonly_own: Este es el flujo de trabajo propio del proyecto. Cambiarlo requiere el permiso para gestionar el flujo de trabajo de este proyecto.
-  notice_project_workflow_not_own: Este proyecto hereda el flujo de trabajo genérico para este tipo y perfil, por lo que no se guardó nada. Dé primero al proyecto su propio flujo de trabajo.
+  notice_project_workflow_not_own: "Este proyecto sigue el flujo de trabajo genérico para este tipo y perfil, por lo que no se guardó nada. Dé primero al proyecto su propio flujo de trabajo."
   text_project_workflow_scope_inheriting_note:
-    one: "%{count} combinación de esta selección aún hereda el flujo de trabajo genérico. La matriz siguiente solo muestra las reglas que la selección posee, de modo que esa combinación aparece vacía y guardar no la cambiará — déle primero su propio flujo de trabajo."
-    other: "%{count} combinaciones de esta selección aún heredan el flujo de trabajo genérico. La matriz siguiente solo muestra las reglas que la selección posee, de modo que esas combinaciones aparecen vacías y guardar no las cambiará — déles primero su propio flujo de trabajo."
+    one: "%{count} combinación de esta selección sigue todavía el flujo de trabajo genérico. La matriz siguiente solo muestra las reglas que la selección posee, de modo que esa combinación aparece vacía y guardar no la cambiará — déle primero su propio flujo de trabajo."
+    other: "%{count} combinaciones de esta selección siguen todavía el flujo de trabajo genérico. La matriz siguiente solo muestra las reglas que la selección posee, de modo que esas combinaciones aparecen vacías y guardar no las cambiará — déles primero su propio flujo de trabajo."
   notice_project_workflow_save_skipped_inheriting:
-    one: "%{count} combinación de proyecto, tipo y perfil aún hereda el flujo de trabajo genérico y no se ha cambiado. Déle primero su propio flujo de trabajo."
-    other: "%{count} combinaciones de proyecto, tipo y perfil aún heredan el flujo de trabajo genérico y no se han cambiado. Déles primero su propio flujo de trabajo."
+    one: "%{count} combinación de proyecto, tipo y perfil sigue todavía el flujo de trabajo genérico y no se ha cambiado. Déle primero su propio flujo de trabajo."
+    other: "%{count} combinaciones de proyecto, tipo y perfil siguen todavía el flujo de trabajo genérico y no se han cambiado. Déles primero su propio flujo de trabajo."
   label_project_workflow_bulk_row: 'Poner toda la fila "%{name}" en %{value}'
   label_project_workflow_bulk_column: 'Poner toda la columna "%{name}" en %{value}'
   text_project_workflow_bulk_confirm: 'Esta acción afecta a %{count} regla(s) de flujo de trabajo. ¿Continuar?'
@@ -87,7 +87,7 @@ es:
   text_project_workflow_compare_description: El flujo de trabajo de este proyecto sustituye al genérico para este tipo y este perfil, de modo que lo siguiente es la diferencia completa. No se combina nada y ya no se aplica nada del flujo de trabajo genérico.
   text_project_workflow_compare_counts: Este proyecto tiene %{project} regla(s) propia(s) para este tipo y este perfil; el flujo de trabajo genérico tiene %{generic}.
   text_project_workflow_compare_identical: El flujo de trabajo propio de este proyecto es idéntico al genérico para este tipo de petición y este rol.
-  text_project_workflow_compare_inherits: Este proyecto hereda el flujo de trabajo genérico para este tipo y este perfil, por lo que no hay nada que comparar.
+  text_project_workflow_compare_inherits: "Este proyecto sigue el flujo de trabajo genérico para este tipo y este perfil, por lo que no hay nada que comparar."
   button_project_workflow_bulk_undo: Deshacer
   text_project_workflow_bulk_changed: '%{cells} celda(s) modificada(s), %{rules} regla(s) de flujo de trabajo.'
   text_project_workflow_bulk_undone: 'Deshecho: %{cells} celda(s) restaurada(s).'

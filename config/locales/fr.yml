@@ -5,7 +5,7 @@ fr:
   error_workflow_copy_target_project: Un ou plusieurs des projets cibles sélectionnés n'existent pas.
   error_workflow_copy_target_tracker_or_role: Un ou plusieurs des trackers ou rôles cibles sélectionnés n'existent pas.
   label_project_workflow_scope: Workflow pour les projets sélectionnés
-  label_project_workflow_state_inherits: Hérite du workflow générique
+  label_project_workflow_state_inherits: "Suit le workflow générique"
   label_project_workflow_state_own: Workflow propre
   label_project_workflow_state_own_empty: Workflow propre vide
   label_project_workflow_count_own:
@@ -15,8 +15,8 @@ fr:
     one: "%{count} workflow propre vide"
     other: "%{count} workflows propres vides"
   label_project_workflow_count_inherits:
-    one: "%{count} hérite du workflow générique"
-    other: "%{count} héritent du workflow générique"
+    one: "%{count} suit le workflow générique"
+    other: "%{count} suivent le workflow générique"
   button_project_workflow_enable_copy: Donner un workflow propre (copie du générique)
   button_project_workflow_enable_empty: Donner un workflow propre vide
   button_project_workflow_clear: Vider ce workflow
@@ -56,15 +56,15 @@ fr:
   text_project_workflow_tab_nothing_to_configure: "Il n'y a encore rien à configurer ici : ce projet n'a aucun tracker activé, ou aucun rôle avec des membres qui participe à un workflow."
   text_project_workflow_project_enable_copy_confirm: Donner à ce projet son propre workflow pour ce tracker et ce rôle, à partir d'une copie du workflow générique ?
   text_project_workflow_project_enable_empty_confirm: Donner à ce projet son propre workflow, vide, pour ce tracker et ce rôle ? Rien ne sera autorisé jusqu'à ce que vous ajoutiez des règles.
-  text_project_workflow_readonly_generic: Ce projet hérite du workflow générique pour ce tracker et ce rôle. Il est affiché ci-dessous à titre de référence ; donnez au projet son propre workflow pour le modifier.
+  text_project_workflow_readonly_generic: "Ce projet suit le workflow générique pour ce tracker et ce rôle. Il est affiché ci-dessous à titre de référence ; donnez au projet son propre workflow pour le modifier."
   text_project_workflow_readonly_own: Ceci est le workflow propre au projet. Le modifier demande la permission de gérer le workflow de ce projet.
-  notice_project_workflow_not_own: Ce projet hérite du workflow générique pour ce tracker et ce rôle ; rien n'a donc été enregistré. Donnez d'abord au projet son propre workflow.
+  notice_project_workflow_not_own: "Ce projet suit le workflow générique pour ce tracker et ce rôle ; rien n'a donc été enregistré. Donnez d'abord au projet son propre workflow."
   text_project_workflow_scope_inheriting_note:
-    one: "%{count} combinaison de cette sélection hérite encore du workflow générique. La matrice ci-dessous n'affiche que les règles que la sélection possède elle-même ; cette combinaison apparaît donc vide, et l'enregistrement ne la modifiera pas — donnez-lui d'abord son propre workflow."
-    other: "%{count} combinaisons de cette sélection héritent encore du workflow générique. La matrice ci-dessous n'affiche que les règles que la sélection possède elle-même ; ces combinaisons apparaissent donc vides, et l'enregistrement ne les modifiera pas — donnez-leur d'abord leur propre workflow."
+    one: "%{count} combinaison de cette sélection suit encore le workflow générique. La matrice ci-dessous n'affiche que les règles que la sélection possède elle-même ; cette combinaison apparaît donc vide, et l'enregistrement ne la modifiera pas — donnez-lui d'abord son propre workflow."
+    other: "%{count} combinaisons de cette sélection suivent encore le workflow générique. La matrice ci-dessous n'affiche que les règles que la sélection possède elle-même ; ces combinaisons apparaissent donc vides, et l'enregistrement ne les modifiera pas — donnez-leur d'abord leur propre workflow."
   notice_project_workflow_save_skipped_inheriting:
-    one: "%{count} combinaison de projet, tracker et rôle hérite encore du workflow générique et n'a pas été modifiée. Donnez-lui d'abord son propre workflow."
-    other: "%{count} combinaisons de projet, tracker et rôle héritent encore du workflow générique et n'ont pas été modifiées. Donnez-leur d'abord leur propre workflow."
+    one: "%{count} combinaison de projet, tracker et rôle suit encore le workflow générique et n'a pas été modifiée. Donnez-lui d'abord son propre workflow."
+    other: "%{count} combinaisons de projet, tracker et rôle suivent encore le workflow générique et n'ont pas été modifiées. Donnez-leur d'abord leur propre workflow."
   label_project_workflow_bulk_row: 'Mettre toute la ligne "%{name}" à %{value}'
   label_project_workflow_bulk_column: 'Mettre toute la colonne "%{name}" à %{value}'
   text_project_workflow_bulk_confirm: 'Cette action concerne %{count} règle(s) de workflow. Continuer ?'
@@ -87,7 +87,7 @@ fr:
   text_project_workflow_compare_description: Le workflow de ce projet remplace le workflow générique pour ce tracker et ce rôle ; ce qui suit constitue donc la totalité de la différence. Rien n'est fusionné et rien du workflow générique ne s'applique encore.
   text_project_workflow_compare_counts: Ce projet possède %{project} règle(s) propre(s) pour ce tracker et ce rôle ; le workflow générique en possède %{generic}.
   text_project_workflow_compare_identical: Le workflow propre de ce projet est identique au workflow générique pour ce tracker et ce rôle.
-  text_project_workflow_compare_inherits: 'Ce projet hérite du workflow générique pour ce tracker et ce rôle : il n''y a donc rien à comparer.'
+  text_project_workflow_compare_inherits: "Ce projet suit le workflow générique pour ce tracker et ce rôle : il n'y a donc rien à comparer."
   button_project_workflow_bulk_undo: Annuler
   text_project_workflow_bulk_changed: '%{cells} cellule(s) modifiée(s), %{rules} règle(s) de workflow.'
   text_project_workflow_bulk_undone: 'Annulé : %{cells} cellule(s) rétablie(s).'
