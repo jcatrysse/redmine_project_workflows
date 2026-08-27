@@ -41,12 +41,27 @@ module RedmineProjectWorkflows
         combined_scope = scopes.shift
         scopes.each { |scope| combined_scope = combined_scope.or(scope) }
 
-        IssueStatus
-          .joins(:workflow_transitions_as_new_status)
-          .where(WorkflowTransition.table_name => { id: combined_scope.select(:id) })
-          .distinct
-          .to_a
-          .sort
+        # One statement, no join, no DISTINCT (finding F04). This used to be a
+        # join *plus* a subquery against the same table -- one primary-key
+        # lookup back into `workflows` per matching transition row, for an
+        # answer `IN` already gives -- where core does one join with a WHERE.
+        # This is the hottest path the plugin owns: Issue#safe_attributes= calls
+        # new_statuses_allowed_to on every issue save, and the bulk-edit form,
+        # the bulk-save loop and the context menu each fan it out once per
+        # selected issue.
+        #
+        # `IN` is already a semi-join, so the DISTINCT was redundant.
+        # +combined_scope+ is untouched, so every project_id predicate stays
+        # exactly where it was (INV-4). A NULL new_status_id cannot produce a
+        # false positive -- `id IN (NULL, 3)` is NULL, not true -- and
+        # TransitionWriter whitelists new_status_id against IssueStatus ids
+        # anyway, so the plugin cannot write one.
+        #
+        # Not `combined_scope.distinct.pluck(:new_status_id)` followed by a
+        # second query: that adds a round trip on this path, and `pluck` on a
+        # relation built with `.or()` takes on a PostgreSQL-only fragility the
+        # day any default ordering appears on WorkflowRule.
+        IssueStatus.where(id: combined_scope.select(:new_status_id)).to_a.sort
       end
     end
   end
