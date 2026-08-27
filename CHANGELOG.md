@@ -1,5 +1,93 @@
 # Changelog
 
+## 0.1.4
+
+Nineteen findings from a review that bundled three independent reviews of 0.1.3
+and re-verified every claim in them. Two mattered: a concurrency defect on the
+one write path the previous round's locking had missed, and the fact that nothing
+would have noticed if Redmine changed a method this plugin has copied. The rest
+are edges, documentation that had stopped being true, and two gates that existed
+but were not being run.
+
+**Upgrading:** no new migration, but two existing ones changed, so an
+installation that has *not* yet migrated gets slightly different behaviour from
+one that has — see *Changed* below. Nothing needs to be re-run.
+
+### Fixed
+
+- **Copying a workflow into a project can no longer leave rules behind that
+  nothing will ever read.** The copy screen wrote the rules first and only then
+  looked up whether the projects it had written into own their workflow, so a
+  second request arriving in between — returning a project to the generic
+  workflow, which an ordinary project member may do — could remove the record of
+  ownership from underneath rules the copy had just written. Those rules then
+  apply to nothing, nothing cleans them up, and the copy reported *Successful
+  update*. Reproduced with two live database connections before it was fixed. The
+  three other write paths were given this protection in 0.1.2; the copy is now
+  the fourth.
+- **A save that only partly worked says so.** If some of the values submitted
+  were unacceptable and the rest were fine, the screen reported a plain success
+  and said nothing at all about the part it had refused — while the whole point
+  of refusing a value is that it leaves the rule it names alone *and tells you*.
+  It now names how many values were not accepted, alongside reporting the save.
+- **A save that carries no workflow at all no longer redirects in silence.** It
+  says nothing was saved, which is what every other outcome on that screen has
+  said since 0.1.3.
+- **The two project selectors on the copy screen are readable by a screen
+  reader.** Their labels were not associated with the selects, on the one screen
+  where the two differ only in which is the source and which the target — and
+  where getting them the wrong way round empties a workflow.
+- **Keyboard focus is no longer lost when the undo link disappears.** Undoing a
+  row or column action until there is nothing left to undo hid the link that held
+  focus, which dropped focus to the top of the page.
+- **The audit timestamps on MySQL and MariaDB are UTC.** They were the database
+  server's local time, recorded as though they were UTC, so *Updated 3 hours ago*
+  could be wrong by the server's offset — or in the future.
+- **Administration screens do no work for a request that is about to be
+  refused.** A visitor who is not logged in could make the workflow screens query
+  every project on the installation before anybody had checked who was asking.
+  Noise on a small Redmine; measurable on a large one, and repeatable at will.
+
+### Added
+
+- **Every workflow change is now recorded in the application log** — one line per
+  save or scope action, with who, what and how many, and never the contents of
+  the workflow itself. Previously the only record of a change that had rewritten
+  thousands of rules was a flash message the operator had already navigated past.
+- **The plugin now notices when Redmine changes underneath it.** It reimplements
+  eighteen of Redmine's own methods, and until now nothing compared them against
+  what Redmine actually ships — a change there is silent, and it has already
+  happened twice to the method that decides which statuses a user may set. The
+  test suite now checks all eighteen against the Redmine it is running in and
+  fails, with the method named, when one of them changes.
+- **Installation documentation for what the migrations do**, how large the table
+  they touch actually is, and what to expect on MySQL and MariaDB.
+
+### Changed
+
+- **Two migrations build their timestamps differently**, which is the fix for the
+  MySQL and MariaDB timestamps above. An installation that has already migrated
+  keeps the values it wrote — they are not displayed anywhere, so this is
+  invisible — and one migrating from now on gets correct ones.
+- **One migration now prints the number of rows it deleted.** It removes workflow
+  rules that name a project which no longer exists, and it printed no number at
+  all. On an upgrade the number is always zero; being able to see the zero is the
+  point.
+- The plugin no longer adds its test dependencies to Redmine's own bundle. They
+  were being installed into every installation of this plugin, production
+  included.
+
+### Internal
+
+- The JavaScript that powers the row and column actions is now tested on every
+  push rather than when somebody remembered to run it by hand.
+- The count of view overrides the plugin relies on is asserted, so adding one
+  without a test is now a deliberate act rather than a silent one.
+- Documentation corrections where code and documentation disagreed: the locking
+  rule, the cost of the inventory screen, what the migrations do to InnoDB, which
+  of Redmine's methods are copied and which delegate, and one invariant's single
+  deliberate exception.
+
 ## 0.1.3
 
 Eight findings from an independent review of 0.1.2, plus three the review of
