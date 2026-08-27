@@ -226,29 +226,71 @@ projects. Each one is either handled or deliberately left alone.
 This is the complete list: every place in Redmine 5.1, 6.1 and 7.0 that names
 `WorkflowRule`, `WorkflowTransition` or `WorkflowPermission`, walked in WP2.
 
-| Core code | Concern | Treatment |
-| --- | --- | --- |
-| `Issue#new_statuses_allowed_to` | which transitions a user may make | **always** replaced by the plugin, inheritance included — core's own query carries no `project_id` predicate, so falling back to it would let one project read another's rules (INV-4). The body is core's, byte-identical in 5.1, 6.1 and 7.0, with the two project-blind lookups replaced. **The multiplier matters here more than anywhere else in this table:** `Issue#safe_attributes=` calls it on every issue save, and the bulk-edit form, the bulk-save loop and the context menu each fan it out once per selected issue — 200 selected issues is 200 statements in one request. So `TransitionQuery` reads the statuses in **one** statement, no join and no `DISTINCT` (finding F04); adding a query there multiplies by four call sites |
-| `Issue#workflow_rule_by_attribute` | field permissions | same |
-| `Issue#tracker=` | whether the issue keeps its status when the tracker changes | replaced. Core asks `Tracker#issue_status_ids`, a union across every project, and resets the status to the new tracker's default when the answer is no; the plugin asks the issue's own project's effective workflow, with no role filter, exactly as core has none |
-| `Project#rolled_up_statuses` | fills the status filter and the status report | replaced: one (project, tracker) pair per project in the tree, each resolved against its own scope and then unioned (INV-6), with **no role filter** — core has none either, and adding one empties the list for projects without members. Two queries whatever the size of the tree |
-| `Tracker#issue_status_ids`, `Tracker#issue_statuses` | which statuses a tracker's workflow uses | left as a global union on purpose: narrowing them to generic rules would strip a status from an issue in a project whose own workflow uses it. Both call sites in `Issue` are project-aware instead. Core itself no longer reads `issue_statuses`; a plugin that does gets the wide answer |
-| `WorkflowsController#index` | the summary page | replaced: the count carries an explicit `project_id` predicate for the selection, so a project's rules can never be added into the generic totals. Without plugin parameters the selection is the generic workflow alone, which is exactly what core counted before any project had its own |
-| `WorkflowsController#edit`, `#permissions` | the two matrices | replaced, with an explicit `project_id` predicate for the selection |
-| `WorkflowsController#find_statuses` | the "only used statuses" checkbox | replaced: the effective workflow of the selection, not the rows physically stored against it. A selection whose workflow is genuinely empty still falls back to every status, which is the only way an empty matrix can be filled in |
-| `WorkflowsController#update`, `#update_permissions` | saving a matrix | routed through `TransitionWriter` / `PermissionWriter` (INV-1, INV-2), which delete **per rule** rather than per cell: one cell of the transitions grid is three controls over two stored rows, each of which can independently be left at core's *no change*, so a delete keyed on the cell removed rows nobody had submitted a value for |
-| `WorkflowsController#duplicate` | the copy screen | `WorkflowRule.copy_for_project`, with the scopes recorded for whatever was copied. Without plugin parameters it falls through to core's `.copy`, which stays generic-only — but not before `invalid_copy_selection?`, which runs on **every** request and rejects a source tracker or role, or a target tracker or role, that was supplied and did not resolve. Core reads such an id as "any" or drops it from its `where`, so the copy that ran was not the copy that was asked for (codex F01, F02) |
-| `WorkflowTransition.replace_transitions`, `WorkflowPermission.replace_permissions` | core's own write API | routed through the two writers, so the generic path is validated as well |
-| `WorkflowRule.copy` / `.copy_one` | the copy screen's generic path | `copy_one` is project-scoped, so a generic copy deletes only generic rows. Core's own body has no `project_id` predicate in its delete and would take a project's rules with it |
-| `Role#copy_workflow_rules`, `Tracker#copy_workflow_rules` | duplicating a role or tracker | replaced by `WorkflowRule.copy_with_projects`: the project rules and their scopes come along, an own *empty* workflow included, so a copied role is a working copy |
-| `WorkflowPermission.rules_by_status_id` | core's `permissions` action | project-blind, and unreachable once the plugin is installed because that action is replaced. Left alone; a plugin that calls it directly gets every project's rows |
-| `IssueStatus.new_statuses_allowed` and `IssueStatus#new_statuses_allowed_to` | a status's own transition list | project-blind, and core no longer calls either — `Issue#new_statuses_allowed_to` is the only caller and the plugin replaces it. There is no project in scope at that call, so there is nothing to narrow it with; left alone |
-| `IssueStatus#delete_workflow_rules` | deleting a status | no change needed — it deletes by status id, which covers project rows too. Worth knowing rather than fixing: a project whose own workflow used only that status is left with a scope and no rules, which is an own *empty* workflow. That is the scope model answering correctly — the project did decide to run its own workflow — and nothing warns |
-| `issue_statuses/index.html.erb` | the *not used by any workflow* badge beside a status | **left alone.** It asks `WorkflowTransition.where('old_status_id = ? OR new_status_id = ?').exists?` with no `project_id` predicate, on 5.1, 6.1 and 7.0 alike, so with the plugin installed the badge is computed across the generic rules and every project's. That is the better answer for a status a project uses, and the wrong one for a project row with no scope, which applies to nothing (INV-3). It is a badge, not a gate — the Delete link beside it is rendered unconditionally — and correcting it would mean a sixteenth Deface override, one more anchor to go stale (INV-9), for a hint |
-| `Role#workflow_rules`, `Tracker#workflow_rules` (`dependent: :delete_all`) | deleting a role or tracker | no change needed — the association covers project rows, and migration 004's foreign keys cascade the scopes |
-| `Project` destroy | deleting a project | no change needed — migration 003's foreign key cascades the rules, migration 004's the scopes |
-| `Redmine::DefaultData::Loader` | the default workflow on a fresh install | no change needed — it creates rows without a `project_id`, which is exactly the generic workflow |
-| `Issue#project=` | moving an issue to another project | **not handled, deliberately.** It re-checks the *tracker* against the new project and never the *status*, so an issue moved into a project whose own workflow does not use its status lands on a status that project cannot leave. Core has the same asymmetry — it is not a regression — but per-project workflows make it reachable without an administrator changing anything. WP4 looked at it and left it: the repair sits on the path of every issue save and every bulk move, and `safe_attributes=` assigns `project_id` before `tracker_id` on purpose, so a wrong order would reset statuses that should have been left alone. Finding G03, and an open choice in `DECISIONS.md` |
+**The `How` column** answers the question a reviewer asked and this table could
+not (finding F03):
+
+- **copy** — core's body is reimplemented in the plugin, with its project-blind
+  queries replaced. There is no `super` to fall through to: core's query carries
+  no `project_id` predicate, so running it and correcting the answer afterwards
+  would still be a workflow query that mixes two populations (INV-4). This is the
+  right design and it has a standing cost — when core changes such a body,
+  nothing notices, and the plugin's own specs stay green, because they assert the
+  plugin's expected answers rather than core's.
+- **delegates** — the plugin does its own work for a request that names projects
+  and calls `super` for one that does not, so core's body still runs unchanged.
+  A delegate can drift too: what it delegates *to* is still core's.
+- **left alone** — no plugin code on that path at all. Nothing to drift.
+
+`spec/upstream/core_drift_spec.rb` is the gate for the first two. It reads core's
+own body for **every** method the plugin shadows on the host under test — via
+`UnboundMethod#super_method` and `RubyVM::AbstractSyntaxTree.of`, so the set is
+discovered rather than listed and a nineteenth copy cannot be added without
+appearing — normalises and digests it, and compares against
+`spec/upstream/core_method_digests.yml`, measured per Redmine minor. **Eighteen**
+methods, two of which are private in core. It also calls core's implementation as
+an **oracle**, asserting that the plugin agrees with it wherever no project has
+taken a workflow over, and stops agreeing once one has. No gem, no network, no CI
+change: the suite runs inside the host checkout, so core's source is already on
+disk in all nine cells.
+
+Measured, not assumed: within the supported window 6.1 and 7.0 are **identical**
+on all eighteen, and 5.1 differs in exactly three — `WorkflowsController#update`,
+`#permissions` and `#update_permissions`. Outside it, `Issue#new_statuses_allowed_to`
+changed twice between 4.2 and 7.0 and both changes were semantic, which is why
+this gate exists rather than a note asking people to be careful.
+
+`requires_redmine` is deliberately **not** narrowed to a range. Core supports
+one, but `lib/redmine/plugin.rb` raises `PluginRequirementError` and
+`lib/redmine/plugin_loader.rb` has no rescue around `run_initializer`, so on an
+out-of-range Redmine the whole application refuses to boot until an administrator
+deletes the plugin directory. That trades an uncertain divergence for a certain
+outage. A Redmine minor the digest table has not measured is therefore
+*reported*, not failed, for the same reason: a new Redmine must remain something
+this plugin can be tried on.
+
+| Core code | Concern | How | Treatment |
+| --- | --- | --- | --- |
+| `Issue#new_statuses_allowed_to` | which transitions a user may make | **copy** | **always** replaced by the plugin, inheritance included — core's own query carries no `project_id` predicate, so falling back to it would let one project read another's rules (INV-4). The body is core's, byte-identical in 5.1, 6.1 and 7.0, with the two project-blind lookups replaced. **The multiplier matters here more than anywhere else in this table:** `Issue#safe_attributes=` calls it on every issue save, and the bulk-edit form, the bulk-save loop and the context menu each fan it out once per selected issue — 200 selected issues is 200 statements in one request. So `TransitionQuery` reads the statuses in **one** statement, no join and no `DISTINCT` (finding F04); adding a query there multiplies by four call sites |
+| `Issue#workflow_rule_by_attribute` | field permissions | **copy** | same |
+| `Issue#tracker=` | whether the issue keeps its status when the tracker changes | **copy** | replaced. Core asks `Tracker#issue_status_ids`, a union across every project, and resets the status to the new tracker's default when the answer is no; the plugin asks the issue's own project's effective workflow, with no role filter, exactly as core has none |
+| `Project#rolled_up_statuses` | fills the status filter and the status report | **copy** | replaced: one (project, tracker) pair per project in the tree, each resolved against its own scope and then unioned (INV-6), with **no role filter** — core has none either, and adding one empties the list for projects without members. Two queries whatever the size of the tree |
+| `Tracker#issue_status_ids`, `Tracker#issue_statuses` | which statuses a tracker's workflow uses | **left alone** | left as a global union on purpose: narrowing them to generic rules would strip a status from an issue in a project whose own workflow uses it. Both call sites in `Issue` are project-aware instead. Core itself no longer reads `issue_statuses`; a plugin that does gets the wide answer |
+| `WorkflowsController#index` | the summary page | **copy** | replaced: the count carries an explicit `project_id` predicate for the selection, so a project's rules can never be added into the generic totals. Without plugin parameters the selection is the generic workflow alone, which is exactly what core counted before any project had its own |
+| `WorkflowsController#edit`, `#permissions` | the two matrices | **copy** | replaced, with an explicit `project_id` predicate for the selection |
+| `WorkflowsController#find_statuses` | the "only used statuses" checkbox | **copy** | replaced: the effective workflow of the selection, not the rows physically stored against it. A selection whose workflow is genuinely empty still falls back to every status, which is the only way an empty matrix can be filled in |
+| `WorkflowsController#update`, `#update_permissions` | saving a matrix | **delegates** | routed through `TransitionWriter` / `PermissionWriter` (INV-1, INV-2), which delete **per rule** rather than per cell: one cell of the transitions grid is three controls over two stored rows, each of which can independently be left at core's *no change*, so a delete keyed on the cell removed rows nobody had submitted a value for |
+| `WorkflowsController#duplicate` | the copy screen | **delegates** | `WorkflowRule.copy_for_project`, with the scopes recorded for whatever was copied. Without plugin parameters it falls through to core's `.copy`, which stays generic-only — but not before `invalid_copy_selection?`, which runs on **every** request and rejects a source tracker or role, or a target tracker or role, that was supplied and did not resolve. Core reads such an id as "any" or drops it from its `where`, so the copy that ran was not the copy that was asked for (codex F01, F02) |
+| `WorkflowTransition.replace_transitions`, `WorkflowPermission.replace_permissions` | core's own write API | **copy** | routed through the two writers, so the generic path is validated as well |
+| `WorkflowRule.copy` / `.copy_one` | the copy screen's generic path | **copy** | `copy_one` is project-scoped, so a generic copy deletes only generic rows. Core's own body has no `project_id` predicate in its delete and would take a project's rules with it |
+| `Role#copy_workflow_rules`, `Tracker#copy_workflow_rules` | duplicating a role or tracker | **copy** | replaced by `WorkflowRule.copy_with_projects`: the project rules and their scopes come along, an own *empty* workflow included, so a copied role is a working copy |
+| `WorkflowPermission.rules_by_status_id` | core's `permissions` action | **left alone** | project-blind, and unreachable once the plugin is installed because that action is replaced. Left alone; a plugin that calls it directly gets every project's rows |
+| `IssueStatus.new_statuses_allowed` and `IssueStatus#new_statuses_allowed_to` | a status's own transition list | **left alone** | project-blind, and core no longer calls either — `Issue#new_statuses_allowed_to` is the only caller and the plugin replaces it. There is no project in scope at that call, so there is nothing to narrow it with; left alone |
+| `IssueStatus#delete_workflow_rules` | deleting a status | **left alone** | no change needed — it deletes by status id, which covers project rows too. Worth knowing rather than fixing: a project whose own workflow used only that status is left with a scope and no rules, which is an own *empty* workflow. That is the scope model answering correctly — the project did decide to run its own workflow — and nothing warns |
+| `issue_statuses/index.html.erb` | the *not used by any workflow* badge beside a status | **left alone** | **left alone.** It asks `WorkflowTransition.where('old_status_id = ? OR new_status_id = ?').exists?` with no `project_id` predicate, on 5.1, 6.1 and 7.0 alike, so with the plugin installed the badge is computed across the generic rules and every project's. That is the better answer for a status a project uses, and the wrong one for a project row with no scope, which applies to nothing (INV-3). It is a badge, not a gate — the Delete link beside it is rendered unconditionally — and correcting it would mean a sixteenth Deface override, one more anchor to go stale (INV-9), for a hint |
+| `Role#workflow_rules`, `Tracker#workflow_rules` (`dependent: :delete_all`) | deleting a role or tracker | **left alone** | no change needed — the association covers project rows, and migration 004's foreign keys cascade the scopes |
+| `Project` destroy | deleting a project | **left alone** | no change needed — migration 003's foreign key cascades the rules, migration 004's the scopes |
+| `Redmine::DefaultData::Loader` | the default workflow on a fresh install | **left alone** | no change needed — it creates rows without a `project_id`, which is exactly the generic workflow |
+| `Issue#project=` | moving an issue to another project | **left alone** | **not handled, deliberately.** It re-checks the *tracker* against the new project and never the *status*, so an issue moved into a project whose own workflow does not use its status lands on a status that project cannot leave. Core has the same asymmetry — it is not a regression — but per-project workflows make it reachable without an administrator changing anything. WP4 looked at it and left it: the repair sits on the path of every issue save and every bulk move, and `safe_attributes=` assigns `project_id` before `tracker_id` on purpose, so a wrong order would reset statuses that should have been left alone. Finding G03, and an open choice in `DECISIONS.md` |
 
 ### Why there is no unique index on `workflows`
 

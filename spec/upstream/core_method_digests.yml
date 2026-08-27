@@ -1,0 +1,99 @@
+# Digests of Redmine core's own body for every method this plugin shadows,
+# measured per supported Redmine minor. Generated, then checked in on purpose.
+#
+# WHY (finding F03). The plugin reimplements these rather than extending them:
+# core's queries carry no project_id predicate, so there is no `super` to fall
+# through to without breaching INV-4. When core changes one of these bodies,
+# nothing notices -- the plugin's own specs assert the plugin's expected answers,
+# not core's, so they stay green. That has already happened twice to
+# Issue#new_statuses_allowed_to, both times semantically; 5.0 -> 5.1 replaced
+# `user.admin ? Role.all : user.roles_for_project(project)` with
+# `roles_for_workflow(user)`, adding a consider_workflow? filter. Carrying the
+# 5.0 copy onto 5.1 would silently have offered transitions for roles that take
+# no part in a workflow.
+#
+# HOW TO UPDATE. A red example here means core changed a body the plugin has
+# copied, on the host under test. That is not a failure to silence -- it is the
+# one moment somebody should read core's new version against the plugin's. Then:
+#
+#   1. read the diff, and decide whether the plugin's copy must follow;
+#   2. change the copy if it must, with a test;
+#   3. only then update the digest below, in the same commit.
+#
+# Updating the digest first is the one thing that makes this file worse than
+# having no file. The spec prints the method, the host and both digests, and the
+# body itself is at core's own source_location.
+#
+# A Redmine minor with no entry here is REPORTED, not failed: an unknown host is
+# a fact about coverage, and failing there would mean the plugin could not be
+# tried on a new Redmine at all -- which is what narrowing requires_redmine would
+# have done, and the whole reason this file exists instead.
+#
+# The digests are QUOTED. A SHA256 that happens to be all digits is parsed as an
+# Integer otherwise, and the comparison then fails against every host for a
+# reason that has nothing to do with core -- found while probing this gate with a
+# deliberately wrong all-zero digest.
+#
+# Measured on 5.1-stable, 6.1-stable and 7.0-stable + PostgreSQL 16.
+# 6.1 and 7.0 are IDENTICAL on all eighteen; 5.1 differs in exactly three, the
+# controller actions, which matches what F03 measured across five branches.
+'5.1':
+  'Issue#new_statuses_allowed_to': '05489777c09e44ea90d93e75f647e0b2f8ca492ae2e2bbad5050ab7e1d8c9314'
+  'Issue#tracker=': 'd2af7b8c34ddc05a162e2e49d31bd403d744512648359a2f0ce7d72167d5940f'
+  'Issue#workflow_rule_by_attribute': '27764fe9e491dd28af3ae8be77a887ce39c503541d238a755b6870bc322d5824'
+  'Project#rolled_up_statuses': 'ce884e465f2b2f9f3b771057be80b77385e5fce58eb2bfdf91e375acaf836161'
+  'Role#copy_workflow_rules': '6ec45f130ed5ce4042388cb80c9dab967bcbd99e0232933fd2ace4884442b388'
+  'Tracker#copy_workflow_rules': 'd9a89609612bc32b49c0d393eb75b8836d6e9dcf6f7565931a0944f467fbf28c'
+  'WorkflowsController#copy': '695d24a5ed2f39f671de1a4179b47c56ab1610e30131c58f4e30bb9da029c5a0'
+  'WorkflowsController#duplicate': '9c3dfb177e713fdf21826c5d1746c35e14c19c39cfaa54363cd0d214d78d3043'
+  'WorkflowsController#edit': '8ce8682dd6886d9d0c1f0986a747628600991421db7ef1d714a152307800af94'
+  'WorkflowsController#find_statuses': '7bf2a25c36d962fb362de565195fa6e0b38cae228fc5e38c4570384437476da1'
+  'WorkflowsController#find_trackers_roles_and_statuses_for_edit': '282536ae773fc201706415b4beb74ddeb4fd4a98c0c4f86719fab26878babe60'
+  'WorkflowsController#index': 'f796066debecc3e46b718e6a639089f0110c59b9bf78be53b3c8f3378acd23f5'
+  'WorkflowsController#permissions': '7d626f9d5ec0daf0807d3fb5cce688889e779da98837cca6b1f269ca1356760d'
+  'WorkflowsController#update': '1870a65d5dd7348a3c061056a312d9320ff84014a3e873ae19032d0966c12fb7'
+  'WorkflowsController#update_permissions': '4ce84af96a567ac3996e7ba0943becebc6af2eb65801a96306c1c5f551b1a2d9'
+  'WorkflowsHelper#field_permission_tag': '76e4695140c0d2f51274dfc523cd9fea6b53119c5695c3dc995eef6b16307e6b'
+  'WorkflowsHelper#options_for_workflow_select': 'fe603bed5426e61e87790ad4cbbe162cafee02ad1db3545710713f56700e9a64'
+  'WorkflowsHelper#transition_tag': 'bb36264c5c6afdd26a134451e833df406c7f32447e4aad7385622726e7f95d6d'
+
+'6.1':
+  'Issue#new_statuses_allowed_to': '05489777c09e44ea90d93e75f647e0b2f8ca492ae2e2bbad5050ab7e1d8c9314'
+  'Issue#tracker=': 'd2af7b8c34ddc05a162e2e49d31bd403d744512648359a2f0ce7d72167d5940f'
+  'Issue#workflow_rule_by_attribute': '27764fe9e491dd28af3ae8be77a887ce39c503541d238a755b6870bc322d5824'
+  'Project#rolled_up_statuses': 'ce884e465f2b2f9f3b771057be80b77385e5fce58eb2bfdf91e375acaf836161'
+  'Role#copy_workflow_rules': '6ec45f130ed5ce4042388cb80c9dab967bcbd99e0232933fd2ace4884442b388'
+  'Tracker#copy_workflow_rules': 'd9a89609612bc32b49c0d393eb75b8836d6e9dcf6f7565931a0944f467fbf28c'
+  'WorkflowsController#copy': '695d24a5ed2f39f671de1a4179b47c56ab1610e30131c58f4e30bb9da029c5a0'
+  'WorkflowsController#duplicate': '9c3dfb177e713fdf21826c5d1746c35e14c19c39cfaa54363cd0d214d78d3043'
+  'WorkflowsController#edit': '8ce8682dd6886d9d0c1f0986a747628600991421db7ef1d714a152307800af94'
+  'WorkflowsController#find_statuses': '7bf2a25c36d962fb362de565195fa6e0b38cae228fc5e38c4570384437476da1'
+  'WorkflowsController#find_trackers_roles_and_statuses_for_edit': '282536ae773fc201706415b4beb74ddeb4fd4a98c0c4f86719fab26878babe60'
+  'WorkflowsController#index': 'f796066debecc3e46b718e6a639089f0110c59b9bf78be53b3c8f3378acd23f5'
+  'WorkflowsController#permissions': '684441fa5a8909b290a19accfab6afad80e7dd194332807e8e86f73b3b6933f3'
+  'WorkflowsController#update': 'fc4f21d1efcbb31d0945614a879068f61ce0c6cb3259eaec0d41b1ad35b3be0b'
+  'WorkflowsController#update_permissions': '3f091c92e22f0ac39e6f433083f95984d4664f5df38dfb962a3889bb01c9bb57'
+  'WorkflowsHelper#field_permission_tag': '76e4695140c0d2f51274dfc523cd9fea6b53119c5695c3dc995eef6b16307e6b'
+  'WorkflowsHelper#options_for_workflow_select': 'fe603bed5426e61e87790ad4cbbe162cafee02ad1db3545710713f56700e9a64'
+  'WorkflowsHelper#transition_tag': 'bb36264c5c6afdd26a134451e833df406c7f32447e4aad7385622726e7f95d6d'
+
+'7.0':
+  'Issue#new_statuses_allowed_to': '05489777c09e44ea90d93e75f647e0b2f8ca492ae2e2bbad5050ab7e1d8c9314'
+  'Issue#tracker=': 'd2af7b8c34ddc05a162e2e49d31bd403d744512648359a2f0ce7d72167d5940f'
+  'Issue#workflow_rule_by_attribute': '27764fe9e491dd28af3ae8be77a887ce39c503541d238a755b6870bc322d5824'
+  'Project#rolled_up_statuses': 'ce884e465f2b2f9f3b771057be80b77385e5fce58eb2bfdf91e375acaf836161'
+  'Role#copy_workflow_rules': '6ec45f130ed5ce4042388cb80c9dab967bcbd99e0232933fd2ace4884442b388'
+  'Tracker#copy_workflow_rules': 'd9a89609612bc32b49c0d393eb75b8836d6e9dcf6f7565931a0944f467fbf28c'
+  'WorkflowsController#copy': '695d24a5ed2f39f671de1a4179b47c56ab1610e30131c58f4e30bb9da029c5a0'
+  'WorkflowsController#duplicate': '9c3dfb177e713fdf21826c5d1746c35e14c19c39cfaa54363cd0d214d78d3043'
+  'WorkflowsController#edit': '8ce8682dd6886d9d0c1f0986a747628600991421db7ef1d714a152307800af94'
+  'WorkflowsController#find_statuses': '7bf2a25c36d962fb362de565195fa6e0b38cae228fc5e38c4570384437476da1'
+  'WorkflowsController#find_trackers_roles_and_statuses_for_edit': '282536ae773fc201706415b4beb74ddeb4fd4a98c0c4f86719fab26878babe60'
+  'WorkflowsController#index': 'f796066debecc3e46b718e6a639089f0110c59b9bf78be53b3c8f3378acd23f5'
+  'WorkflowsController#permissions': '684441fa5a8909b290a19accfab6afad80e7dd194332807e8e86f73b3b6933f3'
+  'WorkflowsController#update': 'fc4f21d1efcbb31d0945614a879068f61ce0c6cb3259eaec0d41b1ad35b3be0b'
+  'WorkflowsController#update_permissions': '3f091c92e22f0ac39e6f433083f95984d4664f5df38dfb962a3889bb01c9bb57'
+  'WorkflowsHelper#field_permission_tag': '76e4695140c0d2f51274dfc523cd9fea6b53119c5695c3dc995eef6b16307e6b'
+  'WorkflowsHelper#options_for_workflow_select': 'fe603bed5426e61e87790ad4cbbe162cafee02ad1db3545710713f56700e9a64'
+  'WorkflowsHelper#transition_tag': 'bb36264c5c6afdd26a134451e833df406c7f32447e4aad7385622726e7f95d6d'
+

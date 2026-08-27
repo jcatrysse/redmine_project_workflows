@@ -6,8 +6,13 @@ Redmine::Plugin.register :redmine_project_workflows do
   description 'Project workflows for Redmine'
   url 'https://github.com/jcatrysse/redmine_project_workflows'
   version '0.1.3'
-  # 5.1 rather than 5.0: CI runs 5.1, 6.1 and 7.0 and nothing has ever tested
-  # 5.0, so declaring it was a claim with nothing behind it.
+  # 5.1 rather than 5.0, and it is a **hard dependency**, not merely the oldest
+  # version anyone has tested (finding F03). `Issue#roles_for_workflow` does not
+  # exist before 5.1 -- core introduced it there, replacing
+  # `user.admin ? Role.all.to_a : user.roles_for_project(project)` -- and
+  # `TransitionQuery` calls it. Lowering this floor does not widen support, it
+  # ships a NoMethodError on every issue save. CI running 5.1, 6.1 and 7.0 is the
+  # separate, weaker claim.
   #
   # A floor is all Redmine offers, and it is weaker than the claim it looks like:
   # 5.2, 6.0, 6.2 and 7.1 still install, and none of those is in CI either. What
