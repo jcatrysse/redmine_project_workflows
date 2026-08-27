@@ -18,7 +18,10 @@
 %>
 <% selection = { tracker_id: tracker.id, role_id: role.id, rule_type: rule_type } %>
 <% selection[:back_url] = back_url if defined?(back_url) && back_url.present? %>
-<% offered = true unless defined?(offered) %>
+<%# nil counts as "offered": a local that reaches here unset must not remove a
+    button silently, which is the failure mode an unmatched Deface anchor has
+    already taught this plugin about (INV-9). Every caller does pass it. %>
+<% offered = true if !defined?(offered) || offered.nil? %>
 <span class="project-workflow-scope-actions">
   <% if state != :inherits %>
     <%= link_to l(:button_project_workflow_clear),

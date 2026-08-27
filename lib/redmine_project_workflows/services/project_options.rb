@@ -62,8 +62,9 @@ module RedmineProjectWorkflows
       # Still a list the server builds from the project alone, so a request
       # parameter can only ever name something already on it (INV-7). And no
       # walk up the project tree: one query, this project's own scopes (INV-6).
-      def self.visible_roles(project)
-        offered = roles(project)
+      # +offered+ is only ever passed by a caller that has just built it, so that
+      # the tab does not run .roles twice per render (G6).
+      def self.visible_roles(project, offered = roles(project))
         scoped_ids = ProjectWorkflowScope.where(project_id: project.id).distinct.pluck(:role_id) -
                      offered.map(&:id)
         return offered if scoped_ids.empty?

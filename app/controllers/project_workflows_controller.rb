@@ -157,14 +157,20 @@ class ProjectWorkflowsController < ApplicationController
 
     options = RedmineProjectWorkflows::Services::ProjectOptions
     @tracker = options.trackers(@project).detect { |tracker| tracker.id.to_s == params[:tracker_id].to_s }
-    # visible_roles, not roles: a role with no member in the project that already
-    # has a scope here is a workflow this project runs and has to be able to
-    # undo. @role_offered records which of the two lists answered, because the
-    # offer to take a new workflow over follows the narrower one.
-    @role = options.visible_roles(@project).detect { |role| role.id.to_s == params[:role_id].to_s }
-    return render_404 if @tracker.nil? || @role.nil?
+    find_role
+    render_404 if @tracker.nil? || @role.nil?
+  end
 
-    @role_offered = options.roles(@project).any? { |role| role.id == @role.id }
+  # visible_roles, not roles: a role with no member in the project that already
+  # has a scope here is a workflow this project runs and has to be able to undo.
+  # @role_offered records which of the two lists answered, because the offer to
+  # take a new workflow over follows the narrower one -- and that narrower list
+  # is built once and handed on, rather than queried twice (G6).
+  def find_role
+    options = RedmineProjectWorkflows::Services::ProjectOptions
+    offered = options.roles(@project)
+    @role = options.visible_roles(@project, offered).detect { |role| role.id.to_s == params[:role_id].to_s }
+    @role_offered = @role.present? && offered.any? { |role| role.id == @role.id }
   end
 
   # 403 rather than 404: the combination exists and this user may look at it, so

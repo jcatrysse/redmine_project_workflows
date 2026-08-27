@@ -29,6 +29,10 @@ module ProjectWorkflowsHelper
     @project_workflow_settings_rows ||= {}
     @project_workflow_settings_rows[project.id] ||= begin
       options = RedmineProjectWorkflows::Services::ProjectOptions
+      # Built here and handed to both, so that .roles runs once per render rather
+      # than once here and once per row's actions (G6).
+      offered = options.roles(project)
+      offered_role_ids(project, offered)
       query = RedmineProjectWorkflows::Services::InventoryQuery.new(
         projects: [project],
         trackers: options.trackers(project),
@@ -37,7 +41,7 @@ module ProjectWorkflowsHelper
         # left it in force with no line explaining it and no way back (finding
         # F05). Whether such a row may be *offered* a new workflow is a separate
         # question -- see #project_workflow_role_offered?.
-        roles: options.visible_roles(project),
+        roles: options.visible_roles(project, offered),
         rule_types: ProjectWorkflowScope::RULE_TYPES,
         deviations_only: false
       )
@@ -53,13 +57,13 @@ module ProjectWorkflowsHelper
   # 2026-08-26: only the roles with members in the project, so Non member and
   # Anonymous are not on the offer.
   #
-  # One query for the whole tab, memoised per project for the length of the
-  # render, beside #project_workflow_settings_rows and for the same reason (G6).
+  # Memoised per project for the length of the render, beside
+  # #project_workflow_settings_rows and for the same reason (G6). That method
+  # seeds the same memo with the list it has already built, so the tab pays for
+  # this once however many rows it draws; asked on its own it answers with one
+  # query of its own rather than depending on having been called second.
   def project_workflow_role_offered?(project, role)
-    @project_workflow_offered_role_ids ||= {}
-    @project_workflow_offered_role_ids[project.id] ||=
-      RedmineProjectWorkflows::Services::ProjectOptions.roles(project).to_set(&:id)
-    @project_workflow_offered_role_ids[project.id].include?(role.id)
+    offered_role_ids(project).include?(role.id)
   end
 
   # The state of one (project, tracker, role, rule type), as text.
@@ -221,5 +225,17 @@ module ProjectWorkflowsHelper
     link_to(cell.rule_count,
             project_workflow_matrix_path(row.project, row.tracker, row.role, rule_type),
             title: l(:label_project_workflow_open_matrix))
+  end
+
+  private
+
+  # The ids of the roles this project may be offered a workflow for. +offered+
+  # seeds the memo from a list the caller already holds; without it the list is
+  # fetched, so either caller works on its own.
+  def offered_role_ids(project, offered = nil)
+    @project_workflow_offered_role_ids ||= {}
+    @project_workflow_offered_role_ids[project.id] = offered.to_set(&:id) if offered
+    @project_workflow_offered_role_ids[project.id] ||=
+      RedmineProjectWorkflows::Services::ProjectOptions.roles(project).to_set(&:id)
   end
 end

@@ -602,11 +602,25 @@ that controller at all, which is one seam fewer of exactly the kind above, and a
 helper runs whenever the view does -- including when `#update` re-renders the
 settings page after a failed save. The rows are `Services::InventoryQuery` over a
 single project, so the tab costs a fixed number of collection queries whatever
-the number of trackers and roles, and never one per row: three for the lists of
-trackers and roles, and three or four for the rows — the scopes, one count per
-rule type, and, since WP6, the users the audit line names. *(The number here
-read "four" until WP6 measured it; the constant-cost property was right and the
-count was not.)*
+the number of trackers and roles, and never one per row. Measured on
+5.1-stable + PostgreSQL, with the fixture loads kept out of the count:
+
+| Case | Queries |
+| --- | --- |
+| every role in the project has a member, no scope names an author | **7** |
+| …and a role with no member has a scope here | **8** |
+| …and the audit line names somebody | **9** |
+
+Four for the lists — the member roles, the roles they name, the trackers, and
+this project's scope rows — plus, only when those name a role with no member, the
+roles *those* name; then the rows: the scopes, one count per rule type, and,
+since WP6, the users the audit line names. `ProjectOptions.roles` is built once
+per render and handed both to `visible_roles` and to the per-row "is this role
+offered?" question, so neither runs it again. *(The number here read "four" until
+WP6 measured it and "six or seven" until F05 added the scope lookup; the
+constant-cost property was right every time and the count was not.
+`spec/controllers/projects_settings_tab_spec.rb` now asserts the property with a
+bound, so the number can move without the property going unwatched.)*
 
 ## Settings
 

@@ -129,6 +129,35 @@ describe ProjectsController, type: :controller do
       expect(enable_links).to be_empty
     end
 
+    # G6. The tab renders on every visit to project settings, so its cost has to
+    # be a fixed number of collection queries rather than one per row. F05 added
+    # two queries to it -- the scopes of this project, and the roles they name --
+    # and this asserts the property the number is worth having: adding trackers
+    # and roles does not add queries, and asking each row whether its role is
+    # offered costs nothing after the first.
+    it 'cost the same number of queries however many rows they have' do
+      log_in(2, :view_project_workflow, :manage_project_workflow)
+      give_own_workflow(project, tracker, roles(:roles_005))
+      helper = Object.new.extend(ProjectWorkflowsHelper)
+
+      counted = []
+      counter = lambda do |*, payload|
+        counted << payload[:sql] unless payload[:name] == 'SCHEMA' ||
+                                        payload[:sql].match?(/\A\s*(BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE)/)
+      end
+      rows = nil
+      ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') do
+        rows = helper.project_workflow_settings_rows(project)
+        rows.each { |row| helper.project_workflow_role_offered?(project, row.role) }
+      end
+
+      # Nine rows here, and the measured cost is eight queries; a bound of nine
+      # leaves room for the audit line's user lookup while still failing
+      # decisively on a per-row query, which would put this at seventeen.
+      expect(rows.size).to be >= 7
+      expect(counted.size).to be <= 9
+    end
+
     it "name the state and the project's own rule count per kind of rule" do
       log_in(2, :view_project_workflow)
       give_own_workflow(project, tracker, role)

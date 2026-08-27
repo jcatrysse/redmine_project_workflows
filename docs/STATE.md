@@ -172,7 +172,7 @@ the next session recognises a stale copy rather than building from it.
 
 ### The tests
 
-**Forty-one new examples.** They fall into three groups, and the difference
+**Forty-two new examples.** They fall into three groups, and the difference
 matters, because "I added tests" and "I proved the defect" are not the same
 claim:
 
@@ -188,12 +188,13 @@ claim:
   nothing; a rejected value leaves its rule alone; a combination the copy *did*
   write is still stamped) and the F07 example, which characterises a deliberate
   asymmetry.
-- **Eighteen exercise code that did not exist**, so a run against the old tree
+- **Nineteen exercise code that did not exist**, so a run against the old tree
   is a `NoMethodError` and proves nothing: the sixteen in
-  `spec/services/scope_combinations_spec.rb` and the two for
-  `ScopeWriter.touch_combinations`. They are edge and failure cover for the new
-  service — nil and empty input, a malformed triple, a repeated one, and the
-  cross-product trap from both ends — not evidence about the old behaviour.
+  `spec/services/scope_combinations_spec.rb`, the two for
+  `ScopeWriter.touch_combinations`, and the settings tab's query-count example.
+  They are edge and failure cover for the new code — nil and empty input, a
+  malformed triple, a repeated one, and the cross-product trap from both ends —
+  not evidence about the old behaviour.
 
 Five existing examples were rewritten, none weakened: they asserted the writers'
 old integer return (`expect(skipped).to eq(1)`) and now assert the two counts
@@ -228,15 +229,47 @@ accounted for, which is the point of quoting the number:
   `NoMethodError` because the method did not exist. Counted in the eighteen
   above, not in the fifteen: a missing method is not evidence about behaviour.
 
+### What the review role caught in this session's own diff
+
+Worth recording, because all three were the kind of thing that passes a green
+suite:
+
+- **`ProjectOptions.roles` ran twice per render**, once inside `visible_roles`
+  and once to answer "is this role offered?" — in the settings tab *and* again in
+  `ProjectWorkflowsController#find_tracker_and_role`. Two constant queries in
+  each, not an N+1, but the fix is one optional argument and a memo the tab
+  seeds, so there is no reason to carry it. Both are gone.
+- **`docs/design.md`'s query count for the settings tab was wrong again**, which
+  is the third time (it read "four" until WP6 and "six or seven" until now). This
+  session measured it — 7, 8 or 9 depending on whether a role with no member has
+  a scope and whether the audit line names anybody — and added an example that
+  asserts the *property* with a bound, so the next change to the number cannot
+  pass unnoticed.
+- **`_scope_actions` treated a `nil` `offered` local as "not offered"**, which
+  would silently remove a button. Every caller passes it, but silently removing a
+  control is precisely the failure mode an unmatched Deface anchor already taught
+  this plugin about, so `nil` now counts as offered.
+
+### One thing noticed and deliberately not fixed
+
+The **tracker** analogue of F05. `ProjectOptions.trackers` is the project's
+enabled trackers, so a scope for a tracker that has since been taken off the
+project has no row on the tab either — the same hole F05 named for roles. It is
+*not* the same defect: a tracker that is not enabled has no issues in the
+project, so its workflow is inert, where a role like *Anonymous* applies whether
+anybody holds it or not. What is real, and small, is that re-enabling the tracker
+brings the old scope silently back into force. Reported here rather than fixed,
+per `CLAUDE.md`: it is outside the eight findings this session was given.
+
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **670 examples, 0 failures** (was 629; 41 added) |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **670 examples, 0 failures** |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **671 examples, 0 failures** (was 629; 42 added) |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **671 examples, 0 failures** |
 | Migration up → 0 → up | **clean on 7.0-stable + PostgreSQL**, run on a database rebuilt from *core* migrations only and **before** the suite touched that host. Leftovers after `VERSION=0`: `project_workflow_scopes` gone, `workflows.project_id` gone, plugin bookkeeping in `schema_migrations` empty. This session changes no migration — `git status -- db/` is empty — so it is a re-check rather than a new claim |
-| Fails on the old code | **15 of the 41 new examples**, run rather than assumed, and re-confirmed against a pristine `c3047cf`. Of the other 26, eight pass on the old code and are named as such; eighteen exercise code that did not exist. See "The tests" above |
-| RuboCop | **95 files, no offences**, through `.github/lint/Gemfile`, and **no new `.rubocop_todo.yml` entry**. Two `Metrics` limits were crossed on the way and both were fixed by extracting rather than by relaxing the cop — see the traps |
+| Fails on the old code | **15 of the 42 new examples**, run rather than assumed, and re-confirmed against a pristine `c3047cf`. Of the other 27, eight pass on the old code and are named as such; nineteen exercise code that did not exist. See "The tests" above |
+| RuboCop | **96 files, no offences**, through `.github/lint/Gemfile`, and **no new `.rubocop_todo.yml` entry**. Three `Metrics` limits were crossed on the way — `ClassLength` on `ScopeWriter`, `ModuleLength` on `WorkflowsControllerPatch`, `AbcSize` on `find_tracker_and_role` — and all three were fixed by extracting rather than by relaxing the cop; see the traps |
 | Locale parity | **8 files × 96 keys**, no difference. Two keys added, translated by hand in all eight |
 | JavaScript gate | not re-run: nothing in `_bulk_script.html.erb` changed |
 | MySQL, MariaDB, and 6.1 | **not run locally** — two of the nine cells ran here; CI covers the other seven |
@@ -344,16 +377,19 @@ the rest is carried forward.
   `bundler: command not found: rspec` — which reads as the Bundler-4
   executables-not-on-PATH trap below and is a wrong Ruby.
   `RUBY_VERSION=3.2.6 dev/run.sh .redmine/5.1-stable-postgresql`.
-- **`Metrics/ClassLength` and `Metrics/ModuleLength` are already relaxed in
-  `.rubocop.yml` (200 and 250), with a stated rationale.** So crossing one is a
-  real signal rather than a cop to placate, and the honest fix is to extract.
-  This session crossed both: `ScopeWriter` at 224/200, which produced
-  `ScopeCombinations` — a coherent unit, "the questions a set of exact triples
-  can be asked", read-only — and `WorkflowsControllerPatch` at 255/250, which
+- **`Metrics/ClassLength`, `Metrics/ModuleLength` and `Metrics/AbcSize` are
+  already relaxed in `.rubocop.yml` (200, 250 and 25), with a stated rationale.**
+  So crossing one is a real signal rather than a cop to placate, and the honest
+  fix is to extract. This session crossed three: `ScopeWriter` at 224/200, which
+  produced `ScopeCombinations` — a coherent unit, "the questions a set of exact
+  triples can be asked", read-only; `WorkflowsControllerPatch` at 255/250, which
   came back under by moving `combinations_for` into that class and extracting
-  `resolved_copy_source`. Raising the Max, or adding a `.rubocop_todo.yml` entry,
-  would have been weakening the gate. Note that the cop counts **code** lines
-  only, so the long explanatory comments this repository favours are free.
+  `resolved_copy_source`; and `find_tracker_and_role` at 25.08/25, which split
+  into itself and `find_role`. Raising a Max, or adding a `.rubocop_todo.yml`
+  entry, would have been weakening the gate. Note that the length cops count
+  **code** lines only, so the long explanatory comments this repository favours
+  are free — and that 25.08 against a limit of 25 is what an extra local variable
+  costs, so the margin is thinner than it looks.
 - **A new locale key has to exist before the example that asserts it can mean
   anything.** An `expect(flash[:warning]).to eq(I18n.t(:some_new_key))` on the
   old code fails with
@@ -378,6 +414,17 @@ the rest is carried forward.
 - **An empty `<% if %>` branch in ERB passes RuboCop and reads as a mistake.**
   When a new condition means "render nothing here", reorder the branches so the
   empty case is the absent `else` rather than an empty `then`.
+- **A partial local that arrives as `nil` is not the same as one that was not
+  passed.** `defined?(offered)` is true for a local passed as `nil`, so
+  `offered = true unless defined?(offered)` leaves it `nil` — and a `nil` that
+  gates a button removes the button silently. Treat both: `if !defined?(x) ||
+  x.nil?`.
+- **A query count measured inside the counted block can include a fixture
+  load.** The first probe of the settings tab read 8 queries and one of them was
+  `SELECT "projects".* WHERE id = $1`, which is `projects(:projects_001)` loading
+  lazily. Reference every fixture the example needs *before* subscribing. (This
+  is the same trap as the memoised-`let` entry further down, met from the other
+  direction.)
 
 Everything from here down is carried forward from earlier sessions.
 
