@@ -758,8 +758,19 @@ Everything from here down is carried forward from earlier sessions.
   other way round on purpose — `authorize` is declared first, so *its* finder may
   render.
 - **A migration's effect is invisible to the process that ran it.**
-- **PostgreSQL will not cast a text literal to a timestamp inside a `SELECT`
-  list.** The backfill uses `CURRENT_TIMESTAMP`.
+- **Neither half of the old timestamp trap was true**, and it is here as a
+  correction because it stood in this list, in a migration comment and in
+  `docs/DECISIONS.md` for a day. It used to read "PostgreSQL will not cast a text
+  literal to a timestamp inside a `SELECT` list, so the backfill uses
+  `CURRENT_TIMESTAMP`". Measured on PostgreSQL 16.13: a bare quoted literal in
+  the `SELECT` list of an `INSERT … SELECT` **is** coerced to the target
+  timestamp column, no cast needed. And `CURRENT_TIMESTAMP` is UTC only on
+  PostgreSQL — `AbstractMysqlAdapter#configure_connection` sets `sql_auto_is_null`,
+  `wait_timeout` and `sql_mode` and **no** `time_zone`, in Rails 6.1, 7.2 and 8.0
+  alike, so on MySQL and MariaDB it returns the server's local time and Rails
+  reads it back as if it were UTC. Build the timestamp in Ruby:
+  `connection.quoted_date`, wrapped in the standard `TIMESTAMP '...'` type
+  keyword, which all three accept (finding F09).
 - **A spec that fails while creating a project poisons the database.** To clear:
   `DELETE FROM projects_trackers WHERE project_id NOT IN (SELECT id FROM projects)`
   — without a table alias, or MariaDB refuses.

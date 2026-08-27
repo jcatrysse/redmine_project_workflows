@@ -22,6 +22,10 @@ class ProjectWorkflowsController < ApplicationController
   # to extract, not a cop to placate. Every method there is private: a public
   # instance method of a controller is an action.
   include RedmineProjectWorkflows::MatrixParams
+  # What a write on this screen says to the operator, and what it records in the
+  # log. Extracted for the same reason MatrixParams was: Metrics/ClassLength
+  # crossed at 202/200, and that limit is already relaxed with a rationale.
+  include RedmineProjectWorkflows::MatrixReporting
 
   menu_item :settings
 
@@ -292,42 +296,6 @@ class ProjectWorkflowsController < ApplicationController
   # by the time the writer answered it is the same fact: this project follows the
   # generic workflow here. One tracker and one role, so there is never a mixture
   # to report.
-  # The warning and the notice are set independently, because a save can both
-  # succeed and have refused part of what it was sent (finding F06): a positive
-  # `written` used to mean `notice_successful_update` and silence about the
-  # dropped part, while the README promises that an unacceptable value leaves its
-  # rule alone *and the screen says so*.
-  def report_rule_save(result)
-    flash[:notice] = l(:notice_successful_update) if result.written?
-    warnings = []
-    unless result.written?
-      warnings << if result.skipped?
-                    l(:notice_project_workflow_not_own)
-                  else
-                    l(:notice_project_workflow_save_nothing_applied)
-                  end
-    end
-    # Appended rather than replacing: which part was refused is additional
-    # information about the save, not an alternative to reporting it. Built as a
-    # list rather than by reading `flash[:warning]` back -- reading it makes
-    # Rails/ActionControllerFlashBeforeRender fire, and the cop is not wrong to
-    # be suspicious of a controller that reads its own flash.
-    rejected = result.rejected
-    warnings << l(:notice_project_workflow_save_rejected_values, count: rejected) if rejected.positive?
-    flash[:warning] = warnings.join(' ') if warnings.any?
-  end
-
-  def report(touched, notice_key)
-    if touched.positive?
-      flash[:notice] = l(notice_key, count: touched)
-    else
-      flash[:warning] = l(:notice_project_workflow_scope_unchanged)
-    end
-    # The scope panel on a matrix screen sends no back_url, so an action taken
-    # there comes back to that matrix; the settings tab sends one, so an action
-    # taken there comes back to the tab.
-    redirect_back_or_default(matrix_path)
-  end
 
   def matrix_path
     options = { tracker_id: @tracker.id, role_id: @role.id,

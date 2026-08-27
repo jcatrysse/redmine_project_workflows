@@ -68,7 +68,7 @@
 | 2026-08-26 | dev | `dev/setup.sh` and `dev/run.sh` put rbenv's **shims** on `PATH`, not just rbenv itself | `command -v rbenv` succeeding does not mean the shims are on `PATH`; without them the ambient Ruby ran and the failure surfaced much later, as a Gemfile Ruby requirement. |
 | 2026-08-26 | WP1 | The scope table's unique index ships with the table, in migration 004 | `design.md` specifies it as part of the table, and the backfill has to produce unique rows anyway. The implementation plan listed it under WP2; that item is therefore already delivered. |
 | 2026-08-26 | WP1 | Foreign-key columns are `:integer`, not Rails' default `:bigint` | Redmine's own primary keys are 4-byte integers and MySQL refuses a foreign key whose column width differs from the column it references. |
-| 2026-08-26 | WP1 | The backfill stamps `CURRENT_TIMESTAMP`, not a quoted Ruby `Time` | PostgreSQL will not cast a text literal to a timestamp inside a `SELECT` list, and the casts that would work are spelled differently on MySQL. Rails puts every supported adapter's session in UTC. |
+| 2026-08-26 | WP1 | ~~The backfill stamps `CURRENT_TIMESTAMP`, not a quoted Ruby `Time`~~ **SUPERSEDED 2026-08-27, both halves wrong** — see the entry under the 2026-08-27 review run and finding F09. `CURRENT_TIMESTAMP` is UTC only on PostgreSQL; and PostgreSQL *does* coerce a bare quoted literal to a timestamp column in a `SELECT` list, measured on 16.13. | The original reasoning: "PostgreSQL will not cast a text literal to a timestamp inside a `SELECT` list, and the casts that would work are spelled differently on MySQL. Rails puts every supported adapter's session in UTC." |
 | 2026-08-26 | WP1 | `Issue#new_statuses_allowed_to` and `#workflow_rule_by_attribute` **always** take the plugin's path, inheritance included | Core's queries carry no `project_id` predicate, so calling `super` for an inheriting project would read its neighbours' rows — a breach of INV-4 and a real defect, because the old system-wide `override_active?` guard was the only thing hiding it. Both method bodies are byte-identical in Redmine 5.1, 6.1 and 7.0, so reproducing them is safe; `override_active?` is gone from both query services. |
 | 2026-08-26 | WP1 | "Enable" acts only on the combinations that currently inherit | Makes the action idempotent. Re-copying the generic workflow over a project that already has one would silently discard the operator's edits, and there is no undo before WP6. |
 | 2026-08-26 | WP1 | "Empty the matrix" acts only where a scope already exists | Emptying a matrix a project does not own would read as a change while leaving it inheriting — the very confusion the scope table ends. |
@@ -403,3 +403,17 @@ All Class A unless it says otherwise. Findings F01–F20 of
   reversible default: it reuses `notice_project_workflow_save_nothing_applied`,
   already translated in all eight locales, so nothing touches i18n. The
   alternative — staying silent — is the defect the earlier F06 was about (F17).
+
+- **Both timestamp writers build the value in Ruby, and migration 004 was
+  changed to do so too.** `CURRENT_TIMESTAMP` is UTC only on PostgreSQL —
+  `AbstractMysqlAdapter#configure_connection` sets no `time_zone` in Rails 6.1,
+  7.2 or 8.0 — so on six of the nine supported cells the audit columns held the
+  server's local time and Rails read it back as UTC. `connection.quoted_date`
+  with the standard `TIMESTAMP '...'` type keyword, accepted by all three.
+  Touching a *shipped* migration was the judgement call the finding left to the
+  fixer: an installation that has already run 004 keeps what it wrote, so the fix
+  reaches only future installations, and the divergence is harmless because a
+  backfilled scope displays no time at all (the helper returns early when
+  `updated_by` is blank). Fixing only `ScopeCopier` would have closed the live
+  path while knowingly shipping the defect. The 2026-08-26 entry above is marked
+  superseded rather than edited (F09).

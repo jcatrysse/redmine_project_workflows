@@ -77,6 +77,14 @@ bundle exec rails runner "
     expected = [[o.id, 'permissions'], [p.id, 'transitions']].sort
     raise \"backfill produced #{scopes.inspect}, expected #{expected.inspect}\" unless scopes == expected
 
+    # This 600-second tolerance is real cover and it did NOT catch finding F09,
+    # for a reason worth knowing: the backfill used CURRENT_TIMESTAMP, which is
+    # UTC only on PostgreSQL, and every database *container* CI runs defaults to
+    # UTC -- so the drift was zero on all nine cells and would only appear on a
+    # MySQL or MariaDB server whose own timezone is not UTC, which no cell has.
+    # The nine-cell matrix cannot find this class of defect; reading the adapter
+    # source is what found it. The migration and ScopeCopier now build the value
+    # in Ruby, so the question no longer arises.
     stamps = ProjectWorkflowScope.where(tracker_id: t.id).pluck(:created_at, :updated_at).flatten
     raise 'backfill left a null timestamp' if stamps.any?(&:nil?)
     drift = stamps.map { |s| (Time.now.utc - s.utc).abs }.max

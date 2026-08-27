@@ -158,4 +158,43 @@ describe 'Copying a role or a tracker' do
       expect(own_workflow?(project, tracker, target_role)).to be(false)
     end
   end
+
+  # F09. Both timestamp-writing paths asked the database for CURRENT_TIMESTAMP,
+  # justified by a comment claiming "Rails puts every supported adapter's session
+  # in UTC". That is true of PostgreSQL and false of MySQL and MariaDB, whose
+  # AbstractMysqlAdapter#configure_connection sets no time_zone at all -- so on
+  # six of the nine supported cells the audit columns held the server's local
+  # time and Rails read it back as if it were UTC.
+  #
+  # Asserted two ways, because neither alone is enough on a PostgreSQL-only run:
+  # the statement no longer *contains* CURRENT_TIMESTAMP, which holds on every
+  # adapter and is the part a MySQL cell would otherwise be the first to see; and
+  # the value written really is now, which is what the statement is for.
+  describe 'the audit timestamps a copied scope carries' do
+    it 'asks the database for no clock of its own' do
+      give_own_workflow(project, source_tracker, source_role)
+      target = Role.create!(name: 'Timestamp target')
+
+      statements = statements_during { target.copy_workflow_rules(source_role) }
+
+      inserts = statements.grep(/INSERT INTO\s+\W?project_workflow_scopes/i)
+      expect(inserts).not_to be_empty
+      expect(inserts.join).not_to match(/CURRENT_TIMESTAMP/i)
+    end
+
+    it 'stamps the copied scope with the current UTC time' do
+      give_own_workflow(project, source_tracker, source_role)
+      target = Role.create!(name: 'Timestamp target')
+
+      before = Time.now.utc - 5
+      target.copy_workflow_rules(source_role)
+      after = Time.now.utc + 5
+
+      scope = ProjectWorkflowScope.find_by(project_id: project.id, tracker_id: source_tracker.id,
+                                           role_id: target.id, rule_type: ProjectWorkflowScope::TRANSITIONS)
+      expect(scope).to be_present
+      expect(scope.created_at.utc).to be_between(before, after)
+      expect(scope.updated_at.utc).to be_between(before, after)
+    end
+  end
 end

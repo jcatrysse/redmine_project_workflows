@@ -57,6 +57,7 @@ module RedmineProjectWorkflows
         return if invalid_project_selection?
 
         if project_context?
+          @rule_type_for_log = ProjectWorkflowScope::TRANSITIONS
           if @roles.present? && @trackers.present? && params[:transitions]
             transitions = strip_no_change(params[:transitions])
             result = RedmineProjectWorkflows::Services::MatrixSaveResult.none
@@ -104,6 +105,7 @@ module RedmineProjectWorkflows
         return if invalid_project_selection?
 
         if project_context?
+          @rule_type_for_log = ProjectWorkflowScope::PERMISSIONS
           if @roles.present? && @trackers.present? && params[:permissions]
             # strip_no_change already does the to_plain_hash conversion, and
             # PermissionWriter's whitelist rejects any key that is not a
@@ -250,6 +252,22 @@ module RedmineProjectWorkflows
         rejected = result.rejected
         warnings << l(:notice_project_workflow_save_rejected_values, count: rejected) if rejected.positive?
         flash[:warning] = warnings.join(' ') if warnings.any?
+        log_matrix_save(result)
+      end
+
+      # Ids and counts, never the matrix (finding F19). This is the write that
+      # can touch every project on the installation in one transaction, so it is
+      # the one whose absence from the log cost the most.
+      def log_matrix_save(result)
+        RedmineProjectWorkflows::Services::WriteLog.record(
+          'admin_matrix_save',
+          rule_type: @rule_type_for_log,
+          actor: User.current.id,
+          projects: selected_project_ids,
+          trackers: @trackers&.map(&:id),
+          roles: @roles&.map(&:id),
+          written: result.written, skipped: result.skipped, rejected: result.rejected
+        )
       end
 
       # Strips core's "no change" option out of a submitted matrix, at whatever

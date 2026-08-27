@@ -78,12 +78,27 @@ module RedmineProjectWorkflows
         quoted_type = connection.quote(rule_type)
         target_tracker = connection.quote(target_tracker_id)
         target_role = connection.quote(target_role_id)
+        # Built in Ruby rather than asked of the database (finding F09).
+        # CURRENT_TIMESTAMP is UTC only on PostgreSQL: its adapter sets the
+        # session timezone to UTC when default_timezone is :utc, and
+        # AbstractMysqlAdapter#configure_connection sets sql_auto_is_null,
+        # wait_timeout and sql_mode and *no* time_zone -- in Rails 6.1, 7.2 and
+        # 8.0 alike. mysql2's query_options[:database_timezone] decides how
+        # returned values are tagged, not what the server computes. So on MySQL
+        # and MariaDB -- six of the nine supported cells -- the server returned
+        # its own local time and Rails read it back as if it were UTC.
+        #
+        # connection.quoted_date is the existing tool, and TIMESTAMP '...' is the
+        # standard type-keyword form, accepted by all three. The bare literal
+        # measured fine on PostgreSQL, but only the explicit form makes the intent
+        # readable.
+        now = "TIMESTAMP #{connection.quote(connection.quoted_date(Time.now.utc))}"
 
         "INSERT INTO #{table} " \
           '(project_id, tracker_id, role_id, rule_type, ' \
           'created_by_id, updated_by_id, created_at, updated_at) ' \
           "SELECT source.project_id, #{target_tracker}, #{target_role}, #{quoted_type}, " \
-          "#{author_value}, #{author_value}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP " \
+          "#{author_value}, #{author_value}, #{now}, #{now} " \
           "FROM #{table} source " \
           "WHERE source.tracker_id = #{connection.quote(source_tracker_id)} " \
           "AND source.role_id = #{connection.quote(source_role_id)} " \

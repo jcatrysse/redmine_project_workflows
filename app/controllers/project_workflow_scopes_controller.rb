@@ -91,6 +91,14 @@ class ProjectWorkflowScopesController < ApplicationController
     else
       flash[:warning] = l(:notice_project_workflow_scope_unchanged)
     end
+    # See Services::WriteLog: ids and counts only (finding F19). The selection
+    # here can be every project on the installation, which is why the service
+    # renders a long id list as a count rather than in full.
+    RedmineProjectWorkflows::Services::WriteLog.record(
+      'admin_scope_action',
+      action_key: notice_key, rule_type: params[:rule_type], actor: User.current.id,
+      projects: @project_ids, trackers: @tracker_ids, roles: @role_ids, touched: touched
+    )
     redirect_to matrix_path
   end
 

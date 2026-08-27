@@ -268,6 +268,25 @@ describe RedmineProjectWorkflows do
     expect(ActionController::TestCase.new(nil)).to respond_to(:assigns)
   end
 
+  # F19. Every workflow write logs one line, and the rule about *what* may be
+  # logged -- ids and counts only, never issue content, request payloads or
+  # matrix data -- lives in Services::WriteLog so there is one place to read it.
+  # A direct Rails.logger call in a write path would route around that rule
+  # silently, which is the whole reason the service exists rather than four
+  # logger calls.
+  it 'logs a write only through the service that holds the what-may-be-logged rule' do
+    root = File.expand_path('..', __dir__)
+    callers = Dir.glob("#{root}/{app,lib}/**/*.rb").select do |file|
+      File.read(file).include?('Rails.logger')
+    end
+
+    expect(callers.map { |file| file.sub("#{root}/", '') }).to contain_exactly(
+      # The Deface loader's rescue, which reports a file it could not load.
+      'lib/redmine_project_workflows.rb',
+      'lib/redmine_project_workflows/services/write_log.rb'
+    )
+  end
+
   # Reading a workflow is a read action, so it goes on working in a closed
   # project; managing one is not, so it stops there.
   it 'marks viewing as a read action and managing as a write' do

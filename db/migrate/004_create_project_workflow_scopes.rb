@@ -57,12 +57,35 @@ class CreateProjectWorkflowScopes < ActiveRecord::Migration[6.1]
   # guards keep the foreign keys added above satisfiable on a database that
   # carries orphaned rule rows.
   #
-  # The timestamps are CURRENT_TIMESTAMP rather than a quoted Ruby Time:
-  # PostgreSQL does not cast a text literal to a timestamp inside a SELECT list,
-  # and the casts that would work are spelled differently on MySQL. Rails puts
-  # every supported adapter's session in UTC, so all three agree on the value.
+  # The timestamps are built in Ruby, and the comment that used to stand here was
+  # wrong in both halves (finding F09).
+  #
+  # It said CURRENT_TIMESTAMP was safe because "Rails puts every supported
+  # adapter's session in UTC, so all three agree on the value". True of
+  # PostgreSQL, whose adapter sets the session timezone to UTC when
+  # default_timezone is :utc; false of MySQL and MariaDB, whose
+  # AbstractMysqlAdapter#configure_connection sets sql_auto_is_null, wait_timeout
+  # and sql_mode and no time_zone at all, in Rails 6.1, 7.2 and 8.0. So on six of
+  # the nine supported cells these columns were the server's local time, read
+  # back as if it were UTC.
+  #
+  # It also said PostgreSQL "does not cast a text literal to a timestamp inside a
+  # SELECT list". Measured on PostgreSQL 16: a bare quoted literal in the SELECT
+  # list of an INSERT ... SELECT is coerced to the target timestamp column with no
+  # cast at all. The standard `TIMESTAMP '...'` type-keyword form used below is
+  # accepted by all three and says what it means.
+  #
+  # Changing a shipped migration is a judgement call, and this is the reasoning:
+  # an installation that has already run 004 keeps whatever it wrote, and this
+  # only affects installations that migrate from here on. That divergence is
+  # harmless -- project_workflows_helper.rb returns early when updated_by is
+  # blank, so a backfilled scope displays no time at all either way -- while
+  # leaving a statement we have already diagnosed as wrong means every future
+  # installation inherits it. The alternative, fixing only ScopeCopier, closes
+  # the live path and knowingly ships the defect.
   def backfill
     workflows = WorkflowRule.table_name
+    now = "TIMESTAMP #{connection.quote(connection.quoted_date(Time.now.utc))}"
 
     { 'WorkflowTransition' => 'transitions', 'WorkflowPermission' => 'permissions' }.each do |sti_type, rule_type|
       say_with_time "Backfilling #{rule_type} scopes" do
@@ -70,7 +93,7 @@ class CreateProjectWorkflowScopes < ActiveRecord::Migration[6.1]
           INSERT INTO project_workflow_scopes
             (project_id, tracker_id, role_id, rule_type, created_at, updated_at)
           SELECT DISTINCT w.project_id, w.tracker_id, w.role_id,
-                          #{connection.quote(rule_type)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                          #{connection.quote(rule_type)}, #{now}, #{now}
           FROM #{workflows} w
           WHERE w.project_id IS NOT NULL
             AND w.type = #{connection.quote(sti_type)}
