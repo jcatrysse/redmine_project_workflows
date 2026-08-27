@@ -358,7 +358,7 @@ directions.
 
 ### F03 — F10's resolution dropped one of its own sub-items without saying so
 
-- **Status:** open
+- **Status:** invalid
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** docs
@@ -409,13 +409,53 @@ that, so the next reader knows it was seen. The general habit is the point rathe
 than this instance: a `Resolution:` that answers four of five parts reads as
 complete.
 
-**Resolution:**
+**Resolution:** **invalid — the sub-item is answered, and at more length than
+this finding asks for.** No edit was made to F10's `Resolution:` line, and the
+previous run's findings file is untouched.
+
+F10's `Resolution:` carries a paragraph of its own for exactly this sub-item, the
+sixth of its seven:
+
+> **The one thing I did not do**, and it is a deliberate declination rather than
+> an oversight: the closing observation that with no project filter the query
+> renders every project id into the SQL text, and that passing no predicate there
+> would be behaviour-preserving because migration 004's cascading foreign keys
+> mean the predicate cannot change the result set. I believe that argument is
+> correct. I did not implement it because it makes the query's scoping
+> conditional on how the filter was *derived* rather than on what it contains …
+> INV-4 does not govern this table, so it is not an invariant hit; it is a
+> maintainability trade I judged not worth taking … Recorded here rather than
+> silently skipped.
+
+Same subject, same argument, declined with a reason and with the reason's own
+limits stated. It also anticipates this finding's closing sentence — "so the next
+reader knows it was seen" — in its last clause.
+
+**How I established that rather than assuming it**, because a fixer agreeing with
+his own previous session is the least trustworthy claim in this file: the
+paragraph is present in `git show 9ce1921:docs/review/findings/2026-08-27-bundled.md`
+— `9ce1921` being the commit this review examined, so it is not something added
+afterwards — and `git log -S "The one thing I did not do"` names `24fcacf`, the
+F10/F20 commit of the 0.1.4 session, as where it entered. `grep -c` on the
+reviewed blob returns 1.
+
+**What is worth taking from the finding anyway**, since being wrong about the
+instance does not make it wrong about the habit: the paragraph is the *sixth* of
+seven in a long `Resolution:`, it opens with "The one thing I did not do" rather
+than with the subject, and this review's own verification note says "Read F10's
+`Resolution:` line in full" — which is what turned out not to have happened. A
+declination that a careful reader misses is a real cost even when it is written
+down. The lesson goes to `docs/STATE.md`'s traps rather than into a code change:
+**a sub-item's answer should open with the sub-item's subject**, so it can be
+found by grep and not only by reading to the end. Nothing about F10 or the `IN`
+list changes; `deviating_triples` still passes `project_id: ids(@projects)`, on
+purpose.
 
 ---
 
 ### F04 — One new log call reaches for the raw parameter where the validated one is in scope
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** code-quality
@@ -462,7 +502,29 @@ Read the controller. `grep -n '@rule_type'` gives lines 28, 36, 44, 52, 53 and
 
 `@rule_type`.
 
-**Resolution:**
+**Resolution:** **fixed**: `params[:rule_type]` → `@rule_type` at
+`app/controllers/project_workflow_scopes_controller.rb:99`. `grep -n` now returns
+`@rule_type` at lines 28, 36, 44, 52, 53, 99 and 112, and the file has no
+remaining read of that parameter outside the `before_action` that validates it.
+
+**No test, deliberately, and this is the reason rather than an omission.** The
+finding is right that nothing is wrong today, and the reason nothing is wrong is
+exactly what makes a test empty: `find_rule_type` is a `before_action` on every
+action of this controller and renders 404 for anything outside
+`ProjectWorkflowScope::RULE_TYPES`, so by the time `report` runs the parameter
+and the instance variable are the same one of two literals. An example asserting
+that the log line names `transitions` when `rule_type=transitions` was submitted
+passes identically before and after the change; an example reaching the log with
+a *third* value cannot be written, because the guard answers 404 first. Either
+way the test would restate the guard rather than the fix, and the honest form of
+"this cannot be tested without deleting the guard" is to say so here. `CLAUDE.md`
+asks for a test that is red on the old code with every fix; this is the exception
+it does not have, and naming it is the price.
+
+What the change buys is what the finding said: not safety today, but that the
+line no longer depends on a `before_action` two screens away when the value is in
+scope. Verified by the suite rather than by a new example — 735 examples, 0
+failures on both hosts, `WriteLog`'s own specs among them.
 
 ---
 

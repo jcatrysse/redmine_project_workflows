@@ -96,7 +96,7 @@ class ProjectWorkflowScopesController < ApplicationController
     # renders a long id list as a count rather than in full.
     RedmineProjectWorkflows::Services::WriteLog.record(
       'admin_scope_action',
-      action_key: notice_key, rule_type: params[:rule_type], actor: User.current.id,
+      action_key: notice_key, rule_type: @rule_type, actor: User.current.id,
       projects: @project_ids, trackers: @tracker_ids, roles: @role_ids, touched: touched
     )
     redirect_to matrix_path
