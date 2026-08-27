@@ -141,7 +141,7 @@ exactly one pair.
 | Gates proved by *firing* | **three wrong implementations, each reverted**: `excluded` reduced with `|` instead of `&` (the new intersection example fails, and one pre-existing example with it); grouping by tracker alone with the role sets unioned (the orphan-row example and one shape example fail); and the pre-change per-pair form (both shape examples fail) |
 | RuboCop | **104 files, no offences**, through `.github/lint/Gemfile`, no new `.rubocop_todo.yml` entry |
 | JavaScript gate | **34 checks pass** |
-| Migrations up → 0 → up | **clean on 7.0**, run **before** the suite touched that host. Nothing in this session changes a migration, and CI runs the same gate on all nine cells |
+| Migrations up → 0 → up | **clean on 7.0 and 5.1**. On 7.0 before the suite touched the host; on 5.1 afterwards, which meant rebuilding the database from *core* migrations first (`rm -f db/schema.rb`, `db:drop db:create db:migrate`) or the check proves nothing. Leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`. `dev/check-backfill.sh` green on 5.1 after re-migrating up. Nothing in this session changes a migration; CI runs the same gate on all nine cells |
 | Forbidden-constructs greps | clean: no `workflows` query without a `project_id` predicate, no `insert_all` outside the two writers, no `Thread.current` cache, no `to_prepare` in `init.rb` (every hit is a comment explaining the rule) |
 | MySQL, MariaDB | **not run locally** — no server in this container. CI covers six of the nine cells |
 | CI, previous session's work | run **103** on `5912355`: **green on all 11 jobs** |
