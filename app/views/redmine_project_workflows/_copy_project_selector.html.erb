@@ -1,5 +1,13 @@
-<label><%= l(:label_project) %></label>
 <% selector_id = local_assigns[:selector_id] || 'project_id' %>
+<%# The label goes below selector_id so `for` can name it. Without the
+    association a screen reader reads the option list with no field name -- on
+    the one screen where the two selects differ only in which is the source and
+    which is the target, and where getting them the wrong way round deletes a
+    workflow (finding F16). Both ids are already unique and already set on the
+    select below, so there is no visual change at all. Core's own four labels on
+    this screen have the same problem; that is core's to fix, and matching it is
+    not a reason to leave the plugin's own markup worse. %>
+<label for="<%= selector_id %>"><%= l(:label_project) %></label>
 <% field_name = local_assigns[:field_name] || 'project_id[]' %>
 <% multiple = local_assigns[:multiple] || false %>
 <% include_same_as_target = local_assigns[:include_same_as_target] || false %>

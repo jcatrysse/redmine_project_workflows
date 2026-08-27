@@ -916,4 +916,50 @@ describe ProjectWorkflowsController, type: :controller do
       end
     end
   end
+
+  # F17. Both update actions guard on their matrix parameter and, when it is
+  # absent, fell through to `redirect_to matrix_path` with no flash at all.
+  # Reachable only through a hand-built PATCH or an API client that omits the
+  # matrix, so the practical impact is negligible -- it was the one remaining
+  # path on this screen that said nothing, and the whole lesson of the earlier
+  # F06 was that a screen must not stay quiet about having done nothing.
+  #
+  # The existing key, not a new one: it already reads "Nothing was saved. Either
+  # no cell was changed, or the values submitted were not accepted", and it is
+  # already translated in all eight locale files.
+  describe 'a save that carries no matrix at all' do
+    before do
+      log_in(2, :manage_project_workflow)
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+    end
+
+    it 'says nothing was saved rather than redirecting silently' do
+      patch :update_transitions, params: transitions_params
+
+      expect(response).to redirect_to(
+        project_workflow_transitions_path(project, tracker_id: tracker.id, role_id: role.id,
+                                                   used_statuses_only: nil)
+      )
+      expect(flash[:warning]).to eq(I18n.t(:notice_project_workflow_save_nothing_applied))
+      expect(flash[:notice]).to be_nil
+    end
+
+    it 'says the same on the field permissions matrix' do
+      patch :update_permissions, params: transitions_params
+
+      expect(flash[:warning]).to eq(I18n.t(:notice_project_workflow_save_nothing_applied))
+      expect(flash[:notice]).to be_nil
+    end
+
+    # And it must not have become the message for a save that did something.
+    it 'is not said for a save that wrote a rule' do
+      patch :update_transitions, params: transitions_params(
+        transitions: { new_status.id.to_s => { assigned.id.to_s => { 'always' => '1' } } }
+      )
+
+      expect(flash[:notice]).to eq(I18n.t(:notice_successful_update))
+      expect(flash[:warning]).to be_nil
+    end
+  end
 end

@@ -322,3 +322,84 @@ otherwise.
   that does not exist. A characterising example pins the choice (finding F07).
 - **The `.codex/` scripts are deleted.** Class B, logged above under
   *Open — for Jan* (finding F08).
+
+## Decided (autonomous) — 2026-08-27, review run `2026-08-27-bundled`
+
+All Class A unless it says otherwise. Findings F01–F20 of
+`docs/review/findings/2026-08-27-bundled.md`.
+
+- **The copy screen takes the scope lock before it writes a rule.**
+  `ScopeWriter.lock_scopes_for_copy`, first statement in `#duplicate`'s
+  transaction, over the combinations `WorkflowRule.copy_pairs_for_project` says
+  it is about to write. The lock names existing scope rows by primary key in
+  ascending id order and filters no rule type, so it queues against the three
+  callers of `lock_combinations` rather than deadlocking with them (F01).
+- **The copy still creates scopes where none exist, rather than filtering its
+  targets by the locked answer.** With the lock held first, every commit order
+  ends consistently; filtering would make a legitimate creation depend on a
+  race. The residual copy-versus-`enable` cycle on a combination with **no**
+  scope row is recorded rather than chased — the unique index serialises it and
+  no row lock can close it; if it is ever observed the answer is a
+  `rescue ActiveRecord::Deadlocked` on the action, not a wider lock (F01).
+- **A lock-order claim in `docs/design.md` names its paths and its exception.**
+  The old sentence was a universal recorded from a sample of three, which is how
+  the copy path came to be skipped. It now says four paths, names the copy, and
+  states that the order holds *for combinations that have a scope row* (F02).
+- **Upstream drift is detected, not declared, and `requires_redmine` stays a
+  floor.** `spec/upstream/core_drift_spec.rb` digests core's own body for every
+  method the plugin shadows — eighteen, discovered at runtime, private ones
+  included — against a table measured per Redmine minor, and calls core as an
+  oracle. Narrowing `requires_redmine` to a range was rejected: an out-of-range
+  Redmine then refuses to boot until an administrator deletes the plugin
+  directory, which trades an uncertain divergence for a certain outage. A
+  Redmine minor the table has not measured is **reported, not failed**, for the
+  same reason (F03).
+- **The 5.1 floor is a hard dependency, and `init.rb` says so.**
+  `Issue#roles_for_workflow` does not exist before 5.1 and `TransitionQuery`
+  calls it, so lowering the floor ships a `NoMethodError` on every issue save
+  rather than widening support (F03).
+- **The administration matrices prepare nothing before authorization.** One
+  guard clause inside the patched finder, not a second scoped `require_admin` —
+  which would *delete* core's unconditional registration, because
+  ActiveSupport's callback dedupe ignores `only:`. The guard prepares data and
+  does not authorize; `require_admin` still decides (F05, F18).
+- **INV-4 has exactly one named exception, and a gate keeps it at one.**
+  `WorkflowRule.copy_one_with_projects`: both its statements span the generic
+  and project populations because "duplicate this role including every
+  project's workflow" is defined that way (F18).
+- **The JavaScript gate is a CI job.** `Bulk action script`, beside `RuboCop`.
+  Capybara and axe-core were rejected as disproportionate to 85 lines across
+  nine host checkouts (F07).
+- **The INV-9 override count is asserted, as a speed bump and described as
+  one.** It cannot tell that a sixteenth override has an assertion; it makes
+  adding one a deliberate act. Deface's own registry was not introspected, to
+  avoid coupling the gate to that gem's internals (F08).
+- **Focus moves to the undo region before the undo link is hidden.** Only when
+  the stack has just emptied, the link was visible, and it holds focus — so
+  focus is never taken from wherever the user actually is (F15).
+- **`normalize_permissions_params` is deleted.** Fifteen lines transposing a
+  payload shape nothing produces: `permissions[<status>][<field>]` is what core's
+  helper and the plugin's own grid emit on 5.1, 6.1 and 7.0, checked in all three
+  checkouts. It also silently discarded the real matrix for a mixed payload
+  (F14).
+- **The plugin's `Gemfile` names only `deface`.** Redmine evals
+  `plugins/*/Gemfile` into the host's bundle, so the test gems were in every
+  installation's production bundle; `dev/setup.sh` already writes them into
+  `Gemfile.local`, which Redmine evals first. `deface` stays **unpinned**: there
+  is no range (one release since 2022-04-01), a plugin fragment cannot protect a
+  host that owns its own lockfile, and a constraint can import a neighbour's
+  resolver conflict. `bundle-audit` as a gate was also rejected — it would fail
+  on an unfixable EOL-Rails advisory and redden a third of the matrix (F12).
+- **CI declares `permissions: contents: read`, and the Redmine matrix stays on
+  moving branches.** No step uses the token, so capping it is free and broader
+  than SHA-pinning the two actions. The `*-stable` branches are deliberately not
+  pinned: they are the plugin's only free early warning that core changed, which
+  is the F03 risk. One line now prints the tested Redmine commit in every cell,
+  so a red cell is attributable (F13).
+- **The copy screen's project labels are associated with their selects.**
+  `for=` on both. Core's own four labels on that screen have the same problem;
+  that is core's to fix (F16).
+- **A save carrying no matrix at all says nothing was saved.** Class B, safest
+  reversible default: it reuses `notice_project_workflow_save_nothing_applied`,
+  already translated in all eight locales, so nothing touches i18n. The
+  alternative — staying silent — is the defect the earlier F06 was about (F17).

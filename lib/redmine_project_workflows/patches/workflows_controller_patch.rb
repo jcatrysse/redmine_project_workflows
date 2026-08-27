@@ -105,7 +105,26 @@ module RedmineProjectWorkflows
 
         if project_context?
           if @roles.present? && @trackers.present? && params[:permissions]
-            permissions = strip_no_change(normalize_permissions_params(params[:permissions]))
+            # strip_no_change already does the to_plain_hash conversion, and
+            # PermissionWriter.sanitize_permissions rejects any key that is not a
+            # real status id, so the whitelist is unchanged by dropping the
+            # transposition that used to sit here.
+            #
+            # What went (finding F14): fifteen lines that turned
+            # permissions[field][status] into permissions[status][field] for a
+            # payload shape nothing produces. WorkflowsHelper#field_permission_tag
+            # emits `permissions[<status>][<field>]` on 5.1, 6.1 and 7.0 alike --
+            # checked in all three checkouts -- and so does the plugin's own
+            # project-level grid, which calls the same helper. Core's own
+            # update_permissions names its block variables `field` and
+            # `rule_by_status_id`, as though the payload were field-first, which
+            # is stale naming rather than a second shape; reading the controller
+            # instead of the view is the easy way to conclude otherwise.
+            #
+            # It also had a live edge: a *mixed* payload whose first key was not
+            # numeric took the transposed branch and silently discarded the real
+            # matrix.
+            permissions = strip_no_change(params[:permissions])
             result = RedmineProjectWorkflows::Services::MatrixSaveResult.none
             ActiveRecord::Base.transaction do
               result = selected_project_ids.sum(result) do |project_id|
@@ -342,22 +361,6 @@ module RedmineProjectWorkflows
           role_ids: @roles.map(&:id),
           rule_type: rule_type
         )
-      end
-
-      def normalize_permissions_params(permissions)
-        permissions = to_plain_hash(permissions)
-        return permissions if permissions.keys.all? { |key| key.to_s.match?(/\A\d+\z/) }
-
-        normalized = {}
-        permissions.each do |field, rules_by_status|
-          next unless rules_by_status.respond_to?(:each)
-
-          rules_by_status.each do |status_id, rule|
-            normalized[status_id] ||= {}
-            normalized[status_id][field] = rule
-          end
-        end
-        normalized
       end
 
       # Core declares this callback *before* `require_admin`, so nothing in it may

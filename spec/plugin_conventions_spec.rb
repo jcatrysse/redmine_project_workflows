@@ -237,6 +237,37 @@ describe RedmineProjectWorkflows do
     expect(File.read("#{root}/CLAUDE.md")).to include('copy_one_with_projects')
   end
 
+  # F12. Redmine evals plugins/*/Gemfile into its own, so anything the plugin
+  # names lands in the bundle of every installation, production included.
+  # docs/DECISIONS.md:57 already recorded the rule -- the linter lives in
+  # .github/lint/Gemfile because "the linter has no business in the host
+  # application's runtime bundle" -- and the test gems were in a `group :test`
+  # in the plugin's own Gemfile all the same.
+  #
+  # They are not needed there: dev/setup.sh writes both into the host's
+  # Gemfile.local, which Redmine evals *before* the plugin fragments.
+  #
+  # Read as declarations rather than as text: the file's own comment explains
+  # which gems were removed and names them, so a `include?('rspec-rails')` over
+  # the whole file fails on the explanation. The first draft did exactly that.
+  it 'names no test or lint gem in the Gemfile the host will eval' do
+    lines = File.readlines(File.expand_path('../Gemfile', __dir__))
+                .map { |line| line.sub(/#.*/, '').strip }.reject(&:empty?)
+    declared = lines.filter_map { |line| line[/^gem\s+['"]([^'"]+)['"]/, 1] }
+
+    expect(lines.grep(/^group\s+:(test|development)/)).to be_empty
+    expect(declared).to contain_exactly('deface')
+  end
+
+  # And the gems it does *not* name still have to be there, or this example is
+  # asserting that the suite cannot run -- which it plainly can, since it is
+  # running. Stated so the deletion above cannot be read as having removed a
+  # dependency rather than moved it.
+  it 'still has the test gems the suite needs, from the host bundle' do
+    expect(defined?(RSpec::Rails)).to be_truthy
+    expect(ActionController::TestCase.new(nil)).to respond_to(:assigns)
+  end
+
   # Reading a workflow is a read action, so it goes on working in a closed
   # project; managing one is not, so it stops there.
   it 'marks viewing as a read action and managing as a write' do

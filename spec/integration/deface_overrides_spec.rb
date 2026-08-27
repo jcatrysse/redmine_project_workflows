@@ -129,6 +129,23 @@ describe WorkflowsController, type: :controller do
     ApplicationController.helpers.respond_to?(:sprite_icon)
   end
 
+  # F16. The copy screen's two project labels had no `for` and did not wrap
+  # their select, so a screen reader read the option list with no field name --
+  # on the one screen where the two selects differ only in which is the source
+  # and which the target, and where getting them the wrong way round deletes a
+  # workflow. Asserted on the rendered page rather than on the partial, because
+  # the ids come from the two render sites.
+  it 'associates each label on the copy screen with its own select' do
+    get :copy
+
+    expect(response).to have_http_status(:ok)
+    ids = css_select('select#project_id_source, select#project_id_target').map { |node| node['id'] }
+    expect(ids).to contain_exactly('project_id_source', 'project_id_target')
+    ids.each do |id|
+      expect(css_select("label[for='#{id}']")).not_to be_empty, "no label is associated with ##{id}"
+    end
+  end
+
   it 'injects the project selector into the transitions page' do
     get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
                          project_id: ['global'], used_statuses_only: '0' }

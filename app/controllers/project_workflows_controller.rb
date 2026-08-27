@@ -16,6 +16,13 @@
 # it; here the settings tab lists the combinations and each one opens its own
 # matrix, which keeps every cell a plain yes or no. Bulk editing is WP5.
 class ProjectWorkflowsController < ApplicationController
+  # The submitted matrix, with core's "(No change)" stripped out. Extracted
+  # because Metrics/ClassLength crossed at 203/200, and that limit is already
+  # relaxed in .rubocop.yml with a stated rationale -- so crossing it is a signal
+  # to extract, not a cop to placate. Every method there is private: a public
+  # instance method of a controller is an action.
+  include RedmineProjectWorkflows::MatrixParams
+
   menu_item :settings
 
   helper :workflows
@@ -55,6 +62,19 @@ class ProjectWorkflowsController < ApplicationController
           @project.id, [@tracker], [@role], transitions_params
         )
       )
+    else
+      # A save that carries no matrix at all. Reachable only through a
+      # hand-built PATCH or an API client that omits it, so the practical impact
+      # is small -- but it was the one remaining path on this screen that said
+      # nothing, and the whole lesson of the earlier F06 was that a screen must
+      # not stay quiet about having done nothing (finding F17).
+      #
+      # The existing key rather than a new one: it already reads "Nothing was
+      # saved. Either no cell was changed, or the values submitted were not
+      # accepted", which covers this case exactly, and it is already translated
+      # in all eight locale files -- so nothing here can break
+      # spec/locales_spec.rb.
+      flash[:warning] = l(:notice_project_workflow_save_nothing_applied)
     end
     redirect_to matrix_path
   end
@@ -82,6 +102,9 @@ class ProjectWorkflowsController < ApplicationController
           @project.id, [@tracker], [@role], permissions_params
         )
       )
+    else
+      # See #update_transitions: the same silent path, the same existing key.
+      flash[:warning] = l(:notice_project_workflow_save_nothing_applied)
     end
     redirect_to matrix_path
   end
@@ -299,32 +322,5 @@ class ProjectWorkflowsController < ApplicationController
     else
       project_workflow_transitions_path(@project, options)
     end
-  end
-
-  def transitions_params
-    transitions = to_plain_hash(params[:transitions])
-    transitions.each_value do |transitions_by_new_status|
-      next unless transitions_by_new_status.respond_to?(:each_value)
-
-      transitions_by_new_status.each_value do |transition_by_rule|
-        transition_by_rule.reject! { |_rule, transition| transition == 'no_change' } if transition_by_rule.is_a?(Hash)
-      end
-    end
-    transitions
-  end
-
-  def permissions_params
-    permissions = to_plain_hash(params[:permissions])
-    permissions.each_value do |rule_by_field|
-      rule_by_field.reject! { |_field, rule| rule == 'no_change' } if rule_by_field.is_a?(Hash)
-    end
-    permissions
-  end
-
-  def to_plain_hash(value)
-    return {} if value.nil?
-    return value.to_unsafe_h if value.respond_to?(:to_unsafe_h)
-
-    value.respond_to?(:to_h) ? value.to_h : {}
   end
 end

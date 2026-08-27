@@ -6,6 +6,20 @@ on:
   pull_request:
   workflow_dispatch:
 
+# No step in this file writes to the repository, posts a comment or reads a
+# secret -- no step references the secrets context at all, and the database
+# services use literal in-workflow passwords -- so the token's authority is
+# entirely unused, and unbounded, which means a compromised action tag inherits
+# it (finding F13). Capping it here is
+# strictly broader protection than pinning `actions/checkout` and
+# `ruby/setup-ruby` to SHAs, because it holds whichever version of them runs.
+#
+# Deliberately NOT paired with SHA pins: without a Dependabot configuration
+# covering `github-actions` the pins rot, and that is a maintenance commitment
+# rather than a one-line change.
+permissions:
+  contents: read
+
 concurrency:
   group: specs-${{ github.ref }}
   cancel-in-progress: true
@@ -134,6 +148,18 @@ jobs:
 
       - name: Set up Redmine host and plugin
         run: dev/setup.sh "${{ matrix.redmine }}" "$DB"
+
+      # The Redmine matrix tracks the moving *-stable branches on purpose: that
+      # is this plugin's only free early warning that core has changed, which is
+      # exactly the risk spec/upstream/core_drift_spec.rb is about. Pinning them
+      # to fixed commits would buy reproducibility by throwing that away.
+      #
+      # What a moving branch does cost is attributability -- dev/setup.sh prints
+      # the branch and not the commit, so a red cell could not be tied to a
+      # Redmine revision. One line fixes that (finding F13).
+      - name: Which Redmine commit this cell tested
+        working-directory: ${{ env.REDMINE_DIR }}
+        run: git rev-parse HEAD && git log -1 --format='%ci %s'
 
       # Before the suite, deliberately: maintain_test_schema reloads db/schema.rb
       # when the suite starts and wipes the plugin's migration bookkeeping, after

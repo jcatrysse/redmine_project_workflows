@@ -513,7 +513,27 @@ describe WorkflowsController, type: :controller do
     ).to be_present
   end
 
-  it 'updates both global and project permissions when combined selection is saved (field-first payload)' do
+  # F14. These two examples used to assert that a *field-first* payload --
+  # permissions[<field>][<status>] -- was accepted and written, which
+  # `normalize_permissions_params` made true by transposing it. That method is
+  # gone, and these are **inverted rather than deleted**, because inverting says
+  # strictly more: such a payload is now refused by the writer's whitelist and
+  # the screen says so.
+  #
+  # The finding said there was "no spec" for the transposition. There were these
+  # two, and they are the reason the deletion needed a decision rather than a
+  # tidy-up. What justifies it: no screen on any supported Redmine produces the
+  # shape. WorkflowsHelper#field_permission_tag emits
+  # `permissions[<status>][<field>]` on 5.1, 6.1 and 7.0 -- checked in all three
+  # checkouts -- and so does the plugin's own project-level grid, which calls the
+  # same helper. Core's own update_permissions names its block variables `field`
+  # and `rule_by_status_id`, as though the payload were field-first; that is
+  # stale naming in core, not a second shape.
+  #
+  # The transposition also had a live defect: a *mixed* payload, where one key
+  # was not numeric, took the transposed branch and silently discarded the real
+  # matrix. Refusing a request outright is better than reinterpreting it.
+  it 'refuses a field-first permissions payload rather than transposing it' do
     give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
 
     post :update_permissions, params: {
@@ -521,56 +541,18 @@ describe WorkflowsController, type: :controller do
       tracker_id: [tracker.id],
       project_id: ['global', project.id.to_s],
       used_statuses_only: '0',
-      permissions: {
-        'subject' => {
-          old_status.id.to_s => 'readonly'
-        }
-      }
+      permissions: { 'subject' => { old_status.id.to_s => 'readonly' } }
     }
 
-    expect(response).to redirect_to(
-      permissions_workflows_path(
-        project_id: ['global', project.id],
-        tracker_id: [tracker.id],
-        role_id: [role.id],
-        used_statuses_only: '0'
-      )
-    )
-
-    expect(
-      WorkflowPermission.find_by(
-        tracker_id: tracker.id,
-        role_id: role.id,
-        old_status_id: old_status.id,
-        field_name: 'subject',
-        project_id: nil
-      )
-    ).to have_attributes(rule: 'readonly')
-    expect(
-      WorkflowPermission.find_by(
-        tracker_id: tracker.id,
-        role_id: role.id,
-        old_status_id: old_status.id,
-        field_name: 'subject',
-        project_id: project.id
-      )
-    ).to have_attributes(rule: 'readonly')
+    expect(WorkflowPermission.count).to eq(0)
+    expect(flash[:notice]).to be_nil
+    expect(flash[:warning]).to eq(I18n.t(:notice_project_workflow_save_nothing_applied))
   end
 
-  it 'treats project_id=all as all projects plus generic' do
-    get :edit, params: {
-      role_id: [role.id],
-      tracker_id: [tracker.id],
-      project_id: ['all'],
-      used_statuses_only: '0'
-    }
-
-    expect(response).to have_http_status(:ok)
-    expect(assigns(:global_selected)).to be(true)
-    expect(assigns(:selected_projects).size).to eq(Project.count)
-  end
-
-  it 'updates both global and project permissions when combined selection is saved (status-first payload)' do
+  # And the shape every screen actually submits still works, for both
+  # populations of the same selection -- which is what the two deleted examples
+  # were really covering.
+  it 'writes a status-first permissions payload for both populations' do
     give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
 
     post :update_permissions, params: {
@@ -578,75 +560,16 @@ describe WorkflowsController, type: :controller do
       tracker_id: [tracker.id],
       project_id: ['global', project.id.to_s],
       used_statuses_only: '0',
-      permissions: {
-        old_status.id.to_s => {
-          'subject' => 'readonly'
-        }
-      }
+      permissions: { old_status.id.to_s => { 'subject' => 'readonly' } }
     }
 
-    expect(response).to redirect_to(
-      permissions_workflows_path(
-        project_id: ['global', project.id],
-        tracker_id: [tracker.id],
-        role_id: [role.id],
-        used_statuses_only: '0'
-      )
-    )
-
-    expect(
-      WorkflowPermission.find_by(
-        tracker_id: tracker.id,
-        role_id: role.id,
-        old_status_id: old_status.id,
-        field_name: 'subject',
-        project_id: nil
-      )
-    ).to have_attributes(rule: 'readonly')
-    expect(
-      WorkflowPermission.find_by(
-        tracker_id: tracker.id,
-        role_id: role.id,
-        old_status_id: old_status.id,
-        field_name: 'subject',
-        project_id: project.id
-      )
-    ).to have_attributes(rule: 'readonly')
-  end
-
-  it 'updates permissions when params are field-first' do
-    give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
-
-    post :update_permissions, params: {
-      role_id: [role.id],
-      tracker_id: [tracker.id],
-      project_id: ['global', project.id.to_s],
-      used_statuses_only: '0',
-      permissions: {
-        'subject' => {
-          old_status.id.to_s => 'required'
-        }
-      }
-    }
-
-    expect(
-      WorkflowPermission.find_by(
-        tracker_id: tracker.id,
-        role_id: role.id,
-        old_status_id: old_status.id,
-        field_name: 'subject',
-        project_id: nil
-      )
-    ).to have_attributes(rule: 'required')
-    expect(
-      WorkflowPermission.find_by(
-        tracker_id: tracker.id,
-        role_id: role.id,
-        old_status_id: old_status.id,
-        field_name: 'subject',
-        project_id: project.id
-      )
-    ).to have_attributes(rule: 'required')
+    [nil, project.id].each do |project_id|
+      expect(
+        WorkflowPermission.find_by(tracker_id: tracker.id, role_id: role.id,
+                                   old_status_id: old_status.id, field_name: 'subject',
+                                   project_id: project_id)
+      ).to have_attributes(rule: 'readonly')
+    end
   end
 
   it 'copies project-specific workflow rules when duplicating' do
