@@ -75,10 +75,12 @@ left behind — which is exactly how the first version of those checks went wron
 node dev/check-bulk-js.mjs
 ```
 
-It needs only node, no Redmine and no database, and it is **not** in CI, which
-runs Ruby only. Run it by hand whenever that function changes. Keeping the
-function small enough for this to be sufficient is the reason it has no event
-wiring of its own.
+It needs only node, no Redmine and no database, and **CI runs it** — the
+`Bulk action script` job in `.github/workflows/specs.yml`, beside `RuboCop`
+(finding F07). It used to be a manual step, and whether it ran depended on
+somebody remembering. Run it by hand as well when that function changes, because
+it is a second of feedback rather than a push. Keeping the function small enough
+for this to be sufficient is the reason it has no event wiring of its own.
 
 ## Continuous integration
 

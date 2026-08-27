@@ -7,6 +7,91 @@
 #
 require_relative '../spec_helper'
 
+# INV-9's two numbers, in the one place a spec reads them from. Change these only
+# together with the assertion for the new override, and with CLAUDE.md and
+# docs/design.md, which carry the same numbers in words -- the third example
+# below is what stops those drifting apart.
+INV9_COUNTS = { overrides: 15, files: 12 }.freeze
+
+# F08. INV-9 says there are fifteen overrides in twelve files, and three places
+# write that down -- CLAUDE.md, docs/design.md and the comment below. The suite
+# asserts each of the fifteen against the rendered page with an assertion only
+# that one can satisfy, and asserted the *count* nowhere: a sixteenth override
+# added without an assertion passed every gate, silently, which is the exact
+# shape INV-9 exists to prevent.
+#
+# This is a speed bump, and it should be described as one rather than as a proof.
+# It cannot tell that override sixteen has an assertion; what it does is turn a
+# silent omission into a deliberate one, because adding an override now forces
+# the author to touch the constant, and the review rule for touching it is "add
+# the assertion in the same commit" (CLAUDE.md's forbidden-constructs table).
+#
+# Counting `Deface::Override.new` in the source rather than introspecting
+# Deface's own registry: the registry would be stronger and would couple the gate
+# to a Deface internal, which is the argument F12 makes against depending on that
+# gem's shape. The names are checked for uniqueness in the same pass, because two
+# overrides sharing a name is the other way this count can be right and the
+# overrides wrong -- Deface keys on the name, so the second would replace the
+# first.
+describe 'the INV-9 override inventory' do
+  let(:override_files) do
+    Dir.glob(File.expand_path('../../lib/redmine_project_workflows/overrides/*.rb', __dir__))
+  end
+
+  it 'has exactly the number of overrides INV-9 names, in the number of files it names' do
+    sources = override_files.map { |file| File.read(file) }
+
+    expect(override_files.size).to eq(INV9_COUNTS[:files])
+    expect(sources.sum { |source| source.scan('Deface::Override.new').size }).to eq(INV9_COUNTS[:overrides])
+  end
+
+  # Deface keys an override on its name, so two sharing one means the second
+  # replaces the first -- a count that is still right over overrides that are
+  # not.
+  #
+  # The name is taken from inside each Deface::Override.new call rather than by
+  # grepping the file for `name:`. A plain grep finds seventeen in fifteen
+  # overrides, because two of the overrides render form fields whose own markup
+  # carries `name: 'source_project_id'` and `name: 'target_project_ids[]'` -- and
+  # a gate that counted those would have been wrong in the direction that hides a
+  # missing override.
+  def override_names
+    override_files.flat_map do |file|
+      File.read(file).split('Deface::Override.new')[1..].map do |call|
+        call[/name:\s*['"]([^'"]+)['"]/, 1]
+      end
+    end
+  end
+
+  it 'gives every override a distinct name' do
+    names = override_names
+
+    expect(names.compact.size).to eq(INV9_COUNTS[:overrides])
+    expect(names.uniq.size).to eq(INV9_COUNTS[:overrides])
+  end
+
+  # Deface's registry is global across every installed plugin, so an unprefixed
+  # name is a collision waiting for a neighbour to introduce it -- and the loser
+  # of a collision is silent, which is INV-9's whole subject.
+  it 'prefixes every override name with the plugin id' do
+    expect(override_names).to all(start_with('redmine_project_workflows_'))
+  end
+
+  # The numbers in the three documents have to be the numbers here. Asserted
+  # against the prose because that is where a reader looks first, and a stale
+  # "fifteen" beside a constant reading sixteen is how INV-9 stopped being
+  # believable the last three times a count in this repository drifted.
+  it 'is the count CLAUDE.md and docs/design.md write down' do
+    root = File.expand_path('../..', __dir__)
+    words = { 15 => 'fifteen', 12 => 'twelve' }
+
+    [File.read("#{root}/CLAUDE.md"), File.read("#{root}/docs/design.md")].each do |document|
+      expect(document.downcase).to include(words.fetch(INV9_COUNTS[:overrides]))
+      expect(document.downcase).to include(words.fetch(INV9_COUNTS[:files]))
+    end
+  end
+end
+
 describe WorkflowsController, type: :controller do
   render_views
   fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members,

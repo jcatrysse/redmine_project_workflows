@@ -12,6 +12,13 @@
   stylesheet removes on form controls but never on an <a>, on any supported
   version.
 
+  tabindex="-1" is what lets the script move focus *here* before it hides the
+  undo link. Undoing until the stack empties otherwise leaves focus on the
+  element that is then hidden, and it falls back to <body> -- the next Tab
+  restarts at the top of the page, past the sentence that has just changed
+  (finding F15). -1 rather than 0: this is a focus target the script hands over
+  to, never a tab stop of its own.
+
   Rendered above the matrix from the two partials that are already there: the
   administration screens' note, and a project matrix's header. Not from an
   anchor of its own, because it needs none, and not from the script's own <td>,
@@ -23,7 +30,7 @@
   browser.
 %>
 <div id="project-workflow-bulk-undo" class="project-workflow-bulk-undo" style="display:none;"
-     aria-live="polite"
+     aria-live="polite" tabindex="-1"
      data-project-workflow-changed="<%= l(:text_project_workflow_bulk_changed) %>"
      data-project-workflow-undone="<%= l(:text_project_workflow_bulk_undone) %>">
   <span class="project-workflow-bulk-undo-message"></span>

@@ -26,6 +26,29 @@ jobs:
         env:
           BUNDLE_GEMFILE: ${{ github.workspace }}/.github/lint/Gemfile
 
+  # The only test of the only JavaScript this plugin ships -- 85 lines across
+  # _bulk_script.html.erb and permissions.html.erb. It was a manual step, and
+  # whether it ran depended on somebody remembering: docs/STATE.md's evidence
+  # table for one session reads "JavaScript gate: not re-run", which is exactly
+  # the failure mode (finding F07).
+  #
+  # No Redmine, no database, no gems: the script reads the partial off disk,
+  # evaluates the javascript_tag block against a hand-built DOM, and exits
+  # non-zero on failure. Node is preinstalled on ubuntu-latest, so this is a
+  # checkout and one command.
+  #
+  # Deliberately not the Capybara + axe-core system tests the second review
+  # asked for: the suite runs inside nine different Redmine host checkouts, so a
+  # browser gate would have to work in all nine, which is disproportionate to 85
+  # lines whose surrounding markup is already asserted server-side on every cell.
+  javascript:
+    name: Bulk action script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bulk action script
+        run: node dev/check-bulk-js.mjs
+
   rspec:
     name: Redmine ${{ matrix.redmine }} / ${{ matrix.db }}
     runs-on: ubuntu-latest

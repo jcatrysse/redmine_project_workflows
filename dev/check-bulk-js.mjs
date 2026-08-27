@@ -8,8 +8,10 @@
 //
 //   node dev/check-bulk-js.mjs
 //
-// It is a manual gate: CI runs Ruby only, so this has to be run by hand (or
-// wired into a JS job) when the script changes.
+// CI runs it: the `Bulk action script` job in .github/workflows/specs.yml,
+// beside RuboCop (finding F07). It needs no Redmine, no database and no gems, so
+// it is a checkout and one command. Run it by hand too when the script changes —
+// a second of feedback beats a push.
 //
 // The whole javascript_tag block is extracted and evaluated ONCE, not one
 // function at a time: the undo stack (WP6) is state the functions share, so
@@ -63,11 +65,17 @@ function select({ value, options, disabled = false }) {
 // written into, and the undo link whose visibility follows the stack.
 function undoRegion() {
   const message = { textContent: '' };
-  const undoLink = { style: {} };
-  return {
+  // style.display starts as the rendered default -- the link is visible in the
+  // markup and the script is what hides it. Starting it at 'none' would make
+  // the focus check below pass for the wrong reason (F15).
+  const undoLink = { style: { display: '' } };
+  const self = {
     style: {},
     message,
     undoLink,
+    focused: 0,
+    // tabindex="-1" on the region is what makes this callable; _bulk_undo sets it.
+    focus() { this.focused += 1; global.document.activeElement = self; },
     getAttribute(name) {
       return { 'data-project-workflow-changed': 'changed %{cells} cells, %{rules} rules',
                'data-project-workflow-undone': 'undone %{cells} cells, %{rules} rules' }[name];
@@ -76,6 +84,7 @@ function undoRegion() {
       return selector.includes('message') ? message : undoLink;
     }
   };
+  return self;
 }
 
 // null means "a page that renders the actions without the region", which the
@@ -93,7 +102,8 @@ function reset() {
 }
 
 function install(controls) {
-  global.document = { querySelectorAll: () => controls, getElementById: () => region };
+  global.document = { querySelectorAll: () => controls, getElementById: () => region,
+                      activeElement: (global.document && global.document.activeElement) || null };
   global.window = { confirm: (question) => { confirmations.push(question); return confirmAnswer; } };
   global.Event = class { constructor(type) { this.type = type; } };
 }
@@ -211,6 +221,47 @@ check('and the undo is gone', region.undoLink.style.display, 'none');
 undo(cells);
 check('undo on an empty stack changes nothing', cells[0].value, 'no_change');
 check('and says so rather than throwing', region.message.textContent, 'undone 0 cells, 0 rules');
+
+// --- 5b. focus when the undo link withdraws itself (F15) ---------------------
+//
+// A keyboard user who activates undo until the stack empties has focus on the
+// undo link, and the script then hides it. Hiding the element that holds focus
+// drops focus to <body>, so the next Tab restarts at the top of the page -- past
+// the aria-live sentence that has just changed. The region takes focus instead
+// (tabindex="-1" in _bulk_undo.html.erb).
+reset();
+cells = [checkbox({ checked: false })];
+run(cells, { value: '1', multiplier: 1 });
+global.document.activeElement = region.undoLink;
+undo(cells);
+check('focus moves to the region before the undo link is hidden', region.focused, 1);
+check('and lands on the region rather than nowhere', global.document.activeElement === region, true);
+check('the link is hidden all the same', region.undoLink.style.display, 'none');
+
+// Focus is not stolen from wherever the user actually is. Somebody who clicked
+// a row action and then tabbed on has focus elsewhere; the region must not
+// yank it back just because the stack emptied.
+reset();
+cells = [checkbox({ checked: false })];
+run(cells, { value: '1', multiplier: 1 });
+const elsewhere = { name: 'some other control' };
+global.document.activeElement = elsewhere;
+undo(cells);
+check('focus is left alone when it is not on the undo link', region.focused, 0);
+check('and stays where the user put it', global.document.activeElement === elsewhere, true);
+
+// An undo on an already-empty stack must not move focus either: the link is
+// already hidden, so there is nothing to take focus away from.
+reset();
+cells = [checkbox({ checked: false })];
+run(cells, { value: '1', multiplier: 1 });
+undo(cells);
+const focusedAfterFirst = region.focused;
+global.document.activeElement = region.undoLink;
+undo(cells);
+check('a further undo on an empty stack does not move focus again',
+      region.focused, focusedAfterFirst);
+
 
 // A refused confirmation must not leave an entry behind for undo to "restore".
 reset();

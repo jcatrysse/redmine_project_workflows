@@ -43,7 +43,20 @@ function projectWorkflowBulkSay(template, cells, rules) {
   region.querySelector('.project-workflow-bulk-undo-message').textContent = text;
   region.style.display = '';
   var undo = region.querySelector('.project-workflow-bulk-undo-action');
-  if (undo) { undo.style.display = projectWorkflowBulkUndoStack.length > 0 ? '' : 'none'; }
+  if (undo) {
+    var offered = projectWorkflowBulkUndoStack.length > 0;
+    // Focus first, hide second. A keyboard user who undoes until the stack
+    // empties has focus on this very link, and hiding the element that holds
+    // focus drops it to <body> -- so the next Tab starts at the top of the page
+    // and the sentence that has just changed is never reached. The region has
+    // tabindex="-1" so it can take focus, and it carries aria-live, so moving
+    // focus there lands on the confirmation rather than nowhere (finding F15).
+    if (!offered && undo.style.display !== 'none' &&
+        document.activeElement === undo && region.focus) {
+      region.focus();
+    }
+    undo.style.display = offered ? '' : 'none';
+  }
 }
 
 function projectWorkflowBulkSet(control, value) {
