@@ -202,14 +202,31 @@ strictly more. Six `ensure_scopes_for_copy` call sites in
 `spec/services/scope_writer_spec.rb` moved from three id lists to a list of
 triples, for the same reason F04 did.
 
-Method, because the previous two sessions were each fooled once by the wrong
-one: each red example was written and run **before** its fix, against the tree as
-it then stood, and the whole set of fifteen was re-confirmed afterwards against
-a pristine `c3047cf` by `git checkout c3047cf -- app lib config` with `spec/` left
-at HEAD, running, and restoring with `git checkout HEAD -- app lib config` — with
-the fixes **committed first**, which is what makes the restore safe. Never
-`git stash`, which exits 0 and says "No local changes to save" once the change is
-committed, and turns the "old code" run into the new code passing itself.
+Method, because the previous two sessions were each fooled once by the wrong one.
+Each red example was written and run **before** its fix, against the tree as it
+then stood. The set was then re-confirmed against a pristine `c3047cf`, with the
+fixes **committed first** — which is what makes the restore safe — by
+`git checkout c3047cf -- app lib config`, leaving `spec/` and the docs at HEAD,
+running the suite, and restoring with `git checkout HEAD -- app lib config`.
+Never `git stash`: it exits 0 and says "No local changes to save" once the change
+is committed, and turns the "old code" run into the new code passing itself.
+
+That run gave **670 examples, 27 failures**, and every one of the 27 is
+accounted for, which is the point of quoting the number:
+
+- **14** are the red examples above — F01 (2), F03 (1), F04 (1), F05 (4) and
+  F06 (6). The fifteenth is F02's, and this run could not show it: the value it
+  asserts lives in `.rubocop.yml`, which is not under `app`, `lib` or `config`,
+  so the run saw the corrected `6.1`. It was proved red on its own, by setting
+  the value back to `8.1` and running the example, and green again on restoring
+  `6.1`.
+- **11** are the existing examples this session rewrote for the writers' new
+  return type (5) and for `ensure_scopes_for_copy`'s new keyword (6). They fail
+  against the old code by construction — that is what "rewritten" means — and
+  neither rewrite weakened an assertion.
+- **2** are the new `ScopeWriter.touch_combinations` examples, failing with
+  `NoMethodError` because the method did not exist. Counted in the eighteen
+  above, not in the fifteen: a missing method is not evidence about behaviour.
 
 ## Evidence
 
