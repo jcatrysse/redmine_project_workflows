@@ -154,12 +154,22 @@ module RedmineProjectWorkflows
 
       # Action two: return these projects to the generic workflow. The scope and
       # the rules both go; nothing about the project is left in the tables.
+      #
+      # The scopes are locked before either delete, which is the same order the
+      # rule writers take (MatrixScope#writable_pairs). It is what decides the
+      # race between this action and a matrix save: whichever of the two gets
+      # the scope rows first runs to completion, and the other one sees the
+      # table as it left it. Taking the rules first instead would let a save
+      # write project rules whose scope this transaction is about to delete --
+      # rows the resolver then ignores, because a project without a scope
+      # follows the generic workflow (INV-3).
       def self.return_to_inheritance(project_ids:, tracker_ids:, role_ids:, rule_type:)
         touched = 0
 
         ProjectWorkflowScope.transaction do
           combinations = existing_combinations(
-            project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids, rule_type: rule_type
+            project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids,
+            rule_type: rule_type, lock: true
           )
           next if combinations.empty?
 
@@ -183,8 +193,12 @@ module RedmineProjectWorkflows
         touched = 0
 
         ProjectWorkflowScope.transaction do
+          # Locked, for the reason .return_to_inheritance gives: this action
+          # deletes rules too, and it must not be deleting the rules of a scope
+          # somebody else is removing from under it in the other order.
           combinations = existing_combinations(
-            project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids, rule_type: rule_type
+            project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids,
+            rule_type: rule_type, lock: true
           )
           next if combinations.empty?
 
@@ -207,13 +221,46 @@ module RedmineProjectWorkflows
 
       # (project_id, tracker_id, role_id) triples in this selection that have a
       # scope for this rule type.
-      def self.existing_combinations(project_ids:, tracker_ids:, role_ids:, rule_type:)
+      #
+      # +lock+ takes SELECT ... FOR UPDATE on exactly those rows, and only
+      # means anything inside a transaction, which is where every caller that
+      # passes it is. It makes "does this project run its own workflow here?"
+      # and "write its rules" one decision instead of two: without it the
+      # answer can be true when it is read and false by the time the rules are
+      # written, and the rules are then stored under a scope that no longer
+      # exists -- rows the resolver ignores, on a save that reported success.
+      def self.existing_combinations(project_ids:, tracker_ids:, role_ids:, rule_type:, lock: false)
         project_ids, tracker_ids, role_ids = normalize(project_ids, tracker_ids, role_ids)
         return [] if project_ids.empty? || tracker_ids.empty? || role_ids.empty?
 
-        scope_relation(project_ids, tracker_ids, role_ids, rule_type)
-          .pluck(:project_id, :tracker_id, :role_id)
+        relation = scope_relation(project_ids, tracker_ids, role_ids, rule_type)
+        return relation.pluck(:project_id, :tracker_id, :role_id) unless lock
+
+        lock_combinations(relation)
       end
+
+      # The lock is taken by primary key in a second statement, in id order,
+      # and what that statement returns is the answer -- not what the first one
+      # found. Three reasons for the shape:
+      #
+      #   * a row this transaction had to wait for, because the transaction it
+      #     waited for was deleting it, is simply absent from the second read.
+      #     That is the whole point: the caller sees the table as the other
+      #     transaction left it, never as it was before.
+      #   * locking by primary key rather than by the (project, tracker, role)
+      #     predicate keeps InnoDB from taking gap locks over a range that is
+      #     mostly empty, which would block inserts nobody in this request
+      #     cares about.
+      #   * the id order makes two callers take the same locks in the same
+      #     order, so a pair of concurrent saves queue rather than deadlock.
+      def self.lock_combinations(relation)
+        ids = relation.order(:id).pluck(:id)
+        return [] if ids.empty?
+
+        ProjectWorkflowScope.where(id: ids).order(:id).lock
+                            .pluck(:project_id, :tracker_id, :role_id)
+      end
+      private_class_method :lock_combinations
 
       # The complement: triples in this selection that inherit.
       def self.missing_combinations(project_ids:, tracker_ids:, role_ids:, rule_type:)

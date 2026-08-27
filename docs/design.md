@@ -101,6 +101,31 @@ were left alone.
 no transition is permitted at all, and arriving there by accident would freeze
 every issue in the project.
 
+### Two of the three actions at once
+
+Each of the three is one transaction, and between them they may not produce a
+state the three-way distinction cannot describe. The one that mattered is rules
+with no scope over them: the resolver reads such a project as following the
+generic workflow (INV-3), so the rules are invisible, they are never cleaned up,
+and the save that wrote them reported success.
+
+It arose because a rule write asked whether the project had taken this
+combination over and wrote the rules afterwards, on the strength of an answer
+that another request could have invalidated in between. The two are now one
+decision: `MatrixScope#writable_pairs` locks the scope rows with
+`SELECT … FOR UPDATE` inside the transaction that then writes, and
+`ScopeWriter.return_to_inheritance` and `.clear_rules` take the same locks before
+either of their deletes. Every path therefore takes scope rows before workflow
+rows, which is also what keeps a save and a return to the generic workflow from
+deadlocking rather than queueing.
+
+Two consequences worth knowing. A save that loses the race is *refused* for that
+combination and counted among the ones it left alone, exactly as if the project
+had been following the generic workflow when the form was opened — which by then
+it is. And "give own workflow" reports only the combinations whose scope row it
+actually inserted: the other administrator's press created the rest, their rules
+belong to that press, and this one leaves them alone.
+
 ## Resolution
 
 For one issue, one tracker and the roles the user holds in that project:
