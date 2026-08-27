@@ -89,7 +89,7 @@ table; three of its five new examples fail if the callback is put back.
 
 ### G02 — A bulk tracker change queries once per project, where core queries once
 
-- **Status:** open
+- **Status:** wont-fix for now — **answered A by Jan on 2026-08-27**
 - **Severity:** minor (reported as major)
 - **Confidence:** confirmed
 - **Category:** performance
@@ -159,9 +159,31 @@ What is *not* re-opened here: F11's grouping does not help this path, because
 each call still resolves exactly one pair. A real fix needs the whole
 `edited_issues` set in one call, which needs a hook in `IssuesController` — a new
 patch surface, and one more copied core method in the F03 digest table. That is
-a Class B decision for Jan rather than a fixer's, and it is written up in
-`docs/DECISIONS.md` under *Open — for Jan* with the two cheaper partial options
-and what each costs.
+a Class B decision for Jan rather than a fixer's, and it was written up in
+`docs/DECISIONS.md` with the two cheaper partial options and what each costs.
+
+**Answered by Jan on 2026-08-27: A for now, B if it becomes an issue later.**
+This finding is therefore **not** going to be fixed as it stands, and that is a
+decision rather than a backlog item — a later review does not need to re-file it.
+Two things follow, which is why this paragraph exists rather than a one-line
+status change:
+
+* **The eventual fix is named, and it is B, not C.** When somebody does feel it —
+  a Redmine where changing the tracker of a few hundred issues spread across many
+  projects is routine — the answer is to resolve the whole `edited_issues` set in
+  one call, which means patching `IssuesController`. The half measure **C** (share
+  one answer between the projects that have *not* taken the tracker over, ~11
+  statements instead of 22) was **not** chosen, so a later session must not reach
+  for it as "the cheap version of what Jan asked for": it adds a second cache to a
+  path every issue save touches and still leaves the cost linear in the number of
+  projects. If C is ever wanted, it is a fresh question.
+* **B has a price that has to be paid deliberately.** A new patch surface on a
+  core controller is one more copied method for `spec/upstream/core_drift_spec.rb`
+  to digest, on a controller whose `bulk_edit` and `bulk_update` differ between
+  5.1 and 6.x — so it needs the digest table re-measured on all three Redmine
+  minors, and it is a change to how much of core this plugin reimplements rather
+  than a performance tweak. Read `docs/design.md`'s core-code table before
+  starting it.
 
 ---
 

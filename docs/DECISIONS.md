@@ -27,6 +27,7 @@
 | 2026-08-26 | Supported versions | Redmine 5.1, 6.1 and 7.0 | 5.1 is in production; 7.0 already passes. The cost is version-conditional code for SVG sprites, kept behind one helper. |
 | 2026-08-26 | Agent framework | Adopt the `redmine_ai_triage` framework, adapted | Full scope: CLAUDE.md with plugin-specific invariants, the three memory files, the review loop, one design document and one ADR, three extra CI gates. |
 | 2026-08-26 | Development branch | One pinned branch, `claude/dev` | Overrides the per-session branch name the environment prescribes. Without a pin the work migrates to a new branch every session. |
+| 2026-08-27 | Bulk tracker change across many projects (finding G02) | **A for now, B if it becomes an issue later** | Two statements per distinct project against core's one for the whole selection: 22 for ten issues in ten projects, 2 for ten in one, measured twice. Left as it is, because the action is rare and an ordinary issue save asks nothing. When it is ever felt, the fix is **B** — resolve the whole `edited_issues` set in one call, which means patching `IssuesController`. The half measure **C** (one shared answer for the projects that have not taken the tracker over, ~11 instead of 22) was **not** chosen and is not a cheap substitute for B; it would add a second cache to a path every issue save touches and leave the cost linear in project count. B's price is one more copied core method in F03's digest table, on a controller that differs between 5.1 and 6.x, so it needs the table re-measured on all three minors. |
 | 2026-08-26 | Documentation language | English throughout | Including `STATE.md`, `DECISIONS.md` and the session report — differs from `redmine_ai_triage`, where those three are Dutch. |
 | 2026-08-26 | Invariant enforcement | Text in CLAUDE.md, no scanner spec | Considered and rejected: a spec that greps for forbidden constructs and fails the build, as `redmine_ai_triage` does. Revisit if an invariant is breached in practice. |
 | 2026-08-26 | Plugin patch hook | Patches are applied in the body of `init.rb`; the corrected `CLAUDE.md` row stands | Answered A. `Rails.application.config.to_prepare` in a plugin's `init.rb` is a silent no-op: `:add_to_prepare_blocks` has already consumed `config.to_prepare_blocks` by the time Redmine's `PluginLoader` loads the file, and following the old wording disabled the plugin entirely while the suite stayed green. Considered and rejected: reverting the table and recording the trap elsewhere. |
@@ -175,40 +176,15 @@
 
 ## Open — for Jan
 
-*(Items land here with their options, a plain-language explanation of each and a
-recommendation, while the build continues on the safest default. Everything
-filed here before 2026-08-27 has been answered: the two of that day — the review
-loop's branch (**F09**) and whether the `.codex/` scripts should come back
-(**F08**) — were answered **A and A** the same day and have moved up, as was the
+*(Nothing open. Items land here with their options, a plain-language explanation
+of each and a recommendation, while the build continues on the safest default.
+Everything ever filed here has been answered, and **G02 on the day it was
+filed** — 2026-08-27, `A for now, B if it becomes an issue later`. Before it: the
+two of that same day, the review loop's branch (**F09**) and whether the
+`.codex/` scripts should come back (**F08**), answered **A and A**, as was the
 bulk scope-create question; finding **C01** was answered **B** on 2026-08-26, as
 were WP8's two (**A**), WP7's one, WP8's renderer choice (**C**), WP4's two and
 WP5's one.)*
-
-- **Choice (finding G02, filed 2026-08-26, re-measured 2026-08-27):** a bulk
-  tracker change spanning many projects asks the database twice per project,
-  where stock Redmine asks once for the whole selection. Measured again on
-  `4162e7f`: ten issues in ten projects cost **22** statements, ten issues in one
-  project **2**. Should the plugin batch it?
-  - **A — leave it.** Nothing is wrong; it is slower than core on one action,
-    changing the tracker of issues spread across many projects at once. An
-    ordinary issue save asks nothing, because the plugin only looks when the
-    tracker actually changes.
-  - **B — patch Redmine's issues controller** so the whole selection is resolved
-    in one go. This is the only option that reaches one query for the lot. The
-    cost is a new place where the plugin reaches into Redmine's own code — the
-    thing that goes stale when Redmine changes, and one more method for the
-    drift gate to watch — on a controller that differs between 5.1 and 6.x/7.0.
-  - **C — a half measure with no new patch.** Projects that have *not* taken
-    over that tracker all get the same answer, so it could be computed once per
-    request instead of once per project: about **11** statements instead of 22
-    where nothing is overridden, and no change at all (**20**) where every
-    project has its own workflow. Cheap, reversible, and it adds a second cache
-    to a path an issue save touches.
-  - **Recommendation:** **A for now, C if it is ever felt.** The action is rare,
-    the cost is invisible below a few dozen projects, and B is the only real fix
-    but buys its speed with the plugin's most fragile kind of coupling — which
-    the drift gate exists precisely because we already have too much of.
-  - **Urgent?** no — nothing is blocked, and the default (A) is what ships.
 
 ## Decided (autonomous) — 2026-08-26, review-fix session
 

@@ -23,12 +23,13 @@
 - **`docs/review/findings/2026-08-27-bundled.md` now has no open finding.** Of its
   21: twenty `fixed`, one `wont-fix` by Jan's answer (F21). Every one carries a
   `Resolution:` line.
-- **One finding elsewhere is still open, and the previous STATE was wrong to
+- **One finding elsewhere was still open, and the previous STATE was wrong to
   imply otherwise:** **G02** in `docs/review/findings/2026-08-26-wp2-observations.md`
   — a cross-project bulk tracker change asks the database twice per project. It
-  was re-measured this session and **stands**; it is not fixed, and it is now a
-  filed choice for Jan rather than a note deferred to a work package that has
-  since been marked done. See *Open choices*.
+  was re-measured this session and **stands** as a fact; **Jan answered it the
+  same day** — `A for now, B if it becomes an issue later` — so it is
+  `wont-fix for now` rather than work, and the eventual fix is named. See
+  *Open choices*.
 - **What exists:** the plugin at **0.1.5**. 0.1.0 is the scope model and the
   eight work packages; 0.1.1 the two matrix-save repairs; 0.1.2 the two
   concurrency repairs; 0.1.3 one operability defect and seven edges; 0.1.4
@@ -42,8 +43,10 @@
   exists only on `claude/dev`, and `origin/main`'s history is **unrelated** to
   `origin/claude/dev`'s — they share no merge base, so a merge needs
   `--allow-unrelated-histories`.
-- **Open choices for Jan:** **one**, filed this session and not urgent — G02's
-  batching. Nothing is blocked on it; the default (leave it) is what ships.
+- **Open choices for Jan:** **none.** One was filed this session, G02's batching,
+  and answered the same day: leave it, and when it is ever felt the fix is B —
+  patch `IssuesController` so a bulk edit resolves in one call — **not** the
+  cheaper half measure C.
 
 ## What this session produced
 
@@ -85,7 +88,7 @@ green on the old code, one new) and two statement-shape ones. `generic_condition
 is unchanged, and both it and the new method now say in comments that its
 intersection is load-bearing, so a later grouping pass cannot move it by accident.
 
-### G02 — re-measured, not fixed
+### G02 — re-measured, filed, and answered the same day
 
 `Issue#tracker=` asks the plugin which statuses a tracker's workflow uses, cached
 per (project, tracker) for the length of the request. Core memoises the same
@@ -98,9 +101,12 @@ override that tracker.
 Not fixed, and deliberately: the only real fix needs the whole `edited_issues`
 set in one call, which needs a hook in `IssuesController` — a new patch surface
 and one more copied core method for the drift gate to watch, on a controller that
-differs between 5.1 and 6.x. That is Jan's call, filed with two cheaper partial
-options. F11's grouping does not help here, because each call still resolves
-exactly one pair.
+differs between 5.1 and 6.x. That was Jan's call rather than a fixer's, and he
+answered it the same day: **`A for now, B if it becomes an issue later`** — leave
+it, and when it is ever felt, do the real fix rather than the half measure. The
+finding is `wont-fix for now` and carries the whole answer, including why C is
+*not* a cheap substitute for B. F11's grouping does not help this path, because
+each call still resolves exactly one pair.
 
 ## What the tests found that the findings had not
 
@@ -155,28 +161,36 @@ exactly one pair.
    renders a one-element `project_id` list, `= 1` versus `IN (1)` — is settled.
    The shape examples count `project_id` occurrences precisely so that either
    spelling passes.
-2. **It is Jan's turn.** Every finding in
-   `docs/review/findings/2026-08-27-bundled.md` is closed, and the only open one
-   anywhere is G02, which is a filed choice rather than work. The readable
-   account for a user is the CHANGELOG's 0.1.5 entry.
+2. **It is Jan's turn, and nothing is waiting on him either.** Every finding in
+   `docs/review/findings/2026-08-27-bundled.md` is closed; G02 is
+   `wont-fix for now` by his answer of the same day. **No findings file anywhere
+   has an open finding** — `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`
+   matches only `TEMPLATE.md`. The readable account for a user is the CHANGELOG's
+   0.1.5 entry.
 3. **If a next session is asked to keep going anyway**, the honest options in
    order of value are: a fresh **review run** (a new findings file — the last one
-   examined `03a1ab0`, which is now eleven commits behind), or G02 option **C**
-   if Jan has answered, or nothing at all. Do **not** invent a WP9.
+   examined `03a1ab0`, which is now a dozen commits behind), or nothing at all.
+   **Not** G02: its answer is "leave it, and B if it becomes an issue later", and
+   neither half of that is an instruction to start now. Do **not** invent a WP9.
 
 ## Open choices
 
-**One**, filed 2026-08-27 by this session. It is in `docs/DECISIONS.md` under
-*Open — for Jan* with the full options; the short form:
+**None.** One was filed by this session and **answered by Jan the same day**, so
+it is recorded here as an answer a later session must not quietly revisit:
 
-- **G02 — a bulk tracker change spanning many projects asks twice per project.**
-  **A)** leave it — one rare action is slower than core, an ordinary issue save
-  asks nothing. **B)** patch Redmine's issues controller so the whole selection
-  resolves in one query — the only real fix, bought with the plugin's most
-  fragile kind of coupling. **C)** a half measure with no new patch: projects
-  that have *not* taken over the tracker all share one answer, so ~11 statements
-  instead of 22 where nothing is overridden and no change where everything is.
-  **Recommendation: A now, C if it is ever felt. Not urgent.**
+- **G02 — a bulk tracker change spanning many projects asks the database twice
+  per project**, where core asks once for the whole selection (22 statements for
+  ten issues in ten projects, 2 for ten in one). **Answered `A for now, B if it
+  becomes an issue later`.** So: left as it is, and when somebody does feel it,
+  the fix is **B** — resolve the whole `edited_issues` set in one call, which
+  means patching `IssuesController`. **The half measure C was not chosen**, and
+  that matters more than the yes: a later session must not reach for it as "the
+  cheap version of B", because it adds a second cache to a path every issue save
+  touches and still leaves the cost linear in the number of projects. Note this
+  is *not* the recommendation the session gave (it recommended A now, C later);
+  Jan's answer names B, and B's price is one more copied core method in F03's
+  digest table on a controller that differs between 5.1 and 6.x, so it needs the
+  table re-measured on all three minors.
 
 And still standing from before, because a later session must not undo them:
 
@@ -836,10 +850,11 @@ and the review loop is, for the moment, **empty of work**. In order:
 
 1. **Nothing is waiting from the last session.** Run 104 on `4162e7f` is green
    on all eleven jobs; the branch is green at its head.
-2. **Nothing else is waiting either.** Every finding in the bundled review is closed and
-   the only open finding anywhere, G02, is a filed choice for Jan with a
-   recommendation and a safe default already in place. Do not start B on it
-   without an answer: it opens a new patch surface.
+2. **Nothing else is waiting either.** Every finding in every findings file is
+   closed or decided: the bundled review's 21 are twenty `fixed` and one
+   `wont-fix`, and G02 is `wont-fix for now` by Jan's answer. Do not start G02's
+   option B unprompted — the answer was "if it becomes an issue later", and it
+   opens a new patch surface on a core controller.
 3. **If more work is wanted rather than needed**, the honest choice is a fresh
    **review run** against the current head — the last one examined `03a1ab0`,
    which is now eleven commits behind, and a review session writes a findings
