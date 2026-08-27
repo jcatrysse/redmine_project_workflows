@@ -36,9 +36,14 @@
   `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` — one hit plus a
   line in `TEMPLATE.md`, which is not a finding.
 - **`spec/characterization/`:** still **gone**, since WP3.
-- **Open choices:** **one**, and it is not urgent — whether a bulk
-  scope-creating statement should be allowed at all, which is an ADR question.
-  See "Open choices" below and `docs/DECISIONS.md`.
+- **Open choices:** **none.** The one this session filed — whether a bulk
+  scope-creating statement should be allowed at all — Jan answered **A** the
+  same day: it should not. `docs/DECISIONS.md` carries it under
+  "Decided (Jan) — 2026-08-27", and the code comment, `docs/design.md` and the
+  findings file were corrected to say so rather than to go on asking. That
+  matters here for a reason the repository has already been bitten by: `G03`
+  spent a session marked *open* in its findings file after Jan had answered it,
+  because only the ledger was updated.
 
 ## What this session produced
 
@@ -146,36 +151,35 @@ three seconds of suite time.
 | JavaScript gate | not re-run: nothing in `_bulk_script.html.erb` changed |
 | Locale parity | unchanged — no locale key was added or removed |
 | MySQL 8.4, and the remaining cells | not run locally — **five of the nine cells ran here**; CI covers the other four |
-| CI | to be read on the pushed head. Every commit of this session that carries code gets a ten-job run — nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop — and the run appears **several minutes after** the push, not immediately |
+| CI | **green on the head**, all ten jobs — nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop. Naming the run number here is a regress, because every correction to this row is itself a commit; the rule instead: every commit of this session that carries code gets a ten-job run, and the run appears **several minutes after** the push rather than immediately |
 
 ## Exact next step
 
-1. **Read CI on the head of `claude/dev`.** The concurrency spec is the one
-   thing here that has never run on MySQL 8.4, and the whole point of the
-   nine-cell matrix is that "green on my machine" is four of nine. If a cell is
-   red, it will be in `spec/services/workflow_concurrency_spec.rb` and the
-   likely cause is lock behaviour rather than the plugin's logic.
-2. **Then it is Jan's turn.** `docs/review/findings/2026-08-27-codex.md` is the
-   readable account; the CHANGELOG's 0.1.2 entry is the same thing for a user.
-3. The open choice below wants an answer eventually, not now.
-4. If he wants more, the candidates already written down are unchanged: the
+1. **Nothing to check first.** CI ran the full nine-cell matrix plus RuboCop on
+   this session's code and was green on all ten jobs, MySQL 8.4 included — which
+   was the one cell the concurrency spec had never seen, and the only real
+   question left about it.
+2. **It is Jan's turn.** `docs/review/findings/2026-08-27-codex.md` is the
+   readable account of what was wrong and what was done about it; the
+   CHANGELOG's 0.1.2 entry is the same thing for a user. Nothing waits on him:
+   the one choice this session raised, he has already answered.
+3. If he wants more, the candidates already written down are unchanged: the
    layered SVG diagram, the issue show page, row and column actions on the
    field-permissions matrix, and finding `G02`.
 
 ## Open choices
 
-- **Choice:** should creating scopes in bulk be allowed to use one statement for
-  many rows, and if so, written down where?
-- **Options:** **A)** leave it — one validated insert per combination, which is
-  what every other model write in Redmine does, and *give own workflow* stays as
-  slow as the selection is large. **B)** write an ADR that permits a bulk scope
-  create in `ScopeWriter` only, and amend the forbidden-constructs table to name
-  it, so the rule means what the code does. **C)** keep the ban and make the
-  action chunked or asynchronous instead.
-- **Recommendation:** **A** for now, **B** if anybody meets the slow case — the
-  round trips are inside one transaction on one administration action, and
-  nobody has reported it.
-- **Urgent?** no. The safe behaviour is what shipped.
+None. The bulk scope-create question was filed and answered on 2026-08-27:
+**A — leave it**, one validated insert per (project, tracker, role), no bulk
+boundary and no ADR.
+
+What that means for a later session, because it is the kind of thing that reads
+like an oversight: the round trips in `ScopeWriter.create_scopes` are **not** a
+performance defect waiting to be optimised. *Give own workflow* with every
+project selected makes one INSERT per combination on purpose. If anybody ever
+actually meets the slow case, what gets written is the ADR (option **B**, a bulk
+boundary for that one method, plus an amendment to the forbidden-constructs
+table) — not a quiet change to the method.
 
 ## Development environment — how to rebuild it
 

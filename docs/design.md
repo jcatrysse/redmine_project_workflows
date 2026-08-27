@@ -291,7 +291,8 @@ batches of a thousand. The row count is the honest part of that — a matrix of
 *s* statuses is about *s²* cells, and the operator asked for it — but the round
 trips are not, so the whole save is one transaction rather than one per project.
 
-Scope creation is deliberately *not* batched, and was briefly batched by mistake.
+Scope creation is deliberately *not* batched — Jan's decision of 2026-08-27,
+not merely the safe default — and was briefly batched by mistake.
 0.1.1 wrote the rows with `insert_all`, which the forbidden-constructs table in
 `CLAUDE.md` allows only in the two rule writers — and which, being the skipping
 form of the statement, reported a row it had silently dropped as created. It is

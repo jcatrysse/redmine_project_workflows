@@ -175,35 +175,12 @@
 
 ## Open — for Jan
 
-*(One open item, below. Finding **C01** was answered **B** on 2026-08-26 and has
-moved up, as were WP8's two (**A**), WP7's one, WP8's renderer choice (**C**),
-WP4's two and WP5's one. Items land here with their options, a plain-language
-explanation of each and a recommendation, while the build continues on the
-safest default.)*
-
-- **Choice:** Should creating scopes in bulk be allowed to use one statement
-  for many rows, and if so, written down where?
-  **Background:** *Give own workflow* creates one row per (project, tracker,
-  role). With every project selected on a large installation that is tens of
-  thousands of rows, and as of today it is one round trip each, because the
-  one-statement form (`insert_all`) is banned outside the two rule writers and
-  the 0.1.1 session had used it here anyway. Restoring the rule is F01 of the
-  2026-08-27 review and is done; what it costs is speed on one administration
-  action.
-  **Options:** A) Leave it. One validated insert per combination, which is what
-  every other model write in Redmine does, and the action stays as slow as the
-  selection is large. B) Write an ADR that permits a *bulk scope create* — one
-  statement for many rows in `ScopeWriter` only, with the same
-  "nothing here comes from a request" argument `ScopeCopier` already makes for
-  its raw `INSERT ... SELECT` — and amend the forbidden-constructs table to
-  name it. That is faster, and it makes the rule mean what the code does. C)
-  Keep the ban and make the action asynchronous or chunked instead, which is a
-  bigger change and a new moving part.
-  **Recommendation:** **A** for now, **B** if anybody actually meets the slow
-  case: the round trips are inside one transaction on one administration
-  action, and nobody has reported it. B is an ADR conversation rather than a
-  code decision, which is why it is here rather than done.
-  **Urgent?** no — the safe behaviour is what shipped.
+*(Nothing open. The bulk scope-create question filed here on 2026-08-27 was
+answered **A** the same day and has moved up; finding **C01** was answered **B**
+on 2026-08-26, as were WP8's two (**A**), WP7's one, WP8's renderer choice
+(**C**), WP4's two and WP5's one. Items land here with their options, a
+plain-language explanation of each and a recommendation, while the build
+continues on the safest default.)*
 
 ## Decided (autonomous) — 2026-08-26, review-fix session
 
@@ -260,7 +237,8 @@ safest default.)*
   conflicting rows rather than raising on them, so a scope somebody else had
   just created was reported as created here too. The entry above stands as a
   record of what was decided then; this is what is true now. Whether a bulk
-  boundary *should* exist is an ADR question and is under "Open — for Jan".
+  boundary *should* exist was put to Jan the same day and answered **A**: it
+  should not. See "Decided (Jan) — 2026-08-27" below.
 - **`enable` acts on what it created, not on what it meant to create.**
   `ScopeWriter.create_scopes` returns the combinations whose row it actually
   inserted, and the clearing and copying of rules follows that list. Two
@@ -277,3 +255,9 @@ safest default.)*
   id order because two callers must take the same locks in the same order, and
   in a second statement because what it returns — not what the first statement
   found — is the answer.
+
+## Decided (Jan) — 2026-08-27
+
+| Date | Question | Answer | Notes |
+| --- | --- | --- | --- |
+| 2026-08-27 | Whether creating scopes in bulk may use one statement for many rows | **A — leave it.** One validated insert per combination; no bulk boundary, no ADR | Asked because restoring the forbidden-constructs rule (F01 of the 2026-08-27 review) costs *give own workflow* one round trip per (project, tracker, role) where 0.1.1 made one per thousand. **A** was the recommendation and is now the decision, so the shape in `ScopeWriter.create_scopes` is the intended one rather than a default awaiting review: one `ProjectWorkflowScope#save!` per combination, validations and all. Considered and rejected: **B**, an ADR permitting a bulk scope create in `ScopeWriter` only — faster, and it would have made the rule mean what the code does, but it widens a gate that exists precisely because it is narrow; and **C**, chunking or backgrounding the action, which is a bigger change and a new moving part for a cost nobody has reported. What this closes off, so that a later session does not re-open it as an optimisation: the round trips in `create_scopes` are **not** a performance defect to be fixed with `insert_all`. If the slow case is ever actually met, it is B that gets re-opened — with an ADR — not the code. |

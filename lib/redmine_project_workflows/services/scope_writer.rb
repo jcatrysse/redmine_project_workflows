@@ -312,9 +312,13 @@ module RedmineProjectWorkflows
       # The cost is one round trip per combination where there used to be one
       # per thousand, on an action whose largest selection is projects x
       # trackers x roles. It is an administrator's explicit bulk action rather
-      # than a hot path, and correctness is not negotiable against it;
-      # docs/DECISIONS.md carries the question of whether a formally approved
-      # bulk boundary should exist at all.
+      # than a hot path, and correctness is not negotiable against it. Whether
+      # a formally approved bulk boundary should exist anyway was put to Jan
+      # and answered on 2026-08-27: it should not. So this is the decided
+      # shape, not a safe default waiting for review -- the round trips here
+      # are not a performance defect, and a later session should not "optimise"
+      # them back into one statement. If the slow case is ever actually met it
+      # is the ADR that gets written, not this method that gets rewritten.
       def self.create_scopes(combinations, rule_type, user)
         return [] if combinations.empty?
 
