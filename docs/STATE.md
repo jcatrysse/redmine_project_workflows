@@ -135,9 +135,10 @@ before and after, and one reaching the log with a third value cannot exist. The
 | --- | --- |
 | Plugin suite, 7.0-stable + PostgreSQL 16 | **735 examples, 0 failures** (was 722; thirteen added) |
 | Plugin suite, 5.1-stable + PostgreSQL 16 | **735 examples, 0 failures** |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **735 examples, 0 failures**, on a host built after the four commits had landed — **three** of the nine cells were exercised locally, and 6.1 is where a `Symbol#to_i` or an `Array#to_h` would behave differently only if Ruby did |
 | Red on the old code | **eleven of the thirteen**, run per commit against the code as it stood. F01: six (two corrected assertions, one new four-population controller example that reported **4**, three struct examples where the five-hundred-population case reported **500**). F02: five (four array-payload examples failing with the `TypeError` itself, and the symbol-key example with `NoMethodError: undefined method 'to_i' for an instance of Symbol`). The other two — integer keys, and the leaf count of a non-String-keyed payload — passed before and exist so the decision is stated in both directions |
 | Reproduced before fixing | F02's five payload shapes re-run against both guards in plain Ruby: the finding's table reproduces exactly. F01's multiplication read off the summation and then demonstrated by the failing examples above |
-| Migrations up → 0 → up | **clean on both hosts, run BEFORE the suite touched either** — after `VERSION=0`: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`; after the re-migrate: both back |
+| Migrations up → 0 → up | **clean on all three hosts** — on 5.1 and 7.0 run BEFORE the suite touched either, on 6.1 on a host built afterwards — after `VERSION=0`: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`; after the re-migrate: both back |
 | RuboCop | **105 files, no offences**, through `.github/lint/Gemfile`, and **no** `.rubocop.yml` or `.rubocop_todo.yml` change — one new spec file absorbed without relaxing a cop. No `Metrics` limit was crossed, so nothing needed extracting this time |
 | JavaScript gate | **34 checks pass** (`node dev/check-bulk-js.mjs`) |
 | Locale files | **untouched.** F01's option A was chosen partly so that they would be |
