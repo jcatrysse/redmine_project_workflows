@@ -142,7 +142,10 @@ batching itself is _(open — WP6)_.
 
 ### G03 — `Issue#project=` does not re-check the status against the new project
 
-- **Status:** open — deferred, with a decision recorded
+- **Status:** wont-fix — **answered A by Jan on 2026-08-26**, after this line was
+  written. `docs/DECISIONS.md` carries the answer: leave it as Redmine already
+  behaves. The line below still reads "open" in the Resolution because that is
+  what it said when the finding was filed; the status here is the current one.
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** correctness

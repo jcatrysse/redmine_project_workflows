@@ -28,12 +28,15 @@
   `claude/dev`. The merge replaces the two with the matrix; the two names linger
   in GitHub's workflow list afterwards with no file behind them, which is
   cosmetic.
-- **Open findings:** **two**, both deliberate and both recorded with the
-  reasoning: `G02` and `G03` from the earlier runs. This session adds one
-  `wont-fix` (`R05`, the project selector lists every project) and one `invalid`
-  (`R09`, checked against core and withdrawn); everything else across every
-  findings file is closed. To check:
-  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` — two hits plus a
+- **Open findings:** **one** — `G02`, the batching pass for a cross-project bulk
+  tracker change, deferred with the reasoning recorded. `G03` had been left at
+  `open — deferred` in its findings file although Jan **answered it A** the same
+  day; `docs/DECISIONS.md` had the answer and the findings file did not, so the
+  status is corrected to `wont-fix` and the two documents now agree. This session
+  adds one `wont-fix` (`R05`, the project selector lists every project) and one
+  `invalid` (`R09`, checked against core and withdrawn); everything else across
+  every findings file is closed. To check:
+  `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/` — one hit plus a
   line in `TEMPLATE.md`, which is not a finding.
 - **`spec/characterization/`:** still **gone**, since WP3.
 - **Open choices:** none. Everything decided this session is Class A or a Class B
