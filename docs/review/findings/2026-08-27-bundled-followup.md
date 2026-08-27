@@ -211,7 +211,7 @@ stated, and it needs no controller to state it.
 
 ### F02 — The matrix parameter guard raises on an array payload, which is the 500 it exists to prevent
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** correctness
@@ -291,7 +291,68 @@ The two implementations have deliberately diverged once already (F14's
 whichever property is chosen belongs in a spec, because the comment has now been
 wrong for two runs without anything noticing.
 
-**Resolution:**
+**Resolution:** **fixed**, as two edits, and the property is now in four specs
+rather than only in a comment.
+
+Both guards now ask what the value **is** instead of what it answers to:
+
+```ruby
+return value.to_unsafe_h if value.respond_to?(:to_unsafe_h)
+
+value.is_a?(Hash) ? value : {}          # ... .deep_dup in the patch's copy
+```
+
+That is the same question the loops one level down already ask (`is_a?(Hash)` per
+level), so the guard is now consistent with itself. `respond_to?(:to_h)` is the
+whole defect: `Array` answers it yes and then raises. The `nil` branch went with
+it — `nil.is_a?(Hash)` is false, so it was doing nothing that the last line does
+not — and the `deep_dup` stays in the administration copy, because
+`strip_no_change` mutates what it is given with `reject!` and those parameters
+belong to the request. Two edits, not one shared method, as the finding says: the
+divergence F14 recorded is still real.
+
+**Reproduced first.** The five shapes in the finding were re-run against both
+guards as they stood, in plain Ruby: `?permissions[]=x` and `?permissions[]=x&[]=y`
+raise `TypeError: wrong element type String at 0` in **both**, the other three
+are fine, and a Hash with Integer or Symbol keys passes through unchanged. The
+finding's table reproduces exactly.
+
+**The tests assert the absence of the 500, not the presence of a branch** — which
+the finding asked for and which is the difference between a gate and the
+appearance of one. Four examples, one per entry point (project transitions,
+project permissions, and the two administration saves), each asserting that an
+Array payload produces the same redirect-and-write-nothing as the String payload
+already covered. Rails re-raises in the test environment, so on the old code all
+four fail with the `TypeError` itself rather than with a wrong status: run, and
+that is what they did.
+
+**The Hash-with-non-String-keys question is decided rather than left
+unmentioned**, which is what F03 of this same run is about. Decision: **the
+writers accept any key that answers `to_s` and `to_i`, and normalise what
+survives the whitelist to Strings**; the controller guards do not coerce keys at
+all. Reasoning, in the order it matters:
+
+* Coercing in the guards would fix the shape only where it cannot arrive. Rails
+  always hands over String keys, and the path that *can* carry others — core's
+  own `WorkflowTransition.replace_transitions`, routed through the writer for
+  INV-1 — does not pass through either guard.
+* Symbol keys were not merely untested, they were a **live 500**: `:"1".to_s` is
+  `"1"`, so they passed the whitelist, and then `submitted_pairs` called
+  `Symbol#to_i`, which does not exist. Integer keys already worked, because every
+  comparison downstream is against `.to_s` or `.to_i`.
+* The normalisation goes in `sanitize_payload` in both writers, which is exactly
+  where `TransitionWriter` already normalises the *rule* key one level deeper,
+  for the same stated reason: what survives the whitelist is what everything
+  below consumes. `PermissionWriter` normalises the field name too, because it
+  travels into an `IN` list and into `insert_all`.
+
+Three examples pin it (`spec/services/transition_writer_spec.rb`, *a payload
+whose keys are not strings*): Integer keys write the expected rows, Symbol keys
+write the expected rows, and the rejected count is unaffected by how the keys
+were spelled. The Symbol one is **red on the old code** with
+`NoMethodError: undefined method 'to_i' for an instance of Symbol`; the Integer
+one passed before and is there so that the decision is stated in both
+directions.
 
 ---
 

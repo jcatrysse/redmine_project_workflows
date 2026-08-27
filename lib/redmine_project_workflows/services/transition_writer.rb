@@ -102,7 +102,14 @@ module RedmineProjectWorkflows
           next unless old_status_id.to_s == NEW_ISSUE_STATUS_ID || status_ids.include?(old_status_id.to_s)
 
           row = sanitize_transition_row(by_new_status, status_ids)
-          sanitized[old_status_id] = row unless row.empty?
+          # Keys normalised to Strings for the same reason the rule name is one
+          # level down: what survives the whitelist is what everything below
+          # consumes, and #submitted_pairs calls to_i on these keys -- which a
+          # Symbol does not answer to at all. No request can produce a non-String
+          # key, but core's replace_transitions is routed through this writer
+          # (INV-1), so a plugin or a script can (finding F02 of the
+          # 2026-08-27-bundled-followup run).
+          sanitized[old_status_id.to_s] = row unless row.empty?
         end
       end
       private_class_method :sanitize_payload
@@ -119,7 +126,7 @@ module RedmineProjectWorkflows
           rules = transition_by_rule.each_with_object({}) do |(rule, value), kept|
             kept[rule.to_s] = value if permitted_cell?(rule, value)
           end
-          row[new_status_id] = rules unless rules.empty?
+          row[new_status_id.to_s] = rules unless rules.empty?
         end
       end
       private_class_method :sanitize_transition_row

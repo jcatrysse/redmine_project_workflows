@@ -1677,6 +1677,34 @@ describe WorkflowsController, type: :controller do
       expect(WorkflowPermission.count).to eq(0)
     end
 
+    # F02 (2026-08-27-bundled-followup). The same guard, and the shape it did not
+    # cover: `?transitions[]=x` arrives as a plain Array, and `Array#to_h` raises
+    # TypeError on it -- inside the guard, before any whitelist ran. So the one
+    # method written to turn a malformed matrix into a rejection answered 500 for
+    # a malformed matrix of that shape, on all four save entry points.
+    #
+    # These assert the **absence** of the 500 and not the presence of a branch:
+    # an Array has to be refused exactly as the String above is, which is what
+    # `have_http_status(:found)` says -- a redirect happened, so the action ran to
+    # its end. Rails re-raises in the test environment, so the old code fails
+    # these with the TypeError itself rather than with a wrong status.
+    it 'rejects an array transitions payload rather than raising' do
+      patch :update, params: matrix_params(['x']).merge(project_id: ['global'])
+
+      expect(response).to have_http_status(:found)
+      expect(WorkflowTransition.count).to eq(0)
+    end
+
+    it 'rejects an array permissions payload rather than raising' do
+      patch :update_permissions, params: {
+        role_id: [role.id], tracker_id: [tracker.id], project_id: ['global'],
+        used_statuses_only: '0', permissions: %w[x y]
+      }
+
+      expect(response).to have_http_status(:found)
+      expect(WorkflowPermission.count).to eq(0)
+    end
+
     # One transaction over the whole selection, as #duplicate already had: a
     # failure half way through otherwise leaves some of the selected workflows
     # rewritten and the rest untouched.

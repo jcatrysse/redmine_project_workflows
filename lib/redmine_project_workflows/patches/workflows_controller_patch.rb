@@ -291,11 +291,19 @@ module RedmineProjectWorkflows
         value.each_value { |inner| strip_no_change_in(inner) }
       end
 
+      # See MatrixParams#to_plain_hash for the reasoning; this is the
+      # administration screens' own copy, deliberately not shared (finding F14),
+      # and it had the same gap. `respond_to?(:to_h)` is true of an Array, whose
+      # `to_h` raises TypeError -- so `?transitions[]=x` was a 500 from inside
+      # the guard that exists to prevent one (finding F02 of the
+      # 2026-08-27-bundled-followup run). What it is, not what it answers to.
+      #
+      # The deep_dup stays: strip_no_change mutates what it is given with
+      # reject!, and these parameters belong to the request.
       def to_plain_hash(value)
-        return {} if value.nil?
         return value.deep_dup.to_unsafe_h if value.respond_to?(:to_unsafe_h)
 
-        value.respond_to?(:to_h) ? value.to_h.deep_dup : {}
+        value.is_a?(Hash) ? value.deep_dup : {}
       end
 
       # The copy form's "which workflow" selectors, checked before anything is

@@ -82,8 +82,13 @@ module RedmineProjectWorkflows
             next unless field_names.include?(field.to_s)
             next unless rule.blank? || RULES.include?(rule.to_s)
 
-            sanitized[status_id] ||= {}
-            sanitized[status_id][field] = rule
+            # Strings, whatever the caller spelled them as: see the same
+            # normalisation in TransitionWriter#sanitize_payload. `field` also
+            # travels into an IN list and into insert_all, where a Symbol would
+            # be cast rather than compared (finding F02 of the
+            # 2026-08-27-bundled-followup run).
+            sanitized[status_id.to_s] ||= {}
+            sanitized[status_id.to_s][field.to_s] = rule
           end
         end
       end

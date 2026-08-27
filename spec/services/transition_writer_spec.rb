@@ -19,6 +19,61 @@ describe RedmineProjectWorkflows::Services::TransitionWriter do
   # do.
   before { give_own_workflow(project, tracker, role) }
 
+  # F02 (2026-08-27-bundled-followup) asked what a Hash whose keys are not
+  # Strings should mean, since that is the other shape Rails can produce and
+  # neither controller guard named it. Decided here rather than left unmentioned:
+  # **the writers accept any key that answers to_s and to_i, and normalise what
+  # survives the whitelist to Strings.** No request can produce a non-String key
+  # -- Rails always hands over Strings -- but core's own
+  # WorkflowTransition.replace_transitions is routed through this writer (INV-1),
+  # so a plugin or a script may.
+  #
+  # The alternative, coercing keys in the two controller guards, was rejected: the
+  # internal API does not pass through them, so it would fix the shape only where
+  # it cannot arrive. Normalising inside the sanitizer is the same thing this file
+  # already does one level deeper, where the *rule* key is normalised so that
+  # everything below can ask `key?(ALWAYS)` reliably.
+  #
+  # Symbol keys are the case that made this worth doing rather than documenting:
+  # they passed the whitelist (`:"1".to_s` is `"1"`) and then reached
+  # `submitted_pairs`, where `Symbol#to_i` does not exist -- a 500 from a payload
+  # the whitelist had accepted.
+  describe 'a payload whose keys are not strings' do
+    def rows_for(project_id = project.id)
+      WorkflowTransition.where(project_id: project_id)
+                        .pluck(:old_status_id, :new_status_id, :author, :assignee)
+    end
+
+    it 'writes integer keys as the same rows as string keys' do
+      described_class.replace_transitions(
+        project, [tracker], [role],
+        status.id => { new_status.id => { 'always' => '1' } }
+      )
+
+      expect(rows_for).to eq([[status.id, new_status.id, false, false]])
+    end
+
+    it 'writes symbol keys as the same rows as string keys' do
+      described_class.replace_transitions(
+        project, [tracker], [role],
+        status.id.to_s.to_sym => { new_status.id.to_s.to_sym => { author: '1' } }
+      )
+
+      expect(rows_for).to eq([[status.id, new_status.id, true, false]])
+    end
+
+    # And the count the screen reports is unaffected by how the keys were
+    # spelled: one leaf submitted, one refused.
+    it 'counts the leaves of a non-string-keyed payload' do
+      result = described_class.replace_transitions_for_project_id(
+        project.id, [tracker], [role],
+        status.id => { new_status.id => { always: '1', author: 'not_a_value' } }
+      )
+
+      expect(result).to have_attributes(written: 1, rejected: 1)
+    end
+  end
+
   it 'stores a single author/assignee row when both are enabled' do
     transitions = {
       status.id.to_s => {

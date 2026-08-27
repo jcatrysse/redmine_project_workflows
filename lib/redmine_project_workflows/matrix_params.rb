@@ -42,11 +42,29 @@ module RedmineProjectWorkflows
       permissions
     end
 
+    # A matrix is a Hash or it is nothing. Anything else -- nil from no
+    # parameter at all, a String from `transitions=x`, an Array from
+    # `transitions[]=x` -- is an empty selection, which the actions report as a
+    # save that applied nothing.
+    #
+    # It asked `respond_to?(:to_h)` until finding F02 of the
+    # 2026-08-27-bundled-followup run, and Array answers that question yes and
+    # then raises: `['x'].to_h` is `TypeError: wrong element type String at 0`.
+    # So the one method whose whole purpose is to turn a malformed matrix into a
+    # rejection raised inside itself, before any whitelist ran, for a shape an
+    # ordinary query string produces. Asking what the value **is** rather than
+    # what it responds to is the fix, and it is the same question one level down:
+    # the two loops above already test `is_a?(Hash)` per level.
+    #
+    # Keys are deliberately **not** coerced here. Non-String keys cannot arrive
+    # through a request, and the writers -- which core's own
+    # replace_transitions reaches without passing through this method -- own that
+    # question; they normalise what survives their whitelist. See the group
+    # 'a payload whose keys are not strings' in spec/services/transition_writer_spec.rb.
     def to_plain_hash(value)
-      return {} if value.nil?
       return value.to_unsafe_h if value.respond_to?(:to_unsafe_h)
 
-      value.respond_to?(:to_h) ? value.to_h : {}
+      value.is_a?(Hash) ? value : {}
     end
   end
 end

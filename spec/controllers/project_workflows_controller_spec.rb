@@ -447,6 +447,40 @@ describe ProjectWorkflowsController, type: :controller do
     end
   end
 
+  # F02 (2026-08-27-bundled-followup). MatrixParams#to_plain_hash exists to make a
+  # malformed matrix a rejection rather than a crash, and its comment says so --
+  # but it asked `respond_to?(:to_h)`, and an Array answers yes and then raises
+  # TypeError from `['x'].to_h`. `?transitions[]=x` is how Rails hands that over.
+  # So the guard raised inside itself, before any whitelist ran, on the two
+  # project entry points and the two administration ones.
+  #
+  # Both examples assert the **absence** of the 500: the action reaches its
+  # redirect and writes nothing, exactly as it does for the String payload that
+  # was already covered. Asserting that a new branch exists would prove nothing.
+  # Rails re-raises in the test environment, so on the old code these fail with
+  # `TypeError: wrong element type String at 0` rather than with a wrong status.
+  describe 'a payload that is an array rather than a matrix' do
+    before { log_in(2, :manage_project_workflow) }
+
+    it 'rejects it rather than raising, on the transitions matrix' do
+      give_own_workflow(project, tracker, role)
+
+      patch :update_transitions, params: transitions_params(transitions: ['x'])
+
+      expect(response).to have_http_status(:found)
+      expect(WorkflowTransition.where(project_id: project.id).count).to eq(0)
+    end
+
+    it 'rejects it rather than raising, on the field permissions matrix' do
+      give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+
+      patch :update_permissions, params: transitions_params(permissions: %w[x y])
+
+      expect(response).to have_http_status(:found)
+      expect(WorkflowPermission.where(project_id: project.id).count).to eq(0)
+    end
+  end
+
   describe 'the rendered page' do
     render_views
 
