@@ -19,21 +19,20 @@ module RedmineProjectWorkflows
         replace_permissions_for_project_id(project.id, trackers, roles, permissions)
       end
 
-      # Returns the number of (tracker, role) combinations this call refused to
-      # write because the project still inherits the generic workflow. Zero for
-      # a generic write, which has no scope to check.
+      # See TransitionWriter.replace_transitions_for_project_id: a
+      # MatrixSaveResult, both counts, for the same reason.
       def self.replace_permissions_for_project_id(project_id, trackers, roles, permissions)
         trackers = Array.wrap(trackers)
         roles = Array.wrap(roles)
-        return 0 if trackers.empty? || roles.empty?
+        return MatrixSaveResult.none if trackers.empty? || roles.empty?
 
         permissions = sanitize_permissions(normalize_permissions(permissions))
-        return 0 if permissions.empty?
+        return MatrixSaveResult.none if permissions.empty?
 
-        skipped = 0
+        result = MatrixSaveResult.none
         WorkflowPermission.transaction do
           pairs = writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::PERMISSIONS)
-          skipped = (trackers.size * roles.size) - pairs.size
+          result = MatrixSaveResult.new(pairs.size, (trackers.size * roles.size) - pairs.size)
           next if pairs.empty?
 
           write_pairs(project_id, pairs, permissions)
@@ -41,7 +40,7 @@ module RedmineProjectWorkflows
         # See TransitionWriter: the rules have changed, so anything cached from
         # them is now wrong.
         Resolver.reset_cache!
-        skipped
+        result
       end
 
       def self.write_pairs(project_id, pairs, permissions)

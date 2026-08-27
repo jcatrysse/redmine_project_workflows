@@ -53,12 +53,12 @@ module RedmineProjectWorkflows
         if project_context?
           if @roles.present? && @trackers.present? && params[:transitions]
             transitions = strip_no_change(params[:transitions])
-            skipped = 0
+            result = RedmineProjectWorkflows::Services::MatrixSaveResult.none
             # One transaction over the whole selection, as #duplicate already
             # has: a failure half way through otherwise leaves some of the
             # selected workflows rewritten and the rest untouched.
             ActiveRecord::Base.transaction do
-              skipped = selected_project_ids.sum do |project_id|
+              result = selected_project_ids.sum(result) do |project_id|
                 RedmineProjectWorkflows::Services::TransitionWriter.replace_transitions_for_project_id(
                   project_id,
                   @trackers,
@@ -67,7 +67,7 @@ module RedmineProjectWorkflows
                 )
               end
             end
-            report_matrix_save(skipped)
+            report_matrix_save(result)
           end
           redirect_to edit_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers,
                                           role_id: @roles, used_statuses_only: params[:used_statuses_only])
@@ -100,9 +100,9 @@ module RedmineProjectWorkflows
         if project_context?
           if @roles.present? && @trackers.present? && params[:permissions]
             permissions = strip_no_change(normalize_permissions_params(params[:permissions]))
-            skipped = 0
+            result = RedmineProjectWorkflows::Services::MatrixSaveResult.none
             ActiveRecord::Base.transaction do
-              skipped = selected_project_ids.sum do |project_id|
+              result = selected_project_ids.sum(result) do |project_id|
                 RedmineProjectWorkflows::Services::PermissionWriter.replace_permissions_for_project_id(
                   project_id,
                   @trackers,
@@ -111,7 +111,7 @@ module RedmineProjectWorkflows
                 )
               end
             end
-            report_matrix_save(skipped)
+            report_matrix_save(result)
           end
           redirect_to permissions_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers,
                                                  role_id: @roles, used_statuses_only: params[:used_statuses_only])
@@ -128,6 +128,16 @@ module RedmineProjectWorkflows
         super
       end
 
+      # load_project_options is here for its @projects side effect alone -- the
+      # copy form's two project selectors are `source_project_id` and
+      # `target_project_ids[]`, and it builds the list both are rendered from.
+      #
+      # Deliberately no `invalid_project_selection?` after it, unlike #copy: this
+      # action never reads params[:project_id], so an id in it names nothing and
+      # can widen nothing, and answering 404 for a parameter the action ignores
+      # would be reporting a fault that does not exist. The two selectors it does
+      # read are validated in full below and in validated_target_project_ids,
+      # shape as well as record (finding F07).
       def duplicate
         load_project_options
         find_sources_and_targets
@@ -152,28 +162,24 @@ module RedmineProjectWorkflows
           render :copy
         else
           @source_project_id = source_project_id
+          copied = []
           ActiveRecord::Base.transaction do
             resolved_target_project_ids.each do |target_project_id|
-              resolved_source_project_id =
-                if source_project_id == 'any'
-                  target_project_id
-                elsif source_project_id.blank? || source_project_id == 'global'
-                  nil
-                else
-                  source_project_id
-                end
-              WorkflowRule.copy_for_project(
-                resolved_source_project_id,
+              pairs = WorkflowRule.copy_for_project(
+                resolved_copy_source(source_project_id, target_project_id),
                 target_project_id,
                 @source_tracker,
                 @source_role,
                 @target_trackers,
                 @target_roles
               )
+              copied.concat(
+                RedmineProjectWorkflows::Services::ScopeCombinations.for_project(target_project_id, pairs)
+              )
             end
-            record_scopes_for_copy(resolved_target_project_ids)
+            record_scopes_for_copy(copied)
           end
-          flash[:notice] = l(:notice_successful_update)
+          report_copy(copied)
           redirect_to copy_workflows_path(
             source_tracker_id: @source_tracker,
             source_role_id: @source_role,
@@ -192,12 +198,22 @@ module RedmineProjectWorkflows
       # shows what the selection *stores*, so an inheriting combination renders
       # empty, and a silent no-op there is indistinguishable from a save that
       # cleared it.
-      def report_matrix_save(skipped)
-        written = (selected_project_ids.size * @trackers.size * @roles.size) - skipped
-        flash[:notice] = l(:notice_successful_update) if written.positive?
-        return unless skipped.positive?
-
-        flash[:warning] = l(:notice_project_workflow_save_skipped_inheriting, count: skipped)
+      #
+      # The counts come from the writers rather than being inferred here. This
+      # method used to compute what had been written as (projects x trackers x
+      # roles) - skipped, which is right only while "not refused" means
+      # "written": a payload the writer's whitelist had emptied refuses nothing,
+      # so the whole selection was reported saved over a table nothing had
+      # touched (finding F06). MatrixSaveResult carries both counts, and the
+      # third case -- nothing written, nothing refused -- now gets a message of
+      # its own instead of the success notice.
+      def report_matrix_save(result)
+        flash[:notice] = l(:notice_successful_update) if result.written?
+        if result.skipped?
+          flash[:warning] = l(:notice_project_workflow_save_skipped_inheriting, count: result.skipped)
+        elsif result.nothing_applied?
+          flash[:warning] = l(:notice_project_workflow_save_nothing_applied)
+        end
       end
 
       # Strips core's "no change" option out of a submitted matrix, at whatever
@@ -300,13 +316,36 @@ module RedmineProjectWorkflows
       # status. A targeted pair that already carried rules without a scope gets
       # one too; that is a repair, not an over-reach, and it can only happen to
       # a pair the operator named.
-      def record_scopes_for_copy(target_project_ids)
+      #
+      # The combinations are the ones the copy actually copied, not the ones it
+      # was aimed at: a pair whose source resolves to the target itself is
+      # skipped, and stamping its audit columns said somebody had changed a
+      # workflow nothing had changed (finding F04).
+      def record_scopes_for_copy(combinations)
         RedmineProjectWorkflows::Services::ScopeWriter.ensure_scopes_for_copy(
-          project_ids: target_project_ids.compact,
-          tracker_ids: @target_trackers.map(&:id),
-          role_ids: @target_roles.map(&:id),
+          combinations: combinations,
           user: User.current
         )
+      end
+
+      # Which workflow a copy reads from, per target project. 'any' means each
+      # target project's own; blank or 'global' mean the generic one; anything
+      # else is the project the form named.
+      def resolved_copy_source(source_project_id, target_project_id)
+        return target_project_id if source_project_id == 'any'
+        return nil if source_project_id.blank? || source_project_id == 'global'
+
+        source_project_id
+      end
+
+      # What the copy did, including the part nobody asked for: a combination it
+      # left with an own *empty* workflow. See ScopeCombinations.own_empty_count --
+      # reported rather than refused, because the copy is also how somebody
+      # deliberately empties a project (finding F03).
+      def report_copy(combinations)
+        flash[:notice] = l(:notice_successful_update)
+        emptied = RedmineProjectWorkflows::Services::ScopeCombinations.own_empty_count(combinations)
+        flash[:warning] = l(:notice_project_workflow_copy_left_empty, count: emptied) if emptied.positive?
       end
 
       # The state of the three INV-3 actions for the current selection, used by

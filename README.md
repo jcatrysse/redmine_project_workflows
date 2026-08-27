@@ -178,10 +178,14 @@ Three things are worth knowing:
 - **A combination the project has not taken over is read-only**, and shows the
   generic workflow — which is exactly what applies to it — so you can see what
   you would be copying before you copy it.
-- **The builtin roles are not on the tab.** *Non member* and *Anonymous* have no
-  members in any project, so they go on following the generic workflow. A system
-  administrator can still give a project its own workflow for them from
-  **Administration → Workflow**.
+- **The builtin roles are not offered on the tab.** *Non member* and *Anonymous*
+  have no members in any project, so the tab does not offer to give the project
+  its own workflow for them; a system administrator can still do it from
+  **Administration → Workflow**. If one has, the tab **does** list the row, and
+  the project can empty that workflow or give it back — otherwise a workflow the
+  project runs would be in force with nothing on the project's own screens able
+  to explain or undo it. The same holds for an ordinary role whose last member
+  has left.
 
 ### Filling a matrix in fewer clicks
 

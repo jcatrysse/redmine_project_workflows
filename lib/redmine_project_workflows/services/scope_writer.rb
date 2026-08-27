@@ -70,23 +70,20 @@ module RedmineProjectWorkflows
       # ignore every one of them; but creating a scope where nothing was copied
       # would hand the project an *empty* workflow, which for transitions means
       # no issue in it can change status. So the scope follows the rows.
-      def self.ensure_scopes_for_existing_rules(project_ids:, tracker_ids:, role_ids:, rule_type:, user: User.current)
-        project_ids, tracker_ids, role_ids = normalize(project_ids, tracker_ids, role_ids)
-        return [] if project_ids.empty? || tracker_ids.empty? || role_ids.empty?
-
-        with_rules = ProjectWorkflowScope.rule_model_for(rule_type).where(
-          project_id: project_ids, tracker_id: tracker_ids, role_id: role_ids
-        ).distinct.pluck(:project_id, :tracker_id, :role_id).to_set
-        return [] if with_rules.empty?
-
-        missing = missing_combinations(
-          project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids, rule_type: rule_type
-        ).select { |triple| with_rules.include?(triple) }
-        create_scopes(missing, rule_type, user)
+      def self.ensure_scopes_for_existing_rules(combinations:, rule_type:, user: User.current)
+        create_scopes(
+          ScopeCombinations.with_rules_and_no_scope(combinations, rule_type), rule_type, user
+        )
       end
 
       # The copy screen's entry point: both rule types at once, because
       # WorkflowRule.copy_for_project moves both.
+      #
+      # +combinations+ is what the copy actually acted on, not what it was aimed
+      # at -- the caller gets that from copy_for_project's return value. Every one
+      # of those pairs had its rows of *both* rule types deleted before anything
+      # was inserted, so the rules of both types have changed for all of them,
+      # and the touch covers all of them per rule type.
       #
       # The touch is what makes the audit line true on this path as well. A copy
       # into a project that already had a scope deletes and rewrites its rules
@@ -95,18 +92,38 @@ module RedmineProjectWorkflows
       # since replaced wholesale. It runs after the create, unlike the writers':
       # here the scopes that already existed are exactly the ones whose rules
       # were overwritten, and the ones just created carry the same user anyway.
-      def self.ensure_scopes_for_copy(project_ids:, tracker_ids:, role_ids:, user: User.current)
+      def self.ensure_scopes_for_copy(combinations:, user: User.current)
+        combinations = ScopeCombinations.normalize(combinations)
         ProjectWorkflowScope::RULE_TYPES.flat_map do |rule_type|
           created = ensure_scopes_for_existing_rules(
-            project_ids: project_ids, tracker_ids: tracker_ids,
-            role_ids: role_ids, rule_type: rule_type, user: user
+            combinations: combinations, rule_type: rule_type, user: user
           )
-          touch_scopes(
-            project_ids: project_ids, tracker_ids: tracker_ids,
-            role_ids: role_ids, rule_type: rule_type, user: user
-          )
+          touch_combinations(combinations, rule_type, user)
           created
         end
+      end
+
+      # Records that somebody changed the rules of exactly these
+      # (project_id, tracker_id, role_id) combinations.
+      #
+      # The difference from .touch_scopes is the shape of the selection, and that
+      # is the whole point: .touch_scopes takes three id lists and stamps their
+      # cross product, which is right for a matrix save -- the save really does
+      # rewrite every cell of it -- and wrong for a copy, which acts on a set of
+      # exact pairs and skips any whose source resolves to the target itself.
+      # Stamping the cross product there named the operator as the last person to
+      # change a workflow the copy had not been near (finding F04).
+      def self.touch_combinations(combinations, rule_type, user = User.current)
+        combinations = ScopeCombinations.normalize(combinations)
+        return 0 if combinations.empty?
+
+        stamp = { updated_by_id: author_id_for(user), updated_at: Time.now.utc }
+        touched = 0
+        each_batch_predicate(combinations, ProjectWorkflowScope.arel_table) do |predicate|
+          touched += ProjectWorkflowScope.where(rule_type: rule_type).where(predicate)
+                                         .update_all(stamp) # rubocop:disable Rails/SkipsModelValidations
+        end
+        touched
       end
 
       # Action one: give these projects their own workflow.

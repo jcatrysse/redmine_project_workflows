@@ -25,6 +25,10 @@ class ProjectWorkflowsController < ApplicationController
   before_action :authorize
   before_action :find_rule_type, only: %i[compare enable inherit clear]
   before_action :find_tracker_and_role
+  # Only #enable. Every other action acts on a scope that already exists, or on
+  # rules under one; taking a *new* workflow over is the one thing a role with no
+  # member in the project is not offered (finding F05).
+  before_action :require_offered_role, only: %i[enable]
 
   def transitions
     @rule_type = ProjectWorkflowScope::TRANSITIONS
@@ -46,10 +50,11 @@ class ProjectWorkflowsController < ApplicationController
     return if refuse_write_while_inheriting?
 
     if params[:transitions]
-      RedmineProjectWorkflows::Services::TransitionWriter.replace_transitions_for_project_id(
-        @project.id, [@tracker], [@role], transitions_params
+      report_rule_save(
+        RedmineProjectWorkflows::Services::TransitionWriter.replace_transitions_for_project_id(
+          @project.id, [@tracker], [@role], transitions_params
+        )
       )
-      flash[:notice] = l(:notice_successful_update)
     end
     redirect_to matrix_path
   end
@@ -72,10 +77,11 @@ class ProjectWorkflowsController < ApplicationController
     return if refuse_write_while_inheriting?
 
     if params[:permissions]
-      RedmineProjectWorkflows::Services::PermissionWriter.replace_permissions_for_project_id(
-        @project.id, [@tracker], [@role], permissions_params
+      report_rule_save(
+        RedmineProjectWorkflows::Services::PermissionWriter.replace_permissions_for_project_id(
+          @project.id, [@tracker], [@role], permissions_params
+        )
       )
-      flash[:notice] = l(:notice_successful_update)
     end
     redirect_to matrix_path
   end
@@ -151,8 +157,22 @@ class ProjectWorkflowsController < ApplicationController
 
     options = RedmineProjectWorkflows::Services::ProjectOptions
     @tracker = options.trackers(@project).detect { |tracker| tracker.id.to_s == params[:tracker_id].to_s }
-    @role = options.roles(@project).detect { |role| role.id.to_s == params[:role_id].to_s }
-    render_404 if @tracker.nil? || @role.nil?
+    # visible_roles, not roles: a role with no member in the project that already
+    # has a scope here is a workflow this project runs and has to be able to
+    # undo. @role_offered records which of the two lists answered, because the
+    # offer to take a new workflow over follows the narrower one.
+    @role = options.visible_roles(@project).detect { |role| role.id.to_s == params[:role_id].to_s }
+    return render_404 if @tracker.nil? || @role.nil?
+
+    @role_offered = options.roles(@project).any? { |role| role.id == @role.id }
+  end
+
+  # 403 rather than 404: the combination exists and this user may look at it, so
+  # saying it is missing would be a lie. It is the action that is not on offer.
+  def require_offered_role
+    return if performed? || @role_offered
+
+    render_403
   end
 
   # Everything both matrices need, so that the views query nothing themselves.
@@ -230,6 +250,27 @@ class ProjectWorkflowsController < ApplicationController
       project_ids: [@project.id], tracker_ids: [@tracker.id],
       role_ids: [@role.id], rule_type: @rule_type
     }
+  end
+
+  # What a save on this screen did. The success notice used to be set whenever
+  # the request carried a matrix at all, which said "Successful update" over two
+  # things that are not one (finding F06): a payload the writer's whitelist had
+  # dropped in its entirety, which by design changes nothing; and a save that
+  # lost the race against a concurrent return to the generic workflow, which the
+  # writer refuses because it locks the scope rows it reads.
+  #
+  # The refusal reuses the message #refuse_write_while_inheriting? gives, because
+  # by the time the writer answered it is the same fact: this project follows the
+  # generic workflow here. One tracker and one role, so there is never a mixture
+  # to report.
+  def report_rule_save(result)
+    if result.written?
+      flash[:notice] = l(:notice_successful_update)
+    elsif result.skipped?
+      flash[:warning] = l(:notice_project_workflow_not_own)
+    else
+      flash[:warning] = l(:notice_project_workflow_save_nothing_applied)
+    end
   end
 
   def report(touched, notice_key)

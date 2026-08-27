@@ -13,8 +13,17 @@ inherit_mode:
 # file that only exists inside a Redmine checkout.
 
 AllCops:
+  # Both target the *oldest* supported host, not the newest. The three Redmines
+  # do not run the same Rails -- 5.1 pins rails 6.1, 6.1 pins 7.2, 7.0 pins 8.1 --
+  # and TargetRailsVersion tells RuboCop which Rails APIs it may push code
+  # towards. Set to 8.1 it enabled cops such as Rails/StrongParametersExpect,
+  # which demands `params.expect`, a method that does not exist before Rails 8.0:
+  # the contributor complies, the lint job goes green, and the plugin raises
+  # NoMethodError on Redmine 5.1 and 6.1. A gate that approves such a change is
+  # worse than no gate (finding F02). Raise these two only when the oldest
+  # supported host does.
   TargetRubyVersion: 3.2
-  TargetRailsVersion: 8.1
+  TargetRailsVersion: 6.1
   NewCops: enable
   Exclude:
     - 'tmp/**/*'

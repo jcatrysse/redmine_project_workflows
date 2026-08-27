@@ -456,12 +456,16 @@ compare it against:
 | the issue tracking module was disabled | **403** | `authorize` → `Project#allows_to?` → `deny_access` |
 | the project was archived | **403** | the same, with core's archived message |
 | the tracker was taken off the project | **404** | `find_tracker_and_role`, which matches against `ProjectOptions.trackers` |
-| the role lost its last member in the project | **404** | the same, against `ProjectOptions.roles` |
+| the role lost its last member in the project | **opens** | the same, against `ProjectOptions.visible_roles`, which adds every role that already has a scope for this project |
+| …and the role has no scope here either | **404** | there is nothing for the project to decide or undo |
+| the combination has no scope and the role has no member | **403 on *give own workflow* only** | `require_offered_role`; every other action acts on a scope that already exists |
 
 Rendering the link conditionally instead would mean preloading each row's enabled
 modules, trackers and member roles to answer a question the link itself answers.
 *(This table read "404" for all four until the WP6 review checked it against
-core's `ApplicationController`.)*
+core's `ApplicationController`; the role rows changed again for finding F05,
+which found that refusing a role with no member hid a workflow that was still in
+force.)*
 
 ### The audit trail
 

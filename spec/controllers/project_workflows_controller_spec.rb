@@ -166,6 +166,45 @@ describe ProjectWorkflowsController, type: :controller do
       expect(response).to have_http_status(:not_found)
     end
 
+    # F05. The tab's rows come from the roles that have members in the project,
+    # so a scope a system administrator created for a role with no members --
+    # Non member, Anonymous, or an ordinary role whose last member has left --
+    # was in force and had no line on the one screen meant to answer "why can
+    # nobody move issues here". The role is now visible, and reachable, wherever
+    # it already has a scope. What it still does not get is the offer to take a
+    # *new* workflow over: that is the decision of 2026-08-26 and it stands.
+    describe 'a role with no member that already has a scope' do
+      before { give_own_workflow(project, tracker, unused_role) }
+
+      it 'can be opened' do
+        get :transitions, params: transitions_params(role_id: unused_role.id)
+
+        expect(response).to have_http_status(:ok)
+        expect(assigns(:role)).to eq(unused_role)
+      end
+
+      it 'can be returned to the generic workflow' do
+        log_in(2, :manage_project_workflow)
+
+        delete :inherit, params: transitions_params(
+          role_id: unused_role.id, rule_type: ProjectWorkflowScope::TRANSITIONS
+        )
+
+        expect(own_workflow?(project, tracker, unused_role)).to be(false)
+      end
+
+      it 'is not offered a new workflow of its own' do
+        log_in(2, :manage_project_workflow)
+
+        post :enable, params: transitions_params(
+          role_id: unused_role.id, rule_type: ProjectWorkflowScope::PERMISSIONS
+        )
+
+        expect(response).to have_http_status(:forbidden)
+        expect(own_workflow?(project, tracker, unused_role, ProjectWorkflowScope::PERMISSIONS)).to be(false)
+      end
+    end
+
     it 'answers 404 for a tracker id of the wrong shape' do
       # Project.where(id: ['1e5']) resolves to project 1, so the shape of an id
       # is not something to rely on -- the value is matched against a loaded
@@ -297,6 +336,54 @@ describe ProjectWorkflowsController, type: :controller do
       expect(flash[:warning]).to eq(I18n.t(:notice_project_workflow_not_own))
       expect(own_workflow?(project, tracker, role)).to be(false)
       expect(WorkflowTransition.where(project_id: project.id).count).to eq(0)
+    end
+
+    # F06, the project screen's half. `update_transitions` set the success
+    # notice whenever `params[:transitions]` was present, so a payload the
+    # whitelist dropped in its entirety -- which changes nothing, by design --
+    # reported a successful save; and so did a save that lost the race against a
+    # concurrent return to the generic workflow, which the writer refuses.
+    describe 'a save that could not be applied' do
+      it 'does not claim success when the whole payload was rejected' do
+        give_own_workflow(project, tracker, role)
+        own_transition(new_status, assigned)
+
+        patch :update_transitions, params: transitions_params(
+          transitions: { new_status.id.to_s => { resolved.id.to_s => { 'sometimes' => '1' } } }
+        )
+
+        expect(flash[:notice]).to be_nil
+        expect(flash[:warning]).to be_present
+        expect(WorkflowTransition.where(project_id: project.id).pluck(:new_status_id)).to eq([assigned.id])
+      end
+
+      it 'does not claim success when the field permissions payload was rejected' do
+        give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
+
+        patch :update_permissions, params: transitions_params(
+          permissions: { new_status.id.to_s => { 'no_such_field' => 'required' } }
+        )
+
+        expect(flash[:notice]).to be_nil
+        expect(flash[:warning]).to be_present
+      end
+
+      # The scope disappears between the check and the write -- somebody else
+      # pressed "return to the generic workflow" in between. MatrixScope locks
+      # the scope rows, so the writer refuses the pair; what was missing was the
+      # screen saying so instead of "Successful update".
+      it 'reports the refusal when the scope went away between the check and the write' do
+        give_own_workflow(project, tracker, role)
+        writer = RedmineProjectWorkflows::Services::TransitionWriter
+        allow(writer).to receive(:writable_pairs).and_return([])
+
+        patch :update_transitions, params: transitions_params(
+          transitions: { new_status.id.to_s => { resolved.id.to_s => { 'always' => '1' } } }
+        )
+
+        expect(flash[:notice]).to be_nil
+        expect(flash[:warning]).to eq(I18n.t(:notice_project_workflow_not_own))
+      end
     end
 
     it 'writes only the tracker and role the request named' do

@@ -184,12 +184,13 @@ describe 'Concurrent scope decisions' do
       end
       returner = in_parallel(started, finished) { return_to_generic }
 
-      skipped = save_transitions
+      result = save_transitions
       join!(returner)
 
       # The return to the generic workflow ran second and took everything with
       # it. What must not survive is a rule with no scope over it.
-      expect(skipped).to eq(0)
+      expect(result.skipped).to eq(0)
+      expect(result.written).to eq(1)
       expect(own_workflow?(project, tracker, role)).to be(false)
       expect(project_rules).to be_empty
     end
@@ -199,7 +200,7 @@ describe 'Concurrent scope decisions' do
       main = Thread.current
       started = Queue.new
       finished = Queue.new
-      skipped = Queue.new
+      results = Queue.new
 
       # This time the return to the generic workflow holds the lock, and it is
       # the save that has to wait -- and then find the combination inheriting
@@ -211,12 +212,12 @@ describe 'Concurrent scope decisions' do
         end
         original.call(*args)
       end
-      saver = in_parallel(started, finished) { skipped << save_transitions }
+      saver = in_parallel(started, finished) { results << save_transitions }
 
       return_to_generic
       join!(saver)
 
-      expect(skipped.pop).to eq(1)
+      expect(results.pop).to have_attributes(written: 0, skipped: 1)
       expect(own_workflow?(project, tracker, role)).to be(false)
       expect(project_rules).to be_empty
     end

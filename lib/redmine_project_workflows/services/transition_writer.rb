@@ -32,28 +32,34 @@ module RedmineProjectWorkflows
         replace_transitions_for_project_id(project.id, trackers, roles, transitions)
       end
 
-      # Returns the number of (tracker, role) combinations this call refused to
-      # write because the project still inherits the generic workflow. Zero for
-      # a generic write, which has no scope to check.
+      # Returns a MatrixSaveResult: how many (tracker, role) combinations this
+      # call rewrote, and how many it refused because the project still inherits
+      # the generic workflow. Nothing is ever refused for a generic write, which
+      # has no scope to check.
+      #
+      # Both counts, not only the refusals. A sanitized payload with nothing left
+      # in it returns from here having written nothing *and* refused nothing, and
+      # the caller has to be able to tell that from a save that wrote the lot --
+      # see MatrixSaveResult (finding F06).
       def self.replace_transitions_for_project_id(project_id, trackers, roles, transitions)
         trackers = Array.wrap(trackers)
         roles = Array.wrap(roles)
-        return 0 if trackers.empty? || roles.empty?
+        return MatrixSaveResult.none if trackers.empty? || roles.empty?
 
         transitions = sanitize_transitions(transitions)
-        return 0 if transitions.empty?
+        return MatrixSaveResult.none if transitions.empty?
 
-        skipped = 0
+        result = MatrixSaveResult.none
         WorkflowTransition.transaction do
           pairs = writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::TRANSITIONS)
-          skipped = (trackers.size * roles.size) - pairs.size
+          result = MatrixSaveResult.new(pairs.size, (trackers.size * roles.size) - pairs.size)
           next if pairs.empty?
 
           write_pairs(project_id, pairs, transitions)
         end
         # The rules have changed, so anything cached from them is now wrong.
         Resolver.reset_cache!
-        skipped
+        result
       end
 
       def self.write_pairs(project_id, pairs, transitions)

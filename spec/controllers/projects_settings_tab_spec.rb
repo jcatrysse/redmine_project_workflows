@@ -87,6 +87,48 @@ describe ProjectsController, type: :controller do
       expect(role_ids).not_to include(roles(:roles_004).id)
     end
 
+    # F05. The rule above is about the *offer* to take a workflow over, and it
+    # stands. What it must not do is hide a workflow that is already in force: an
+    # administrator can give a project its own workflow for Non member or
+    # Anonymous from Administration -> Workflow, and the last member holding an
+    # ordinary role can leave. Either way the project ran its own workflow for a
+    # role its own Workflow tab did not mention, and there was no path from the
+    # screen that is meant to answer "why can nobody move issues here" to the
+    # state that causes it.
+    it 'include a role with no member that already has a scope' do
+      log_in(2, :view_project_workflow)
+      give_own_workflow(project, tracker, roles(:roles_005))
+
+      get :settings, params: { id: project.id }
+
+      expect(rendered_pairs).to include([tracker.id, roles(:roles_005).id])
+    end
+
+    # ...and only for the tracker and rule type it actually has a scope for --
+    # the row exists because the scope does, not because the role does.
+    it 'do not include a role with no member and no scope anywhere in the project' do
+      log_in(2, :view_project_workflow)
+      give_own_workflow(project, tracker, roles(:roles_005))
+
+      get :settings, params: { id: project.id }
+
+      expect(rendered_pairs.map(&:last).uniq).not_to include(roles(:roles_004).id)
+    end
+
+    # Decision A of 2026-08-26, unchanged: the project screen does not offer to
+    # give such a role a workflow of its own. The row is there to be undone.
+    it 'do not offer to take a new workflow over for such a role' do
+      log_in(2, :view_project_workflow, :manage_project_workflow)
+      give_own_workflow(project, tracker, roles(:roles_005))
+
+      get :settings, params: { id: project.id }
+
+      enable_links = response.body.scan(
+        /project_workflow_scopes\?[^"']*role_id=#{roles(:roles_005).id}[^"']*source=copy/
+      )
+      expect(enable_links).to be_empty
+    end
+
     it "name the state and the project's own rule count per kind of rule" do
       log_in(2, :view_project_workflow)
       give_own_workflow(project, tracker, role)

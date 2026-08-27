@@ -166,6 +166,25 @@ describe RedmineProjectWorkflows do
                       "init.rb declares #{declared}; CHANGELOG.md's newest entry is #{newest}"
   end
 
+  # F02. TargetRailsVersion tells RuboCop which Rails APIs it may push code
+  # towards, and it was set to 8.1 -- the Rails of the *newest* supported host.
+  # A version-gated cop such as Rails/StrongParametersExpect then demands
+  # `params.expect`, which does not exist before Rails 8.0: the contributor
+  # complies, the lint job goes green, and the plugin raises NoMethodError on
+  # Redmine 5.1. The property is that the value must be true of every supported
+  # host, so this example enforces it from inside each of them, and the 5.1 cell
+  # -- Rails 6.1 -- is the one that fails if it drifts upwards again.
+  it 'points RuboCop at a Rails no newer than the host it is running in' do
+    config = YAML.load_file(File.expand_path('../.rubocop.yml', __dir__))
+    target = config.dig('AllCops', 'TargetRailsVersion').to_s
+
+    expect(target).not_to be_empty
+    expect(Gem::Version.new(target)).to be <= Gem::Version.new(Rails::VERSION::STRING),
+                                        ".rubocop.yml targets Rails #{target}; this host runs " \
+                                        "#{Rails::VERSION::STRING}, so the lint gate can approve " \
+                                        'code this host cannot run'
+  end
+
   # INV-2, and the forbidden-constructs table that spells it out: insert_all
   # runs no validations, so it is confined to the two rule writers, where a
   # whitelist checked against server-built lists stands in for them.

@@ -202,23 +202,25 @@ describe RedmineProjectWorkflows::Services::TransitionWriter do
     let(:inheriting_role) { roles(:roles_002) }
 
     it 'writes nothing for a combination that still inherits, and says how many' do
-      skipped = described_class.replace_transitions_for_project_id(
+      result = described_class.replace_transitions_for_project_id(
         project.id, [tracker], [inheriting_role],
         { status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
       )
 
-      expect(skipped).to eq(1)
+      expect(result.skipped).to eq(1)
+      expect(result.written).to eq(0)
       expect(WorkflowTransition.where(project_id: project.id, role_id: inheriting_role.id)).to be_empty
       expect(own_workflow?(project, tracker, inheriting_role)).to be(false)
     end
 
     it 'writes the combinations that do have a scope and skips only the rest' do
-      skipped = described_class.replace_transitions_for_project_id(
+      result = described_class.replace_transitions_for_project_id(
         project.id, [tracker], [role, inheriting_role],
         { status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
       )
 
-      expect(skipped).to eq(1)
+      expect(result.skipped).to eq(1)
+      expect(result.written).to eq(1)
       expect(WorkflowTransition.where(project_id: project.id).pluck(:role_id)).to eq([role.id])
     end
 

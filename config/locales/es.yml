@@ -59,6 +59,10 @@ es:
   text_project_workflow_readonly_generic: "Este proyecto sigue el flujo de trabajo genérico para este tipo y perfil. Se muestra abajo como referencia; dé al proyecto su propio flujo de trabajo para cambiarlo."
   text_project_workflow_readonly_own: Este es el flujo de trabajo propio del proyecto. Cambiarlo requiere el permiso para gestionar el flujo de trabajo de este proyecto.
   notice_project_workflow_not_own: "Este proyecto sigue el flujo de trabajo genérico para este tipo y perfil, por lo que no se guardó nada. Dé primero al proyecto su propio flujo de trabajo."
+  notice_project_workflow_save_nothing_applied: "No se ha guardado nada. O no se cambió ninguna casilla, o los valores enviados no se aceptaron."
+  notice_project_workflow_copy_left_empty:
+    one: "%{count} combinación de proyecto, tipo y perfil tiene ahora su propio flujo de trabajo vacío: la copia no dejó ninguna regla de esa clase. Allí no se permite nada hasta que añada reglas."
+    other: "%{count} combinaciones de proyecto, tipo y perfil tienen ahora su propio flujo de trabajo vacío: la copia no dejó ninguna regla de esa clase. Allí no se permite nada hasta que añada reglas."
   text_project_workflow_scope_inheriting_note:
     one: "%{count} combinación de esta selección sigue todavía el flujo de trabajo genérico. La matriz siguiente solo muestra las reglas que la selección posee, de modo que esa combinación aparece vacía y guardar no la cambiará — déle primero su propio flujo de trabajo."
     other: "%{count} combinaciones de esta selección siguen todavía el flujo de trabajo genérico. La matriz siguiente solo muestra las reglas que la selección posee, de modo que esas combinaciones aparecen vacías y guardar no las cambiará — déles primero su propio flujo de trabajo."

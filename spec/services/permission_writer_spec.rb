@@ -274,11 +274,12 @@ describe RedmineProjectWorkflows::Services::PermissionWriter do
     end
 
     it 'writes nothing for a combination that still inherits, and says how many' do
-      skipped = described_class.replace_permissions_for_project_id(
+      result = described_class.replace_permissions_for_project_id(
         project.id, [tracker], [inheriting_role], { status.id.to_s => { 'due_date' => 'required' } }
       )
 
-      expect(skipped).to eq(1)
+      expect(result.skipped).to eq(1)
+      expect(result.written).to eq(0)
       expect(WorkflowPermission.where(project_id: project.id, role_id: inheriting_role.id)).to be_empty
       expect(own_workflow?(project, tracker, inheriting_role, ProjectWorkflowScope::PERMISSIONS)).to be(false)
     end

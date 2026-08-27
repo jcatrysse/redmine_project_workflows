@@ -32,7 +32,12 @@ module ProjectWorkflowsHelper
       query = RedmineProjectWorkflows::Services::InventoryQuery.new(
         projects: [project],
         trackers: options.trackers(project),
-        roles: options.roles(project),
+        # visible_roles: a role with no member in the project that already has a
+        # scope here is a workflow the project runs, and leaving it off the tab
+        # left it in force with no line explaining it and no way back (finding
+        # F05). Whether such a row may be *offered* a new workflow is a separate
+        # question -- see #project_workflow_role_offered?.
+        roles: options.visible_roles(project),
         rule_types: ProjectWorkflowScope::RULE_TYPES,
         deviations_only: false
       )
@@ -41,6 +46,20 @@ module ProjectWorkflowsHelper
       # them at once. The administration inventory is the paged screen.
       query.rows(offset: 0, limit: query.total)
     end
+  end
+
+  # Whether this project may be offered a workflow of its own for this role, as
+  # opposed to merely being shown one it already has. Decided by Jan on
+  # 2026-08-26: only the roles with members in the project, so Non member and
+  # Anonymous are not on the offer.
+  #
+  # One query for the whole tab, memoised per project for the length of the
+  # render, beside #project_workflow_settings_rows and for the same reason (G6).
+  def project_workflow_role_offered?(project, role)
+    @project_workflow_offered_role_ids ||= {}
+    @project_workflow_offered_role_ids[project.id] ||=
+      RedmineProjectWorkflows::Services::ProjectOptions.roles(project).to_set(&:id)
+    @project_workflow_offered_role_ids[project.id].include?(role.id)
   end
 
   # The state of one (project, tracker, role, rule type), as text.

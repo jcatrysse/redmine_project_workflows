@@ -1,10 +1,15 @@
 <%#
   Project settings -> Workflow.
 
-  One line per tracker and role that this project can decide for -- the trackers
-  it has enabled and the roles somebody holds in it -- with the state in words,
-  the number of rules the project holds itself, and the actions that would
-  change something. Every number links into the matrix it describes.
+  One line per tracker and role this project has a say in -- the trackers it has
+  enabled times the roles somebody holds in it, plus any role that already has a
+  scope here however it got one -- with the state in words, the number of rules
+  the project holds itself, and the actions that would change something. Every
+  number links into the matrix it describes.
+
+  A row that is only here because a scope exists is not offered a workflow of its
+  own; it is here so that the one that exists can be seen and given back
+  (finding F05).
 
   The rows come from project_workflow_settings_rows, which is a fixed number of
   collection queries for the whole tab and never one per row (G6). It is a helper rather
@@ -54,7 +59,8 @@
             <% if manage %>
               <%= render partial: 'project_workflows/scope_actions',
                          locals: { project: @project, tracker: row.tracker, role: row.role,
-                                   rule_type: rule_type, state: cell.state, back_url: back_url } %>
+                                   rule_type: rule_type, state: cell.state, back_url: back_url,
+                                   offered: project_workflow_role_offered?(@project, row.role) } %>
             <% end %>
           </td>
         <% end %>

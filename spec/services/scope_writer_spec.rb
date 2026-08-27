@@ -10,6 +10,7 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
   let(:role) { roles(:roles_001) }
   let(:second_role) { roles(:roles_002) }
   let(:tracker) { trackers(:trackers_001) }
+  let(:second_tracker) { trackers(:trackers_002) }
   let(:s1) { issue_statuses(:issue_statuses_001) }
   let(:s2) { issue_statuses(:issue_statuses_002) }
   let(:transitions) { ProjectWorkflowScope::TRANSITIONS }
@@ -356,7 +357,7 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
                                  field_name: 'due_date', rule: 'required', project_id: project.id)
 
       described_class.ensure_scopes_for_copy(
-        project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id]
+        combinations: [[project.id, tracker.id, role.id]]
       )
 
       expect(own_workflow?(project, tracker, role, transitions)).to be(true)
@@ -369,7 +370,7 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       project_transition
 
       described_class.ensure_scopes_for_copy(
-        project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id]
+        combinations: [[project.id, tracker.id, role.id]]
       )
 
       expect(own_workflow?(project, tracker, role, transitions)).to be(true)
@@ -380,7 +381,7 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       project_transition(other)
 
       described_class.ensure_scopes_for_copy(
-        project_ids: [project.id, other.id], tracker_ids: [tracker.id], role_ids: [role.id]
+        combinations: [[project.id, tracker.id, role.id], [other.id, tracker.id, role.id]]
       )
 
       expect(own_workflow?(project, tracker, role, transitions)).to be(false)
@@ -393,7 +394,7 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
 
       expect do
         described_class.ensure_scopes_for_copy(
-          project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id]
+          combinations: [[project.id, tracker.id, role.id]]
         )
       end.not_to change(ProjectWorkflowScope, :count)
     end
@@ -477,8 +478,7 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       project_transition
 
       described_class.ensure_scopes_for_copy(
-        project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
-        user: editor
+        combinations: [[project.id, tracker.id, role.id]], user: editor
       )
 
       expect(scope_row.updated_by_id).to eq(editor.id)
@@ -489,10 +489,36 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
     it 'creates no scope for a project a copy did not reach' do
       expect do
         described_class.ensure_scopes_for_copy(
-          project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
-          user: editor
+          combinations: [[project.id, tracker.id, role.id]], user: editor
         )
       end.not_to change(ProjectWorkflowScope, :count)
+    end
+
+    # F04. .touch_combinations is the copy path's stamp, and the difference from
+    # .touch_scopes is the shape of the selection: exact triples rather than the
+    # cross product of three id lists. The example arranges two diagonal
+    # combinations and asserts that the two the cross product would add are
+    # untouched -- which is the stamp the copy screen used to leave.
+    it 'stamps exactly the combinations it was given, not their cross product' do
+      diagonal = [give_own_workflow(project, tracker, role, transitions),
+                  give_own_workflow(project, second_tracker, second_role, transitions)]
+      off_diagonal = [give_own_workflow(project, tracker, second_role, transitions),
+                      give_own_workflow(project, second_tracker, role, transitions)]
+
+      described_class.touch_combinations(
+        [[project.id, tracker.id, role.id], [project.id, second_tracker.id, second_role.id]],
+        transitions, editor
+      )
+
+      expect(diagonal.map { |scope| scope.reload.updated_by_id }).to eq([editor.id, editor.id])
+      expect(off_diagonal.map { |scope| scope.reload.updated_by_id }).to eq([nil, nil])
+    end
+
+    it 'stamps nothing at all for an empty set of combinations' do
+      scope = give_own_workflow(project, tracker, role, transitions)
+
+      expect(described_class.touch_combinations([], transitions, editor)).to eq(0)
+      expect(scope.reload.updated_by_id).to be_nil
     end
 
     # INV-3: touching must never be a way of taking a workflow over. A

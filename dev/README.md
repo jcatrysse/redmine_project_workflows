@@ -4,6 +4,13 @@ The plugin has no tests of its own that can run standalone: every spec boots a
 real Redmine host application. These scripts create such a host, sync the
 working tree into it and run the suite.
 
+`dev/` is the **only** supported way to build a host for this plugin. If you find
+another set of setup scripts in a checkout — a `.codex/` directory existed until
+2026-08-27 — it is stale: it named Redmine 6.0 as supported and 7.0 not at all,
+and it put the host in a different place from the one `dev/run.sh` looks in.
+Recover it with `git log -- .codex` if you need to, but do not build from it
+(finding F08).
+
 ## Prerequisites
 
 * `git`, `rsync`, a C toolchain, and the client headers for the database you

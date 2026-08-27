@@ -62,6 +62,10 @@ pl:
   text_project_workflow_readonly_generic: "Ten projekt stosuje ogólny przepływ pracy dla tego typu zagadnienia i roli. Poniżej pokazano go dla odniesienia; nadaj projektowi własny przepływ pracy, aby go zmienić."
   text_project_workflow_readonly_own: To jest własny przepływ pracy projektu. Jego zmiana wymaga uprawnienia do zarządzania przepływem pracy tego projektu.
   notice_project_workflow_not_own: "Ten projekt stosuje ogólny przepływ pracy dla tego typu zagadnienia i roli, więc nic nie zostało zapisane. Najpierw nadaj projektowi własny przepływ pracy."
+  notice_project_workflow_save_nothing_applied: "Nic nie zostało zapisane. Albo żadna komórka nie została zmieniona, albo przesłane wartości nie zostały zaakceptowane."
+  notice_project_workflow_copy_left_empty:
+    one: "%{count} kombinacja projektu, typu zagadnienia i roli ma teraz własny pusty przepływ pracy: kopiowanie nie pozostawiło tam żadnych reguł tego rodzaju. Nic tam nie jest dozwolone, dopóki nie dodasz reguł."
+    other: "%{count} kombinacji projektu, typu zagadnienia i roli ma teraz własny pusty przepływ pracy: kopiowanie nie pozostawiło tam żadnych reguł tego rodzaju. Nic tam nie jest dozwolone, dopóki nie dodasz reguł."
   text_project_workflow_scope_inheriting_note:
     one: "Kombinacje w tym wyborze, które nadal stosują ogólny przepływ pracy: %{count}. Macierz poniżej pokazuje tylko reguły należące do wyboru, więc taka kombinacja wygląda na pustą, a zapis jej nie zmieni — nadaj jej najpierw własny przepływ pracy."
     other: "Kombinacje w tym wyborze, które nadal stosują ogólny przepływ pracy: %{count}. Macierz poniżej pokazuje tylko reguły należące do wyboru, więc takie kombinacje wyglądają na puste, a zapis ich nie zmieni — nadaj im najpierw własny przepływ pracy."

@@ -27,6 +27,16 @@ describe WorkflowsController, type: :controller do
     /<input[^>]*type="hidden"[^>]*name="project_id\[\]"/
   end
 
+  # What the *matrix* form will submit. The selector above it is a <select> of
+  # the same name, so only the hidden inputs answer "what does Save carry".
+  def hidden_project_values(body)
+    body.scan(/<input\b[^>]*>/).filter_map do |tag|
+      next unless tag.include?('type="hidden"') && tag.include?('name="project_id[]"')
+
+      tag[/value="([^"]*)"/, 1]
+    end
+  end
+
   # Redmine 5.1 draws icons from CSS classes; 6.0 and later from SVG sprites.
   # Wherever the plugin renders markup core also renders, it has to match
   # whichever the host under test uses.
@@ -60,6 +70,32 @@ describe WorkflowsController, type: :controller do
                                 project_id: ['global'] }
     expect(response).to have_http_status(:ok)
     expect(response.body).to match(hidden_project_field)
+  end
+
+  # F01. The hidden fields are the only thing that carries the project
+  # selection from the selector form into the matrix form -- core puts the two
+  # in separate `form_tag` blocks on all three supported versions -- and they
+  # used to expand 'all' into every project id. The selection then stopped
+  # being 'all' for the rest of the session: the redirect after Save carried
+  # every id (an 8-10 KB Location header on a large installation, which nginx
+  # rejects with a 414 at its default buffer size), and so did all four
+  # scope-action links on the page that came back. The scope panel four files
+  # away has kept the keyword verbatim since WP1 and is asserted to; these are
+  # the same rule applied to the form that saves.
+  it 'keeps the whole-selection keyword in the transitions save form' do
+    get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
+                         project_id: ['all'], used_statuses_only: '0' }
+
+    expect(response).to have_http_status(:ok)
+    expect(hidden_project_values(response.body)).to eq(['all'])
+  end
+
+  it 'keeps the whole-selection keyword in the field permissions save form' do
+    get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
+                                project_id: ['all'], used_statuses_only: '0' }
+
+    expect(response).to have_http_status(:ok)
+    expect(hidden_project_values(response.body)).to eq(['all'])
   end
 
   it 'injects both project selectors into the copy page' do

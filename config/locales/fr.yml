@@ -59,6 +59,10 @@ fr:
   text_project_workflow_readonly_generic: "Ce projet suit le workflow générique pour ce tracker et ce rôle. Il est affiché ci-dessous à titre de référence ; donnez au projet son propre workflow pour le modifier."
   text_project_workflow_readonly_own: Ceci est le workflow propre au projet. Le modifier demande la permission de gérer le workflow de ce projet.
   notice_project_workflow_not_own: "Ce projet suit le workflow générique pour ce tracker et ce rôle ; rien n'a donc été enregistré. Donnez d'abord au projet son propre workflow."
+  notice_project_workflow_save_nothing_applied: "Rien n'a été enregistré. Soit aucune cellule n'a été modifiée, soit les valeurs envoyées n'ont pas été acceptées."
+  notice_project_workflow_copy_left_empty:
+    one: "%{count} combinaison de projet, tracker et rôle a maintenant son propre workflow vide : la copie n'y a laissé aucune règle de ce type. Rien n'y est permis tant que vous n'ajoutez pas de règles."
+    other: "%{count} combinaisons de projet, tracker et rôle ont maintenant leur propre workflow vide : la copie n'y a laissé aucune règle de ce type. Rien n'y est permis tant que vous n'ajoutez pas de règles."
   text_project_workflow_scope_inheriting_note:
     one: "%{count} combinaison de cette sélection suit encore le workflow générique. La matrice ci-dessous n'affiche que les règles que la sélection possède elle-même ; cette combinaison apparaît donc vide, et l'enregistrement ne la modifiera pas — donnez-lui d'abord son propre workflow."
     other: "%{count} combinaisons de cette sélection suivent encore le workflow générique. La matrice ci-dessous n'affiche que les règles que la sélection possède elle-même ; ces combinaisons apparaissent donc vides, et l'enregistrement ne les modifiera pas — donnez-leur d'abord leur propre workflow."

@@ -59,6 +59,10 @@ nl:
   text_project_workflow_readonly_generic: "Dit project volgt de algemene workflow voor deze tracker en deze rol. Hieronder staat die ter referentie; geef het project een eigen workflow om er iets aan te wijzigen."
   text_project_workflow_readonly_own: Dit is de eigen workflow van het project. Om hem te wijzigen hebt u het recht nodig om de workflow van dit project te beheren.
   notice_project_workflow_not_own: "Dit project volgt de algemene workflow voor deze tracker en deze rol, dus er is niets opgeslagen. Geef het project eerst een eigen workflow."
+  notice_project_workflow_save_nothing_applied: "Er is niets opgeslagen. Ofwel is er geen cel gewijzigd, ofwel zijn de verzonden waarden niet aanvaard."
+  notice_project_workflow_copy_left_empty:
+    one: "%{count} combinatie van project, tracker en rol heeft nu een eigen lege workflow: de kopie heeft daar geen regels van die soort achtergelaten. Er is daar niets toegestaan tot u regels toevoegt."
+    other: "%{count} combinaties van project, tracker en rol hebben nu een eigen lege workflow: de kopie heeft daar geen regels van die soort achtergelaten. Er is daar niets toegestaan tot u regels toevoegt."
   text_project_workflow_scope_inheriting_note:
     one: "%{count} combinatie in deze selectie volgt nog de algemene workflow. De matrix hieronder toont alleen de regels die de selectie zelf bewaart, dus die combinatie lijkt leeg, en opslaan verandert er niets aan — geef haar eerst een eigen workflow."
     other: "%{count} combinaties in deze selectie volgen nog de algemene workflow. De matrix hieronder toont alleen de regels die de selectie zelf bewaart, dus die combinaties lijken leeg, en opslaan verandert er niets aan — geef ze eerst een eigen workflow."

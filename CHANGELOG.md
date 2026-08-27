@@ -1,5 +1,66 @@
 # Changelog
 
+## 0.1.3
+
+Eight findings from an independent review of 0.1.2. One matters on a large
+installation; the rest are edges, and three of them are the same shape — a
+screen reporting success for something it did not do.
+
+**Upgrading:** no migration. Nothing in the database changes.
+
+### Fixed
+
+- **Saving the workflow with *All* projects selected no longer builds a URL out
+  of every project id.** The Save form carried the selection as hidden fields
+  and expanded *All* into an explicit list, so the redirect after Save named
+  every project — roughly 11 KB of query string on an installation with 500 of
+  them, which a default nginx rejects with a *414 Request-URI Too Large*: the
+  save had worked and the administrator saw an error page. Below that size the
+  failure was quieter, with every action link on the page carrying the same
+  list. The keyword is now carried through as it stands, which is what the
+  links beside it have always done.
+- **A save that applied nothing no longer says *Successful update*.** The
+  writers reported only what they had refused, and the screen worked out the
+  rest by subtraction — which cannot tell "wrote everything" from "there was
+  nothing left to write". A request whose values were all rejected is left
+  deliberately without effect, and that is the whole point of rejecting them
+  rather than clearing the rules they name; reporting it as applied undid half
+  of it. The same held on a project's own workflow screen, and there also for a
+  save that arrived just after somebody had returned the project to the generic
+  workflow.
+- **A copy that empties a workflow says so.** Copying into a project replaces
+  the target's rules for both kinds of rule, so a source with, say, no status
+  transitions leaves the target's own transitions workflow standing and empty —
+  a state in which no issue in that project can change status for that role.
+  It is a legitimate configuration and it is also how somebody deliberately
+  empties a project, so the copy still does it; it now counts the combinations
+  it left that way and names them.
+- **A copy no longer marks workflows it did not touch as edited.** The audit
+  columns behind *Updated by X, 2 minutes ago* were stamped across the whole
+  selection, including a combination the copy had skipped because its source
+  resolved to the target itself — a copy that moved nothing at all still
+  changed the audit line of every combination it named.
+- **A project's Workflow tab lists a role it does not offer, if that role
+  already has a workflow of its own.** A system administrator can give a
+  project its own workflow for *Non member* or *Anonymous*, and the last member
+  holding an ordinary role can leave. Either way the project ran its own
+  workflow for a role its own tab did not mention, with no way from that screen
+  to see or undo it. Such a row is now listed and can be emptied or returned to
+  the generic workflow; what it still is not offered is a *new* workflow of its
+  own, which stays a system administrator's decision.
+
+### Changed
+
+- **The style checker now targets the oldest supported Rails, not the newest.**
+  It was configured for Redmine 7.0's Rails, so it could demand a method that
+  does not exist on Redmine 5.1 and pass the change — a gate that approves what
+  the plugin cannot run is worse than no gate. Nothing in the plugin was
+  affected; this closes the door.
+- **The stale `.codex/` setup scripts are gone.** Nothing referred to them, they
+  named a Redmine version the plugin no longer supports and omitted the newest,
+  and they built the host somewhere `dev/run.sh` does not look. `dev/` is the
+  supported path and `dev/README.md` now says so.
+
 ## 0.1.2
 
 Two findings from a review of 0.1.1, both about what happens when two people

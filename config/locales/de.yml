@@ -59,6 +59,10 @@ de:
   text_project_workflow_readonly_generic: "Dieses Projekt folgt dem allgemeinen Workflow für diesen Tracker und diese Rolle. Er wird unten als Referenz gezeigt; geben Sie dem Projekt einen eigenen Workflow, um ihn zu ändern."
   text_project_workflow_readonly_own: Dies ist der eigene Workflow des Projekts. Um ihn zu ändern, benötigen Sie das Recht, den Workflow dieses Projekts zu verwalten.
   notice_project_workflow_not_own: "Dieses Projekt folgt dem allgemeinen Workflow für diesen Tracker und diese Rolle, daher wurde nichts gespeichert. Geben Sie dem Projekt zuerst einen eigenen Workflow."
+  notice_project_workflow_save_nothing_applied: "Es wurde nichts gespeichert. Entweder wurde keine Zelle geändert, oder die übermittelten Werte wurden nicht akzeptiert."
+  notice_project_workflow_copy_left_empty:
+    one: "%{count} Kombination aus Projekt, Tracker und Rolle hat jetzt einen eigenen leeren Workflow: die Kopie hat dort keine Regeln dieser Art hinterlassen. Dort ist nichts erlaubt, bis Sie Regeln hinzufügen."
+    other: "%{count} Kombinationen aus Projekt, Tracker und Rolle haben jetzt einen eigenen leeren Workflow: die Kopie hat dort keine Regeln dieser Art hinterlassen. Dort ist nichts erlaubt, bis Sie Regeln hinzufügen."
   text_project_workflow_scope_inheriting_note:
     one: "%{count} Kombination in dieser Auswahl folgt noch dem allgemeinen Workflow. Die Matrix unten zeigt nur die Regeln, die die Auswahl selbst speichert; diese Kombination erscheint daher leer, und Speichern ändert nichts daran — geben Sie ihr zuerst einen eigenen Workflow."
     other: "%{count} Kombinationen in dieser Auswahl folgen noch dem allgemeinen Workflow. Die Matrix unten zeigt nur die Regeln, die die Auswahl selbst speichert; diese Kombinationen erscheinen daher leer, und Speichern ändert nichts daran — geben Sie ihnen zuerst einen eigenen Workflow."

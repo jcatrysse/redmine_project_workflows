@@ -410,6 +410,61 @@ describe WorkflowsController, type: :controller do
     expect(response).to have_http_status(:ok)
   end
 
+  # F01: nothing drove a save with the whole-installation keyword, so nothing
+  # said what the redirect after one may carry. The two examples below are the
+  # controller half of that fix; the form half -- that the hidden fields hand
+  # the keyword back rather than every project id -- is asserted in
+  # spec/integration/deface_overrides_spec.rb, which is where it was wrong.
+  describe 'saving the whole-installation selection' do
+    it 'writes every project and the generic workflow, and redirects with the keyword' do
+      Project.sorted.each { |target| give_own_workflow(target, tracker, role) }
+
+      post :update, params: {
+        role_id: [role.id],
+        tracker_id: [tracker.id],
+        project_id: ['all'],
+        used_statuses_only: '0',
+        transitions: {
+          old_status.id.to_s => {
+            new_status.id.to_s => { 'always' => '1', 'author' => '0', 'assignee' => '0' }
+          }
+        }
+      }
+
+      expect(response).to redirect_to(
+        edit_workflows_path(project_id: ['all'], tracker_id: [tracker.id],
+                            role_id: [role.id], used_statuses_only: '0')
+      )
+      written = WorkflowTransition.where(
+        tracker_id: tracker.id, role_id: role.id,
+        old_status_id: old_status.id, new_status_id: new_status.id
+      ).pluck(:project_id)
+      expect(written).to match_array(Project.pluck(:id) + [nil])
+    end
+
+    it 'does the same for the field permissions matrix' do
+      Project.sorted.each { |target| give_own_workflow(target, tracker, role, ProjectWorkflowScope::PERMISSIONS) }
+
+      post :update_permissions, params: {
+        role_id: [role.id],
+        tracker_id: [tracker.id],
+        project_id: ['all'],
+        used_statuses_only: '0',
+        permissions: { old_status.id.to_s => { 'subject' => 'readonly' } }
+      }
+
+      expect(response).to redirect_to(
+        permissions_workflows_path(project_id: ['all'], tracker_id: [tracker.id],
+                                   role_id: [role.id], used_statuses_only: '0')
+      )
+      written = WorkflowPermission.where(
+        tracker_id: tracker.id, role_id: role.id,
+        old_status_id: old_status.id, field_name: 'subject'
+      ).pluck(:project_id)
+      expect(written).to match_array(Project.pluck(:id) + [nil])
+    end
+  end
+
   it 'updates both global and project transitions when combined selection is saved (status-first payload)' do
     give_own_workflow(project, tracker, role)
 
@@ -919,6 +974,138 @@ describe WorkflowsController, type: :controller do
     expect(
       WorkflowTransition.where(project_id: nil, role_id: target_role.id, tracker_id: tracker.id)
     ).to exist
+  end
+
+  # F07. `copy` runs `invalid_project_selection?` after `load_project_options`
+  # and `duplicate` does not, which reads like an omission. It is not: this
+  # action never looks at params[:project_id], so a value there names nothing and
+  # can widen nothing, and a 404 for a parameter the action ignores would report
+  # a fault that does not exist. The asymmetry is deliberate and this pins it, so
+  # that "adding the check for symmetry" fails an example that says why.
+  #
+  # The two selectors `duplicate` does read are validated in full elsewhere, and
+  # those examples are above: shape as well as record, for the source and for
+  # every target.
+  it 'ignores a project_id on the copy POST, which does not read it' do
+    WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                               old_status_id: old_status.id, new_status_id: new_status.id,
+                               project_id: nil)
+
+    post :duplicate, params: {
+      source_tracker_id: tracker.id,
+      source_role_id: role.id,
+      source_project_id: 'global',
+      target_tracker_ids: [target_tracker.id],
+      target_role_ids: [target_role.id],
+      target_project_ids: ['global'],
+      project_id: ['999999']
+    }
+
+    expect(response).to have_http_status(:found)
+    expect(flash[:notice]).to be_present
+    expect(
+      WorkflowTransition.exists?(tracker_id: target_tracker.id, role_id: target_role.id, project_id: nil)
+    ).to be(true)
+  end
+
+  # F03 and F04, which are the copy screen's two halves of the same question:
+  # what did this copy actually do, and does the screen say so.
+  describe 'what a copy reports' do
+    # The source pair carries field permissions and no transitions, which is
+    # entirely ordinary -- a (tracker, role) whose transitions were never
+    # configured. copy_for_project deletes the target's rows for the pair across
+    # *both* rule types before inserting, so the target's transitions go and
+    # nothing replaces them, while its transitions scope survives. The project
+    # then has an own **empty** transitions workflow: no issue in it can change
+    # status for that role. ADR-001 names that state as the one to keep
+    # unreachable by accident, and until now nothing counted or named it.
+    it 'says when the copy left a combination with its own empty workflow' do
+      give_own_workflow(project, tracker, role)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id,
+                                 project_id: project.id)
+      WorkflowPermission.create!(tracker_id: target_tracker.id, role_id: target_role.id,
+                                 old_status_id: old_status.id, field_name: 'subject',
+                                 rule: 'readonly', project_id: nil)
+
+      post :duplicate, params: {
+        source_tracker_id: target_tracker.id,
+        source_role_id: target_role.id,
+        source_project_id: 'global',
+        target_tracker_ids: [tracker.id],
+        target_role_ids: [role.id],
+        target_project_ids: [project.id]
+      }
+
+      # The scope stays -- INV-3: no write path removes one implicitly -- and it
+      # is now empty.
+      expect(own_workflow?(project, tracker, role)).to be(true)
+      expect(WorkflowTransition.where(project_id: project.id)).to be_empty
+      expect(flash[:warning]).to eq(
+        I18n.t(:notice_project_workflow_copy_left_empty, count: 1)
+      )
+    end
+
+    it 'says nothing of the kind when every targeted combination still has rules' do
+      give_own_workflow(project, tracker, role)
+      WorkflowTransition.create!(tracker_id: target_tracker.id, role_id: target_role.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id,
+                                 project_id: nil)
+
+      post :duplicate, params: {
+        source_tracker_id: target_tracker.id,
+        source_role_id: target_role.id,
+        source_project_id: 'global',
+        target_tracker_ids: [tracker.id],
+        target_role_ids: [role.id],
+        target_project_ids: [project.id]
+      }
+
+      expect(WorkflowTransition.where(project_id: project.id)).not_to be_empty
+      expect(flash[:warning]).to be_nil
+      expect(flash[:notice]).to be_present
+    end
+
+    # F04. The audit stamp used to cover the cross product of the target
+    # trackers and roles, whatever the copy did with them. A copy whose source
+    # resolves to the target itself -- "any project, any role, this tracker" --
+    # copies nothing at all: copy_for_project skips a pair whose source and
+    # target are the same. The stamp ran anyway, so the project's Workflow tab
+    # named whoever pressed the button as the last person to change a workflow
+    # nothing had changed.
+    it 'does not stamp a combination the copy skipped' do
+      scope = give_own_workflow(project, tracker, role)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id,
+                                 project_id: project.id)
+      post :duplicate, params: {
+        source_tracker_id: tracker.id,
+        source_role_id: 'any',
+        source_project_id: 'any',
+        target_tracker_ids: [tracker.id],
+        target_role_ids: [role.id],
+        target_project_ids: [project.id]
+      }
+
+      expect(scope.reload.updated_by_id).to be_nil
+    end
+
+    it 'still stamps a combination the copy did write' do
+      scope = give_own_workflow(project, tracker, role)
+      WorkflowTransition.create!(tracker_id: target_tracker.id, role_id: target_role.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id,
+                                 project_id: nil)
+      post :duplicate, params: {
+        source_tracker_id: target_tracker.id,
+        source_role_id: target_role.id,
+        source_project_id: 'global',
+        target_tracker_ids: [tracker.id],
+        target_role_ids: [role.id],
+        target_project_ids: [project.id]
+      }
+
+      expect(scope.reload.updated_by_id).to eq(1)
+    end
   end
 
   # WP0 / external F03. load_project_options called render_404, which renders
@@ -1456,6 +1643,74 @@ describe WorkflowsController, type: :controller do
 
         expect(ProjectWorkflowScope.where(project_id: project.id)).to be_empty
         expect(WorkflowPermission.where(project_id: project.id)).to be_empty
+        expect(flash[:warning]).to be_present
+      end
+    end
+
+    # F06. `report_matrix_save` used to infer what a save had written as
+    # (projects x trackers x roles) - skipped, and the writers returned `skipped`
+    # alone -- so a payload the whitelist had dropped in its entirety, which
+    # refuses nothing because it never gets as far as the scopes, was reported as
+    # a successful save of the whole selection. The README promises that a
+    # rejected value "leaves the rule it names alone rather than clearing it";
+    # that is the right behaviour, and telling the operator it was applied undoes
+    # half of it.
+    describe 'a save whose whole payload was rejected' do
+      let(:existing_rule) do
+        WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id,
+                                   old_status_id: old_status.id, new_status_id: new_status.id,
+                                   project_id: nil)
+      end
+
+      # 'sometimes' is not one of the three rules the matrix can submit, so the
+      # whitelist drops the entry before the delete -- which is what keeps the
+      # rule it names standing.
+      let(:rejected) do
+        matrix_params(
+          old_status.id.to_s => { new_status.id.to_s => { 'sometimes' => '1' } }
+        ).merge(project_id: ['global'])
+      end
+
+      it 'does not claim success' do
+        existing_rule
+
+        patch :update, params: rejected
+
+        expect(flash[:notice]).to be_nil
+        expect(flash[:warning]).to be_present
+      end
+
+      it 'leaves the rule it named alone' do
+        existing_rule
+
+        patch :update, params: rejected
+
+        expect(WorkflowTransition.where(project_id: nil).count).to eq(1)
+      end
+
+      it 'does not claim success on the field permissions matrix either' do
+        patch :update_permissions, params: {
+          role_id: [role.id], tracker_id: [tracker.id], project_id: ['global'],
+          used_statuses_only: '0',
+          permissions: { old_status.id.to_s => { 'no_such_field' => 'readonly' } }
+        }
+
+        expect(flash[:notice]).to be_nil
+        expect(flash[:warning]).to be_present
+      end
+
+      # The other way an empty payload arrives, and the one core reports success
+      # for: every control left at "(No change)". It is not a rejection, but it
+      # is not a save either, and the same message is the honest one.
+      it 'does not claim success when every cell was left at no change' do
+        patch :update, params: matrix_params(
+          old_status.id.to_s => {
+            new_status.id.to_s => { 'always' => 'no_change', 'author' => 'no_change',
+                                    'assignee' => 'no_change' }
+          }
+        ).merge(project_id: ['global'])
+
+        expect(flash[:notice]).to be_nil
         expect(flash[:warning]).to be_present
       end
     end

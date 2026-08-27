@@ -175,12 +175,44 @@
 
 ## Open — for Jan
 
-*(Nothing open. The bulk scope-create question filed here on 2026-08-27 was
-answered **A** the same day and has moved up; finding **C01** was answered **B**
-on 2026-08-26, as were WP8's two (**A**), WP7's one, WP8's renderer choice
-(**C**), WP4's two and WP5's one. Items land here with their options, a
-plain-language explanation of each and a recommendation, while the build
-continues on the safest default.)*
+*(Items land here with their options, a plain-language explanation of each and a
+recommendation, while the build continues on the safest default. The bulk
+scope-create question filed here on 2026-08-27 was answered **A** the same day
+and has moved up; finding **C01** was answered **B** on 2026-08-26, as were
+WP8's two (**A**), WP7's one, WP8's renderer choice (**C**), WP4's two and
+WP5's one.)*
+
+- **Choice:** should `docs/review/README.md` go on telling a reviewer to review
+  the head of `main`? (Finding **F09** of the 2026-08-27 review, left at
+  `question` because it is not a fixer's to settle.)
+- **Options:** **A)** Change the sentence to name `claude/dev`, and leave `main`
+  where it is — `main` then means "last released", which is a defensible thing
+  for it to mean. **B)** Merge `claude/dev` into `main` and keep the sentence,
+  which makes the loop's own documentation true again and gives the review
+  history a stable base, at the cost of doing the merge now rather than when you
+  want to release.
+- **Recommendation:** **A**, and **B** whenever the release is due anyway. The
+  sentence costs nothing to correct and the merge should be driven by wanting to
+  release, not by a review prompt. Worth knowing either way: `origin/main` is
+  still at `6c17b31`, three commits from before 0.1.0, and its history is
+  **unrelated** to `origin/claude/dev`'s — they share no merge base, so the
+  merge, when it comes, needs `--allow-unrelated-histories` or a deliberate
+  replacement of `main`'s tree.
+- **Urgent?** no — we changed nothing and reviewed `claude/dev`, as the previous
+  reviewer did.
+
+- **Choice:** the three `.codex/` setup scripts were deleted (finding **F08**).
+  Do you want them back?
+- **Options:** **A)** Leave them deleted. `dev/` is the supported path and
+  `dev/README.md` now says so. **B)** Restore them and keep them current — which
+  means updating them for Redmine 7.0 and for the `.redmine/<branch>-<db>`
+  layout, and fixing the `rsync` that would otherwise copy every built host into
+  the plugin directory.
+- **Recommendation:** **A**. Nothing in the repository, in CI or in any document
+  referred to them; they named Redmine 6.0 as supported and 7.0 not at all; and
+  both Codex sessions that reviewed this repository this week had no host and
+  never ran them. `git log -- .codex` brings them back if you disagree.
+- **Urgent?** no — done, and reversible with one revert.
 
 ## Decided (autonomous) — 2026-08-26, review-fix session
 
@@ -261,3 +293,60 @@ continues on the safest default.)*
 | Date | Question | Answer | Notes |
 | --- | --- | --- | --- |
 | 2026-08-27 | Whether creating scopes in bulk may use one statement for many rows | **A — leave it.** One validated insert per combination; no bulk boundary, no ADR | Asked because restoring the forbidden-constructs rule (F01 of the 2026-08-27 review) costs *give own workflow* one round trip per (project, tracker, role) where 0.1.1 made one per thousand. **A** was the recommendation and is now the decision, so the shape in `ScopeWriter.create_scopes` is the intended one rather than a default awaiting review: one `ProjectWorkflowScope#save!` per combination, validations and all. Considered and rejected: **B**, an ADR permitting a bulk scope create in `ScopeWriter` only — faster, and it would have made the rule mean what the code does, but it widens a gate that exists precisely because it is narrow; and **C**, chunking or backgrounding the action, which is a bigger change and a new moving part for a cost nobody has reported. What this closes off, so that a later session does not re-open it as an optimisation: the round trips in `create_scopes` are **not** a performance defect to be fixed with `insert_all`. If the slow case is ever actually met, it is B that gets re-opened — with an ADR — not the code. |
+
+## Decided (autonomous) — 2026-08-27, second review-fix session
+
+Eight findings of the independent review of `c3047cf`. Class A unless said
+otherwise.
+
+- **'All' is carried into the Save as 'all'.** The two hidden-field Deface
+  overrides expanded it into every project id; the scope panel four files away
+  has kept it verbatim since WP1, and there was a spec asserting so. Class A —
+  the repository already held the rule, in one of two places (finding F01).
+- **The rule writers report what they wrote, not only what they refused.** A new
+  `MatrixSaveResult` with `written` and `skipped`, summed across the projects of
+  a selection, replaces the bare `skipped` count, and the
+  `(projects × trackers × roles) − skipped` arithmetic is gone from the
+  controller. Class A: two counts cannot be recovered from one, and the
+  subtraction is what made a rejected payload read as a full save (finding F06).
+- **A matrix save that applied nothing says so, on both screens.** Class B, and
+  decided rather than deferred. Core reports *Successful update* for a save where
+  every cell was left at "(No change)", and this now does not; the alternative —
+  reporting nothing at all, which is what the finding literally asked for —
+  leaves somebody pressing Save with no feedback, which is worse than either
+  wrong message. One new key, `notice_project_workflow_save_nothing_applied`,
+  whose sentence covers both causes: nothing was changed, or nothing submitted
+  was accepted. Reversible: delete the key and the branch that sets it.
+- **A copy reports the workflows it emptied rather than refusing to empty
+  them.** Class B, and the finding's own cheaper option. A copy replaces, so a
+  source with no rules of one kind leaves the target's scope of that kind
+  standing and empty; refusing would break the one way somebody can deliberately
+  empty a project. One new key,
+  `notice_project_workflow_copy_left_empty`, pluralised (finding F03).
+- **A copy stamps the audit columns of the combinations it copied, and no
+  others.** `WorkflowRule.copy_for_project` returns the pairs it actually copied
+  — it skips any whose source resolves to the target itself — and
+  `ScopeWriter.touch_combinations` stamps exactly those triples.
+  `touch_scopes`, which stamps the cross product of three id lists, stays for
+  the matrix save, where the cross product genuinely is what was rewritten
+  (finding F04).
+- **A new service, `ScopeCombinations`, holds the questions a *set of exact
+  triples* can be asked.** Class A, and forced twice: by F04, which was the
+  cross product speaking for combinations nobody named, and by
+  `Metrics/ClassLength`, which `ScopeWriter` crossed. Read-only; every query
+  names its project ids (INV-4).
+- **A project's Workflow tab lists a role that already has a scope, even with no
+  member in the project — but is not offered a new workflow for it.** Class B,
+  and deliberately the narrowest reading of Jan's answer **A** of 2026-08-26:
+  that answer is about the *offer*, and it stands. `require_offered_role` answers
+  403 for `#enable` alone; every other action acts on a scope that already
+  exists. Reversible: `ProjectOptions.visible_roles` back to `.roles` (F05).
+- **`.rubocop.yml` targets the oldest supported Rails, 6.1.** Class A: a lint
+  gate configured for the newest host can approve a method the oldest cannot
+  run, which is worse than no gate. Asserted from inside the suite, so the 5.1
+  cell fails if it drifts upwards again (finding F02).
+- **`duplicate` keeps its asymmetry with `copy` and explains it.** It never
+  reads `params[:project_id]`, so 404 for a value there would report a fault
+  that does not exist. A characterising example pins the choice (finding F07).
+- **The `.codex/` scripts are deleted.** Class B, logged above under
+  *Open — for Jan* (finding F08).

@@ -59,6 +59,10 @@ it:
   text_project_workflow_readonly_generic: "Questo progetto segue il workflow generico per questo tracker e ruolo. È mostrato qui sotto come riferimento; dai al progetto un workflow proprio per modificarlo."
   text_project_workflow_readonly_own: Questo è il workflow proprio del progetto. Per modificarlo serve il permesso di gestire il workflow di questo progetto.
   notice_project_workflow_not_own: "Questo progetto segue il workflow generico per questo tracker e ruolo, quindi non è stato salvato nulla. Dai prima al progetto un workflow proprio."
+  notice_project_workflow_save_nothing_applied: "Non è stato salvato nulla. O nessuna cella è stata modificata, o i valori inviati non sono stati accettati."
+  notice_project_workflow_copy_left_empty:
+    one: "%{count} combinazione di progetto, tracker e ruolo ha ora un workflow proprio vuoto: la copia non vi ha lasciato alcuna regola di quel tipo. Lì non è permesso nulla finché non aggiungi delle regole."
+    other: "%{count} combinazioni di progetto, tracker e ruolo hanno ora un workflow proprio vuoto: la copia non vi ha lasciato alcuna regola di quel tipo. Lì non è permesso nulla finché non aggiungi delle regole."
   text_project_workflow_scope_inheriting_note:
     one: "%{count} combinazione di questa selezione segue ancora il workflow generico. La matrice qui sotto mostra solo le regole che la selezione possiede, quindi quella combinazione appare vuota e il salvataggio non la modifica — dalle prima un workflow proprio."
     other: "%{count} combinazioni di questa selezione seguono ancora il workflow generico. La matrice qui sotto mostra solo le regole che la selezione possiede, quindi quelle combinazioni appaiono vuote e il salvataggio non le modifica — dai loro prima un workflow proprio."

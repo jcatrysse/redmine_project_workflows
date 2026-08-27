@@ -6,21 +6,21 @@
   given back. The project is in the path, so nothing here can act on another
   project (INV-7).
 
-  Locals: project, tracker, role, rule_type, state, back_url (optional).
+  `offered` says whether this project may be given a workflow of its own for this
+  role at all. A role with no member in the project can still have a scope -- an
+  administrator can create one, and the last member holding an ordinary role can
+  leave -- and such a row exists so that the workflow already in force can be
+  seen and given back. Taking a *new* one over is the one action it does not get
+  (finding F05), so a combination that inherits offers nothing.
+
+  Locals: project, tracker, role, rule_type, state, back_url (optional),
+  offered (optional, defaults to true).
 %>
 <% selection = { tracker_id: tracker.id, role_id: role.id, rule_type: rule_type } %>
 <% selection[:back_url] = back_url if defined?(back_url) && back_url.present? %>
+<% offered = true unless defined?(offered) %>
 <span class="project-workflow-scope-actions">
-  <% if state == :inherits %>
-    <%= link_to l(:button_project_workflow_enable_copy),
-                project_workflow_scope_path(project, selection.merge(source: 'copy')),
-                method: :post,
-                data: { confirm: l(:text_project_workflow_project_enable_copy_confirm) } %>
-    <%= link_to l(:button_project_workflow_enable_empty),
-                project_workflow_scope_path(project, selection.merge(source: 'empty')),
-                method: :post,
-                data: { confirm: l(:text_project_workflow_project_enable_empty_confirm) } %>
-  <% else %>
+  <% if state != :inherits %>
     <%= link_to l(:button_project_workflow_clear),
                 clear_project_workflow_scope_path(project, selection),
                 method: :post,
@@ -29,5 +29,14 @@
                 project_workflow_scope_path(project, selection),
                 method: :delete,
                 data: { confirm: l(:text_project_workflow_inherit_confirm) } %>
+  <% elsif offered %>
+    <%= link_to l(:button_project_workflow_enable_copy),
+                project_workflow_scope_path(project, selection.merge(source: 'copy')),
+                method: :post,
+                data: { confirm: l(:text_project_workflow_project_enable_copy_confirm) } %>
+    <%= link_to l(:button_project_workflow_enable_empty),
+                project_workflow_scope_path(project, selection.merge(source: 'empty')),
+                method: :post,
+                data: { confirm: l(:text_project_workflow_project_enable_empty_confirm) } %>
   <% end %>
 </span>

@@ -20,6 +20,12 @@ module RedmineProjectWorkflows
         author assignee field_name rule type
       ].freeze
 
+      # Returns the [[tracker, role], ...] pairs it actually copied, which is not
+      # the same as the pairs it was given: a pair whose source resolves to the
+      # target itself -- "any project, any role, this tracker" on the copy form
+      # -- is skipped, and copying nothing is a legitimate outcome. The caller
+      # needs the difference, because the scopes to record and the audit columns
+      # to stamp are the ones this copy touched and no others (finding F04).
       def copy_for_project(source_project_id, target_project_id, source_tracker, source_role, target_trackers,
                            target_roles)
         unless (source_tracker.nil? || source_tracker.is_a?(Tracker)) &&
@@ -54,7 +60,7 @@ module RedmineProjectWorkflows
           copy_pairs << [target_tracker, target_role]
         end
 
-        return if copy_pairs.empty?
+        return [] if copy_pairs.empty?
 
         delete_existing = copy_pairs.size <= 1
         delete_existing_rules_for_project(target_project_id, copy_pairs, skipped_pairs) unless delete_existing
@@ -70,6 +76,7 @@ module RedmineProjectWorkflows
             delete_existing: delete_existing
           )
         end
+        copy_pairs
       end
 
       def copy_one_for_project(source_project_id, target_project_id, source_tracker, source_role, target_tracker,
