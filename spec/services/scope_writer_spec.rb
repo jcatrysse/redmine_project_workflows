@@ -220,10 +220,10 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       expect(ProjectWorkflowScope.first.created_by_id).to be_nil
     end
 
-    # The row goes in through insert_all now -- one statement per batch rather
-    # than one round trip per combination, because "give own workflow" with
-    # every project selected is projects x trackers x roles of them. What the
-    # model would still have checked is asserted here instead.
+    # 0.1.1 put the rows in with insert_all, which runs no validations; the
+    # guard that replaced them is still in front of the loop, because a rule
+    # type nothing can read has to fail the call rather than be reported, row
+    # by row, as a combination somebody else had already created.
     it 'refuses a rule type nothing can read' do
       expect do
         described_class.enable(
@@ -231,6 +231,75 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
           rule_type: 'something_else'
         )
       end.to raise_error(ArgumentError)
+    end
+
+    # F01, and the reason the whole method was rewritten. A second
+    # administrator pressed the same button first: by the time this call gets
+    # to the INSERT, the combination is scoped and the winner's rules are in
+    # the table. The loser must create nothing, count nothing, and -- the part
+    # that actually damages data -- must not clear the winner's rules and copy
+    # the generic ones over them.
+    #
+    # The race is arranged by making .missing_combinations answer as it did
+    # before the winner committed, which is exactly the stale answer the real
+    # race produces. With insert_all the row was silently dropped (it is
+    # INSERT ... ON CONFLICT DO NOTHING) and the combination reported created
+    # regardless.
+    it 'creates nothing for a scope that appeared after the check' do
+      allow(described_class).to receive(:missing_combinations)
+        .and_return([[project.id, tracker.id, role.id]])
+      give_own_workflow(project, tracker, role)
+      project_transition(project, s2, s1)
+      generic_transition(s1, s2)
+
+      expect(call(:enable)).to eq(0)
+
+      expect(WorkflowTransition.where(project_id: project.id).pluck(:old_status_id, :new_status_id))
+        .to contain_exactly([s2.id, s1.id])
+      expect(ProjectWorkflowScope.count).to eq(1)
+    end
+
+    # The narrower half of the same race: the winner commits between the
+    # uniqueness validation's SELECT and this INSERT, so the unique index is
+    # what stops the duplicate and the failure arrives as RecordNotUnique. On
+    # PostgreSQL a failed statement makes every later statement of the same
+    # transaction fail too, which is why the row is written inside a savepoint
+    # -- without it the rest of the selection would go down with the one lost
+    # race. The callback stands in for the second connection; insert_all ran no
+    # callbacks at all, so this could not even be asked of the old code.
+    it 'goes on to the rest of the selection when one row loses the race' do
+      raced = false
+      race = lambda do |record|
+        next if raced || record.role_id != role.id
+
+        raced = true
+        raise ActiveRecord::RecordNotUnique, 'duplicate key value violates unique constraint'
+      end
+      ProjectWorkflowScope.set_callback(:create, :before, race)
+
+      begin
+        created = described_class.enable(
+          project_ids: [project.id], tracker_ids: [tracker.id],
+          role_ids: [role.id, second_role.id], rule_type: transitions, copy_generic: false
+        )
+      ensure
+        ProjectWorkflowScope.skip_callback(:create, :before, race, raise: false)
+      end
+
+      expect(created).to eq(1)
+      expect(ProjectWorkflowScope.pluck(:role_id)).to eq([second_role.id])
+    end
+
+    # A duplicate is the *only* validation failure that counts as "somebody
+    # else got here first". Anything else is a bug, and swallowing it would
+    # turn a rejected row into a silently skipped one -- which is how a save
+    # comes to report success over a table it never wrote to.
+    it 'raises rather than skipping a row the model rejects' do
+      allow(described_class).to receive(:missing_combinations)
+        .and_return([[project.id, nil, role.id]])
+
+      expect { call(:enable) }.to raise_error(ActiveRecord::RecordInvalid)
+      expect(ProjectWorkflowScope.count).to eq(0)
     end
 
     it 'writes every combination of a large selection' do

@@ -264,10 +264,15 @@ things they take. A save then writes the whole matrix once per project: for each
 one, a `touch_scopes` UPDATE, one DELETE per rule group and the inserted rows in
 batches of a thousand. The row count is the honest part of that — a matrix of
 *s* statuses is about *s²* cells, and the operator asked for it — but the round
-trips are not, so the two places that used to make one statement per combination
-no longer do: scopes are created with `insert_all` in batches of a thousand
-(`ScopeWriter::INSERT_BATCH_SIZE`), and the whole save is one transaction rather
-than one per project.
+trips are not, so the whole save is one transaction rather than one per project.
+
+Scope creation is deliberately *not* batched, and was briefly batched by mistake.
+0.1.1 wrote the rows with `insert_all`, which the forbidden-constructs table in
+`CLAUDE.md` allows only in the two rule writers — and which, being the skipping
+form of the statement, reported a row it had silently dropped as created. It is
+one validated `save!` per combination again: `ScopeWriter.create_scopes` returns
+the combinations it actually inserted, and *give own workflow* clears and copies
+rules only for those.
 
 What remains one statement per combination is `WorkflowRule.copy_generic_to_project`,
 which *give own workflow* calls once per (project, tracker, role) it enables. It

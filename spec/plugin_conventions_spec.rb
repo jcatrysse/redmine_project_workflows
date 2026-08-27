@@ -166,6 +166,28 @@ describe RedmineProjectWorkflows do
                       "init.rb declares #{declared}; CHANGELOG.md's newest entry is #{newest}"
   end
 
+  # INV-2, and the forbidden-constructs table that spells it out: insert_all
+  # runs no validations, so it is confined to the two rule writers, where a
+  # whitelist checked against server-built lists stands in for them.
+  #
+  # 0.1.1 used it in ScopeWriter as well, to save round trips, with a comment
+  # arguing that nothing in those rows comes from a request. The argument lost
+  # twice: the rule is a gate rather than a default, and insert_all is the
+  # skipping form of the statement -- a scope somebody else had just created
+  # was dropped without a word and reported as created anyway. A grep is the
+  # cheapest thing that keeps it from coming back.
+  it 'writes with insert_all only in the two rule writers' do
+    root = File.expand_path('..', __dir__)
+    callers = Dir.glob("#{root}/{app,lib,db}/**/*.rb").select do |file|
+      File.read(file).match?(/\.insert_all\b/)
+    end
+
+    expect(callers.map { |file| file.sub("#{root}/", '') }).to contain_exactly(
+      'lib/redmine_project_workflows/services/transition_writer.rb',
+      'lib/redmine_project_workflows/services/permission_writer.rb'
+    )
+  end
+
   # Reading a workflow is a read action, so it goes on working in a closed
   # project; managing one is not, so it stops there.
   it 'marks viewing as a read action and managing as a write' do

@@ -127,17 +127,24 @@ module RedmineProjectWorkflows
           )
           next if combinations.empty?
 
-          create_scopes(combinations, rule_type, user)
+          # Everything below acts on the combinations this call actually
+          # created, not on the ones it set out to create. The two differ when
+          # a second administrator pressed the same button first: that scope is
+          # theirs, its rules are the ones they just copied, and clearing and
+          # re-copying them here would undo a decision this request never made.
+          created = create_scopes(combinations, rule_type, user)
+          next if created.empty?
+
           # Defensive: a combination that inherits should carry no rules of its
           # own, but a database that predates the scope table may. Clearing
           # first makes the result of "enable" the same either way.
-          delete_rules(combinations, rule_type)
+          delete_rules(created, rule_type)
           if copy_generic
-            combinations.each do |project_id, tracker_id, role_id|
+            created.each do |project_id, tracker_id, role_id|
               WorkflowRule.copy_generic_to_project(project_id, tracker_id, role_id, sti_type)
             end
           end
-          touched = combinations.size
+          touched = created.size
         end
         # create_scopes already resets, but only when it created something, and
         # this action deletes and re-copies rules either way.
@@ -234,51 +241,83 @@ module RedmineProjectWorkflows
       end
       private_class_method :normalize
 
-      # Rows per INSERT. "Give own workflow" with every project selected is
-      # projects x trackers x roles combinations, and one round trip each was
-      # tens of thousands of statements in a single request.
-      INSERT_BATCH_SIZE = 1000
-
-      # insert_all rather than one create! per combination.
+      # One validated record per combination, not one insert_all for the lot.
       #
-      # The forbidden-constructs table in CLAUDE.md bans insert_all outside the
-      # two rule writers because it skips validation, and the reason is INV-2:
-      # nothing built from a request parameter may reach a row hash unchecked.
-      # Nothing here is. +rule_type+ is compared against RULE_TYPES before it
-      # gets this far, the three ids are integers this class resolved from the
-      # database, and the author id comes from User.current -- the same argument
-      # ScopeCopier already makes for its raw INSERT ... SELECT. What the model
-      # would still check is uniqueness, and that is the table's own index; a
-      # concurrent duplicate raises RecordNotUnique with create! as well.
+      # 0.1.1 batched these rows with insert_all, and the comment that stood
+      # here argued the case: nothing in the row comes from a request, so INV-2
+      # was not really at stake. Two things were wrong with that. The
+      # forbidden-constructs table in CLAUDE.md is a hard gate (G7) and bans
+      # insert_all outside the two rule writers whatever the argument; and the
+      # safety the comment claimed -- "a concurrent duplicate raises
+      # RecordNotUnique with create! as well" -- is not what insert_all does.
+      # insert_all is the *skipping* form (ON CONFLICT DO NOTHING, INSERT
+      # IGNORE): the duplicate row was quietly dropped and this method reported
+      # the combination created anyway. Two administrators pressing "give own
+      # workflow" at the same moment were both told they had created every
+      # scope, and the loser went on to clear and re-copy rules that belonged
+      # to the winner.
       #
-      # Returns the combinations it inserted, not model objects: nothing reads
-      # the records back, and loading them would put the round trips straight
-      # back.
+      # So: ProjectWorkflowScope#save!, which runs the model's validations,
+      # once per combination. Returns the combinations whose row this call
+      # actually inserted -- never the ones it found already there -- because
+      # .enable acts on the answer.
+      #
+      # The cost is one round trip per combination where there used to be one
+      # per thousand, on an action whose largest selection is projects x
+      # trackers x roles. It is an administrator's explicit bulk action rather
+      # than a hot path, and correctness is not negotiable against it;
+      # docs/DECISIONS.md carries the question of whether a formally approved
+      # bulk boundary should exist at all.
       def self.create_scopes(combinations, rule_type, user)
         return [] if combinations.empty?
 
-        # The one thing the model checked that the table does not: with
-        # insert_all there is no validates_inclusion_of to fall back on, and a
-        # rule type nothing can read would be a row that exists and applies to
-        # nothing.
+        # Kept in front of the per-row validation so that a rule type nothing
+        # can read fails the whole call rather than being reported, row by row,
+        # as a combination that already existed.
         unless ProjectWorkflowScope::RULE_TYPES.include?(rule_type)
           raise ArgumentError, "unknown workflow scope rule type #{rule_type.inspect}"
         end
 
         author_id = author_id_for(user)
-        now = Time.now.utc
-        combinations.each_slice(INSERT_BATCH_SIZE) do |slice|
-          rows = slice.map do |project_id, tracker_id, role_id|
-            { project_id: project_id, tracker_id: tracker_id, role_id: role_id,
-              rule_type: rule_type, created_by_id: author_id, updated_by_id: author_id,
-              created_at: now, updated_at: now }
-          end
-          ProjectWorkflowScope.insert_all(rows) # rubocop:disable Rails/SkipsModelValidations
+        created = combinations.select do |project_id, tracker_id, role_id|
+          create_scope(project_id, tracker_id, role_id, rule_type, author_id)
         end
-        Resolver.reset_cache!
-        combinations
+        Resolver.reset_cache! unless created.empty?
+        created
       end
       private_class_method :create_scopes
+
+      # True when this call inserted the row, false when somebody else already
+      # had. The difference matters to .enable, which clears and re-copies the
+      # rules of what it created.
+      #
+      # Two rescues because a duplicate arrives as either of two exceptions.
+      # The uniqueness validation catches the ordinary case with a SELECT and
+      # raises RecordInvalid; RecordNotUnique is the narrow race where the
+      # other transaction committed between that SELECT and this INSERT, and
+      # there the table's own unique index is what settles it. RecordInvalid
+      # for anything *else* is a bug and is re-raised -- swallowing it would
+      # turn a rejected row into a silently skipped one.
+      #
+      # requires_new is what makes the second case survivable: PostgreSQL
+      # refuses every further statement of a transaction after a failed one, so
+      # without the savepoint one lost race would take the rest of the
+      # selection down with it.
+      def self.create_scope(project_id, tracker_id, role_id, rule_type, author_id)
+        scope = ProjectWorkflowScope.new(
+          project_id: project_id, tracker_id: tracker_id, role_id: role_id,
+          rule_type: rule_type, created_by_id: author_id, updated_by_id: author_id
+        )
+        ProjectWorkflowScope.transaction(requires_new: true) { scope.save! }
+        true
+      rescue ActiveRecord::RecordNotUnique
+        false
+      rescue ActiveRecord::RecordInvalid
+        raise unless scope.errors.of_kind?(:project_id, :taken)
+
+        false
+      end
+      private_class_method :create_scope
 
       # One statement per DELETE_BATCH_SIZE triples rather than one per triple.
       # The predicate is an OR of exact triples, not the cross product of the
