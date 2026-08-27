@@ -144,7 +144,7 @@ before and after, and one reaching the log with a third value cannot exist. The
 | Locale files | **untouched.** F01's option A was chosen partly so that they would be |
 | Version gate | `init.rb` 0.1.5 = the newest `CHANGELOG.md` heading, which now covers both rounds |
 | MySQL, MariaDB | **not run locally** — no server in this container. CI covers six of the nine cells |
-| CI | run **109** was green on all eleven jobs for `9ce1921`, the commit reviewed. This session's four commits are covered by the run named in the session report |
+| CI | run **115** on `efc799d`, this session's head: **green on all eleven jobs** — nine matrix cells, RuboCop, the bulk-action JavaScript gate. Run **111** was green on the F01 commit; runs 112, 113 and 114 read `cancelled`, which is the concurrency group superseding them rather than a failure. Run 109 was the green on `9ce1921`, the commit this review examined |
 
 ## Exact next step
 
@@ -279,6 +279,14 @@ the rest is carried forward.
   assertion that locked F01 in came with a comment deriving the multiplied count
   from the selection — so the suite documented the defect as the specification,
   and reading the comment was more misleading than reading the assertion alone.
+- **A `cd` into a host checkout turns the next `git push` into a push at
+  *Redmine*.** The working directory persists between tool calls, and a
+  `git add -A && git commit && git push` typed after one committed a copy of the
+  plugin into `.redmine/6.1-stable-postgresql` and then tried to push it to
+  `github.com/redmine/redmine`, which refused it — the only reason nothing was
+  lost. This trap was already in the list twice, in its milder forms; this is
+  what it looks like at full strength. Prefix every command that writes anything
+  with `cd /home/user/redmine_project_workflows &&`, or use `git -C <path>`.
 - **`Symbol#to_i` does not exist.** A payload whose keys are Symbols passes a
   whitelist built on `.to_s` and then dies in code built on `.to_i`. If two
   methods normalise a key differently, one of them is a 500 waiting for a caller
