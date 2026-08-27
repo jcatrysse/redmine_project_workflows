@@ -36,29 +36,12 @@ module RedmineProjectWorkflows
                 "#{source_tracker.class.name} and #{source_role.class.name}"
         end
 
-        target_trackers = Array.wrap(target_trackers).compact
-        target_roles = Array.wrap(target_roles).compact
-
-        target_trackers = Tracker.sorted.to_a if target_trackers.empty?
-        target_roles = Role.all.select(&:consider_workflow?) if target_roles.empty?
-
-        target_pairs = target_trackers.product(target_roles)
-        skipped_pairs = []
-        copy_pairs = []
+        copy_pairs, skipped_pairs = copy_pairs_for_project(
+          source_project_id, target_project_id, source_tracker, source_role, target_trackers, target_roles
+        )
 
         source_project_id = Integer(source_project_id) if source_project_id
         target_project_id = Integer(target_project_id) if target_project_id
-
-        target_pairs.each do |target_tracker, target_role|
-          resolved_source_tracker = source_tracker || target_tracker
-          resolved_source_role = source_role || target_role
-          if resolved_source_tracker == target_tracker && resolved_source_role == target_role &&
-             source_project_id == target_project_id
-            skipped_pairs << [target_tracker, target_role]
-            next
-          end
-          copy_pairs << [target_tracker, target_role]
-        end
 
         return [] if copy_pairs.empty?
 
@@ -77,6 +60,39 @@ module RedmineProjectWorkflows
           )
         end
         copy_pairs
+      end
+
+      # Which (tracker, role) pairs a copy would write, and which it would skip,
+      # decided without touching either table.
+      #
+      # Extracted from .copy_for_project so that the copy screen can know its
+      # target combinations *before* it writes anything. That is what makes the
+      # scope lock takeable in advance (finding F01): the lock has to be the
+      # first statement in the transaction, and it can only name the rows the
+      # copy is going to act on if the skip rule has already been applied. Two
+      # callers, one rule -- duplicating the rule here is how a lock comes to
+      # cover a different set from the write it is protecting.
+      #
+      # Pure arithmetic apart from the two `empty?` fallbacks, which are core's
+      # own "no selection means everything" and are queries; the copy screen
+      # refuses an empty selection long before this, so on that path they never
+      # fire.
+      def copy_pairs_for_project(source_project_id, target_project_id, source_tracker, source_role,
+                                 target_trackers, target_roles)
+        target_trackers = Array.wrap(target_trackers).compact
+        target_roles = Array.wrap(target_roles).compact
+
+        target_trackers = Tracker.sorted.to_a if target_trackers.empty?
+        target_roles = Role.all.select(&:consider_workflow?) if target_roles.empty?
+
+        source_project_id = Integer(source_project_id) if source_project_id
+        target_project_id = Integer(target_project_id) if target_project_id
+
+        target_trackers.product(target_roles).partition do |target_tracker, target_role|
+          !((source_tracker || target_tracker) == target_tracker &&
+            (source_role || target_role) == target_role &&
+            source_project_id == target_project_id)
+        end
       end
 
       def copy_one_for_project(source_project_id, target_project_id, source_tracker, source_role, target_tracker,

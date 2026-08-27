@@ -7,6 +7,12 @@ module RedmineProjectWorkflows
       # every method it adds is private, because this one is prepended to a
       # controller.
       include WorkflowsControllerProjectSelection
+      # The copy screen's own vocabulary -- #duplicate's four private helpers.
+      # Split out for the same reason WorkflowsControllerProjectSelection was:
+      # this module is a set of replaced core actions, and the helpers one of
+      # them needs are not part of that. Every method there is private, because
+      # a public instance method of a controller is an action.
+      include WorkflowsControllerCopy
 
       # The summary page. Core's own body is the first two lines plus a count
       # with no project_id predicate at all, so every project's rules were
@@ -164,6 +170,7 @@ module RedmineProjectWorkflows
           @source_project_id = source_project_id
           copied = []
           ActiveRecord::Base.transaction do
+            lock_scopes_for_copy(source_project_id, resolved_target_project_ids)
             resolved_target_project_ids.each do |target_project_id|
               pairs = WorkflowRule.copy_for_project(
                 resolved_copy_source(source_project_id, target_project_id),
@@ -321,33 +328,6 @@ module RedmineProjectWorkflows
       # was aimed at: a pair whose source resolves to the target itself is
       # skipped, and stamping its audit columns said somebody had changed a
       # workflow nothing had changed (finding F04).
-      def record_scopes_for_copy(combinations)
-        RedmineProjectWorkflows::Services::ScopeWriter.ensure_scopes_for_copy(
-          combinations: combinations,
-          user: User.current
-        )
-      end
-
-      # Which workflow a copy reads from, per target project. 'any' means each
-      # target project's own; blank or 'global' mean the generic one; anything
-      # else is the project the form named.
-      def resolved_copy_source(source_project_id, target_project_id)
-        return target_project_id if source_project_id == 'any'
-        return nil if source_project_id.blank? || source_project_id == 'global'
-
-        source_project_id
-      end
-
-      # What the copy did, including the part nobody asked for: a combination it
-      # left with an own *empty* workflow. See ScopeCombinations.own_empty_count --
-      # reported rather than refused, because the copy is also how somebody
-      # deliberately empties a project (finding F03).
-      def report_copy(combinations)
-        flash[:notice] = l(:notice_successful_update)
-        emptied = RedmineProjectWorkflows::Services::ScopeCombinations.own_empty_count(combinations)
-        flash[:warning] = l(:notice_project_workflow_copy_left_empty, count: emptied) if emptied.positive?
-      end
-
       # The state of the three INV-3 actions for the current selection, used by
       # the panel above the matrix. Built here rather than in the view so that
       # the view does no querying and the state can be asserted in a controller

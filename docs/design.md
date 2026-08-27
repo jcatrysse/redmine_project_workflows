@@ -115,9 +115,27 @@ that another request could have invalidated in between. The two are now one
 decision: `MatrixScope#writable_pairs` locks the scope rows with
 `SELECT … FOR UPDATE` inside the transaction that then writes, and
 `ScopeWriter.return_to_inheritance` and `.clear_rules` take the same locks before
-either of their deletes. Every path therefore takes scope rows before workflow
-rows, which is also what keeps a save and a return to the generic workflow from
-deadlocking rather than queueing.
+either of their deletes.
+
+**Four** write paths take scope rows before workflow rows, and the fourth was
+added later than the other three: the copy screen. `WorkflowsController#duplicate`
+calls `ScopeWriter.lock_scopes_for_copy` as the first statement in its
+transaction, over the combinations `WorkflowRule.copy_pairs_for_project` says it
+is about to write — computed without touching either table, which is what makes
+the lock takeable before the first rule is written.
+
+That sentence used to read "every path therefore takes scope rows before workflow
+rows", written on the strength of three paths having been changed, and the copy
+was never checked against it (finding F01). It is worth naming the shape rather
+than only correcting the count: a universal claim recorded from a sample is how
+the fourth path came to be skipped, and it is also what the claim below has to
+avoid. The order is what keeps a save and a return to the generic workflow from
+deadlocking rather than queueing, and it holds on all four paths **for
+combinations that have a scope row**. A combination with no scope row has no row
+to pre-take, so it is serialised by the table's unique index instead, and the
+copy against `ScopeWriter.enable` can still form a cycle there that no row lock
+can close. That is recorded rather than chased: if it is ever observed the answer
+is a `rescue ActiveRecord::Deadlocked` on the copy action, not a wider lock.
 
 Two consequences worth knowing. A save that loses the race is *refused* for that
 combination and counted among the ones it left alone, exactly as if the project

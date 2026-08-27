@@ -103,6 +103,55 @@ module RedmineProjectWorkflows
         end
       end
 
+      # The copy screen's lock, and it has to be the first statement inside the
+      # copy's transaction.
+      #
+      # 0.1.2 gave the two matrix writers and the two scope actions a locked
+      # read (MatrixScope#writable_pairs, .return_to_inheritance, .clear_rules)
+      # so that "does this project run its own workflow here?" and "write its
+      # rules" stopped being two decisions. The copy screen was left out, and
+      # docs/design.md went on claiming the rule held everywhere (finding F01).
+      # Unlocked, the copy writes rules for every target project and only then
+      # reads the scope table, which is the same check-then-act it was, one path
+      # further along.
+      #
+      # Two outcomes, and the quiet one is why this is not merely a deadlock
+      # fix. For a combination whose scope has no rules under it -- an own
+      # *empty* workflow, which ADR-001 supports -- the copy's delete locks
+      # nothing, so a concurrent return to the generic workflow never collides
+      # with it: the copy then reads a scope row the return has deleted but not
+      # committed, concludes the combination is already scoped, creates nothing,
+      # and commits its rules under a scope that is gone. Reproduced from Rails
+      # with two connections: one rule left in `workflows`, no scope, no error,
+      # `notice_successful_update`.
+      #
+      # +combinations+ is what the copy is *about* to act on, computed before
+      # any write from WorkflowRule.copy_pairs_for_project. Both rule types at
+      # once and no rule_type filter, because the copy replaces both.
+      #
+      # The residual case no row lock can close: a combination with no scope row
+      # has nothing to pre-take, so copy-versus-.enable is serialised by the
+      # unique index and can still form a cycle. That is recorded rather than
+      # chased -- if it is ever observed, the answer is a
+      # `rescue ActiveRecord::Deadlocked` on the copy action, not a wider lock.
+      def self.lock_scopes_for_copy(combinations:)
+        combinations = ScopeCombinations.normalize(combinations)
+        return [] if combinations.empty?
+
+        ids = []
+        each_batch_predicate(combinations, ProjectWorkflowScope.arel_table) do |predicate|
+          ids.concat(ProjectWorkflowScope.where(predicate).pluck(:id))
+        end
+        return [] if ids.empty?
+
+        # Ascending primary key, which is the order .lock_combinations takes and
+        # the whole reason two callers queue rather than deadlock. Sorted here
+        # rather than relying on the batches, whose ids only ascend within a
+        # batch.
+        ProjectWorkflowScope.where(id: ids.sort).order(:id).lock
+                            .pluck(:project_id, :tracker_id, :role_id)
+      end
+
       # Records that somebody changed the rules of exactly these
       # (project_id, tracker_id, role_id) combinations.
       #

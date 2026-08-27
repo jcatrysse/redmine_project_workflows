@@ -30,12 +30,6 @@ describe 'Concurrent scope decisions' do
   let(:scope_writer) { RedmineProjectWorkflows::Services::ScopeWriter }
   let(:matrix) { {from_status.id.to_s => {to_status.id.to_s => {'always' => '1'}}} }
 
-  # SQLite has no row locking to test and is not one of the nine supported
-  # cells; PostgreSQL, MySQL and MariaDB all speak SELECT ... FOR UPDATE.
-  def row_locking?
-    ActiveRecord::Base.connection.adapter_name.match?(/postgres|mysql|trilogy/i)
-  end
-
   def save_transitions
     writer.replace_transitions_for_project_id(project.id, [tracker], [role], matrix)
   end
@@ -56,26 +50,11 @@ describe 'Concurrent scope decisions' do
     skip('the adapter has no row locking to assert') unless row_locking?
   end
 
+  # statements_during, index_of_scope_lock, index_of_first_rule_write and
+  # row_locking? live in spec_helper.rb: the copy screen has to answer the same
+  # question from a controller spec (finding F01), and two copies of the helpers
+  # would be the same shape of mistake the finding was about.
   describe 'the lock a write takes' do
-    def statements_during
-      seen = []
-      subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
-        seen << payload[:sql].to_s
-      end
-      yield
-      seen
-    ensure
-      ActiveSupport::Notifications.unsubscribe(subscriber)
-    end
-
-    def index_of_scope_lock(statements)
-      statements.index { |sql| sql.match?(/project_workflow_scopes/i) && sql.match?(/FOR UPDATE/i) }
-    end
-
-    def index_of_first_rule_write(statements)
-      statements.index { |sql| sql.match?(/\A\s*(INSERT INTO|DELETE FROM|UPDATE)\s+\W?workflows\b/i) }
-    end
-
     it 'is taken on the scope rows before a project save writes a rule' do
       give_own_workflow(project, tracker, role)
 

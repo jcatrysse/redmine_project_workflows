@@ -1758,4 +1758,96 @@ describe WorkflowsController, type: :controller do
       expect(WorkflowTransition.count).to eq(0)
     end
   end
+  # F01. The copy screen writes `workflows` for every target project and only
+  # then reads `project_workflow_scopes` to decide which combinations need a
+  # scope. That is the check-then-act shape 0.1.2 removed from the two matrix
+  # writers and the two scope actions by giving them a locked read -- and the
+  # copy was left out of, while docs/design.md went on claiming every path took
+  # scope rows before workflow rows.
+  #
+  # The quiet consequence, reproduced from Rails with two live connections
+  # before this was written: for a combination whose scope has no rules under it
+  # the copy's delete locks nothing, so a concurrent return to the generic
+  # workflow never collides. The copy reads a scope row the return has deleted
+  # but not committed, concludes the combination is already scoped, creates
+  # nothing, and commits its rules under a scope that is gone -- one rule in
+  # `workflows` invisible to the resolver (INV-3), no error, and
+  # "Successful update" on the screen.
+  #
+  # Asserted here as statement order on one connection, which is deterministic
+  # and cheap on all nine cells. The two-connection outcome examples for the
+  # same lock are in spec/services/workflow_concurrency_spec.rb; a third one for
+  # this path would need a timing window in nine cells to assert the property
+  # this example already pins.
+  describe 'the lock the copy screen takes' do
+    before { skip('the adapter has no row locking to assert') unless row_locking? }
+
+    def duplicate_into_project
+      post :duplicate, params: {
+        source_tracker_id: tracker.id.to_s,
+        source_role_id: role.id.to_s,
+        source_project_id: 'global',
+        target_tracker_ids: [target_tracker.id.to_s],
+        target_role_ids: [target_role.id.to_s],
+        target_project_ids: [project.id.to_s]
+      }
+    end
+
+    it 'is taken on the scope rows before the copy writes a rule' do
+      give_own_workflow(project, target_tracker, target_role)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: nil,
+                                 old_status_id: old_status.id, new_status_id: new_status.id)
+
+      statements = statements_during { duplicate_into_project }
+
+      expect(index_of_scope_lock(statements)).not_to be_nil
+      expect(index_of_first_rule_write(statements)).not_to be_nil
+      expect(index_of_scope_lock(statements)).to be < index_of_first_rule_write(statements)
+    end
+
+    # The lock has to cover the combination whose scope carries no rules -- the
+    # own *empty* workflow -- because that is the one the copy's own delete
+    # cannot lock for it, and the one the quiet interleaving needs.
+    it 'covers a scope that has no rules under it' do
+      give_own_workflow(project, target_tracker, target_role)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: nil,
+                                 old_status_id: old_status.id, new_status_id: new_status.id)
+
+      # What the FOR UPDATE statement itself returned, not what it was asked
+      # for: the row ids travel as bind parameters, so the SQL text cannot say
+      # which rows were locked.
+      locked = nil
+      scope_writer = RedmineProjectWorkflows::Services::ScopeWriter
+      allow(scope_writer).to receive(:lock_scopes_for_copy).and_wrap_original do |original, **kwargs|
+        locked = original.call(**kwargs)
+      end
+
+      duplicate_into_project
+
+      expect(locked).to include([project.id, target_tracker.id, target_role.id])
+    end
+
+    # A copy whose only target is the generic workflow has no scope to lock and
+    # must not go looking for one: the generic workflow is the one thing that
+    # cannot be inherited (INV-3).
+    it 'is not taken for a copy into the generic workflow' do
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id)
+      give_own_workflow(project, tracker, role)
+
+      statements = statements_during do
+        post :duplicate, params: {
+          source_tracker_id: tracker.id.to_s,
+          source_role_id: role.id.to_s,
+          source_project_id: project.id.to_s,
+          target_tracker_ids: [target_tracker.id.to_s],
+          target_role_ids: [target_role.id.to_s],
+          target_project_ids: ['global']
+        }
+      end
+
+      expect(index_of_scope_lock(statements)).to be_nil
+      expect(index_of_first_rule_write(statements)).not_to be_nil
+    end
+  end
 end

@@ -38,8 +38,46 @@ module ProjectWorkflowScopeHelpers
   end
 end
 
+# "Did this write take the scope lock before it touched a rule?", asked of the
+# statements one block actually issued.
+#
+# Here rather than in one spec file because four write paths have to answer it
+# and they are tested from three of them: the two matrix writers and the two
+# scope actions from spec/services/workflow_concurrency_spec.rb, and the copy
+# screen from spec/controllers/workflows_controller_spec.rb, which needs a
+# controller. Finding F01 was one path missing the lock while a universal claim
+# stood in docs/design.md; a second copy of the helpers would be the same shape
+# of mistake in the tests.
+module WorkflowStatementOrderHelpers
+  def statements_during
+    seen = []
+    subscriber = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+      seen << payload[:sql].to_s
+    end
+    yield
+    seen
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+  end
+
+  def index_of_scope_lock(statements)
+    statements.index { |sql| sql.match?(/project_workflow_scopes/i) && sql.match?(/FOR UPDATE/i) }
+  end
+
+  def index_of_first_rule_write(statements)
+    statements.index { |sql| sql.match?(/\A\s*(INSERT INTO|DELETE FROM|UPDATE)\s+\W?workflows\b/i) }
+  end
+
+  # SQLite has no row locking to assert and is not one of the nine supported
+  # cells; PostgreSQL, MySQL and MariaDB all speak SELECT ... FOR UPDATE.
+  def row_locking?
+    ActiveRecord::Base.connection.adapter_name.match?(/postgres|mysql|trilogy/i)
+  end
+end
+
 RSpec.configure do |config|
   config.include ProjectWorkflowScopeHelpers
+  config.include WorkflowStatementOrderHelpers
 
   fixtures_dir = File.expand_path('../../../test/fixtures', __dir__)
 
