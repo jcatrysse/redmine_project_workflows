@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.5
+
+One finding, the last one open from the review of 0.1.3: the query behind the
+status filter grew with the number of projects that have their own workflow, on
+a screen ordinary users open rather than on an administration screen.
+
+### Fixed
+
+- **The status filter and the status report on a project issue list no longer
+  get slower as more subprojects take over their workflow.** The query that
+  answers "which statuses does this project's workflow use" asked about each
+  project separately, in one statement that grew a clause per project — around
+  1,200 clauses and 90 KB of SQL for a tree of 300 subprojects with four
+  trackers, on **every page view** of that project's issue list. Projects that
+  have the same workflow arrangement, which is what copying a workflow to a whole
+  subtree produces, are now asked about together, so the statement's size follows
+  how many *different* arrangements exist rather than how many projects there
+  are. No answer changes — the same statuses come back, and the same are left
+  out.
+
+### Internal
+
+- The same query is behind the administration matrix with *all projects*
+  selected, where the growth was already known and had been accepted. It is
+  bounded there too now.
+- Five tests, three of them written before the change and confirmed to pass on
+  the old code, because the two plausible wrong ways to group projects together
+  give wrong answers that no existing test would have caught. Each wrong version
+  was implemented deliberately and confirmed to fail one of them.
+
 ## 0.1.4
 
 Nineteen findings from a review that bundled three independent reviews of 0.1.3

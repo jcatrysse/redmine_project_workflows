@@ -362,14 +362,39 @@ Installation.
 
 `StatusListQuery` resolves a set of (project, tracker) pairs in two queries: one
 against the scope table and one OR of the reachable populations. The query
-*count* does not grow with the number of pairs, but the second statement does —
-one `OR` branch per pair that overrides something, about 75 bytes each. The
-worst case is the administration matrix with "all projects" selected in an
-installation where thousands of projects have their own workflow: a large
-statement, accepted by every supported database, with a planning cost that is
-not free. Accepted rather than fixed: it is one admin screen, the growth is
-linear, and the alternative (a tuple `IN (VALUES …)` predicate) is spelled
-differently on each of the three databases.
+*count* does not grow with the number of pairs, and neither does the number of
+`OR` branches in the second statement: the branches are one per **distinct
+override configuration** — a (tracker, sorted role-id set) — each carrying a
+`project_id` *list*, plus one per tracker for the generic rows still reachable.
+Every project that answers for the same roles for the same tracker therefore
+shares one branch, which is precisely what copying a workflow to a whole subtree
+produces. The growth is bounded by how much configuration *variety* an
+installation has, not by how many projects it has.
+
+It used to be one branch per overriding pair, accepted as a cost on the strength
+of the worst case being one admin screen — the administration matrix with "all
+projects" selected. That was **two** screens, not one: the same query is on
+`Project#rolled_up_statuses`, which fills the status filter and the status report
+on every project issue list, so a tree of 300 subprojects with 4 overriding
+trackers meant roughly 1,200 branches and ~90 KB of SQL *per page view* (finding
+F11). Grouping brings that same tree to a handful of branches.
+
+What still grows linearly with the number of overriding projects is the **bind
+parameter list**, one per project id — so PostgreSQL's ceiling of 65,535
+parameters per statement is still there, now reached by overriding projects
+rather than by pairs × roles. It is not reachable from a project issue list.
+
+Two things this deliberately does **not** do. It does not group by tracker alone
+and union the role sets: that would read a project against roles it does not
+answer for, which INV-5 forbids and which an orphaned rule row would make
+visible. And it does not compute the excluded generic roles per group: that set
+is an intersection across the **whole** pair set for the tracker, because a
+generic role stays reachable unless *every* pair answers for it (INV-6). Both
+mistakes give wrong answers with no statement to blame, so
+`spec/services/status_list_query_spec.rb` has an example for each, and each was
+confirmed to fail against a deliberately wrong implementation. The set-based
+alternative (a tuple `IN (VALUES …)` predicate) remains rejected: it is spelled
+differently on each of the three databases, and grouping is the larger win.
 
 ### What an administration save costs
 

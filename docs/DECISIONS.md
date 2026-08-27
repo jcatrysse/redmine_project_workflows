@@ -418,3 +418,37 @@ All Class A unless it says otherwise. Findings F01–F20 of
   `updated_by` is blank). Fixing only `ScopeCopier` would have closed the live
   path while knowingly shipping the defect. The 2026-08-26 entry above is marked
   superseded rather than edited (F09).
+
+## Decided (autonomous) — 2026-08-27, F11 session
+
+Class A, and the last open finding of `docs/review/findings/2026-08-27-bundled.md`.
+
+- **`StatusListQuery` emits one OR branch per override *configuration*, not per
+  overriding pair.** The group key is (tracker, sorted role-id set) and each
+  branch carries a `project_id` list, so every project that answers for the same
+  roles for the same tracker — which is what copying a workflow to a subtree
+  produces — shares one branch. The branch count is bounded by configuration
+  variety rather than by project count, on the administration matrix with "all
+  projects" selected *and* on `Project#rolled_up_statuses`, which fills the
+  status filter and the status report on every project issue list. That second
+  screen is why the growth was worth fixing rather than pricing in: it is a page
+  view, not an admin action (F11).
+- **The excluded generic roles stay an intersection across the whole pair set,
+  and both methods now say that this is load-bearing.** A generic role is out of
+  reach only when *every* pair for the tracker answers for it (INV-6), so it
+  cannot be computed per group. Nor may the pairs be grouped by tracker alone
+  with the role sets unioned: that reads a project against roles it does not
+  answer for (INV-5), which an orphaned rule row makes visible (INV-3). Both
+  wrong versions were implemented on purpose and each was confirmed to fail an
+  example before being reverted (F11).
+- **The tuple `IN (VALUES …)` rewrite stays rejected** — three spellings for
+  three databases, and grouping is the larger win anyway. What is *not* claimed
+  is that the growth is gone: the bind parameter list still carries one
+  parameter per overriding project, so PostgreSQL's 65,535-parameter ceiling is
+  raised rather than removed, and `docs/design.md` says so (F11).
+- **The statement-shape examples count `project_id` predicates, not
+  `tracker_id`.** Rails factors the predicates common to every branch out of an
+  `OR`, so a `tracker_id` count is 1 whatever the branch count — the first
+  draft's gate, which would have asserted nothing. This is the third time in two
+  sessions that a shape assertion had to be measured before it could be trusted
+  (F04, F10, F11).
