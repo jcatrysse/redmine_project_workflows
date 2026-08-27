@@ -13,8 +13,17 @@
 - **This session was the fixer**, on a review somebody else ran. An independent
   Claude session reviewed `ed4073d`, found nine things, and pushed
   `docs/review/findings/2026-08-27-claude.md` to `main`. All nine are answered:
-  **eight fixed**, one (**F09**) left at `question` because it is Jan's to
-  settle. Nothing is left at `open`.
+  **seven `fixed`**, one **`adjusted`** (F04 — the defect is real and the
+  reviewer's reasoning about it was not; the `Resolution:` line says how), and one
+  (**F09**) left at `question` because it is Jan's to settle. Nothing is left at
+  `open`.
+- **Where the answered findings file is:** on `claude/dev`, which is what
+  `docs/review/README.md` prescribes — a fixer pushes to `claude/dev`, a reviewer
+  pushes a findings file to `main`. So the copy on **`main` still reads nine
+  `open` findings** and will until Jan merges. A next reviewer who reads `main`
+  rather than `claude/dev` would see nine open findings that are all answered,
+  which is the shape of the mistake `G03` made. That is also half of what F09 is
+  about.
 - **What exists:** the plugin at **0.1.3**. 0.1.0 is the scope model and the
   eight work packages; 0.1.1 is the two matrix-save repairs; 0.1.2 is the two
   concurrency repairs; 0.1.3 is this session — one operability defect that bites

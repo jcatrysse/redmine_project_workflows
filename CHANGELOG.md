@@ -2,9 +2,10 @@
 
 ## 0.1.3
 
-Eight findings from an independent review of 0.1.2. One matters on a large
-installation; the rest are edges, and three of them are the same shape — a
-screen reporting success for something it did not do.
+Eight findings from an independent review of 0.1.2, plus three the review of
+*this* work turned up in it. One of the eight matters on a large installation;
+the rest are edges, and three of them are the same shape — a screen reporting
+success for something it did not do.
 
 **Upgrading:** no migration. Nothing in the database changes.
 
