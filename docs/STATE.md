@@ -13,9 +13,9 @@
 - **This session was the fixer** on `docs/review/findings/2026-08-27-bundled.md`
   — a review that bundled *three* independent reviews of `03a1ab0` and
   re-verified every claim in them, filing 21 findings.
-- **Nineteen of the 21 are `fixed`. One is `open` on purpose (F11) and one is a
-  question for Jan (F21).** Both carry a `Resolution:` line saying why, so
-  nothing in that file is silent. Every one of the 19 also carries a
+- **Nineteen of the 21 are `fixed`, one is `wont-fix` by Jan's answer (F21), and
+  one is `open` on purpose (F11).** All three carry a `Resolution:` line saying
+  why, so nothing in that file is silent. Every one of the 19 also carries a
   `Resolution:` line saying what was done, how it was verified, and — where it
   happened — what the writing of the test found that the finding had not said.
 - **What exists:** the plugin at **0.1.4**. 0.1.0 is the scope model and the
@@ -37,8 +37,12 @@
   `docs/review/findings/2026-08-26-wp2-observations.md`. Check with
   `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`.
 - **`spec/characterization/`:** still **gone**, since WP3.
-- **Open choices for Jan:** **one**, and it is F21, which was filed as a question
-  by the reviewer and was never a fixer's to answer. See "Open choices" below.
+- **Open choices for Jan:** **none.** F21 was the only one, and **Jan answered it
+  `A` on 2026-08-27**: no event log; `created_by` and `updated_by` remain the
+  whole audit story. All three places were changed together — the findings file's
+  `Status:` line, `docs/DECISIONS.md`, and this file — because the one time only
+  the ledger was updated (`G03`) the findings file spent a session saying `open`
+  after the answer had been given.
 
 ## What this session produced
 
@@ -194,33 +198,27 @@ and the appearance of one.
 3. **Then it is Jan's turn.** `docs/review/findings/2026-08-27-bundled.md` is the
    readable account of all 21 findings; the CHANGELOG's 0.1.4 entry is the same
    thing for a user.
-4. One choice is waiting: **F21**. See below.
+4. **No choices are waiting.** F21 was answered `A` on the day it was filed.
 
 ## Open choices
 
-**One**, and it was the reviewer's question rather than anything this session
-decided.
+**None.** One was filed and Jan answered it the same day.
 
-- **F21 — should scope changes carry an append-only event log?**
-  `project_workflow_scopes` records *who* decided a project runs its own workflow
-  and *who* last changed the rules. It cannot answer *what* changed, which rules
-  disappeared, or through which of the four write paths. Redmine does not audit
-  generic workflow changes either — but Redmine also does not delegate workflow
-  editing to project members, and this plugin has since WP4.
-  - **A)** Leave it. `created_by` and `updated_by` are the whole audit story, and
-    the question operators actually ask — how does this project's workflow differ
-    from the generic one — already has a screen.
-  - **B)** Write ADR-002 for an append-only event log: a table, a retention
-    policy, a rule for what happens when a project is deleted, and a position on
-    what may be stored.
-  - **Recommendation: A**, for now. **F19 landed this session and changes the
-    picture without answering the question:** every workflow write now logs one
-    line with the actor, the ids and the counts. That is an *operational* record —
-    not queryable, not retained on a policy, not attached to the project — so it
-    makes "what did that request do" answerable to somebody with log access and
-    leaves "who removed this transition, and when" exactly as unanswerable. If
-    that second question is one Jan expects to be asked, it is B and it is an ADR.
-  - **Urgent?** no. Nothing is blocked on it.
+- **F21 — should scope changes carry an append-only event log?** **A: leave it.**
+  `created_by` and `updated_by` are the whole audit story; the question operators
+  actually ask — how does this project's workflow differ from the generic one —
+  already has a screen. No table, no retention policy, no ADR-002. **A later
+  session must not add an event-log table on the grounds that the audit trail is
+  thin: it is thin on purpose.** Option **B**, the event log, is what gets
+  re-opened — with an ADR — if the second question below is ever actually asked.
+- **What the answer does *not* cover, because F19 landed in the same session.**
+  Every workflow write now logs one line: action, rule type, actor id,
+  project/tracker/role ids, and the counts written, skipped and refused. That is
+  an *operational* record and not an audit trail — not queryable, not retained on
+  any policy, not attached to the project, and it goes wherever the host sends
+  its log. So *"what did that request do"* is answerable to somebody with log
+  access, and *"who removed this transition, and when"* is not. That gap is now a
+  decision rather than an omission, which is the whole point of recording it here.
 
 One thing this session decided rather than repaired, called out here as well as in
 the ledger because it is user-visible: **a shipped migration was changed.** F09's
@@ -853,4 +851,5 @@ Two things are genuinely waiting, in this order, and neither is invented work:
    example that makes the rest safe, because the obvious fix breaches INV-5 while
    every existing example stays green.
 
-After that the branch is waiting on Jan, and F21 is his to answer.
+After that the branch is waiting on Jan. F21 is answered (`A`, no event log), so
+there is no open question to chase.
