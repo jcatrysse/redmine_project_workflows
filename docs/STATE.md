@@ -140,7 +140,7 @@ private again.
 | JavaScript gate | `node dev/check-bulk-js.mjs` — all thirty-two checks |
 | Locale parity | eight files, **94** keys each (was 92) |
 | MySQL 8.4, and 5.1/6.1 on MySQL and MariaDB | not run **locally** — five of the nine cells; CI covers them, see the row below |
-| CI | **green.** Ordinary `push` runs cover this session: run **71** on `13871c2` (all the code), run **74** on `61c1e1c` and run **75** on `732438c`, each ten jobs — nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each cell through migration reversibility, the backfill check, `zeitwerk:check` and the specs. The wording commit `6ef3fc3` and this file are covered by run **77**. Several runs read "cancelled" (70, 72, 73, 76): that is the concurrency group superseding a run, not a failure — read the run for the commit you care about |
+| CI | **green.** Ordinary `push` runs cover this session: run **71** on `13871c2` (all the code), run **74** on `61c1e1c` and run **75** on `732438c`, each ten jobs — nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each cell through migration reversibility, the backfill check, `zeitwerk:check` and the specs. The wording commit `6ef3fc3` is covered by run **78**. Naming a run for *this* file is a regress — every correction to this row is itself a commit — so the rule instead: every commit of this session that carries code has a green ten-job run, and a run appears several minutes **after** the push, not immediately. Several runs read "cancelled" (70, 72, 73, 76): that is the concurrency group superseding a run, not a failure — read the run for the commit you care about |
 
 ## Exact next step
 
