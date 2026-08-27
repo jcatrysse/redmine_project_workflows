@@ -140,15 +140,12 @@ private again.
 | JavaScript gate | `node dev/check-bulk-js.mjs` — all thirty-two checks |
 | Locale parity | eight files, **94** keys each (was 92) |
 | MySQL 8.4, and 5.1/6.1 on MySQL and MariaDB | not run **locally** — five of the nine cells; CI covers them, see the row below |
-| CI | **green on all ten jobs.** Run **69** on `2350b62` — which carries every line of code except the wording change that followed it, and that change is eight locale files and two Markdown files: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each cell through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Only one commit lands after it — `7b7bfce`, this file — and it touches no code. **A push from this session did not trigger a run**: two pushes produced none, so `specs.yml` was dispatched by hand on `claude/dev` (`workflow_dispatch`). Whatever the cause — most likely GitHub declining to fire `push` workflows for commits pushed with the same App token — the next session should check that a run appeared rather than assume one did |
+| CI | **green.** Ordinary `push` runs cover this session: run **71** on `13871c2` (all the code), run **74** on `61c1e1c` and run **75** on `732438c`, each ten jobs — nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each cell through migration reversibility, the backfill check, `zeitwerk:check` and the specs. The wording commit `6ef3fc3` and this file are covered by run **77**. Several runs read "cancelled" (70, 72, 73, 76): that is the concurrency group superseding a run, not a failure — read the run for the commit you care about |
 
 ## Exact next step
 
-1. **Check that CI ran, and read it.** Run 69 is green on all ten jobs, but it
-   predates the wording commit (`6ef3fc3`), which is eight locale files, the
-   README and the CHANGELOG — no Ruby. The four local cells were re-run after it.
-   And see the CI row above: run 69 had to be **started by hand**, because
-   pushing did not start one. Do not assume a push produced a run.
+1. **Nothing to check first**, beyond reading the run for the head. CI is green
+   on every commit of this session that carries code.
 2. **It is Jan's turn.** `docs/review/findings/2026-08-26-claude-second-review.md`
    is the readable account of what was wrong and what was done about it; the
    CHANGELOG's 0.1.1 entry is the same thing for a user.
@@ -165,6 +162,14 @@ private again.
 Everything below cost time at least once. The first five are new this session;
 the rest are carried forward.
 
+- **A push here takes several minutes to produce a CI run, and this session drew
+  the wrong conclusion from that.** Two pushes showed no run after ten minutes of
+  polling, so `specs.yml` was dispatched by hand and STATE was written to say
+  that pushing does not trigger CI. It does: runs 70 to 76 are all `push` events,
+  they simply arrive late. The manual dispatch was unnecessary, and run **77**
+  cancelled run **76** — the automatic run for the same commit — through the
+  concurrency group. Wait longer before concluding that a mechanism is broken,
+  and check the `event` field on the run rather than only its number.
 - **A cell of a matrix is not the unit a delete may key on.** Three controls
   over two rows, each of which can independently be left at "no change": the key
   is (cell, rule group), and the two flags inside the shared row need finer
