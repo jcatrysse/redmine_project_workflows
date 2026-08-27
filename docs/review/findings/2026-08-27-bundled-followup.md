@@ -65,7 +65,7 @@ four and none is a weakening.
 
 ### F01 — The rejected-values count is multiplied by the selection, and the sentence names values
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** ux
@@ -156,7 +156,56 @@ The spec at `:548-556` has to move either way, and its comment is the right plac
 to record which meaning was chosen — it is currently the only statement anywhere
 of what the number counts.
 
-**Resolution:**
+**Resolution:** **fixed** by the first of the two options — the number now means
+what the sentence already says. No locale file changed.
+
+`MatrixSaveResult#+` adds `written` and `skipped` and takes the **maximum** of
+`rejected`. That is the whole code change, and it is in the method the finding
+named as the place a reader would look. Why a maximum rather than the two shapes
+the finding sketched: computing `rejected` outside the per-population loop means
+duplicating the whitelist outside the writer, which is the "one rule in two
+places" mistake this repository has already had four findings about; and dividing
+by the number of populations needs a denominator `#+` does not have and would
+round. A maximum is exact for the shape that exists — both whitelists are built
+from installation-wide lists (`IssueStatus` ids, `Tracker::CORE_FIELDS_ALL` plus
+custom field ids, the two rule tables), so every population refuses the same
+leaves — and it degrades honestly rather than absurdly if that ever stops being
+true: the most values any one population refused, instead of a product.
+
+The second option was **not** taken, and the reason is the one the finding asked
+to be weighed rather than assumed: the eight-locale cost is real, but the
+decisive part is that it makes the sentence describe an implementation detail
+(how many populations a selection resolved into) to an operator who submitted one
+value. It is logged for Jan under *Open — for Jan* in `docs/DECISIONS.md` with
+both options, because the wording is his call and this one is reversible.
+
+**Two existing assertions were wrong and have been corrected — that is a
+different act from weakening a test, and `docs/review/README.md` rule 2 asks for
+it to be said explicitly, because a diff stat cannot tell them apart.** Both
+demanded `count: 2` where the request carried **one** unacceptable value:
+
+* `spec/controllers/workflows_controller_spec.rb:554` — one submitted leaf,
+  selection `'global'` plus one project. Its comment *explained* the 2 as "one
+  rejected leaf per project of the selection", which is the defect written down
+  as though it were the specification.
+* `:1884` — one bad leaf, two projects selected. Now asserts `skipped: 1` and
+  `rejected: 1` in the same example, which is the clearer statement: the two
+  counts are deliberately different numbers, because one counts combinations and
+  the other counts submitted values.
+
+A third assertion at `:1854` (one project, one bad leaf, `count: 1`) was already
+correct and is untouched — worth naming, because it is what made the other two
+look plausible.
+
+**Red on the old code, run rather than assumed:** six examples fail against the
+summing `#+` — the two corrected assertions, one new controller example
+(*reports one refused value once however many projects the selection holds*:
+`'global'` plus three projects, one bad value, which reported **4**), and three
+of the five in the new `spec/services/matrix_save_result_spec.rb`, where the
+five-hundred-population case reports **500** against the required **1**. The
+struct spec exists because the finding is right that `#+` is where the answer
+lives: it is the only place the asymmetry between the three members can be
+stated, and it needs no controller to state it.
 
 ---
 

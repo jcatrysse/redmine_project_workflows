@@ -7,6 +7,9 @@ describe WorkflowsController, type: :controller do
 
   let(:project) { projects(:projects_001) }
   let(:other_project) { projects(:projects_002) }
+  # A third project, so that a selection can hold more populations than it holds
+  # bad values -- which is what finding F01 of the follow-up run was about.
+  let(:third_project) { projects(:projects_003) }
   let(:role) { roles(:roles_001) }
   let(:target_role) { roles(:roles_002) }
   let(:tracker) { trackers(:trackers_001) }
@@ -547,11 +550,21 @@ describe WorkflowsController, type: :controller do
     expect(WorkflowPermission.count).to eq(0)
     expect(flash[:notice]).to be_nil
     # Both sentences: nothing was saved, and how much was refused. The second
-    # arrived with F06 of this same run -- one rejected leaf per project of the
-    # selection, and the selection is 'global' plus one project.
+    # arrived with F06 of this same run.
+    #
+    # This assertion read `count: 2` until F01 of the follow-up run, with a
+    # comment explaining the 2 as "one rejected leaf per project of the
+    # selection, and the selection is 'global' plus one project". That was the
+    # defect written down as though it were the specification: the payload
+    # carries **one** leaf, and the sentence it feeds says "%{count} submitted
+    # values were not accepted". The number of populations the selection resolves
+    # into is not a property of the submission. So this is a corrected
+    # assertion, not a relaxed one -- the count it now demands is the smaller
+    # number *because* the larger one was wrong, and MatrixSaveResult#+ is where
+    # the correction lives.
     expect(flash[:warning]).to include(I18n.t(:notice_project_workflow_save_nothing_applied))
     expect(flash[:warning]).to include(
-      I18n.t(:notice_project_workflow_save_rejected_values, count: 2)
+      I18n.t(:notice_project_workflow_save_rejected_values, count: 1)
     )
   end
 
@@ -1870,6 +1883,15 @@ describe WorkflowsController, type: :controller do
     # And the two warnings coexist rather than one replacing the other: a
     # selection can both leave an inheriting combination alone and have had a
     # value refused.
+    #
+    # The two counts in this example are deliberately different numbers, and
+    # that is the point of it after F01 of the follow-up run: `skipped` is 1
+    # because one of the two selected projects still inherits -- a count of
+    # combinations, and it adds across the selection -- while `rejected` is 1
+    # because the request carried one unacceptable value, whatever the selection
+    # was resolved into. It asserted `count: 2` for the refusal before, which
+    # was the multiplication rather than the requirement; corrected, not
+    # weakened.
     it 'says both when a combination was skipped and a value refused' do
       give_own_workflow(project, tracker, role)
 
@@ -1881,7 +1903,25 @@ describe WorkflowsController, type: :controller do
         I18n.t(:notice_project_workflow_save_skipped_inheriting, count: 1)
       )
       expect(flash[:warning]).to include(
-        I18n.t(:notice_project_workflow_save_rejected_values, count: 2)
+        I18n.t(:notice_project_workflow_save_rejected_values, count: 1)
+      )
+    end
+
+    # The shape F01 was actually filed about: many populations, one bad value.
+    # Three projects and 'global' is four populations of one submission, and the
+    # operator has to be told about one refused value rather than four. With the
+    # summing #+ this reported four, and no example in the suite could see it,
+    # because both examples that named the number had encoded the multiplied one.
+    it 'reports one refused value once however many projects the selection holds' do
+      [project, other_project, third_project].each { |target| give_own_workflow(target, tracker, role) }
+
+      patch :update, params: matrix_params(
+        old_status.id.to_s => { new_status.id.to_s => { 'always' => '1', 'author' => 'not_a_value' } }
+      ).merge(project_id: ['global', project.id.to_s, other_project.id.to_s, third_project.id.to_s])
+
+      expect(flash[:notice]).to eq(I18n.t(:notice_successful_update))
+      expect(flash[:warning]).to eq(
+        I18n.t(:notice_project_workflow_save_rejected_values, count: 1)
       )
     end
   end

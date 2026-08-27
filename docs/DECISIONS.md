@@ -176,7 +176,38 @@
 
 ## Open — for Jan
 
-*(Nothing open. Items land here with their options, a plain-language explanation
+- **Choice (finding F01, 2026-08-27-bundled-followup):** when a matrix save
+  refuses some of the values it was sent, the screen says *"N submitted values
+  were not accepted and the rules they name were left unchanged."* On the
+  administration screens a selection is written one population at a time
+  (*Generic*, then each selected project), and the same refused value was counted
+  once per population — so one bad value on an "all projects" save of a
+  five-hundred-project installation claimed five hundred. What should the number
+  mean?
+  - **A — one count per submission.** The number is how many values the request
+    carried that were not accepted, whatever the selection was resolved into.
+    The sentence stays exactly as it is in all eight locale files. **Implemented,
+    as the safest reversible default:** `MatrixSaveResult#+` now takes the
+    maximum of `rejected` instead of adding it, and two spec assertions that had
+    encoded the multiplied number were corrected.
+  - **B — keep the total and reword the sentence** to name refusals across the
+    selection rather than submitted values, e.g. *"N refusals across the
+    selection"*. Cheaper in code — nothing changes — and more expensive in words:
+    a new phrasing in **eight** locale files, of which `de`, `es`, `fr`, `it`,
+    `pl` and `pt` would be unreviewed translation presented as translation. It
+    also asks the operator to care how many populations a selection resolved
+    into, which is an implementation detail of the save rather than something
+    they chose.
+  - **Recommendation:** **A**, which is what is in place. The operator submitted
+    one value; being told one value was refused is the answer to the question
+    they can actually ask. B is the right answer only if you would rather the
+    number stayed a total for auditing, and if so it is a locale change plus
+    reverting one line.
+  - **Urgent?** no — A ships, and it is one line and two assertions to reverse.
+    Reachable only through a hand-built request or an API client either way: no
+    screen can submit a value the whitelist refuses.
+
+*(Everything else here is answered. Items land here with their options, a plain-language explanation
 of each and a recommendation, while the build continues on the safest default.
 Everything ever filed here has been answered, and **G02 on the day it was
 filed** — 2026-08-27, `A for now, B if it becomes an issue later`. Before it: the
