@@ -85,6 +85,21 @@ creating a scope is `.enable` and nothing else. The controller warns and
 withholds the success notice when nothing was written, and the panel says so
 above the grid before anything is pressed.
 
+### And the word "inherits", which Jan asked about afterwards
+
+He read the plugin's own screens and asked what workflow inheritance was, since
+Redmine has none. That is the strongest kind of wording bug report there is: the
+maintainer misreading his own product. The first of the three states now says
+**"Follows the generic workflow"** in all eight languages -- seven strings each.
+
+The **internal** vocabulary is unchanged on purpose, and `docs/DECISIONS.md` says
+so, so that a later session does not "fix" the difference by reverting the
+strings: the state symbol is still `:inherits`, so are the locale key names,
+`ScopeWriter.return_to_inheritance`, the `project-workflow-scope-state inherits`
+CSS class a theme may already target, and INV-6's own wording. The words on
+screen and the words in the code are allowed to differ where the code's word is
+precise and the screen's word was not.
+
 ### The other eleven
 
 `R03` core's issue-status badge reads `workflows` with no project predicate and
@@ -125,13 +140,15 @@ private again.
 | JavaScript gate | `node dev/check-bulk-js.mjs` — all thirty-two checks |
 | Locale parity | eight files, **94** keys each (was 92) |
 | MySQL 8.4, and 5.1/6.1 on MySQL and MariaDB | not run **locally** — five of the nine cells; CI covers them, see the row below |
-| CI | **green on all ten jobs.** Run **69** on `2350b62`: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each cell through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Only one commit lands after it — `7b7bfce`, this file — and it touches no code. **A push from this session did not trigger a run**: two pushes produced none, so `specs.yml` was dispatched by hand on `claude/dev` (`workflow_dispatch`). Whatever the cause — most likely GitHub declining to fire `push` workflows for commits pushed with the same App token — the next session should check that a run appeared rather than assume one did |
+| CI | **green on all ten jobs.** Run **69** on `2350b62` — which carries every line of code except the wording change that followed it, and that change is eight locale files and two Markdown files: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, each cell through migration reversibility, the backfill check, `zeitwerk:check` and the specs. Only one commit lands after it — `7b7bfce`, this file — and it touches no code. **A push from this session did not trigger a run**: two pushes produced none, so `specs.yml` was dispatched by hand on `claude/dev` (`workflow_dispatch`). Whatever the cause — most likely GitHub declining to fire `push` workflows for commits pushed with the same App token — the next session should check that a run appeared rather than assume one did |
 
 ## Exact next step
 
-1. **Nothing to check first.** CI run 69 is green on all ten jobs, on the commit
-   that carries every line of code this session wrote. But see the CI row above:
-   the run had to be started by hand, because pushing did not start one.
+1. **Check that CI ran, and read it.** Run 69 is green on all ten jobs, but it
+   predates the wording commit (`6ef3fc3`), which is eight locale files, the
+   README and the CHANGELOG — no Ruby. The four local cells were re-run after it.
+   And see the CI row above: run 69 had to be **started by hand**, because
+   pushing did not start one. Do not assume a push produced a run.
 2. **It is Jan's turn.** `docs/review/findings/2026-08-26-claude-second-review.md`
    is the readable account of what was wrong and what was done about it; the
    CHANGELOG's 0.1.1 entry is the same thing for a user.
