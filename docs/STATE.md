@@ -282,13 +282,15 @@ per `CLAUDE.md`: it is outside the eight findings this session was given.
 | Locale parity | **8 files × 96 keys**, no difference. Two keys added, translated by hand in all eight |
 | JavaScript gate | not re-run: nothing in `_bulk_script.html.erb` changed |
 | MySQL, MariaDB, and 6.1 | **not run locally** — two of the nine cells ran here; CI covers the other seven |
-| CI | **run 84 green — all ten jobs**, nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, on the tree carrying every F01–F08 change. So the four cells this container did not run — MySQL 8.4 and the MariaDB pair — have seen that code. The **review pass on top of it is not yet confirmed**: run 85 was *cancelled* by the concurrency group when the next commit was pushed (which is what a cancelled run here almost always means — see the traps), and run 87 on the head still had all nine cells in their "Set up Redmine host and plugin" step when this session ended, with its RuboCop job already green. Checking the head's run is step 1 of "Exact next step". What it is checking, precisely: the delta from run 84 is `find_role`, `visible_roles`'s optional argument, the helper's memo, the nil-safe partial local and one added spec — all of it run locally on 5.1-stable and 7.0-stable, none of it database-specific, so a failure in a MySQL or MariaDB cell would be a surprise rather than a risk that was taken. A run appears several minutes after the push, and naming the number beats saying "green", because every correction to this row is itself a commit and a new run |
+| CI | **run 88 green — all ten jobs**, on `d02333a`: nine cells (5.1 / 6.1 / 7.0 × PostgreSQL / MySQL / MariaDB) plus RuboCop, and within every one of the nine the *Plugin migrations are reversible (up → 0 → up)* step, the backfill check and the Zeitwerk check as well. That is the whole of this session's code on every supported combination, so MySQL 8.4 and the two MariaDB cells — the four this container did not run — have seen it. Runs 85 and 87 were *cancelled* by the concurrency group when the next commit was pushed, which is what a cancelled run here almost always means (see the traps) and not a failure; run 84 was the earlier green one, on the tree carrying every F01–F08 change. Name the run number rather than saying "green": every correction to this row is itself a commit and a new run, and the run for the commit that wrote *this* row is therefore one nobody has read |
 
 ## Exact next step
 
-1. **Check CI on the head.** It had not reported yet when this session ended.
-   Nine cells plus RuboCop; MySQL 8.4 and MariaDB are the four cells this
-   session did not run locally.
+1. **Nothing to check first.** Run 88 was green on all ten jobs for `d02333a` —
+   nine cells plus RuboCop, with the migration-reversibility, backfill and
+   Zeitwerk steps green inside each cell. The only commit after it changes this
+   file and nothing else, so its own run is the one thing nobody has looked at,
+   and there is no code in it to fail.
 2. **Then it is Jan's turn.** `docs/review/findings/2026-08-27-claude.md` is the
    readable account of all nine findings with a `Resolution:` line on each; the
    CHANGELOG's 0.1.3 entry is the same thing for a user.
@@ -784,7 +786,7 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-There is no WP9, the plan is finished, and the review round of 2026-08-27 is
-closed. So the honest answer to "carry on" is: check that CI went green on the
-head, and then the branch is waiting on Jan — say so rather than inventing work.
-The "Exact next step" section above lists what he could ask for next.
+There is no WP9, the plan is finished, the review round of 2026-08-27 is closed,
+and CI is green on the head. So the honest answer to "carry on" is that the
+branch is waiting on Jan — say so rather than inventing work. The "Exact next
+step" section above lists what he could ask for next.
