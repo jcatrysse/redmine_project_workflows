@@ -60,6 +60,9 @@ en:
   text_project_workflow_readonly_own: This is the project's own workflow. Changing it needs the permission to manage this project's workflow.
   notice_project_workflow_not_own: "This project follows the generic workflow for this tracker and role, so nothing was saved. Give the project its own workflow first."
   notice_project_workflow_save_nothing_applied: "Nothing was saved. Either no cell was changed, or the values submitted were not accepted."
+  notice_project_workflow_save_rejected_values:
+    one: "%{count} submitted value was not accepted and the rule it names was left unchanged."
+    other: "%{count} submitted values were not accepted and the rules they name were left unchanged."
   notice_project_workflow_copy_left_empty:
     one: "%{count} combination of project, tracker and role now has its own empty workflow: the copy left no rules of that kind behind. Nothing is permitted there until you add some."
     other: "%{count} combinations of project, tracker and role now have their own empty workflow: the copy left no rules of that kind behind. Nothing is permitted there until you add some."

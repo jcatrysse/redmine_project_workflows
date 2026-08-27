@@ -4,6 +4,7 @@ module RedmineProjectWorkflows
   module Services
     class PermissionWriter
       extend MatrixScope
+      extend SanitizedPayload
 
       # See TransitionWriter.rule_model.
       def self.rule_model
@@ -26,13 +27,13 @@ module RedmineProjectWorkflows
         roles = Array.wrap(roles)
         return MatrixSaveResult.none if trackers.empty? || roles.empty?
 
-        permissions = sanitize_permissions(normalize_permissions(permissions))
-        return MatrixSaveResult.none if permissions.empty?
+        permissions, rejected = sanitize_and_count(permissions)
+        return MatrixSaveResult.new(0, 0, rejected) if permissions.empty?
 
         result = MatrixSaveResult.none
         WorkflowPermission.transaction do
           pairs = writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::PERMISSIONS)
-          result = MatrixSaveResult.new(pairs.size, (trackers.size * roles.size) - pairs.size)
+          result = MatrixSaveResult.new(pairs.size, (trackers.size * roles.size) - pairs.size, rejected)
           next if pairs.empty?
 
           write_pairs(project_id, pairs, permissions)
@@ -69,7 +70,7 @@ module RedmineProjectWorkflows
       # An entry that fails the whitelist is dropped before the delete, not
       # only before the insert, so an unacceptable value changes nothing rather
       # than clearing the rule it names.
-      def self.sanitize_permissions(permissions)
+      def self.sanitize_payload(permissions)
         status_ids = valid_status_ids
         field_names = valid_field_names
 
@@ -86,7 +87,16 @@ module RedmineProjectWorkflows
           end
         end
       end
-      private_class_method :sanitize_permissions
+      private_class_method :sanitize_payload
+
+      # One (status, field) cell per leaf. A value where a Hash was expected
+      # counts as one, because the sanitizer drops exactly one thing there.
+      def self.leaf_count(permissions)
+        permissions.sum do |_status_id, rule_by_field|
+          rule_by_field.respond_to?(:each) ? rule_by_field.count : 1
+        end
+      end
+      private_class_method :leaf_count
 
       def self.valid_status_ids
         IssueStatus.pluck(:id).to_set(&:to_s)
@@ -150,7 +160,7 @@ module RedmineProjectWorkflows
         end
       end
 
-      def self.normalize_permissions(permissions)
+      def self.normalize_payload(permissions)
         return {} if permissions.nil?
 
         if permissions.respond_to?(:to_unsafe_h)
@@ -161,7 +171,7 @@ module RedmineProjectWorkflows
           permissions
         end
       end
-      private_class_method :normalize_permissions
+      private_class_method :normalize_payload
     end
   end
 end

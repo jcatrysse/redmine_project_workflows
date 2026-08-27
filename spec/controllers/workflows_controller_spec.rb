@@ -546,7 +546,13 @@ describe WorkflowsController, type: :controller do
 
     expect(WorkflowPermission.count).to eq(0)
     expect(flash[:notice]).to be_nil
-    expect(flash[:warning]).to eq(I18n.t(:notice_project_workflow_save_nothing_applied))
+    # Both sentences: nothing was saved, and how much was refused. The second
+    # arrived with F06 of this same run -- one rejected leaf per project of the
+    # selection, and the selection is 'global' plus one project.
+    expect(flash[:warning]).to include(I18n.t(:notice_project_workflow_save_nothing_applied))
+    expect(flash[:warning]).to include(
+      I18n.t(:notice_project_workflow_save_rejected_values, count: 2)
+    )
   end
 
   # And the shape every screen actually submits still works, for both
@@ -1823,6 +1829,60 @@ describe WorkflowsController, type: :controller do
       expect(response).to have_http_status(:ok)
       expect(assigns(:statuses)).to be_present
       expect(assigns(:projects)).to be_present
+    end
+  end
+
+  # F06 (2026-08-27-bundled). The count is only worth having if it reaches the
+  # screen. A save whose whitelist dropped some entries but not all used to get
+  # `notice_successful_update` and nothing else -- `written` was positive, so the
+  # partial refusal was invisible.
+  describe 'a save the whitelist partly refused' do
+    def matrix_params(transitions)
+      { role_id: [role.id], tracker_id: [tracker.id], used_statuses_only: '0',
+        transitions: transitions }
+    end
+
+    it 'reports the save and the part that was refused' do
+      give_own_workflow(project, tracker, role)
+
+      patch :update, params: matrix_params(
+        old_status.id.to_s => { new_status.id.to_s => { 'always' => '1', 'author' => 'not_a_value' } }
+      ).merge(project_id: [project.id.to_s])
+
+      expect(flash[:notice]).to eq(I18n.t(:notice_successful_update))
+      expect(flash[:warning]).to eq(
+        I18n.t(:notice_project_workflow_save_rejected_values, count: 1)
+      )
+    end
+
+    # A save with nothing refused must not acquire the sentence.
+    it 'says nothing about refusals when there were none' do
+      give_own_workflow(project, tracker, role)
+
+      patch :update, params: matrix_params(
+        old_status.id.to_s => { new_status.id.to_s => { 'always' => '1' } }
+      ).merge(project_id: [project.id.to_s])
+
+      expect(flash[:notice]).to eq(I18n.t(:notice_successful_update))
+      expect(flash[:warning]).to be_nil
+    end
+
+    # And the two warnings coexist rather than one replacing the other: a
+    # selection can both leave an inheriting combination alone and have had a
+    # value refused.
+    it 'says both when a combination was skipped and a value refused' do
+      give_own_workflow(project, tracker, role)
+
+      patch :update, params: matrix_params(
+        old_status.id.to_s => { new_status.id.to_s => { 'always' => '1', 'author' => 'not_a_value' } }
+      ).merge(project_id: [project.id.to_s, other_project.id.to_s])
+
+      expect(flash[:warning]).to include(
+        I18n.t(:notice_project_workflow_save_skipped_inheriting, count: 1)
+      )
+      expect(flash[:warning]).to include(
+        I18n.t(:notice_project_workflow_save_rejected_values, count: 2)
+      )
     end
   end
 end

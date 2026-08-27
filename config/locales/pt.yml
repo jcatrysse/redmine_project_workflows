@@ -60,6 +60,9 @@ pt:
   text_project_workflow_readonly_own: Este é o fluxo de trabalho próprio do projeto. Alterá-lo exige a permissão para gerir o fluxo de trabalho deste projeto.
   notice_project_workflow_not_own: "Este projeto segue o fluxo de trabalho genérico para este tipo e esta função, pelo que nada foi guardado. Dê primeiro ao projeto o seu próprio fluxo de trabalho."
   notice_project_workflow_save_nothing_applied: "Nada foi guardado. Ou nenhuma célula foi alterada, ou os valores enviados não foram aceites."
+  notice_project_workflow_save_rejected_values:
+    one: "%{count} valor enviado não foi aceite; a regra que indica ficou inalterada."
+    other: "%{count} valores enviados não foram aceites; as regras que indicam ficaram inalteradas."
   notice_project_workflow_copy_left_empty:
     one: "%{count} combinação de projeto, tipo e função tem agora o seu próprio fluxo de trabalho vazio: a cópia não deixou lá nenhuma regra desse tipo. Nada é permitido aí até que acrescente regras."
     other: "%{count} combinações de projeto, tipo e função têm agora o seu próprio fluxo de trabalho vazio: a cópia não deixou lá nenhuma regra desse tipo. Nada é permitido aí até que acrescente regras."

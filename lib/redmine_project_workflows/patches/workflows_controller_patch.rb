@@ -106,7 +106,7 @@ module RedmineProjectWorkflows
         if project_context?
           if @roles.present? && @trackers.present? && params[:permissions]
             # strip_no_change already does the to_plain_hash conversion, and
-            # PermissionWriter.sanitize_permissions rejects any key that is not a
+            # PermissionWriter's whitelist rejects any key that is not a
             # real status id, so the whitelist is unchanged by dropping the
             # transposition that used to sit here.
             #
@@ -235,11 +235,21 @@ module RedmineProjectWorkflows
       # its own instead of the success notice.
       def report_matrix_save(result)
         flash[:notice] = l(:notice_successful_update) if result.written?
+        warnings = []
         if result.skipped?
-          flash[:warning] = l(:notice_project_workflow_save_skipped_inheriting, count: result.skipped)
+          warnings << l(:notice_project_workflow_save_skipped_inheriting, count: result.skipped)
         elsif result.nothing_applied?
-          flash[:warning] = l(:notice_project_workflow_save_nothing_applied)
+          warnings << l(:notice_project_workflow_save_nothing_applied)
         end
+        # The mixed case: some entries written, some dropped by the whitelist. It
+        # had no message at all -- `written` was positive, so the screen reported
+        # a plain success and said nothing about the refused part (finding F06 of
+        # the 2026-08-27-bundled run). Appended, because which part was refused is
+        # additional information about the save rather than an alternative to
+        # reporting it.
+        rejected = result.rejected
+        warnings << l(:notice_project_workflow_save_rejected_values, count: rejected) if rejected.positive?
+        flash[:warning] = warnings.join(' ') if warnings.any?
       end
 
       # Strips core's "no change" option out of a submitted matrix, at whatever

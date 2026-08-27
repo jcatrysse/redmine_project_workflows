@@ -63,6 +63,9 @@ pl:
   text_project_workflow_readonly_own: To jest własny przepływ pracy projektu. Jego zmiana wymaga uprawnienia do zarządzania przepływem pracy tego projektu.
   notice_project_workflow_not_own: "Ten projekt stosuje ogólny przepływ pracy dla tego typu zagadnienia i roli, więc nic nie zostało zapisane. Najpierw nadaj projektowi własny przepływ pracy."
   notice_project_workflow_save_nothing_applied: "Nic nie zostało zapisane. Albo żadna komórka nie została zmieniona, albo przesłane wartości nie zostały zaakceptowane."
+  notice_project_workflow_save_rejected_values:
+    one: "%{count} przesłana wartość nie została przyjęta; reguła, którą wskazuje, pozostała bez zmian."
+    other: "%{count} przesłanych wartości nie zostało przyjętych; reguły, które wskazują, pozostały bez zmian."
   notice_project_workflow_copy_left_empty:
     one: "%{count} kombinacja projektu, typu zagadnienia i roli ma teraz własny pusty przepływ pracy: kopiowanie nie pozostawiło tam żadnych reguł tego rodzaju. Nic tam nie jest dozwolone, dopóki nie dodasz reguł."
     other: "%{count} kombinacji projektu, typu zagadnienia i roli ma teraz własny pusty przepływ pracy: kopiowanie nie pozostawiło tam żadnych reguł tego rodzaju. Nic tam nie jest dozwolone, dopóki nie dodasz reguł."

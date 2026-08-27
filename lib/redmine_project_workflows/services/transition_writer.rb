@@ -4,6 +4,7 @@ module RedmineProjectWorkflows
   module Services
     class TransitionWriter
       extend MatrixScope
+      extend SanitizedPayload
 
       # The workflow class this writer owns; MatrixScope builds its predicates
       # from it.
@@ -46,13 +47,13 @@ module RedmineProjectWorkflows
         roles = Array.wrap(roles)
         return MatrixSaveResult.none if trackers.empty? || roles.empty?
 
-        transitions = sanitize_transitions(transitions)
-        return MatrixSaveResult.none if transitions.empty?
+        transitions, rejected = sanitize_and_count(transitions)
+        return MatrixSaveResult.new(0, 0, rejected) if transitions.empty?
 
         result = MatrixSaveResult.none
         WorkflowTransition.transaction do
           pairs = writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::TRANSITIONS)
-          result = MatrixSaveResult.new(pairs.size, (trackers.size * roles.size) - pairs.size)
+          result = MatrixSaveResult.new(pairs.size, (trackers.size * roles.size) - pairs.size, rejected)
           next if pairs.empty?
 
           write_pairs(project_id, pairs, transitions)
@@ -93,7 +94,7 @@ module RedmineProjectWorkflows
       # An entry that fails the whitelist is dropped before the delete, not
       # only before the insert, so an unacceptable value changes nothing rather
       # than removing the transition it names.
-      def self.sanitize_transitions(transitions)
+      def self.sanitize_payload(transitions)
         status_ids = valid_status_ids
 
         to_hash(transitions).each_with_object({}) do |(old_status_id, by_new_status), sanitized|
@@ -104,7 +105,7 @@ module RedmineProjectWorkflows
           sanitized[old_status_id] = row unless row.empty?
         end
       end
-      private_class_method :sanitize_transitions
+      private_class_method :sanitize_payload
 
       def self.sanitize_transition_row(by_new_status, status_ids)
         by_new_status.each_with_object({}) do |(new_status_id, transition_by_rule), row|
@@ -122,6 +123,21 @@ module RedmineProjectWorkflows
         end
       end
       private_class_method :sanitize_transition_row
+
+      # Submitted leaves, at the depth the whitelist decides: transitions nest
+      # old status / new status / rule, so a leaf is one rule of one cell.
+      # Anything that is not a Hash where a Hash is expected counts as one leaf,
+      # because the sanitizer drops exactly one thing there too.
+      def self.leaf_count(transitions)
+        to_hash(transitions).sum do |_old_status_id, by_new_status|
+          next 1 unless by_new_status.respond_to?(:each)
+
+          by_new_status.sum do |_new_status_id, by_rule|
+            by_rule.respond_to?(:each) ? by_rule.count : 1
+          end
+        end
+      end
+      private_class_method :leaf_count
 
       def self.permitted_cell?(rule, value)
         RULES.include?(rule.to_s) && VALUES.include?(value)

@@ -60,6 +60,9 @@ de:
   text_project_workflow_readonly_own: Dies ist der eigene Workflow des Projekts. Um ihn zu ändern, benötigen Sie das Recht, den Workflow dieses Projekts zu verwalten.
   notice_project_workflow_not_own: "Dieses Projekt folgt dem allgemeinen Workflow für diesen Tracker und diese Rolle, daher wurde nichts gespeichert. Geben Sie dem Projekt zuerst einen eigenen Workflow."
   notice_project_workflow_save_nothing_applied: "Es wurde nichts gespeichert. Entweder wurde keine Zelle geändert, oder die übermittelten Werte wurden nicht akzeptiert."
+  notice_project_workflow_save_rejected_values:
+    one: "%{count} übermittelter Wert wurde nicht akzeptiert; die von ihm genannte Regel blieb unverändert."
+    other: "%{count} übermittelte Werte wurden nicht akzeptiert; die von ihnen genannten Regeln blieben unverändert."
   notice_project_workflow_copy_left_empty:
     one: "%{count} Kombination aus Projekt, Tracker und Rolle hat jetzt einen eigenen leeren Workflow: die Kopie hat dort keine Regeln dieser Art hinterlassen. Dort ist nichts erlaubt, bis Sie Regeln hinzufügen."
     other: "%{count} Kombinationen aus Projekt, Tracker und Rolle haben jetzt einen eigenen leeren Workflow: die Kopie hat dort keine Regeln dieser Art hinterlassen. Dort ist nichts erlaubt, bis Sie Regeln hinzufügen."

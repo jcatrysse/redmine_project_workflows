@@ -358,4 +358,63 @@ describe RedmineProjectWorkflows::Services::TransitionWriter do
       expect(stored).to eq([[true, true]])
     end
   end
+
+  # F06 (2026-08-27-bundled). MatrixSaveResult carried two counts, and they
+  # covered all-or-nothing: a save whose whitelist dropped *some* entries had a
+  # positive `written`, so it was indistinguishable from one that applied
+  # everything. The README promises that an unacceptable value leaves the rule it
+  # names alone *and the screen says so* -- true for the empty case since the
+  # earlier F06, and not for the middle.
+  describe 'the values the whitelist dropped' do
+    def save(matrix)
+      described_class.replace_transitions_for_project_id(project.id, [tracker], [role], matrix)
+    end
+
+    it 'counts a rejected value in a payload whose other values are written' do
+      result = save(
+        status.id.to_s => {
+          new_status.id.to_s => { 'always' => '1', 'bogus_rule' => '1' }
+        }
+      )
+
+      expect(result).to have_attributes(written: 1, skipped: 0, rejected: 1)
+    end
+
+    # And the rule the rejected value named is untouched, which is the promise
+    # the count exists to report rather than to change.
+    it 'leaves the rule a rejected value names alone' do
+      save(status.id.to_s => { new_status.id.to_s => { 'always' => '1' } })
+
+      expect do
+        save(status.id.to_s => { new_status.id.to_s => { 'always' => 'not_a_value' } })
+      end.not_to change(WorkflowTransition, :count)
+    end
+
+    it 'counts every rejected leaf, not every rejected cell' do
+      result = save(
+        status.id.to_s => {
+          new_status.id.to_s => { 'always' => 'nope', 'author' => 'nope' },
+          '999999' => { 'always' => '1' }
+        }
+      )
+
+      expect(result.rejected).to eq(3)
+    end
+
+    it 'reports nothing rejected for a payload the whitelist kept whole' do
+      result = save(status.id.to_s => { new_status.id.to_s => { 'always' => '1' } })
+
+      expect(result).to have_attributes(written: 1, rejected: 0)
+      expect(result).not_to be_rejected
+    end
+
+    # The empty case the earlier F06 fixed still answers as it did, and now also
+    # says how much was dropped.
+    it 'still reports nothing applied when the whitelist emptied the payload' do
+      result = save(status.id.to_s => { new_status.id.to_s => { 'always' => 'nope' } })
+
+      expect(result).to be_nothing_applied
+      expect(result.rejected).to eq(1)
+    end
+  end
 end

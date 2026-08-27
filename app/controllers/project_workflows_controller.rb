@@ -292,14 +292,29 @@ class ProjectWorkflowsController < ApplicationController
   # by the time the writer answered it is the same fact: this project follows the
   # generic workflow here. One tracker and one role, so there is never a mixture
   # to report.
+  # The warning and the notice are set independently, because a save can both
+  # succeed and have refused part of what it was sent (finding F06): a positive
+  # `written` used to mean `notice_successful_update` and silence about the
+  # dropped part, while the README promises that an unacceptable value leaves its
+  # rule alone *and the screen says so*.
   def report_rule_save(result)
-    if result.written?
-      flash[:notice] = l(:notice_successful_update)
-    elsif result.skipped?
-      flash[:warning] = l(:notice_project_workflow_not_own)
-    else
-      flash[:warning] = l(:notice_project_workflow_save_nothing_applied)
+    flash[:notice] = l(:notice_successful_update) if result.written?
+    warnings = []
+    unless result.written?
+      warnings << if result.skipped?
+                    l(:notice_project_workflow_not_own)
+                  else
+                    l(:notice_project_workflow_save_nothing_applied)
+                  end
     end
+    # Appended rather than replacing: which part was refused is additional
+    # information about the save, not an alternative to reporting it. Built as a
+    # list rather than by reading `flash[:warning]` back -- reading it makes
+    # Rails/ActionControllerFlashBeforeRender fire, and the cop is not wrong to
+    # be suspicious of a controller that reads its own flash.
+    rejected = result.rejected
+    warnings << l(:notice_project_workflow_save_rejected_values, count: rejected) if rejected.positive?
+    flash[:warning] = warnings.join(' ') if warnings.any?
   end
 
   def report(touched, notice_key)

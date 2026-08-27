@@ -60,6 +60,9 @@ es:
   text_project_workflow_readonly_own: Este es el flujo de trabajo propio del proyecto. Cambiarlo requiere el permiso para gestionar el flujo de trabajo de este proyecto.
   notice_project_workflow_not_own: "Este proyecto sigue el flujo de trabajo genérico para este tipo y perfil, por lo que no se guardó nada. Dé primero al proyecto su propio flujo de trabajo."
   notice_project_workflow_save_nothing_applied: "No se ha guardado nada. O no se cambió ninguna casilla, o los valores enviados no se aceptaron."
+  notice_project_workflow_save_rejected_values:
+    one: "%{count} valor enviado no fue aceptado; la regla que indica quedó sin cambios."
+    other: "%{count} valores enviados no fueron aceptados; las reglas que indican quedaron sin cambios."
   notice_project_workflow_copy_left_empty:
     one: "%{count} combinación de proyecto, tipo y perfil tiene ahora su propio flujo de trabajo vacío: la copia no dejó ninguna regla de esa clase. Allí no se permite nada hasta que añada reglas."
     other: "%{count} combinaciones de proyecto, tipo y perfil tienen ahora su propio flujo de trabajo vacío: la copia no dejó ninguna regla de esa clase. Allí no se permite nada hasta que añada reglas."

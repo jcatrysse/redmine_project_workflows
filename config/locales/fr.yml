@@ -60,6 +60,9 @@ fr:
   text_project_workflow_readonly_own: Ceci est le workflow propre au projet. Le modifier demande la permission de gérer le workflow de ce projet.
   notice_project_workflow_not_own: "Ce projet suit le workflow générique pour ce tracker et ce rôle ; rien n'a donc été enregistré. Donnez d'abord au projet son propre workflow."
   notice_project_workflow_save_nothing_applied: "Rien n'a été enregistré. Soit aucune cellule n'a été modifiée, soit les valeurs envoyées n'ont pas été acceptées."
+  notice_project_workflow_save_rejected_values:
+    one: "%{count} valeur envoyée n'a pas été acceptée ; la règle qu'elle désigne est restée inchangée."
+    other: "%{count} valeurs envoyées n'ont pas été acceptées ; les règles qu'elles désignent sont restées inchangées."
   notice_project_workflow_copy_left_empty:
     one: "%{count} combinaison de projet, tracker et rôle a maintenant son propre workflow vide : la copie n'y a laissé aucune règle de ce type. Rien n'y est permis tant que vous n'ajoutez pas de règles."
     other: "%{count} combinaisons de projet, tracker et rôle ont maintenant leur propre workflow vide : la copie n'y a laissé aucune règle de ce type. Rien n'y est permis tant que vous n'ajoutez pas de règles."
