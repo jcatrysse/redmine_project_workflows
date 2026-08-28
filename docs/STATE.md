@@ -27,8 +27,10 @@
   `--allow-unrelated-histories`. `main` also still carries the old two-cell CI.
 - **Open choices for Jan:** still just the one from last session (F01's wording),
   and it is not urgent. Nothing new was filed.
-- **CI is green.** Run **123** passed all eleven jobs. Three earlier runs this
-  session were red on the six MySQL and MariaDB cells; see the traps for why.
+- **CI is green on the head.** Run **124** on `ee8ee54` passed all eleven jobs —
+  the nine-cell matrix, RuboCop and the bulk-action JavaScript gate. Three
+  earlier runs this session were red on the six MySQL and MariaDB cells; see the
+  traps for why.
 
 ## What this session produced
 
@@ -108,14 +110,14 @@ eight files.
 | Locale files | **all eight**, fifteen new keys each, parity green. `en` and `nl` by hand; `de`, `es`, `fr`, `it`, `pl` and `pt` translated |
 | Version gate | `init.rb` 0.1.6 = the newest `CHANGELOG.md` heading |
 | INV-9 | **untouched** — still fifteen overrides in twelve files. WP9 adds no Deface anchor; everything is in the plugin's own views |
-| CI | run **123**, on `048bf41`: **green on all eleven jobs** — the nine-cell matrix, RuboCop and the bulk-action JavaScript gate. Runs **118**, **119** and **121** were red on six of nine cells (every MySQL and MariaDB cell) on the PostgreSQL-only spec pattern, and runs **120** and **122** read `cancelled`, which is the concurrency group superseding them rather than a failure. The one commit after 123 is this note and two comments |
+| CI | run **123**, on `048bf41`: **green on all eleven jobs** — the nine-cell matrix, RuboCop and the bulk-action JavaScript gate. Runs **118**, **119** and **121** were red on six of nine cells (every MySQL and MariaDB cell) on the PostgreSQL-only spec pattern, and runs **120** and **122** read `cancelled`, which is the concurrency group superseding them rather than a failure. Run **124**, on the head `ee8ee54`, is green on all eleven jobs too |
 
 ## Exact next step
 
-1. **Read CI for the head and act on it if it is red.** Run **123** was green on
-   all eleven jobs, and the only commit after it changes two comments and this
-   file — but three runs this session *were* red, on cells no PostgreSQL host can
-   see, so read rather than assume.
+1. **Read CI for the head and act on it if it is red.** It was green when this
+   was written — run **124** on `ee8ee54`, all eleven jobs — but three runs this
+   session *were* red, on cells no PostgreSQL host can see, so read rather than
+   assume.
 2. **Then it is Jan's turn.** WP0..WP9 are done, every findings file is closed,
    and the readable account for a user is `CHANGELOG.md`'s 0.1.6 entry and the
    README's *The workflow as a diagram* section.
@@ -866,10 +868,9 @@ Read CLAUDE.md and docs/STATE.md. Carry on.
 
 WP0..WP9 are done and the plan is finished, so "carry on" means, in order:
 
-1. **Read CI for the head and act on it if it is red.** Run 123 was green on all
-   eleven jobs and only comments and this file have landed since — but three runs
-   this session were red on the six MySQL and MariaDB cells, so read rather than
-   assume.
+1. **Read CI for the head and act on it if it is red.** Run 124 was green on all
+   eleven jobs and only this file has landed since — but three runs this session
+   were red on the six MySQL and MariaDB cells, so read rather than assume.
 2. **Nothing else is waiting.** Every finding in every findings file is closed or
    decided. One choice is with Jan (F01's wording) and its default is
    implemented.
