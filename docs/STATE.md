@@ -130,7 +130,7 @@ Everything below was executed in this container.
 | Locale parity | all eight files, 0 missing and 0 extra keys (in the suite) |
 | The four screens | rendered on 7.0 and read as text: the action bar, the tabs, the selector with **Generic** in it, core's own grid, the scope panel and its three actions, the summary counts linking into the matrix |
 | Migrations | untouched this session, so INV-8 was not re-run |
-| CI | run **150** on `56f41fc`, the head — **in progress when this file was written.** Check it before anything else. |
+| CI | run **151** on `3197dab`, the head: **success on all eleven jobs** — the full 3 x 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. (Run 150, on the code commit, was **cancelled** with nine of eleven already green: pushing the documentation commit superseded it. The workflow cancels an in-flight run on a new push to the same branch, so a two-commit session leaves the first run cancelled and that is not a failure — read the *latest* run.) |
 
 **Red on the old code, observed rather than assumed:**
 
