@@ -23,17 +23,18 @@
   findings that are not about the diagram.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
   `claude/docs-review-916e7x`; `git checkout -B claude/dev origin/claude/dev`
-  was the whole rescue and nothing was lost. Head is `6290492`.
+  was the whole rescue and nothing was lost. Head is `2eb4193`.
 - **`main`:** untouched. It means "last released" and no session writes to it —
   findings included (answered **B** by Jan on 2026-08-28). The two histories are
   still **unrelated**: no merge base, so a merge needs
   `--allow-unrelated-histories`. Jan asks for the merge himself.
 - **Nothing is open.** `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`
   matches only `TEMPLATE.md`.
-- **CI was green on the head this session started from** — run **127** on
-  `0853e06`, all eleven jobs, read from the Actions API. The run for `6290492`
-  was still in flight when this was written; **read it before doing anything
-  else** (see *Exact next step*).
+- **CI is green on the head.** Run **130** on `2eb4193` — the head itself —
+  passed **all eleven jobs**: the nine-cell matrix, RuboCop and the bulk-action
+  JavaScript gate. Read from the Actions API, not assumed. Runs **128** and
+  **129** read `cancelled`, which is the concurrency group superseding them as
+  each commit landed rather than a failure.
 
 ## What this session produced
 
@@ -137,20 +138,19 @@ legend together, so that folding the drawing away folds its legend with it.
 | Locale files | **all eight**, five new keys each, parity green. `en` and `nl` by hand; `de`, `es`, `fr`, `it`, `pl` and `pt` translated. `text_project_workflow_graph_nothing` was reworded in all eight |
 | INV-9 | **untouched** — still fifteen overrides in twelve files. Nothing here adds a Deface anchor |
 | Live probe on default data | on a 7.0 host with `redmine:load_default_data` cleared in and rolled back: `entry rows: 0`, `generic transitions: 48`, `default status: "New"`, `fallback -> "New"`, `dense?: true`, `band: []`, `dead ends: []`. Before the fix the band held all six |
-| CI | run **127** on `0853e06` (the head this session started from): **green on all eleven jobs**. The run for `6290492` had not finished when this was written |
+| CI | run **130** on `2eb4193`, the head: **green on all eleven jobs** — the nine-cell matrix, RuboCop and the JavaScript gate. Run **127** on `0853e06`, the head this session started from, was green too. Runs **128** and **129** read `cancelled`, which is the concurrency group superseding them as each commit landed |
 
 ## Exact next step
 
-**Read CI for `6290492` and act on it if it is red.** Three PostgreSQL and one
-MariaDB cell were run locally and all four are green, but that is four of nine
-and six of the nine CI cells are MySQL-family.
+**Nothing is queued.** CI run 130 on the head is green on all eleven jobs and no
+finding is open, so the next session is **Jan's turn or a fresh review run**
+(`docs/review/PROMPT.md`), whichever he asks for. Confirm CI is still green on
+the head before starting either — it was when this was written, but a review
+that trusts `docs/STATE.md` for that is a review that has not checked:
 
 ```
 mcp__github__actions_list  list_workflow_runs  jcatrysse/redmine_project_workflows  branch: claude/dev
-```
-
-After that, **the next session is Jan's turn or a fresh review**, whichever he
-asks for. There is no open finding and no work package left. Two things a fresh
+``` There is no open finding and no work package left. Two things a fresh
 review could usefully look at, neither of them filed as a finding because
 neither is a defect:
 
@@ -960,11 +960,11 @@ Read CLAUDE.md and docs/STATE.md. Carry on.
 WP0..WP9 are done, the plan is finished, and **no finding is open**, so "carry
 on" means, in order:
 
-1. **Read CI for the head `6290492` and act on it if it is red.** Four cells were
-   run locally — 7.0 and 5.1 on PostgreSQL, 7.0 on MariaDB — and all four are
-   green, but that is four of nine and six of the nine CI cells are
-   MySQL-family. Read rather than assume: three runs of the WP9 building session
-   were red on cells no PostgreSQL host can see.
+1. **Read CI for the head `2eb4193` and act on it if it is red.** It was green
+   on all eleven jobs when this was written (run **130**), and four cells were
+   also run locally — 7.0 and 5.1 on PostgreSQL, 7.0 on MariaDB. Read rather
+   than assume anyway: three runs of the WP9 building session were red on cells
+   no PostgreSQL host can see.
 2. **Then there is nothing queued.** Either Jan asks for something, or the next
    session is a **fresh review run** — `docs/review/PROMPT.md` — against this
    head. One choice is with Jan (the refused-values wording of
