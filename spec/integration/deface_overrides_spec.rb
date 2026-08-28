@@ -378,15 +378,28 @@ describe WorkflowsController, type: :controller do
     end
   end
 
-  # The inventory link also reaches the two matrices, which render core's action
-  # menu partial. The summary and copy pages do not render that partial; the
-  # summary page gets the link from the plugin's own header instead.
-  it 'injects the inventory link into the action menu' do
+  # The action-menu override carries two links, and both reach the two matrices,
+  # which render core's action menu partial. The summary and copy pages do not
+  # render that partial; the summary page gets the inventory link from the
+  # plugin's own header instead, and both link to workflows/edit from their own
+  # heading.
+  #
+  # Asserted together because they are one override: a single Deface call
+  # rendering two anchors, so either going missing means the same thing.
+  it 'injects both of the plugin\'s links into the action menu' do
     get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
                          project_id: ['global'], used_statuses_only: '0' }
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include('project_workflow_inventories')
+    # Both scoped to core's own action menu, and that scoping is the whole
+    # assertion. `href="/project_workflow_rules"` appears on **every**
+    # administration page whatever this override does, because the admin_menu
+    # entry WP12 registered is in the `admin` layout -- so the unscoped version
+    # of this example stayed green with the link deleted from the override and
+    # the page rendered without it. Found by deleting it and watching the example
+    # not fail, which is the only way this kind of near-miss ever shows up.
+    expect(css_select('div.contextual a[href="/project_workflow_inventories"]')).to be_present
+    expect(css_select('div.contextual a[href="/project_workflow_rules"]')).to be_present
   end
 
   # WP0 / claude F04. Since Redmine 6.0 core renders sprite_icon('') inside

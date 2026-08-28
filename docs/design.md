@@ -536,8 +536,15 @@ wherever it is filed.
 
 ### Deface overrides
 
-Fifteen Deface overrides in twelve files. Eleven of them are what ADR-003 deletes
-once the area above has taken their place. Eleven are on the administration
+Fifteen Deface overrides in twelve files. **Ten** of them are what ADR-003
+deletes once the area above has taken their place; the eleventh, on
+`workflows/_action_menu`, is kept and narrowed to the cross-link alone — ADR-003
+asks for a link in each direction, and somebody who lands on Redmine's screen
+looking for the project selector that used to be there has nothing else telling
+them where it went (answered **A** by Jan, 2026-08-28). The count after WP12 is
+therefore **five in three files**, not the four ADR-003's table predicted: that
+table counted the bulk actions and the issue form and forgot to count the
+cross-link its own Consequences section asks for. Eleven are on the administration
 screens; two are on `workflows/_form`, which the project matrices render as
 well, so one pair serves both; and the last two are on the issue form, one per
 branch of the way core renders the status control:
@@ -554,7 +561,7 @@ branch of the way core renders the status control:
 | `workflows/copy` | the `select_tag 'target_role_ids'` expression | the target project selector |
 | `workflows/index` | the `title [l(:label_workflow)` expression (**surround**) | the link to the inventory above the heading, the project selector below it |
 | `workflows/index` | the count cell's url hash | the project selection, carried into the link |
-| `workflows/_action_menu` | `div.contextual` (bottom) | the link to the inventory |
+| `workflows/_action_menu` | `div.contextual` (bottom) | the link to the inventory, and the cross-link to the plugin's own area (ADR-003; Jan, 2026-08-28) |
 | `workflows/_form` | the column header (`td[data-erb-style]`, bottom) | the column's three actions |
 | `workflows/_form` | the row header (`td.name`, bottom) | the row's three actions |
 | `issues/_attributes` | the `f.select :status_id` expression (after) | the link to the workflow panel (WP8) |

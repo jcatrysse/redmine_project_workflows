@@ -21,7 +21,10 @@
   deleted in the middle of it.
 - **Nothing a user can do has changed.** Both entry points work and behave the
   same. The README now points at the plugin's screen and says so in a
-  parenthesis.
+  parenthesis, and Redmine's own workflow screen carries a link across to it —
+  **step 5's cross-link, answered A by Jan and implemented ahead of the rest of
+  the second half**, because it is one override and it is useful now rather than
+  only after the removal.
 - **Nothing has been released.** 0.1.6, unreleased; `main` carries 0.0.3 and
   there is no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
@@ -169,9 +172,13 @@ commit:
    `_summary_selector`). `_scope_panel`, `_matrix_note`, `_bulk_undo` and
    `_copy_project_selector` are rendered by the **new** screens and stay — move
    them under `app/views/project_workflow_rules/` in the same commit.
-   **INV-9 goes from fifteen to four, in twelve files to two.** Change the count
-   in `CLAUDE.md`, `docs/design.md` (two places — the prose above the table and
-   the sentence below it) and the spec.
+   **INV-9 goes from fifteen to five, in twelve files to three.** Ten overrides
+   in nine files are deleted; `workflows_action_menu_links.rb` is **kept** and
+   narrowed to the cross-link alone. Five rather than the four ADR-003's table
+   predicted, because that table counted the bulk actions and the issue form and
+   forgot to count the cross-link its own Consequences section asks for. Change
+   the count in `CLAUDE.md`, `docs/design.md` (two places — the prose above the
+   table and the sentence below it) and `INV9_COUNTS` in the spec.
 4. **Move the behavioural spec.** `spec/controllers/workflows_controller_spec.rb`
    is 1,956 lines and describes what is now the plugin's controller. It carries
    only **five** path references (`edit_workflows_path` ×2,
@@ -182,11 +189,14 @@ commit:
    leave a small `workflows_controller_spec.rb` asserting the one thing core's
    screens must now do: read and write the generic workflow only, with a
    `project_id` parameter ignored rather than honoured.
-5. **Cross-links both ways.** The plugin's action bar already links to core's
-   screen (`label_project_workflow_generic_screens`). Core's needs one back —
-   and with the `_action_menu` override gone, it needs a **new** anchor, so it is
-   an override the count has to include. Weigh it against reaching the area from
-   the admin menu alone.
+5. **Cross-links both ways — done.** The plugin's action bar links to core's
+   screen (`label_project_workflow_generic_screens`), and core's
+   `workflows/_action_menu` override now carries a link back
+   (`label_project_workflow_rules`). What is left for step 3 above is only to
+   *narrow* that override: drop its inventory link, which is a question about
+   projects and is already on the plugin's own action bar, and rename it to what
+   it then is. The override itself is **kept**, which is why the count lands at
+   five and not four.
 6. **The runtime anchor check on the diagnostics page.** With four anchors this
    is a line rather than a suite, and it closes the one gap ADR-002's drift
    check explicitly does not cover: a *registered* override is not a *matching*
@@ -213,19 +223,9 @@ helper into a controller's chain and nothing of its own, with the fourth
 
 ## Open choices
 
-Nothing is blocking. One for Jan when he next reads this, not urgent:
-
-- **Choice:** should Redmine's own **Administration → Workflow** carry a link to
-  **Administration → Project workflows**?
-- **Options:** A) yes, through one Deface override on `workflows/_action_menu`
-  — the anchor the plugin already uses today, so it is known to match on all
-  three versions. B) no; both screens are one click apart in the administration
-  menu already.
-- **Recommendation:** A. It costs one override against the eleven being removed,
-  and an administrator who lands on core's screen looking for the project
-  selector that used to be there has nothing to tell them where it went.
-- **Urgent?** no — step 5 above will implement A unless told otherwise, and it
-  is one file to delete either way.
+Nothing is blocking and nothing is waiting on Jan. The one question this work
+package raised — whether Redmine's own workflow screen should link across to the
+plugin's — he answered **A** on 2026-08-28, and it is implemented and tested.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -383,6 +383,16 @@ prerequisites and the MySQL variant.
 Everything below cost time at least once. **This session's are first**, then the
 run that stood up a 45-plugin host, then everything carried forward.
 
+- **An INV-9 assertion can be satisfied by the *layout* rather than by the
+  override.** The first version of the cross-link's example asserted
+  `include('href="/project_workflow_rules"')` in the body of core's workflow
+  page — which is true of **every** administration page whatever the override
+  does, because WP12's `admin_menu` entry renders exactly that href into the
+  `admin` layout. Deleting the link from the override left the example green.
+  Scope such an assertion to the element the override writes into
+  (`css_select('div.contextual a[href=...]')`), and never trust one that has not
+  been watched to fail. This is the second INV-9 near-miss of the same shape, and
+  both were markup the layout contributed.
 - **A `layout` declaration puts a method on a controller that looks exactly like
   a copied core body.** `layout 'admin'` defines `_layout`, so a gate that
   discovers "what the plugin copied" from `instance_methods(false)` reports
