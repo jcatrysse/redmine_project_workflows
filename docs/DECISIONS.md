@@ -485,3 +485,39 @@ Class A, and the last open finding of `docs/review/findings/2026-08-27-bundled.m
   draft's gate, which would have asserted nothing. This is the third time in two
   sessions that a shape assertion had to be measured before it could be trusted
   (F04, F10, F11).
+
+## Decided (Jan) — 2026-08-28
+
+Three answers, all taken as recommended, that set the shape of **WP9 — the
+workflow as a drawing, per role**. The request behind them: an ex-Jira user reads
+the missing diagram as Redmine falling short, so the answer has to be a drawing
+that is genuinely more useful than Jira's rather than a catch-up.
+
+| Date | Question | Answer | Notes |
+| --- | --- | --- | --- |
+| 2026-08-28 | Where the full drawing lives | **A — the project screen, beside the matrix; the issue panel keeps the local "from here" view and gains a link** | Measured, not estimated: five layers of a six-status workflow are 1016 px wide and each further status adds about 210 px, while Redmine's `#ajax-modal` is about 900 px; scaling to fit puts the status names below legibility. Considered and rejected: **B**, the drawing in both places with horizontal scrolling in the modal — a scrollbar in a dialogue is not an answer to a question asked in a hurry. The split also matches the use: on an issue you want to know what you may do now, on the project screen you want to understand the whole thing. |
+| 2026-08-28 | Who may see the full drawing | **A — behind `view_project_workflow`; the WP8 panel keeps no permission of its own** | The whole map shows what *other* roles may do, which is project configuration rather than information about the issue in front of you. The panel stays ungated for the reason WP8 gives: requiring a permission to learn which workflow governs your own issue would hide it from the people it exists for. Considered and rejected: **B**, the full drawing without the permission. |
+| 2026-08-28 | Which roles the selector offers | **B — every role the project screen already lists, with the reader's own roles as the default union** | "What may a developer actually do here" is exactly the question of somebody administering the workflow, the permission that answers it already exists, and the screen is behind it — so restricting the selector to the reader's own roles would withhold something the reader is already entitled to see. Considered and rejected: **A**, own roles only. The population is `ProjectOptions.visible_roles`, the same one the settings tab and the matrix use: roles with members in the project plus any role that already holds a scope. **Not every role in the installation** — 2026-08-26 settled that the project screen offers only the roles the project has, and this answer does not touch it. The selector is omitted entirely when there is only one thing to pick. |
+
+**What this does not do: it does not re-open 2026-08-26's answer of C.** C chose
+the local view for WP8's panel and said in the same sentence that a layered
+diagram is that same data with a layout pass added, so A stays buildable on top.
+WP9 is that increment, on a different screen; the panel C describes is unchanged.
+The rejected half of C — *no drawing anywhere* — was never what C said.
+
+The technology question was asked with it and is recorded because the answer is
+not the obvious one: **inline SVG with the layout computed in Ruby**. At this size
+— as many nodes as the installation has issue statuses, usually six to fifteen —
+the drawing technology does not affect speed at all; what matters is what reaches
+the browser and when. SVG wins on everything around it: real text that is
+selectable, findable and readable aloud, `currentColor` carrying whatever theme
+is installed, and printing. Considered and rejected: **Canvas** (loses text,
+accessibility, selection and print, and only wins above thousands of elements),
+**Mermaid** (about a megabyte, its own theme and font, interaction per edge a
+fight), **Graphviz as WebAssembly** (two to three megabytes for twelve nodes),
+**dagre / ELK / Cytoscape** (an npm build step this plugin does not have and does
+not want), and **Graphviz on the server as a PNG** (a system package many Redmine
+administrators may not install, no interaction, no theme). Kept in reserve:
+**HTML nodes over an SVG edge layer**, which would make status names wrap by
+themselves — worth returning to if the wrapping in Ruby proves worse in practice
+than it looks on paper.

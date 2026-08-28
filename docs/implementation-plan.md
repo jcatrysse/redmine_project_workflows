@@ -1,4 +1,4 @@
-# Implementation plan — WP0..WP8
+# Implementation plan — WP0..WP9
 
 > Work in this order. Each package is one commit (or a small run of them) on
 > `claude/dev`, green at every commit. `docs/design.md` describes the target;
@@ -24,6 +24,7 @@
 | WP6 | Compare, audit, undo | **done** |
 | WP7 | Documentation, locales, release | **done** |
 | WP8 | Status help and the transition map on the issue form | done |
+| WP9 | The workflow as a drawing, per role | **planned** |
 
 ---
 
@@ -418,13 +419,247 @@ reader's roles, and the specs above are green on all nine CI cells.
 
 ---
 
+## WP9 — The workflow as a drawing, per role
+
+New requirement, raised 2026-08-28: an ex-Jira user misses the picture with the
+arrows and reads its absence as Redmine falling short. The **local** view shipped
+in WP8 answers "what may I do from here"; what is missing is the whole flow of a
+project's workflow in one image. This package builds it — and builds it so that
+it says more than Jira's does, because Redmine knows something Jira does not:
+which role the reader holds.
+
+`docs/DECISIONS.md` (2026-08-28) carries Jan's three answers, and they set the
+shape of everything below. This does **not** re-open the 2026-08-26 answer of
+**C** for WP8's panel: C said the panel gets the local view and no drawing, and
+said in the same breath that A stays buildable on top of it. That is exactly what
+this is. The panel stays as it is.
+
+**What is better than Jira, and why it is nearly free here.** Jira draws one
+diagram per issue type: permissions and conditions live in a dialogue behind the
+arrow, so the picture shows the transitions *somebody* may make, not the ones
+*you* may make. Redmine's workflow is per (tracker × role) in the table itself,
+so a role selector is not a trick — it is the data model becoming visible. Three
+consequences, and they are the package's reason to exist:
+
+- **Per role**, defaulting to the reader's own roles — the union the status
+  dropdown is built from (INV-5: the roles' rules are a union, the scopes are
+  not merged).
+- **Unreachable and dead-end statuses are named, not merely drawn.** A status no
+  role can reach, or one with no way out, is a real defect in a workflow. Jira
+  draws it and says nothing. This is the part a workflow administrator will
+  actually use.
+- **An own empty workflow draws as an entry node and nothing else**, with the
+  sentence WP8 already has. The three states of INV-3 stay tellable apart in the
+  drawing as they are everywhere else.
+
+### Where it lives, and why not in the modal
+
+**On the project screen, beside the matrix** — answer **A** to choice 1. Measured
+on the model: five layers of a six-status workflow are 1016 px wide, and one more
+status adds about 210 px; Redmine's `#ajax-modal` is about 900 px. Scaling to fit
+puts the status names below legibility. So the drawing gets a screen with room,
+and the issue form keeps the panel it has: short, local, one question answered
+fast. That split also matches the use — on an issue you want to know what you may
+do now; on the project screen you want to understand the whole thing.
+
+**Behind `view_project_workflow`** — answer **A** to choice 2. The whole map shows
+what *other* roles may do, which is project configuration rather than information
+about one issue. The WP8 panel keeps no permission of its own (a reader who may
+see the issue may know which workflow governs it); only the drawing is gated.
+
+**The role selector offers every role the project screen already lists** — answer
+**B** to choice 3. "What may a developer actually do here" is precisely the
+question of somebody administering the workflow, and the permission that answers
+it already exists; the screen is behind it. Default selection is the reader's own
+roles as a union, and the selector is omitted entirely when there is only one
+thing to pick.
+
+The population is `Services::ProjectOptions.visible_roles` — the roles with
+members in the project, plus any role that already holds a scope here, which is
+exactly what the settings tab and the matrix use. **Not every role in the
+installation:** `docs/DECISIONS.md` settled on 2026-08-26 that the project screen
+offers only the roles the project has, and *Non member* and *Anonymous* stay an
+administration matter. This selector changes who may be *looked at*, not which
+roles the project screen knows about.
+
+### The route
+
+- **`Services::WorkflowGraphQuery`** — for one (project, tracker, role ids): the
+  nodes and the edges, each edge carrying its condition (unconditional, author,
+  assignee) and which of the selected roles grant it, plus core's
+  `old_status_id = 0` *new issue* node as the entry point. Per-role scope state,
+  so the three states of INV-3 are reported rather than inferred from the rules.
+  Self-transitions excluded as elsewhere. One scope lookup (the Resolver's cached
+  point lookup, INV-6), one edge query, one status query.
+
+  **A query object of its own, not a mode on `TransitionMapQuery`.** That class
+  reads the tracker, the status and the status list off one issue on purpose —
+  its own comment says why, and it has no issue to read here. What the two share
+  is the population split: the project's own rows for the roles the project
+  answers for, the generic rows for the rest, both relations naming a
+  `project_id` explicitly (INV-4). Extract that as a helper returning **the two
+  finished relations**, never a base relation carrying only the tracker — the
+  distinction the comment above `TransitionMapQuery#population` draws, and the
+  reason to extract at all: INV-4's discipline written twice is INV-4's
+  discipline with two places to get it wrong.
+
+  Availability — WP8's honesty clause — has no meaning here. There is no issue
+  and no reader identity to judge an edge against, so no edge carries it, and the
+  drawing says what the workflow permits rather than what one reader may do now.
+
+- **`Services::WorkflowGraphLayout`** — a pure function from nodes and edges to
+  coordinates, in four phases: break cycles (depth-first from the entry node,
+  recording back edges rather than dropping them); assign layers (longest path
+  over the forward edges); order within a layer (median heuristic, four
+  alternating sweeps); assign coordinates (even spacing, then a straightening
+  pass). Two details that were measured on the model rather than guessed:
+
+  - **Only forward edges may pull during straightening.** A returning arc points
+    at a node far to the right; letting it tug drags the main path into a
+    staircase. Straightening with every edge made the drawing visibly worse.
+  - **An edge spanning more than one layer needs dummy nodes**, so the ordering
+    pass keeps room for it. Bowing it over the intervening node is what the model
+    does and it is the difference between "usually tidy" and "always tidy".
+
+  Statuses the selected roles cannot reach from the entry node go in a band of
+  their own below the drawing, labelled, rather than being given a layer — that
+  band *is* the first diagnostic.
+
+  **Determinism is a requirement, not a nicety.** Same input, same output, on
+  every Ruby and every database. Every iteration is over an explicitly sorted
+  collection; nothing iterates a hash whose order came from a query without an
+  `ORDER BY`. This is the shape of failure that otherwise appears as one red cell
+  out of nine with a different random seed.
+
+- **Text that does not fit.** SVG does not wrap. A status called *Waiting for the
+  customer's answer* does not fit a 130 px node. Wrap in Ruby, on spaces, to at
+  most two lines with an em-width estimate; truncate beyond that and carry the
+  full name in the node's `<title>`. Node width stays fixed so the layout remains
+  a pure function of the graph.
+
+- **The renderer**, a view partial building inline SVG:
+  - The `viewBox` comes from the **drawn** extent, not from the node positions.
+    The returning arcs bow below the rows; a `viewBox` derived from the nodes
+    alone clips them, which is a bug that renders silently. It carries a spec.
+  - `currentColor` for the neutral strokes and the text, a literal hue only for
+    the marks that carry meaning. Redmine 7.0 ships no dark mode, but third-party
+    themes change exactly the colours one would otherwise hard-code.
+  - Arrowheads as `<marker>`, one per semantic colour — `context-stroke` is not
+    safe on every browser the supported versions run on.
+  - Every edge carries a `<title>`: from → to, the condition, the granting roles.
+  - `role="img"` and an `aria-label`, and **the table underneath is the readable
+    twin, not an afterthought** — no `aria` attribute makes a drawing legible to
+    a screen reader, which is the same reason WP8 shipped a table in the first
+    place.
+  - No `<foreignObject>`, no `<script>` and no `<style>` inside the SVG.
+
+- **The screen.** `GET projects/:project_id/workflow/graph` on
+  `ProjectWorkflowsController`, whose `before_action :find_project_by_project_id`
+  then `:authorize` already check the permission against the project in the path
+  before anything else runs (INV-7). The tracker and the role arrive as parameters
+  and are picked out of `ProjectOptions.trackers` and
+  `ProjectOptions.visible_roles`, exactly as `#find_tracker_and_role` already
+  does, so a parameter can only ever name something the project offers. Reached
+  from the settings tab row, from the matrix header beside *Compare with the
+  generic workflow*, and from the WP8 panel.
+
+  **The action must be registered in `init.rb` or `authorize` denies it.** Add
+  `graph` to the action list of **both** permissions, as `transitions`,
+  `permissions` and `compare` already appear in both: `view_project_workflow`
+  carries `read: true`, and a member holding only `manage_project_workflow` would
+  otherwise get a 403 on a screen they may plainly see. Forgetting this is a
+  silent 403 on a route that looks correctly written, so it carries the
+  authorization spec below rather than a comment.
+
+- **The link from the WP8 panel** — one line in
+  `app/views/project_workflow_maps/_map.html.erb`. Gate it the way
+  `ProjectWorkflowMapsHelper#project_workflow_map_edit_link` already gates *Open
+  this workflow*: `User.current.allowed_to?(action, project)` against the very
+  action the target authorizes, **not** against a permission name — two
+  permissions reach these screens, and that helper's comment says why naming one
+  of them gets it wrong. A link that answers 403 is worse than no link.
+
+- **Diagnostics**, from the graph already in hand and costing no query:
+  unreachable from the entry node, no outgoing edge, and a status the tracker
+  uses that no rule for these roles mentions at all.
+
+- **INV-9 is untouched.** Everything here is in the plugin's own views and
+  controller; no new Deface anchor. The count stays **fifteen** in `CLAUDE.md`,
+  in `docs/design.md` and in the spec's comment — do not bump it.
+
+- Strings in `en` and `nl` by hand, the other six translated (never English text
+  in a non-English file); `spec/locales_spec.rb` asserts parity across all eight.
+- A README paragraph and a CHANGELOG line **in this package**, as WP8 carried its
+  own rather than waiting for a second release pass. The README's is worth
+  writing carefully: this is the feature a Jira leaver looks for first, and the
+  README is where they look.
+
+### Cost (G6)
+
+Nothing changes for a screen that does not ask for the drawing. Asking for it
+costs the three queries above and a layout pass that is quadratic in the number
+of nodes per layer, over a graph with as many nodes as the installation has
+issue statuses — usually six to fifteen, rarely more than thirty. The answer is
+small: the model measures 3.8 kB of markup for seven nodes and fourteen edges, so
+twelve statuses and thirty rules land near 8 kB, about 2 kB compressed. **No
+caching in this package.** If it is ever wanted the key is (project, tracker,
+sorted role ids, the scope row's `updated_on` or `generic`, the rule count) —
+named here so it need not be re-derived, and left out because at these amounts it
+would be complexity without a reason.
+
+The drawing is inline SVG with the layout computed in Ruby. Recorded because the
+question was asked and the answer is not the obvious one: at this size the
+drawing technology does not affect speed at all — what matters is what reaches
+the browser and when. SVG wins on everything around it: the status names stay
+real text (selectable, findable with Ctrl-F, readable aloud), `currentColor`
+carries the theme, and it prints. Canvas loses all of that and only starts to win
+back above thousands of elements. Mermaid is about a megabyte, Graphviz as
+WebAssembly two to three, and dagre / ELK / Cytoscape want an npm build step this
+plugin does not have.
+
+### Tests
+
+- **Layout, as a pure function:** a known graph gives known layers; a cycle
+  terminates; an unreachable status lands in the band below; the same input twice
+  gives byte-identical output.
+- **The clipping regression:** the rendered `viewBox` contains every drawn path.
+  It fails on the naive implementation that sizes from the node positions.
+- **Query:** a project with its own workflow draws its own edges and never the
+  generic ones, and an inheriting one the reverse (INV-1, INV-4); the per-role
+  states of INV-3; a subproject does not inherit its parent's (INV-6).
+- **Authorization:** every entry point answers 403 without
+  `view_project_workflow`; a member holding **only** `manage_project_workflow`
+  reaches it (the registration trap above); and a `project_id` among the
+  parameters cannot widen the project named by the path (INV-7). A role the
+  project does not offer, and a tracker it has not enabled, answer 404 rather
+  than drawing anything.
+- **The three states drawn:** an own empty workflow draws the entry node and
+  nothing else with the sentence that says that is deliberate, rather than a
+  blank frame.
+
+Out of scope: editing the workflow inside the diagram (that is Jira's workflow
+editor, a far larger thing, and Redmine's tick-box matrix is honestly better at
+it); the drawing in the issue panel (choice 1, answer A); exporting it as a file;
+and the bulk-edit form, for the reason WP8 already gives.
+
+**Done when** a reader with `view_project_workflow` can open a project's workflow
+as a drawing for any tracker and any role in that project, an inheriting
+combination draws the generic workflow and says so, an own empty one draws the
+entry node alone with its explanation, the diagnostics name the unreachable and
+dead-end statuses, the `viewBox` contains every drawn path, two runs of the same
+input produce identical output, and the specs are green on all nine CI cells.
+
+---
+
 ## Sequencing
 
 WP0 is independent. WP1 gates everything after it. WP3 needs WP1's scopes to
 report anything true; WP4 needs WP1 and reuses WP3's state labels. WP5 touches
 different files from WP4 and can run alongside it. WP6 needs WP1 (audit
 columns) and WP3 (where the compare view is reached from). WP8 needs WP1 (it
-resolves a scope like everything else) and nothing later. **Jan chose WP7 first
+resolves a scope like everything else) and nothing later. WP9 needs WP1 for the
+same reason and WP4 for the screen it attaches to, and it reuses WP8's population
+split; it changes nothing WP8 renders, so the two cannot conflict. **Jan chose WP7 first
 and then WP8**, in a session of its own, so the release pass covers what exists
 at that point and WP8 carries its own README paragraph, CHANGELOG line and
 locale keys rather than waiting for a second release pass.

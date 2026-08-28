@@ -12,7 +12,7 @@ below for the corners that matter most.
 
 **Authoritative documents, in precedence order:**
 1. `docs/adr/` — accepted decision records. An ADR wins on any conflict.
-2. `docs/implementation-plan.md` — work packages WP0..WP7, in this order.
+2. `docs/implementation-plan.md` — work packages WP0..WP9, in this order.
 3. `docs/design.md` — the scope model, the resolver rules, the data model.
 4. `docs/DECISIONS.md` — every deliberate choice already made. Do not re-open one.
 5. `README.md` — what a user is told the plugin does. If code and README
@@ -249,7 +249,7 @@ non-specialist — no jargon without a one-line explanation.
 (2-6 sentences in plain language: what the plugin can do now that it could not)
 
 ## Where we are
-Work package WP-N of WP0..WP7. (one sentence of context)
+Work package WP-N of WP0..WP9. (one sentence of context)
 
 ## Next step
 (one concrete sentence — what the next session will do)

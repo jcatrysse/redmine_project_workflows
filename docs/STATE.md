@@ -7,9 +7,13 @@
 ## Current position
 
 - **Work package:** WP0 through **WP8** are done and have been for seven
-  sessions. `docs/implementation-plan.md` runs WP0..WP8 and every row reads
-  *done*. There is no WP9. What happens now is the **review loop** in
-  `docs/review/`.
+  sessions. **WP9 — the workflow as a drawing, per role — now exists as a plan
+  and has not been started:** `docs/implementation-plan.md` runs WP0..WP9, every
+  row up to WP8 reads *done* and WP9 reads *planned*. Its route is written out in
+  full, and `docs/DECISIONS.md` (2026-08-28) carries Jan's three answers that
+  shape it — the drawing lives on the project screen, behind
+  `view_project_workflow`, with a role selector. Beside it runs the **review
+  loop** in `docs/review/`.
 - **This session was the fixer** on `docs/review/findings/2026-08-27-bundled-followup.md`
   — a review of what the *previous* fixing session did with the twenty findings
   of `2026-08-27-bundled.md`. Four findings, no blocker and no major: two minor,
