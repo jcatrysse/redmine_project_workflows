@@ -62,16 +62,25 @@ describe 'WorkflowsHelperPatch attachment' do
       .not_to include(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
   end
 
-  # Both, because both render these cells: WorkflowsController owns the
-  # administration screens, and ProjectWorkflowsController renders core's own
-  # `workflows/_form` partial for the project matrices. Naming one would leave
-  # the other's cells unrendered.
-  it 'is in the helper chain of both controllers that render the matrices' do
-    [WorkflowsController, ProjectWorkflowsController].each do |controller|
+  # One controller since ADR-003, and it is core's: the plugin's own screens
+  # render their own project selector, so nothing of theirs goes through
+  # `options_for_workflow_select`.
+  it 'is in the helper chain of core\'s own workflow controller' do
+    expect(WorkflowsController._helpers.ancestors)
+      .to include(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
+  end
+
+  # The cells are a separate module and travel further, because three controllers
+  # render a matrix. Naming one would leave the others' cells unrendered -- and
+  # `ProjectWorkflowMatrixHelper` must stay out of `WorkflowsHelper` for exactly
+  # the reason the patch above must: a neighbour's alias chain there would copy
+  # our method and take core's with it.
+  it 'puts the matrix cells in every chain that renders one, and in no core helper' do
+    [WorkflowsController, ProjectWorkflowsController, ProjectWorkflowRulesController].each do |controller|
       expect(controller._helpers.ancestors)
-        .to include(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch),
-            "#{controller} does not carry the patch"
+        .to include(ProjectWorkflowMatrixHelper), "#{controller} does not carry the cells"
     end
+    expect(WorkflowsHelper.ancestors).not_to include(ProjectWorkflowMatrixHelper)
   end
 
   describe WorkflowsController, type: :controller do

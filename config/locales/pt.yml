@@ -164,3 +164,6 @@ pt:
   text_project_workflow_diagnostics_patch_missing: 'Não aplicado. Aqui o Redmine comporta-se como sem este plugin.'
   text_project_workflow_diagnostics_overrides_help: 'São acrescentos a ecrãs que pertencem ao Redmine. Aqui está listado o que o plugin registou, que não é o mesmo que aquilo que conseguiu colocar: um ecrã que pareça errado merece ser comunicado mesmo que aqui esteja tudo listado.'
   text_project_workflow_diagnostics_unmeasured: 'Ninguém testou este plugin com o Redmine %{version}, e este Ruby não consegue ler o código-fonte do Redmine, pelo que não foi possível qualquer comparação.'
+  # WP12 / ADR-003: the plugin's own administration area.
+  label_project_workflow_rules: 'Fluxos de trabalho de projeto'
+  label_project_workflow_generic_screens: 'Fluxo de trabalho do próprio Redmine'

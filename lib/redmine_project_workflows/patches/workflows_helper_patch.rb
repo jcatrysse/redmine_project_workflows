@@ -2,15 +2,16 @@
 
 module RedmineProjectWorkflows
   module Patches
-    # The workflow matrices' cell helpers, and the project selector above them.
+    # The project selector above core's own workflow matrices.
     #
-    # Attached to the **controllers'** helper chains, never to `WorkflowsHelper`
+    # One method of core's, +options_for_workflow_select+, taught to render a
+    # project option list beside the tracker and role ones. The cells themselves
+    # are +ProjectWorkflowMatrixHelper+ and are not a patch on anything.
+    #
+    # Attached to the **controller's** helper chain, never to `WorkflowsHelper`
     # itself. This is the same rule `ProjectsHelperPatch` follows and the same
     # measurement stands behind it; see {apply!}.
     module WorkflowsHelperPatch
-      include RedmineProjectWorkflows::VersionHelper
-      include RedmineProjectWorkflows::BulkActionsHelper
-
       GlobalWorkflowProject = Struct.new(:id, :name)
 
       class << self
@@ -43,16 +44,18 @@ module RedmineProjectWorkflows
         # `WorkflowsHelper` holds -- core's method, or a neighbour's aliased
         # version.
         #
-        # **Two controllers, because two render these views.** `WorkflowsController`
-        # owns the administration screens; `ProjectWorkflowsController` renders
-        # core's own `workflows/_form` partial for the project matrices, and the
-        # bulk row and column actions are injected into that partial. Naming one
-        # would leave the other's cells unrendered.
+        # **One controller, and only core's.** The plugin's own screens declare
+        # `helper ProjectWorkflowMatrixHelper` in their class bodies like any
+        # other Rails controller; the only thing that cannot is core's, which is
+        # why this method exists at all. `ProjectWorkflowMatrixHelper` goes with
+        # it, because core's administration matrices render the cells the plugin
+        # draws (a mixed cell as a <select>, and the row and column actions of
+        # WP5) and core's controller cannot name it either.
         #
         # Including a module twice is a no-op, so a code reload is harmless.
         def apply!
           WorkflowsController.helper(self)
-          ProjectWorkflowsController.helper(self)
+          WorkflowsController.helper(ProjectWorkflowMatrixHelper)
           self
         end
       end
@@ -64,113 +67,7 @@ module RedmineProjectWorkflows
         super
       end
 
-      def field_permission_tag(permissions, status, field, roles)
-        name = field.is_a?(CustomField) ? field.id.to_s : field
-        options = [['', ''], [l(:label_readonly), 'readonly']]
-        options << [l(:label_required), 'required'] unless field_required?(field)
-        html_options = {}
-
-        if (perm = permissions[status.id][name])
-          if perm.uniq.size > 1 || perm.size < workflow_permissions_matrix_size
-            options << [l(:label_no_change_option), 'no_change']
-            selected = 'no_change'
-          else
-            selected = perm.first
-          end
-        end
-
-        hidden = field.is_a?(CustomField) &&
-                 !field.visible? &&
-                 !roles.detect { |role| role.custom_fields.to_a.include?(field) }
-
-        if hidden
-          options[0][0] = l(:label_hidden)
-          selected = ''
-          html_options[:disabled] = true
-        end
-
-        select_tag("permissions[#{status.id}][#{name}]", options_for_select(options, selected), html_options)
-      end
-
-      # The state of the current selection, as text. Three states have to stay
-      # tellable apart (INV-3), and "own empty workflow" is a valid, deliberate
-      # configuration -- so it is named in words rather than marked as a
-      # problem. No colour, and no markup Redmine does not already use.
-      def project_workflow_scope_state_tag(state)
-        text =
-          case state.state
-          when :inherits then l(:label_project_workflow_state_inherits)
-          when :own then l(:label_project_workflow_state_own)
-          when :own_empty then l(:label_project_workflow_state_own_empty)
-          else
-            # A mixed selection names only the states it actually contains --
-            # "0 own empty workflows" is noise, not information.
-            {
-              label_project_workflow_count_own: state.own,
-              label_project_workflow_count_own_empty: state.own_empty,
-              label_project_workflow_count_inherits: state.inheriting
-            }.reject { |_key, count| count.zero? }
-             .map { |key, count| l(key, count: count) }.join(', ')
-          end
-        content_tag(:span, text, class: "project-workflow-scope-state #{state.state}")
-      end
-
-      # One cell of the summary grid. Core builds the link with a bare
-      # {:action => 'edit', :role_id => ..., :tracker_id => ...}, which carries
-      # no project: with a project selected, the counts on the page would be
-      # that project's and the link would open the generic matrix. The
-      # selection is nil when it is the default -- the generic workflow alone --
-      # so the URL then stays byte-identical to core's.
-      def project_workflow_summary_count_link(count, tracker, role, selection)
-        url = { action: 'edit', role_id: role, tracker_id: tracker }
-        url[:project_id] = selection if selection.present?
-
-        link_to(project_workflows_summary_count_body(count), url,
-                title: l(:button_edit),
-                class: project_workflows_summary_count_class(count))
-      end
-
-      def transition_tag(transition_count, old_status, new_status, name)
-        tag_name = "transitions[#{old_status.try(:id) || 0}][#{new_status.id}][#{name}]"
-        if old_status == new_status
-          check_box_tag(tag_name, '1', true,
-                        { :disabled => true,
-                          :class => "old-status-#{old_status.try(:id) || 0} new-status-#{new_status.id}" })
-        elsif transition_count.zero? || transition_count == workflow_permissions_matrix_size
-          hidden_field_tag(tag_name, '0', :id => nil) +
-            check_box_tag(tag_name, '1', transition_count != 0,
-                          :class => "old-status-#{old_status.try(:id) || 0} new-status-#{new_status.id}")
-        else
-          # The same classes as a checkbox cell (claude F06). Core's own toggle
-          # cannot reach a select whatever it is called -- it selects on
-          # input[type=checkbox] -- but the plugin's row and column actions
-          # select on the class alone, so one selector reaches both kinds of
-          # cell and the mixed ones stop being the cells bulk editing skips.
-          select_tag(
-            tag_name,
-            options_for_select(
-              [
-                [l(:general_text_Yes), '1'],
-                [l(:general_text_No), '0'],
-                [l(:label_no_change_option), 'no_change']
-              ],
-              'no_change'
-            ),
-            :class => "old-status-#{old_status.try(:id) || 0} new-status-#{new_status.id}"
-          )
-        end
-      end
-
       private
-
-      # How many workflows one cell of the matrix stands for. Core computes
-      # @roles.size * @trackers.size; the plugin adds the scopes the selection
-      # covers. Kept under core's name because that is what core's two cell
-      # helpers ask for, and answered by the module that also renders the row and
-      # column actions, so the two can never disagree about the size of a cell.
-      def workflow_permissions_matrix_size
-        project_workflow_selection_size
-      end
 
       def normalize_workflow_objects(name, objects)
         return objects unless name == 'project_id[]'

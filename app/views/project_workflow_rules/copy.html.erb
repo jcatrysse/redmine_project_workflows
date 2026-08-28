@@ -1,0 +1,56 @@
+<%= render partial: 'project_workflow_rules/action_menu', locals: { current: :copy } %>
+
+<%= title [l(:label_project_workflow_rules), project_workflow_rules_path], l(:button_copy) %>
+
+<%= form_tag duplicate_project_workflow_rules_path, method: :post, id: 'workflow_copy_form' do %>
+  <fieldset class="tabular box">
+    <legend><%= l(:label_copy_source) %></legend>
+    <p>
+      <label for="source_tracker_id"><%= l(:label_tracker) %></label>
+      <%= select_tag('source_tracker_id',
+                     content_tag('option', "--- #{l(:actionview_instancetag_blank_option)} ---", value: '') +
+                     content_tag('option', "--- #{l(:label_copy_same_as_target)} ---", value: 'any') +
+                     options_from_collection_for_select(@trackers, 'id', 'name', @source_tracker&.id)) %>
+    </p>
+    <p>
+      <label for="source_role_id"><%= l(:label_role) %></label>
+      <%= select_tag('source_role_id',
+                     content_tag('option', "--- #{l(:actionview_instancetag_blank_option)} ---", value: '') +
+                     content_tag('option', "--- #{l(:label_copy_same_as_target)} ---", value: 'any') +
+                     options_from_collection_for_select(@roles, 'id', 'name', @source_role&.id)) %>
+    </p>
+    <p>
+      <%= render partial: 'redmine_project_workflows/copy_project_selector',
+                 locals: { selector_id: 'project_id_source', field_name: 'source_project_id',
+                           selected_values: @source_project_id, include_same_as_target: true } %>
+    </p>
+  </fieldset>
+
+  <fieldset class="tabular box">
+    <legend><%= l(:label_copy_target) %></legend>
+    <p>
+      <label for="target_tracker_ids"><%= l(:label_tracker) %></label>
+      <%= select_tag 'target_tracker_ids',
+                     content_tag('option', "--- #{l(:actionview_instancetag_blank_option)} ---",
+                                 value: '', disabled: true) +
+                     options_from_collection_for_select(@trackers, 'id', 'name', @target_trackers&.map(&:id)),
+                     multiple: true %>
+    </p>
+    <p>
+      <label for="target_role_ids"><%= l(:label_role) %></label>
+      <%= select_tag 'target_role_ids',
+                     content_tag('option', "--- #{l(:actionview_instancetag_blank_option)} ---",
+                                 value: '', disabled: true) +
+                     options_from_collection_for_select(@roles, 'id', 'name', @target_roles&.map(&:id)),
+                     multiple: true %>
+    </p>
+    <p>
+      <%= render partial: 'redmine_project_workflows/copy_project_selector',
+                 locals: { selector_id: 'project_id_target', field_name: 'target_project_ids[]',
+                           selected_values: params[:target_project_ids], multiple: true,
+                           disable_blank: true, default_global: true } %>
+    </p>
+  </fieldset>
+
+  <%= submit_tag l(:button_copy) %>
+<% end %>

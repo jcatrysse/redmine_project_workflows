@@ -28,7 +28,7 @@
 | — | *WP0..WP9 delivered the plugin. WP10..WP16 are the hardening track that makes it releasable.* | |
 | WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **done** |
 | WP11 | Compatibility as an object (ADR-002) | **done** |
-| WP12 | Owned administration screens (ADR-003) | **next** |
+| WP12 | Owned administration screens (ADR-003) | **in progress** — steps 1-3 done |
 | WP13 | One write-coordination service, and bounded bulk writes | planned |
 | WP14 | The remaining defect backlog | planned |
 | WP15 | The test debt three reviews named | planned |
@@ -837,12 +837,18 @@ somewhere it cannot be answered.
 Implements **ADR-003**, and it is the large one. Build order matters because the
 branch stays green at every commit:
 
-1. The `admin_menu` entry, routes and controllers for the plugin's own
+1. **Done.** The `admin_menu` entry, routes and controllers for the plugin's own
    administration area, rendering core's `workflows/_form` exactly as
-   `ProjectWorkflowsController` already does.
-2. The scope panel, the project selector, the summary and the inventory move onto
-   it, with their specs.
-3. The copy screen moves, with its four selectors and their validation.
+   `ProjectWorkflowsController` already does. `ProjectWorkflowRulesController`,
+   under `/project_workflow_rules`.
+2. **Done.** The scope panel, the project selector, the summary and the inventory
+   link are on it, with a spec of their own.
+3. **Done.** The copy screen is on it, with its six selectors and their
+   validation.
+
+   Steps 1-3 are **additive**: core's screens still carry the eleven overrides
+   and the 468-line patch, and their spec is untouched and green. Steps 4-8 are
+   what take them away, and the behavioural spec moves with them.
 4. `WorkflowsControllerPatch` is cut back to the `project_id: nil` predicate on
    `index`, `edit`, `permissions`, `update` and `update_permissions` — 468 lines
    to under 60.

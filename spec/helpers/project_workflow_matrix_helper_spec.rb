@@ -2,18 +2,18 @@
 
 require_relative '../spec_helper'
 
-# The plugin's own cell helpers, which live in
-# `Patches::WorkflowsHelperPatch` and are attached to the helper chains of
-# `WorkflowsController` and `ProjectWorkflowsController` -- never to
-# `WorkflowsHelper` itself, for the reason that patch's `apply!` gives at length
-# (finding F01 of 2026-08-28-claude-audit).
+# The plugin's own matrix cell helpers. They live in `ProjectWorkflowMatrixHelper`
+# and are attached to the helper chains of the three controllers that render a
+# matrix -- never to `WorkflowsHelper` itself, for the reason
+# `Patches::WorkflowsHelperPatch#apply!` gives at length (finding F01 of
+# 2026-08-28-claude-audit).
 #
 # A helper spec has no controller, so the layering is reproduced on the helper
-# object: the patch ahead of `WorkflowsHelper`, which is exactly the position
-# `controller.helper` produces and what lets `#options_for_workflow_select`
-# reach core's method through `super`. Before that finding this file needed no
-# such line, because the patch was inside `WorkflowsHelper`.
-describe WorkflowsHelper, type: :helper do
+# object: the module ahead of `WorkflowsHelper`, which is exactly the position
+# `controller.helper` produces. Two of these methods reimplement a body core
+# owns, so `spec/upstream/core_drift_spec.rb` watches core's originals; this file
+# is about what the plugin's versions do.
+describe ProjectWorkflowMatrixHelper, type: :helper do
   fixtures :projects, :roles, :trackers, :issue_statuses
 
   let(:project) { projects(:projects_001) }
@@ -25,7 +25,13 @@ describe WorkflowsHelper, type: :helper do
   let(:new_status) { issue_statuses(:issue_statuses_002) }
 
   before do
-    helper.singleton_class.prepend(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
+    # The real layering, on the helper object: core's WorkflowsHelper -- which
+    # `helper :workflows` puts in every one of the three controllers' chains --
+    # with the plugin's module ahead of it. #field_permission_tag calls core's
+    # own `field_required?`, so leaving WorkflowsHelper out makes this file
+    # assert against a chain no screen ever has.
+    helper.singleton_class.include(WorkflowsHelper)
+    helper.singleton_class.prepend(described_class)
     helper.instance_variable_set(:@roles, [role])
     helper.instance_variable_set(:@trackers, [tracker])
     helper.instance_variable_set(:@projects_for_update, [project, other_project])

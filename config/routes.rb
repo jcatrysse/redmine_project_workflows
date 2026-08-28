@@ -59,3 +59,30 @@ get 'projects/:project_id/workflow_map', to: 'project_workflow_maps#show',
 # plugin routes are drawn after core's, and nothing here may shadow one.
 get 'project_workflow_diagnostics', to: 'project_workflow_diagnostics#show',
                                     as: 'project_workflow_diagnostics'
+
+# The plugin's own administration area (WP12, ADR-003): everything about
+# projects that used to be bolted onto Redmine's workflow screens through Deface
+# overrides and a patch replacing six core actions. Core's screens keep doing
+# exactly what core does, for the generic workflow.
+#
+# Administrator-only, in the controller. On their own path for the same reason
+# as everything above -- plugin routes are drawn after core's, and nothing here
+# may shadow one.
+#
+# The verbs and the action names are core's, so that a reader who knows
+# Redmine's own workflow routes knows these: a GET names a screen, and the PATCH
+# that saves it has a path of its own rather than sharing the screen's.
+get   'project_workflow_rules',                    to: 'project_workflow_rules#index',
+                                                   as: 'project_workflow_rules'
+get   'project_workflow_rules/edit',               to: 'project_workflow_rules#edit',
+                                                   as: 'edit_project_workflow_rules'
+patch 'project_workflow_rules/update',             to: 'project_workflow_rules#update',
+                                                   as: 'update_project_workflow_rules'
+get   'project_workflow_rules/permissions',        to: 'project_workflow_rules#permissions',
+                                                   as: 'permissions_project_workflow_rules'
+patch 'project_workflow_rules/update_permissions', to: 'project_workflow_rules#update_permissions',
+                                                   as: 'update_permissions_project_workflow_rules'
+get   'project_workflow_rules/copy',               to: 'project_workflow_rules#copy',
+                                                   as: 'copy_project_workflow_rules'
+post  'project_workflow_rules/duplicate',          to: 'project_workflow_rules#duplicate',
+                                                   as: 'duplicate_project_workflow_rules'

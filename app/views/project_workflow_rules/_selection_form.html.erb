@@ -1,0 +1,40 @@
+<%#
+  Which workflow, which trackers and which roles the matrix below is about.
+
+  Core's own edit and permissions screens carry this as a bare <p> of three
+  controls; the project selector is the plugin's fourth. Locals: none -- it reads
+  the same instance variables core's views do, plus @projects and the two
+  selection flags WorkflowSelection sets.
+
+  The submit button is core's `button_edit`, which reads as "show me this one"
+  rather than as a save; the Save button below the matrix is the one that writes.
+%>
+<%= form_tag({}, method: 'get') do %>
+  <p>
+    <label>
+      <%= l(:label_role) %>:
+      <%= options_for_workflow_select 'role_id[]', Role.sorted.select(&:consider_workflow?), @roles,
+                                      id: 'role_id', class: 'expandable' %>
+      <%= project_workflows_toggle_multiselect_tag %>
+    </label>
+
+    <label>
+      <%= l(:label_tracker) %>:
+      <%= options_for_workflow_select 'tracker_id[]', Tracker.sorted, @trackers,
+                                      id: 'tracker_id', class: 'expandable' %>
+      <%= project_workflows_toggle_multiselect_tag %>
+    </label>
+
+    <%= render partial: 'project_workflow_rules/project_selector' %>
+
+    <%= submit_tag l(:button_edit), name: nil %>
+
+    <%# The hidden field has to precede the checkbox: unchecked, it is the only
+        value submitted, and Rack keeps the last one when both are sent. %>
+    <%= hidden_field_tag 'used_statuses_only', '0', id: nil %>
+    <label>
+      <%= check_box_tag 'used_statuses_only', '1', @used_statuses_only %>
+      <%= l(:label_display_used_statuses_only) %>
+    </label>
+  </p>
+<% end %>

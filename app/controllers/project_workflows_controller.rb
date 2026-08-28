@@ -37,6 +37,11 @@ class ProjectWorkflowsController < ApplicationController
   menu_item :settings
 
   helper :workflows
+  # The matrix cells: core's own workflows/_form partial calls transition_tag,
+  # and the plugin's field-permissions grid calls field_permission_tag. Named
+  # here rather than attached from apply! -- a plugin controller declares its own
+  # helpers like any other Rails controller (ADR-003).
+  helper ProjectWorkflowMatrixHelper
   helper ProjectWorkflowsHelper
   # WP9's drawing, and the condition wording it shares with the issue form's
   # panel -- one phrase for one move, written once so the two screens cannot

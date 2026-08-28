@@ -495,7 +495,49 @@ the repeats inside a project but not across projects. Recorded as finding G02.
 
 ## Views
 
-Fifteen Deface overrides in twelve files. Eleven are on the administration
+### The plugin's own administration area (WP12, ADR-003)
+
+`ProjectWorkflowRulesController`, under `/project_workflow_rules`, with four
+screens: the summary, the two matrices and the copy form. Reached from an
+`admin_menu` entry, so no Deface anchor is involved in getting there.
+
+Everything about *projects* belongs here. Redmine's own Administration →
+Workflow screens go on doing exactly what Redmine does, for the generic
+workflow — which is what lets eleven of the fifteen overrides below be deleted
+rather than maintained, and `WorkflowsControllerPatch` shrink to the
+`project_id: nil` predicate that is the one thing core genuinely gets wrong
+(INV-4).
+
+Three things are unchanged by the move, deliberately:
+
+- **The grid is core's.** `workflows/_form` is rendered unchanged, as
+  `ProjectWorkflowsController` has rendered it since WP4. Copying it would trade
+  a Deface anchor for a view that has to track core, which is the same tax in a
+  different currency (ADR-003, alternatives considered). The field-permissions
+  table is the exception, because core writes that one inline in its own view
+  rather than in a partial.
+- **The generic workflow is still in the selector.** ADR-003 moves projects off
+  core's screens; it does not make the generic workflow unreachable from the
+  plugin's. Copying the generic workflow into a project is what the copy screen
+  is mostly for, and a matrix over "the generic workflow and these three
+  projects" is what made a third `no_change` cell state necessary.
+- **The screens are administrator-only.** `require_admin`, and — unlike core —
+  declared *before* the finders, so that no request is prepared before anybody
+  has checked who is asking (finding G01).
+
+`ProjectWorkflowMatrixHelper` carries the cells: the plugin's versions of core's
+`transition_tag` and `field_permission_tag`, plus the scope-state label, the
+summary count link and the project selector. It is named with `helper` in each of
+the three controllers that render a matrix, and it stays out of `WorkflowsHelper`
+for the reason `Patches::WorkflowsHelperPatch#apply!` gives at length. Both cell
+helpers are still copies of core bodies and are still watched by the drift gate,
+through a `CoreMethodDigest::TARGETS` entry of their own — a copy is a copy
+wherever it is filed.
+
+### Deface overrides
+
+Fifteen Deface overrides in twelve files. Eleven of them are what ADR-003 deletes
+once the area above has taken their place. Eleven are on the administration
 screens; two are on `workflows/_form`, which the project matrices render as
 well, so one pair serves both; and the last two are on the issue form, one per
 branch of the way core renders the status control:

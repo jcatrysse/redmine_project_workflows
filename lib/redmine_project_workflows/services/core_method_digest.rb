@@ -39,10 +39,13 @@ module RedmineProjectWorkflows
     # prepend and `RubyVM::AbstractSyntaxTree.of` gives its line range. No gem,
     # no network, no CI change.
     class CoreMethodDigest
-      # The plugin's patch modules, and the class or module each attaches to.
-      # The methods themselves are *discovered* from the patch rather than
-      # listed, so a new copy cannot be added without appearing here -- which is
-      # the property a hand-kept list would lose on its first edit.
+      # Every module of the plugin's that holds a copy of a core body, and the
+      # class or module core defines that body on. Most are patch modules; one
+      # is not, and is here for exactly the same reason -- a copy is a copy
+      # wherever it is filed. The methods themselves are *discovered* from the
+      # module rather than listed, so a new copy cannot be added without
+      # appearing here, which is the property a hand-kept list would lose on its
+      # first edit.
       #
       # The third element says where to look for the methods:
       #
@@ -60,7 +63,18 @@ module RedmineProjectWorkflows
         ['Issue', 'RedmineProjectWorkflows::Patches::IssuePatch', :instance],
         ['Project', 'RedmineProjectWorkflows::Patches::ProjectPatch', :instance],
         ['WorkflowsHelper', 'RedmineProjectWorkflows::Patches::WorkflowsHelperPatch', :instance],
+        # Not a patch module, and watched all the same: ProjectWorkflowMatrixHelper
+        # holds the plugin's copies of core's two matrix cell helpers, and a copy
+        # that leaves Patches must not leave the gate with it (ADR-003).
+        ['WorkflowsHelper', 'ProjectWorkflowMatrixHelper', :instance],
         ['WorkflowsController', 'RedmineProjectWorkflows::Patches::WorkflowsControllerPatch', :instance],
+        # Also not a patch module. ADR-003 moves the project dimension onto the
+        # plugin's own administration controller, which carries copies of core's
+        # seven workflow actions and of the four private finders under them --
+        # and core's WorkflowsController is prepended by the entry above, so
+        # reaching core's body here means walking past that patch. See
+        # {core_source}.
+        ['WorkflowsController', 'ProjectWorkflowRulesController', :instance],
         ['Role', 'RedmineProjectWorkflows::Patches::RolePatch', :instance],
         ['Tracker', 'RedmineProjectWorkflows::Patches::TrackerPatch', :instance],
         ['WorkflowTransition', 'RedmineProjectWorkflows::Patches::WorkflowTransitionPatch', :singleton],
@@ -166,8 +180,25 @@ module RedmineProjectWorkflows
       # decides which fields are read-only or required. A first draft listed only
       # the public ones and silently covered thirteen of fifteen.
       def self.shadowed_methods(patch)
-        (patch.instance_methods(false) + patch.private_instance_methods(false)).uniq.sort
+        (patch.instance_methods(false) + patch.private_instance_methods(false))
+          .uniq.reject { |name| framework_generated?(name) }.sort
       end
+
+      # Rails writes methods onto a class from its own macros, and a leading
+      # underscore is the convention that says so: `layout 'admin'` defines
+      # `_layout`, and so does core's own WorkflowsController, whose `_layout`
+      # therefore looked to this gate like a body the plugin had copied -- with
+      # the "core" definition pointing into the actionview gem. Nothing the
+      # plugin copies out of Redmine is named that way; every one of the
+      # twenty-six is an ordinary method somebody wrote in Redmine's own source.
+      #
+      # It only became reachable when ADR-003 put a *class* in TARGETS rather
+      # than a module: a class carries the framework's generated methods and a
+      # patch module carries only what somebody typed into it.
+      def self.framework_generated?(name)
+        name.to_s.start_with?('_')
+      end
+      private_class_method :framework_generated?
 
       # Core's body for one shadowed method, normalised and hashed. nil when the
       # plugin only adds the method, when core's definition is not in a file this
@@ -179,22 +210,29 @@ module RedmineProjectWorkflows
 
       # The text of core's definition, from the host's own checkout.
       #
-      # **Two attachment styles, one question.** Where the patch is prepended,
-      # core's version is one step up the chain and `super_method` is how to
-      # reach it. Where it is attached to a controller's helper chain instead --
-      # `WorkflowsHelperPatch` since finding F01 of 2026-08-28-claude-audit, for
-      # the reason that patch's `apply!` gives at length -- the patch is *not* in
-      # the owner's ancestors at all, so `instance_method` already answers with
-      # core's own definition and `super_method` would answer nil. Asking which
-      # of the two it is keeps the gate on both, and keeps it from silently
-      # covering three fewer methods the day a patch changes how it attaches.
-      # A nil +patch+ is a declared dependency: nothing of the plugin's is in the
-      # chain, so the method the owner holds is already core's own.
+      # **Three attachment styles, one question,** and the answer is never "how
+      # is this module attached" but "whose definition is this". Where a patch is
+      # prepended, the method the owner holds is the plugin's and core's is one
+      # step up the chain. Where the module is in a controller's helper chain
+      # instead -- `WorkflowsHelperPatch` and `ProjectWorkflowMatrixHelper` -- it
+      # is not in the owner's ancestors at all, so `instance_method` already
+      # answers with core's own. And where the module holds a copy of a body that
+      # a *different* module of the plugin's also replaces -- ADR-003's
+      # `ProjectWorkflowRulesController` against a `WorkflowsController` that
+      # `WorkflowsControllerPatch` still prepends -- neither of the first two is
+      # right, and asking about the module would digest the plugin's own body and
+      # call it core's.
+      #
+      # So: walk down past every definition the plugin owns, whichever module it
+      # is in, and take the first one that is not ours. That answers all three,
+      # and it stops being an assumption about attachment. Walking off the end
+      # means the plugin only *adds* the method and there is nothing of core's to
+      # watch. A nil +patch+ is a declared dependency; the walk still applies,
+      # because a dependency can sit under a patch of ours too.
       def self.core_source(owner, patch, method_name)
-        held = owner.instance_method(method_name)
-        core = patch && owner.ancestors.include?(patch) ? held.super_method : held
+        core = owner.instance_method(method_name)
+        core = core.super_method while core && plugin_definition?(core.owner, patch)
         return nil unless core
-        return nil if core.owner == patch
 
         file, = core.source_location
         return nil unless file && File.readable?(file)
@@ -206,6 +244,15 @@ module RedmineProjectWorkflows
       rescue NameError, ScriptError, ArgumentError
         nil
       end
+
+      # Whether a definition is one of the plugin's rather than core's. The module
+      # being asked about counts even when it is anonymous or lives outside the
+      # plugin's namespace, which is how a plugin helper under `app/helpers`
+      # (`ProjectWorkflowMatrixHelper`) is recognised.
+      def self.plugin_definition?(mod, patch)
+        mod == patch || mod.name.to_s.start_with?('RedmineProjectWorkflows')
+      end
+      private_class_method :plugin_definition?
 
       # Comments and whitespace out, so a re-indent or a reworded comment is not
       # reported as drift and a changed statement is. Deliberately crude: a

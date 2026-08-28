@@ -1,0 +1,11 @@
+<%#
+  Which workflow the matrix or the grid is about: the generic one, one project's,
+  a selection of projects, or every project at once.
+
+  Locals: selector_id, so that two selectors on one page can each have a label
+  that names it.
+%>
+<% selector_id = local_assigns[:selector_id] || 'project_id' %>
+<label for="<%= selector_id %>"><%= l(:label_project) %>:</label>
+<%= project_workflow_project_select_tag('project_id[]', id: selector_id, class: 'expandable') %>
+<%= project_workflows_toggle_multiselect_tag %>

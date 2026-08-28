@@ -64,11 +64,8 @@ module RedmineProjectWorkflows
         ['WorkflowPermissionPatch', :singleton, %w[WorkflowPermission]],
         ['WorkflowRulePatch', :singleton, %w[WorkflowRule]],
         ['WorkflowTransitionPatch', :singleton, %w[WorkflowTransition]],
-        ['WorkflowsControllerCopy', :included, %w[RedmineProjectWorkflows::Patches::WorkflowsControllerPatch]],
         ['WorkflowsControllerPatch', :prepend, %w[WorkflowsController]],
-        ['WorkflowsControllerProjectSelection', :included,
-         %w[RedmineProjectWorkflows::Patches::WorkflowsControllerPatch]],
-        ['WorkflowsHelperPatch', :helper, %w[WorkflowsController ProjectWorkflowsController]]
+        ['WorkflowsHelperPatch', :helper, %w[WorkflowsController]]
       ].freeze
 
       # One line of the page each. Neither carries a sentence: the view builds

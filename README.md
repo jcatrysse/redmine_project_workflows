@@ -134,7 +134,13 @@ Take a backup, as with any migration that touches a core table.
 
 ## Usage
 
-1. Go to **Administration → Workflow**.
+1. Go to **Administration → Project workflows**.
+
+   This is the plugin's own screen, and it is where everything about projects
+   lives. Redmine's own **Administration → Workflow** goes on doing exactly what
+   Redmine does, for the workflow every project shares. (Until this release the
+   project controls were added to Redmine's screens instead; both still work
+   while that move is finished, and the plugin's screens are the ones to use.)
 2. Select Role, Tracker, and Project.
    - **Generic** means the workflow every project uses unless it overrides it.
    - Selecting a real project shows that project's own workflow.

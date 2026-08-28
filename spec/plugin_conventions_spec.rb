@@ -41,17 +41,21 @@ describe RedmineProjectWorkflows do
     expect(ProjectsHelper.ancestors)
       .not_to include(RedmineProjectWorkflows::Patches::ProjectsHelperPatch)
     # And the second of the two, for the same reason and since the same finding
-    # (F01 of 2026-08-28-claude-audit). Two controllers carry it, because two
-    # render the matrices: WorkflowsController owns the administration screens
-    # and ProjectWorkflowsController renders core's `workflows/_form` for the
-    # project ones. spec/controllers/workflows_helper_attachment_spec.rb is
-    # where the alias-chain examples live.
-    [WorkflowsController, ProjectWorkflowsController].each do |controller|
-      expect(controller._helpers.ancestors)
-        .to include(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
-    end
+    # (F01 of 2026-08-28-claude-audit). One controller carries it since ADR-003:
+    # core's, which is the only one that cannot name a helper in its own class
+    # body. spec/controllers/workflows_helper_attachment_spec.rb is where the
+    # alias-chain examples live.
+    expect(WorkflowsController._helpers.ancestors)
+      .to include(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
     expect(WorkflowsHelper.ancestors)
       .not_to include(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
+    # The matrix cells travel with it, because core's screens draw the plugin's
+    # mixed cell and its row and column actions -- and they reach the plugin's
+    # own three controllers the ordinary way, through `helper` in the class body.
+    [WorkflowsController, ProjectWorkflowsController, ProjectWorkflowRulesController].each do |controller|
+      expect(controller._helpers.ancestors).to include(ProjectWorkflowMatrixHelper)
+    end
+    expect(WorkflowsHelper.ancestors).not_to include(ProjectWorkflowMatrixHelper)
   end
 
   # A prepended patch that reimplements a core method inherits none of core's

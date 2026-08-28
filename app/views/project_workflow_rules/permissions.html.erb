@@ -1,0 +1,105 @@
+<%= render partial: 'project_workflow_rules/action_menu', locals: { current: nil } %>
+
+<%= title l(:label_project_workflow_rules) %>
+
+<%= render partial: 'project_workflow_rules/tabs', locals: { selected: :permissions } %>
+
+<p><%= l(:text_workflow_edit) %>:</p>
+
+<%= render partial: 'project_workflow_rules/selection_form' %>
+
+<% if @trackers && @roles && @statuses.any? %>
+  <%= render partial: 'redmine_project_workflows/scope_panel',
+             locals: { rule_type: ProjectWorkflowScope::PERMISSIONS } %>
+
+  <%= form_tag update_permissions_project_workflow_rules_path, method: :patch, id: 'workflow_form' do %>
+    <%= @trackers.map { |tracker| hidden_field_tag 'tracker_id[]', tracker.id, id: nil }.join.html_safe %>
+    <%= @roles.map { |role| hidden_field_tag 'role_id[]', role.id, id: nil }.join.html_safe %>
+    <%# See edit.html.erb: the selector is in a form of its own, so these are the
+        only thing that carries the selection into the save. %>
+    <% project_workflow_selection_values.each do |project_id| %>
+      <%= hidden_field_tag 'project_id[]', project_id, id: nil %>
+    <% end %>
+    <%= hidden_field_tag 'used_statuses_only', params[:used_statuses_only], id: nil %>
+    <div class="autoscroll">
+      <%# Core's own grid markup, rendered here rather than reached through a
+          Deface override, because this screen is the plugin's. Unlike the
+          transitions matrix there is no core partial to render: core writes the
+          field-permissions table inline in its own view. %>
+      <table class="list workflows fields_permissions">
+        <thead>
+          <tr>
+            <th></th>
+            <th colspan="<%= @statuses.length %>"><%= l(:label_issue_status) %></th>
+          </tr>
+          <tr>
+            <td></td>
+            <% @statuses.each do |status| %>
+              <td style="width:<%= 75 / @statuses.size %>%;"><%= status.name %></td>
+            <% end %>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="group open">
+            <td colspan="<%= @statuses.size + 1 %>">
+              <%= project_workflows_row_group_expander %>
+              <%= l(:field_core_fields) %>
+            </td>
+          </tr>
+          <% @fields.each do |field, name| %>
+            <tr>
+              <td class="name">
+                <%= name %> <%= content_tag('span', '*', class: 'required') if field_required?(field) %>
+              </td>
+              <% @statuses.each do |status| %>
+                <td class="<%= @permissions[status.id][field].try(:join, ' ') %>"
+                    title="<%= name %> (<%= status.name %>)">
+                  <%= field_permission_tag(@permissions, status, field, @roles) %>
+                  <% unless status == @statuses.last %>
+                    <a href="#" class="repeat-value" title="<%= l(:button_copy) %>">&#187;</a>
+                  <% end %>
+                </td>
+              <% end %>
+            </tr>
+          <% end %>
+          <% if @custom_fields.any? %>
+            <tr class="group open">
+              <td colspan="<%= @statuses.size + 1 %>">
+                <%= project_workflows_row_group_expander %>
+                <%= l(:label_custom_field_plural) %>
+              </td>
+            </tr>
+            <% @custom_fields.each do |field| %>
+              <tr>
+                <td class="name">
+                  <%= field.name %> <%= content_tag('span', '*', class: 'required') if field_required?(field) %>
+                </td>
+                <% @statuses.each do |status| %>
+                  <td class="<%= @permissions[status.id][field.id.to_s].try(:join, ' ') %>"
+                      title="<%= field.name %> (<%= status.name %>)">
+                    <%= field_permission_tag(@permissions, status, field, @roles) %>
+                    <% unless status == @statuses.last %>
+                      <a href="#" class="repeat-value">&#187;</a>
+                    <% end %>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= submit_tag l(:button_save) %>
+  <% end %>
+<% end %>
+
+<%# Core's own script, copied with it: it belongs to the &#187; links in the
+    table above, which core also writes inline. %>
+<%= javascript_tag do %>
+$("a.repeat-value").click(function(e){
+  e.preventDefault();
+  var td = $(this).closest('td');
+  var selected = td.find("select").find(":selected").val();
+  td.nextAll('td').find("select").val(selected);
+});
+<% end %>

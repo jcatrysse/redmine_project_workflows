@@ -6,13 +6,14 @@ module RedmineProjectWorkflows
       # How a request names projects, and what it resolves to. See that module:
       # every method it adds is private, because this one is prepended to a
       # controller.
-      include WorkflowsControllerProjectSelection
+      include RedmineProjectWorkflows::WorkflowSelection
       # The copy screen's own vocabulary -- #duplicate's four private helpers.
-      # Split out for the same reason WorkflowsControllerProjectSelection was:
-      # this module is a set of replaced core actions, and the helpers one of
-      # them needs are not part of that. Every method there is private, because
-      # a public instance method of a controller is an action.
-      include WorkflowsControllerCopy
+      # Both modules live outside Patches since ADR-003: they are the plugin's
+      # own controller code, shared with the plugin's own administration
+      # controller, and only ever sat under Patches because these actions did.
+      # Every method in them is private, because a public instance method of a
+      # controller is an action.
+      include RedmineProjectWorkflows::CopyScopes
 
       # The summary page. Core's own body is the first two lines plus a count
       # with no project_id predicate at all, so every project's rules were

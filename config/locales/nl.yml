@@ -164,3 +164,6 @@ nl:
   text_project_workflow_diagnostics_patch_missing: 'Niet aanwezig. Redmine gedraagt zich hier zoals zonder deze plug-in.'
   text_project_workflow_diagnostics_overrides_help: 'Dit zijn toevoegingen aan schermen die Redmine bezit. Hier staat wat de plug-in geregistreerd heeft, wat niet hetzelfde is als wat ze effectief geplaatst kreeg: een scherm dat er verkeerd uitziet is het melden waard, ook als hier alles vermeld staat.'
   text_project_workflow_diagnostics_unmeasured: 'Niemand heeft deze plug-in tegen Redmine %{version} getest, en deze Ruby kan de broncode van Redmine niet lezen, dus was geen vergelijking mogelijk.'
+  # WP12 / ADR-003: the plugin's own administration area.
+  label_project_workflow_rules: 'Projectworkflows'
+  label_project_workflow_generic_screens: 'Redmine-eigen workflow'

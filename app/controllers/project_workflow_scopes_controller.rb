@@ -102,6 +102,10 @@ class ProjectWorkflowScopesController < ApplicationController
     redirect_to matrix_path
   end
 
+  # Back to the matrix the panel was on. The plugin's own administration screens
+  # since ADR-003: these three actions are about projects, and after WP12 the
+  # project dimension is not on core's screens at all -- sending an operator back
+  # to one would land them on a matrix that cannot show what they just changed.
   def matrix_path
     options = {
       project_id: params[:project_id],
@@ -110,9 +114,9 @@ class ProjectWorkflowScopesController < ApplicationController
       used_statuses_only: params[:used_statuses_only]
     }
     if @rule_type == ProjectWorkflowScope::PERMISSIONS
-      permissions_workflows_path(options)
+      permissions_project_workflow_rules_path(options)
     else
-      edit_workflows_path(options)
+      edit_project_workflow_rules_path(options)
     end
   end
 end

@@ -59,11 +59,17 @@ Lint/RedundantDirGlobSort:
   Exclude:
     - 'lib/redmine_project_workflows.rb'
 
-# Offense count: 11
+# Offense count: 12
 # Configuration parameters: AllowedMethods, AllowedPatterns, CountRepeatedAttributes, Max.
-# Group 1.
+# Group 1. `project_workflow_matrix_helper.rb` joined the list in WP12 without
+# gaining an offence: `field_permission_tag` is core's own body and was excluded
+# under `workflows_helper_patch.rb` until ADR-003 moved it to a helper of the
+# plugin's own. The file changed, the reason did not -- the complexity is
+# Redmine's, and diffing the copy against a real checkout is what makes it
+# auditable.
 Metrics/AbcSize:
   Exclude:
+    - 'app/helpers/project_workflow_matrix_helper.rb'
     - 'lib/redmine_project_workflows/patches/issue_patch.rb'
     - 'lib/redmine_project_workflows/patches/workflow_rule_patch.rb'
     - 'lib/redmine_project_workflows/patches/workflows_controller_patch.rb'
@@ -101,26 +107,30 @@ Metrics/ParameterLists:
   Exclude:
     - 'lib/redmine_project_workflows/patches/workflow_rule_patch.rb'
 
-# Offense count: 9
+# Offense count: 10
 # Configuration parameters: AllowedMethods, AllowedPatterns, Max.
-# Group 1.
+# Group 1. See Metrics/AbcSize for why the helper is here.
 Metrics/PerceivedComplexity:
   Exclude:
+    - 'app/helpers/project_workflow_matrix_helper.rb'
     - 'lib/redmine_project_workflows/patches/issue_patch.rb'
     - 'lib/redmine_project_workflows/patches/workflow_rule_patch.rb'
     - 'lib/redmine_project_workflows/patches/workflows_controller_patch.rb'
     - 'lib/redmine_project_workflows/patches/workflows_helper_patch.rb'
     - 'lib/redmine_project_workflows/services/transition_query.rb'
 
-# Offense count: 1
+# Offense count: 2
 # This cop supports unsafe autocorrection (--autocorrect-all).
 # Configuration parameters: EnforcedStyleForLeadingUnderscores.
 # SupportedStylesForLeadingUnderscores: disallowed, required, optional
 # Group 3. `find_statuses` memoises into @statuses because @statuses is what the
 # workflow views read. Renaming it to @find_statuses to satisfy the cop would
-# leave the matrix with no statuses at all.
+# leave the matrix with no statuses at all. Two files since WP12: core's own
+# controller still has the patched copy, and the plugin's own administration
+# controller has its own.
 Naming/MemoizedInstanceVariableName:
   Exclude:
+    - 'app/controllers/project_workflow_rules_controller.rb'
     - 'lib/redmine_project_workflows/patches/workflows_controller_patch.rb'
 
 # Offense count: 2

@@ -57,22 +57,37 @@ Redmine::Plugin.register :redmine_project_workflows do
   # symmetric and the names say what they govern: this project's workflow
   # *rules*, not the workflow feature. Migration 006 carries existing grants
   # across. **Do not shorten either name back.**
-  # The one administration entry point this plugin has, and the first of the two
-  # ADR-003 accepts. `Redmine::MenuManager.map :admin_menu` is a stable
-  # extension point on all three supported versions, so an administration screen
-  # of the plugin's own needs no Deface override to be reachable (INV-9 stays at
-  # fifteen).
+
+  # The two administration entry points ADR-003 accepts.
+  # `Redmine::MenuManager.map :admin_menu` is a stable extension point on all
+  # three supported versions, so an administration screen of the plugin's own
+  # needs no Deface override to be reachable -- which is what lets ADR-003 take
+  # eleven of them away.
   #
   # Administrator-only twice over: Redmine renders the admin menu only for
-  # administrators, and the controller requires one itself -- a menu that is not
+  # administrators, and each controller requires one itself -- a menu that is not
   # drawn is not an authorization.
+  #
   # Both the sprite name and the CSS class, exactly as core's own eleven entries
   # pass them: 6.0 and later read `:icon` and draw `sprite_icon(name)` from
-  # core's own sheet -- `summary` is in it on 6.1 and 7.0 -- while 5.1's
-  # MenuItem ignores the option entirely and draws the picture behind
-  # `.icon-summary`, which its stylesheet defines. Deliberately no `plugin:`
-  # option: that would send `sprite_icon` looking for a sheet in this plugin's
-  # assets, and this plugin ships none.
+  # core's own sheet -- `workflows` and `summary` are both in it on 6.1 and 7.0 --
+  # while 5.1's MenuItem ignores the option entirely and draws the picture behind
+  # `.icon-workflows` / `.icon-summary`, which its stylesheet defines for both.
+  # Deliberately no `plugin:` option: that would send `sprite_icon` looking for a
+  # sheet in this plugin's assets, and this plugin ships none.
+  #
+  # The project dimension of the workflow (WP12, ADR-003), which used to live on
+  # core's own Administration -> Workflow screens through eleven Deface
+  # overrides. First of the two, and the one an administrator goes to; the
+  # diagnostics page is one they are sent to.
+  menu :admin_menu, :project_workflow_rules,
+       { controller: 'project_workflow_rules', action: 'index' },
+       caption: :label_project_workflow_rules,
+       icon: 'workflows',
+       html: { class: 'icon icon-workflows' }
+
+  # ADR-002: what this Redmine is, and whether what the plugin copied out of it
+  # still matches.
   menu :admin_menu, :project_workflow_diagnostics,
        { controller: 'project_workflow_diagnostics', action: 'show' },
        caption: :label_project_workflow_diagnostics,

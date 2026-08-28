@@ -6,6 +6,17 @@ The workflow as a drawing.
 
 ### Added
 
+- **The project side of the workflow has a screen of its own.**
+  *Administration → Project workflows* carries the project selector, the scope
+  panel, the summary, the copy form and both matrices. Redmine's own
+  *Administration → Workflow* goes on doing exactly what Redmine does, for the
+  workflow every project shares. Nothing an administrator can do has changed, and
+  nothing has moved out of reach; both routes work while the move is finished.
+  Behind it: eleven of the fifteen places where the plugin edits one of Redmine's
+  own screens stop being needed, and so does most of a 468-line replacement of
+  Redmine's workflow controller — which is the part of this plugin that an
+  upgrade of Redmine could quietly break.
+
 - **A diagnostics page, and an answer for a Redmine nobody has tested this
   against.** *Administration → Project workflow diagnostics* says which Redmine
   this is, which ones the plugin is tested against, and — on a Redmine it has

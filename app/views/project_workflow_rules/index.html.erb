@@ -1,0 +1,50 @@
+<%= render partial: 'project_workflow_rules/action_menu', locals: { current: :summary } %>
+
+<%= title l(:label_project_workflow_rules), l(:field_summary) %>
+
+<%#
+  Which workflow the grid below is counting. Without a project parameter the
+  selection is the generic workflow alone, which is the same population core's
+  own summary page counts -- so the two screens agree on the number an
+  administrator who does not use the plugin sees.
+%>
+<%= form_tag({ action: 'index' }, method: 'get') do %>
+  <p>
+    <%= render partial: 'project_workflow_rules/project_selector' %>
+    <%= submit_tag l(:button_apply), name: nil %>
+  </p>
+<% end %>
+
+<% if @roles.empty? || @trackers.empty? %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% else %>
+  <div class="autoscroll">
+    <table class="list">
+      <thead>
+        <tr>
+          <th></th>
+          <% @roles.each do |role| %>
+            <th><%= content_tag(role.builtin? ? 'em' : 'span', role.name) %></th>
+          <% end %>
+        </tr>
+      </thead>
+      <tbody>
+        <% @trackers.each do |tracker| %>
+          <tr>
+            <td class="name"><%= tracker.name %></td>
+            <% @roles.each do |role| %>
+              <td>
+                <%# The count carries the selection into the link. Core's own cell
+                    links with the tracker and the role alone, so with a project
+                    selected the number would be that project's and the link would
+                    open the generic matrix. %>
+                <%= project_workflow_summary_count_link(@workflow_counts[[tracker.id, role.id]] || 0,
+                                                        tracker, role, @project_workflow_selection) %>
+              </td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

@@ -1,0 +1,26 @@
+<%#
+  The area's own contextual menu, on every screen of it.
+
+  Core's own workflows/_action_menu has two links and is rendered from two of its
+  four screens; this one is rendered from all four, because the summary and the
+  copy screen are as much part of the area as the matrices are -- with the link
+  to the screen you are already on left out.
+
+  The last link leaves the area: Redmine's own workflow screens, which since
+  ADR-003 are the generic workflow and nothing else. One of the two cross-links
+  the ADR asks for; the other is on core's screen and points back here.
+
+  Locals: current -- :summary, :copy or nil for the two matrices.
+%>
+<div class="contextual">
+  <% unless current == :copy %>
+    <%= project_workflows_icon_link('copy', l(:button_copy), copy_project_workflow_rules_path) %>
+  <% end %>
+  <% unless current == :summary %>
+    <%= project_workflows_icon_link('summary', l(:field_summary), project_workflow_rules_path) %>
+  <% end %>
+  <%= project_workflows_icon_link('list', l(:label_project_workflow_inventory),
+                                  project_workflow_inventories_path) %>
+  <%= project_workflows_icon_link('workflows', l(:label_project_workflow_generic_screens),
+                                  edit_workflows_path) %>
+</div>

@@ -1,0 +1,48 @@
+<%= render partial: 'project_workflow_rules/action_menu', locals: { current: nil } %>
+
+<%= title l(:label_project_workflow_rules) %>
+
+<%= render partial: 'project_workflow_rules/tabs', locals: { selected: :transitions } %>
+
+<p><%= l(:text_workflow_edit) %>:</p>
+
+<%= render partial: 'project_workflow_rules/selection_form' %>
+
+<% if @trackers && @roles && @statuses.any? %>
+  <%# The scope panel, and the sentence about what one cell stands for. On core's
+      screens these came from two Deface overrides on a view the plugin does not
+      own; here they are simply rendered where they belong (ADR-003). %>
+  <%= render partial: 'redmine_project_workflows/scope_panel',
+             locals: { rule_type: ProjectWorkflowScope::TRANSITIONS } %>
+
+  <%= form_tag update_project_workflow_rules_path, method: :patch, id: 'workflow_form' do %>
+    <%= @trackers.map { |tracker| hidden_field_tag 'tracker_id[]', tracker.id, id: nil }.join.html_safe %>
+    <%= @roles.map { |role| hidden_field_tag 'role_id[]', role.id, id: nil }.join.html_safe %>
+    <%# The selection has to ride in the save: the selector above is in a form of
+        its own, so these hidden fields are the only thing that carries it. 'all'
+        travels verbatim, never expanded -- see
+        ProjectWorkflowMatrixHelper#project_workflow_project_select_tag. %>
+    <% project_workflow_selection_values.each do |project_id| %>
+      <%= hidden_field_tag 'project_id[]', project_id, id: nil %>
+    <% end %>
+    <%= hidden_field_tag 'used_statuses_only', params[:used_statuses_only], id: nil %>
+    <div class="autoscroll">
+      <%# Core's own grid, unchanged. Copying it would trade a Deface anchor for a
+          view that has to track core, which is the same tax in a different
+          currency (ADR-003, alternatives considered). %>
+      <%= render partial: 'workflows/form', locals: { name: 'always', workflows: @workflows['always'] } %>
+
+      <% %w[author assignee].each do |name| %>
+        <fieldset class="collapsible" style="padding: 0; margin-top: 0.5em;">
+          <%= project_workflows_collapsible_legend(
+                l("label_additional_workflow_transitions_for_#{name}"), @workflows[name].present?) %>
+          <div id="<%= name %>_workflows" style="margin: 0.5em 0 0.5em 0;">
+            <%= render partial: 'workflows/form', locals: { name: name, workflows: @workflows[name] } %>
+          </div>
+        </fieldset>
+        <%= javascript_tag "hideFieldset($('##{name}_workflows'))" if @workflows[name].blank? %>
+      <% end %>
+    </div>
+    <%= submit_tag l(:button_save) %>
+  <% end %>
+<% end %>

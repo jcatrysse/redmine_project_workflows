@@ -85,7 +85,7 @@ describe ProjectWorkflowScopesController, type: :controller do
     it 'accepts the generic entry and simply has nothing to do for it' do
       post :create, params: base_params(project_id: %w[global])
 
-      expect(response).to redirect_to(%r{workflows/edit})
+      expect(response).to redirect_to(%r{project_workflow_rules/edit})
       expect(ProjectWorkflowScope.count).to eq(0)
     end
   end
@@ -102,7 +102,7 @@ describe ProjectWorkflowScopesController, type: :controller do
       expect(own_workflow?(project, tracker, role)).to be(true)
       expect(WorkflowTransition.where(project_id: project.id).count).to eq(1)
       expect(flash[:notice]).to be_present
-      expect(response).to redirect_to(%r{workflows/edit})
+      expect(response).to redirect_to(%r{project_workflow_rules/edit})
     end
 
     it 'enables an empty project workflow when asked to' do
@@ -155,7 +155,7 @@ describe ProjectWorkflowScopesController, type: :controller do
       expect(own_workflow?(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)).to be(false)
       expect(WorkflowPermission.where(project_id: project.id).count).to eq(1)
       expect(WorkflowTransition.where(project_id: project.id)).to be_empty
-      expect(response).to redirect_to(%r{workflows/permissions})
+      expect(response).to redirect_to(%r{project_workflow_rules/permissions})
     end
 
     it 'acts on every selected project' do
