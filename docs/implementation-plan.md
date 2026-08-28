@@ -25,6 +25,14 @@
 | WP7 | Documentation, locales, release | **done** |
 | WP8 | Status help and the transition map on the issue form | done |
 | WP9 | The workflow as a drawing, per role | **done** |
+| — | *WP0..WP9 delivered the plugin. WP10..WP16 are the hardening track that makes it releasable.* | |
+| WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **next** |
+| WP11 | Compatibility as an object (ADR-002) | planned |
+| WP12 | Owned administration screens (ADR-003) | planned |
+| WP13 | One write-coordination service, and bounded bulk writes | planned |
+| WP14 | The remaining defect backlog | planned |
+| WP15 | The test debt three reviews named | planned |
+| WP16 | Release engineering | planned |
 
 ---
 
@@ -651,6 +659,221 @@ input produce identical output, and the specs are green on all nine CI cells.
 
 ---
 
+---
+
+# The hardening track — WP10..WP16
+
+WP0..WP9 built the plugin. This track makes it something that can be given to
+somebody else and still be there in three Redmine generations. It exists because
+three reviews landed on 2026-08-28 — a whole-stack compatibility run against all
+forty-four of Jan's other plugins, a production-readiness audit, and a ChatGPT
+review Jan commissioned in parallel — and between them they said one thing three
+ways: the plugin is correct, and its *surface* is larger than it needs to be.
+
+Two ADRs carry the architecture: **ADR-002** (compatibility is an object) and
+**ADR-003** (the project dimension moves to screens the plugin owns). Everything
+below implements one of them or clears a confirmed finding.
+
+Nothing here is user-visible except WP10's permission rename and WP12's second
+administration entry point. The rest is the plugin doing the same thing with less
+of Redmine held in its hands.
+
+---
+
+## WP10 — Ecosystem safety
+
+**Why first.** One of these is a blocker on Jan's own stack today: with
+`redmine_custom_workflows` installed — which he runs — **nobody, not even an
+administrator, can save a project workflow.** Everything else in this track is
+worth nothing until that is true again.
+
+- **The permission name collision** (`2026-08-28-claude-plugin-compat-5.1.md` F01,
+  blocker). `Redmine::AccessControl` keeps a flat array and
+  `AccessControl.permission(name)` returns the **first** match; plugins load in
+  alphabetical directory order, and `redmine_custom_workflows` sorts first with an
+  empty registration of the same name. Rename the pair, symmetrically —
+  `view_project_workflow_rules` / `manage_project_workflow_rules` (F10 of that run
+  is Jan's choice between renaming one or both; renaming both is the
+  recommendation, because an asymmetric pair on the role form reads as a
+  distinction rather than as a scar). A migration renames the permission inside
+  the serialized `roles.permissions` array, and it is reversible.
+- **The general lesson, made permanent.** Permission names are a global namespace
+  and this plugin had the only unprefixed globals in the repository — routes,
+  helper methods, CSS classes, JavaScript globals and locale keys are all already
+  prefixed. A convention spec pins that: everything the plugin registers into a
+  shared namespace carries its prefix.
+- **The version probe** (same run, F02, major). `project_workflows_svg_icons?`
+  asks `respond_to?(:sprite_icon)`, and two neighbours define that method on
+  Redmine 5.1, so the plugin takes the Redmine 6 branch on a 5.1 host and the
+  "no rules here" marker vanishes from the workflow summary. Replace it with a
+  version comparison. ADR-002 says where that lives, but the fix does not wait
+  for WP11 — an interim constant is fine and WP11 moves it.
+- **Four confirmed defects from the audit**, each small and each with a test that
+  is red on the old code: `WorkflowsHelper` off the core helper and onto the
+  controller chain (F01 — a stopgap that WP12 deletes, worth having because WP12
+  is weeks away); the three `TIMESTAMP 'literal'` sites made portable (F02);
+  `is_a?(Hash)` in both writers (F04); and a graph request naming one valid and
+  one invalid role answering 404 as its own comment promises (F05).
+
+**Done when:** the plugin's write actions work on a host with
+`redmine_custom_workflows` installed, the summary page draws 5.1's own empty
+marker on 5.1 with the RedmineUP shims present, the suite is green on SQLite as
+well as on the nine cells, and `spec/plugin_conventions_spec.rb` fails if a new
+unprefixed global is registered.
+
+---
+
+## WP11 — Compatibility as an object
+
+Implements **ADR-002**. Read it first; this is the build order.
+
+- **The manifest.** `lib/redmine_project_workflows/compatibility.rb` plus its
+  data: verified Redmine minors, Ruby and Rails ranges, databases, per-minor core
+  method digests, declared private-API dependencies. `core_method_digests.yml`
+  becomes part of it rather than a file beside it.
+- **Every version fact reads the manifest.** `VersionHelper` first — WP10's
+  interim constant moves here — then the drift spec, the conventions spec, and
+  the generated Compatibility section of the README.
+- **Three states at runtime.** *verified* (silent, no digest work), *unverified
+  with no drift* (a log line and a diagnostics entry), *unverified with drift* (an
+  administrator-visible warning naming the changed methods and where core defines
+  them). Digests are computed lazily and only in the second and third case; they
+  cost 34.5 ms for nineteen methods, measured on a 5.1 host outside RSpec.
+- **The gate covers what it depends on.** `CoreMethodDigest::TARGETS` extends to
+  singleton classes, which brings in `WorkflowRule.copy_one` and — the two that
+  matter — `WorkflowTransition.replace_transitions` and
+  `WorkflowPermission.replace_permissions`, the methods INV-1's routing rests on.
+  `Issue#roles_for_workflow` gets a declared-dependency entry of its own, because
+  it is called rather than shadowed and has no `super_method` to digest.
+- **A diagnostics page**, administrator-only: compatibility state, the digest
+  report, the registered Deface overrides, the patch ancestry of every class the
+  plugin prepends, and — the generalisation of WP10's blocker — a check that every
+  permission the plugin registered still resolves to *its own* action list.
+- **CI fails where runtime warns.** An unknown minor under test is a failed
+  compatibility job, not a skip.
+
+**Done when:** a host running an unlisted Redmine minor reports one of the three
+states correctly for both a drifted and an undrifted core, the diagnostics page
+names a captured permission, and the compatibility job fails on a minor with no
+manifest entry.
+
+---
+
+## WP12 — Owned administration screens
+
+Implements **ADR-003**, and it is the large one. Build order matters because the
+branch stays green at every commit:
+
+1. The `admin_menu` entry, routes and controllers for the plugin's own
+   administration area, rendering core's `workflows/_form` exactly as
+   `ProjectWorkflowsController` already does.
+2. The scope panel, the project selector, the summary and the inventory move onto
+   it, with their specs.
+3. The copy screen moves, with its four selectors and their validation.
+4. `WorkflowsControllerPatch` is cut back to the `project_id: nil` predicate on
+   `index`, `edit`, `permissions`, `update` and `update_permissions` — 468 lines
+   to under 60.
+5. `WorkflowsHelperPatch` is deleted; WP10's stopgap goes with it.
+6. The eleven overrides on core's workflow views and their assertions are
+   **deleted, not rewritten**. INV-9's count changes in `CLAUDE.md`,
+   `docs/design.md` and `spec/integration/deface_overrides_spec.rb`.
+7. Cross-links both ways between core's workflow screen and the plugin's.
+8. With two anchors left, a runtime anchor check on the diagnostics page becomes
+   a line rather than a suite — and it closes the one gap ADR-002's drift check
+   explicitly does not cover.
+
+**Done when:** the table in ADR-003 is true — overrides 15 → 2 or 4, the
+controller patch under 60 lines, shadowed core methods about 13, core helper
+prepends 0 — and nothing a user can do on the administration screens has changed.
+
+---
+
+## WP13 — One write-coordination service, and bounded bulk writes
+
+Two findings, one mechanism.
+
+- **Concurrency** (audit F07). Project writes lock their scope rows; a generic
+  write has no scope row and takes nothing, so two administrators can leave
+  duplicate rows. The calibration matters and is in the finding: **core has the
+  identical race and the plugin inherited it** — core's own `replace_transitions`
+  reads outside a lock and carries an opportunistic duplicate-repair line to
+  prove it knows. The plugin is now the write path for both populations and can
+  fix it once. One service, one deterministic key
+  `(rule_type, project-or-generic, tracker, role)`, taken in a fixed order by all
+  four write paths. A plugin-owned lock table, not advisory locks — those have no
+  portable equivalent across PostgreSQL, MySQL and MariaDB. The spec that
+  currently pins the asymmetry is inverted, and saying so in the commit is part
+  of the fix.
+- **Bulk writes** (audit F08). Measured: 5 projects × 3 trackers × 3 roles × 36
+  cells is 1,620 rows and 48 statements — the statement count is constant per
+  project, the row count is not. An "all projects" selection on a large
+  installation extrapolates to millions of rows in one transaction holding scope
+  locks throughout. Keep the transaction; bound the selection. Project the row
+  count before executing — `project_workflow_selection_size` already computes the
+  multiplier — put a confirmation in front of a save that crosses the threshold
+  the plugin setting already carries, and refuse above a ceiling. **No background
+  job:** Redmine 5.1's default ActiveJob backend is the async adapter, which is
+  not something a workflow write may depend on.
+- **The inventory's filters** stop materialising every project (audit F09), and
+  archived projects leave the selector.
+
+**Done when:** a real two-connection test on all three databases shows no
+duplicate logical key from concurrent generic saves, and a whole-installation
+save is either confirmed, batched or refused before any row changes.
+
+---
+
+## WP14 — The remaining defect backlog
+
+- Deleting an issue status that empties a project scope (audit F03) — warn rather
+  than clean up, so that two of INV-3's three meanings are not collapsed on the
+  administrator's behalf.
+- `deface` gets a lower bound and a next-major upper bound (audit F10). ADR-003
+  reduces the exposure from the other side.
+- The `ScopeCopier` / `ProjectWorkflowCopier` asymmetry is settled — narrowed, or
+  recorded in `docs/DECISIONS.md` as deliberate (audit F11).
+- The copy form's item count is narrowed to the source's enabled trackers.
+- The graph becomes a **switchable feature with a size ceiling**. Not because it
+  is defective — it is pure functions with 800 lines of specs — but because a
+  feature that can be turned off is a feature that does not have to be defended
+  on every upgrade.
+
+---
+
+## WP15 — The test debt three reviews named
+
+In priority order, because this is the package most likely to be cut short:
+
+1. **Neighbour coexistence.** A synthetic neighbouring plugin that alias-chains
+   and prepends the same methods, loaded before *and* after this one. The
+   whole-stack run proved this matters with real plugins; a spec makes it a gate
+   rather than an annual exercise.
+2. **The full role matrix per action** — anonymous, non-member, member with
+   neither permission, view-only, manage, administrator — and cross-project
+   substitution: authorized on A, path project B, tracker and role from A.
+3. **Stored XSS through status names** in the SVG, the table, the tooltip and the
+   JavaScript response.
+4. **`each_batch_predicate` at exactly `DELETE_BATCH_SIZE`** on all nine cells.
+   PostgreSQL was measured safe to 1,000 nested `OR`s during the audit and SQLite
+   fails well under 100; MySQL and MariaDB are unmeasured, and nothing in the
+   suite reaches more than a handful of terms.
+5. **Upgrade rehearsals** from 0.0.3 and from each later release, with populated
+   data: project rules, own-empty scopes, duplicates, orphaned audit users.
+6. **Scale**: a 10,000-project inventory, and the issue-save hot path's query
+   count for a user holding many roles.
+
+---
+
+## WP16 — Release engineering
+
+- An upgrade rehearsal from the previous release, scripted and repeatable.
+- A **downgrade** procedure, which does not exist today at all.
+- A scripted, backup-aware uninstall.
+- Release criteria written down, and the alpha warning removed only when they
+  pass.
+
+---
+
 ## Sequencing
 
 WP0 is independent. WP1 gates everything after it. WP3 needs WP1's scopes to
@@ -664,8 +887,24 @@ and then WP8**, in a session of its own, so the release pass covers what exists
 at that point and WP8 carries its own README paragraph, CHANGELOG line and
 locale keys rather than waiting for a second release pass.
 
+**The hardening track.** WP10 is independent and comes first, because its
+blocker makes the plugin unusable on Jan's own stack. WP11 comes next because
+WP12 and WP16 both read the manifest it builds, and because WP10 leaves an
+interim version constant for it to absorb. **WP12 before WP13**, deliberately:
+WP13's lock service touches the four write paths, and WP12 rewrites where two of
+them live — the other order does the work twice. WP14 and WP15 can run alongside
+each other and after WP12. WP16 is last by definition.
+
 ## Definition of done
 
 `spec/characterization/` is empty, the nine-cell CI matrix is green, a project
 administrator can give their project its own workflow and see at a glance which
 projects deviate, and the README describes what the plugin actually does.
+
+**For the hardening track (WP10..WP16), and therefore for a release:** the
+plugin's write actions work on a host carrying every other plugin Jan runs; a
+Redmine minor nobody has tested reports whether anything the plugin copied has
+changed; the Deface surface is two anchors; generic and project writes have one
+concurrency policy; a whole-installation write is bounded before it starts; and
+the alpha warning is gone because the release criteria in WP16 passed, not
+because somebody decided it looked ready.

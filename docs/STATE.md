@@ -4,173 +4,138 @@
 > at the end of **every** session (overwritten, not appended). Write it as if
 > the next session knows nothing, because it does.
 
-
 ## Current position
 
-- **The plan is finished and the review loop is running.**
-  `docs/implementation-plan.md` runs WP0..WP9 and every row reads *done*. What
-  happens now is review sessions finding things and fixing sessions answering
-  them.
-- **This session was a review session of an unusual kind**, asked for directly
-  by Jan: *build a Redmine 5.1 with every plugin in my repository beside this
-  one, and see whether it all still works* — with the old `alias_method`
-  patching those plugins use called out as the thing to watch. It **wrote no
-  code**, per `docs/review/README.md`. It produced
-  `docs/review/findings/2026-08-28-claude-plugin-compat-5.1.md`: **ten
-  findings, one blocker**.
-- **The blocker is F01, and it is the important thing in this file.**
-  `redmine_custom_workflows` registers a permission named
-  `manage_project_workflow` — the same name this plugin uses — with an empty
-  action hash, and it loads first. Redmine's `AccessControl.permission(name)`
-  returns the first registration, so on any Redmine carrying both plugins
-  **every write action of this plugin answers 403, administrators included**.
-  Reading works; nothing can be saved. It is logged as a choice for Jan in
-  `docs/DECISIONS.md` under *Open — for Jan*, because renaming a permission is
-  user-visible and needs a migration over `roles.permissions`.
-- **The plugin itself is sound.** Its suite is **861 examples, 0 failures** on
-  a Redmine 5.1 host with only this plugin installed, and the 69 failures on
-  the 45-plugin host all trace to three external causes, each attributed in the
-  findings file. Nothing in the plugin's own logic was found wrong.
-- **The design decision Jan pointed at is now measured, not argued.** Switching
-  `ProjectsController.helper(self)` back to `ProjectsHelper.prepend(self)` on
-  the running 45-plugin stack turns every project's settings page into an HTTP
-  **500** (`NoMethodError: super: no superclass method
-  'project_settings_tabs'`). The forbidden-constructs row about it in
-  `CLAUDE.md` is now backed by an experiment on a real host. That is F03.
-- **The plugin is still at 0.1.6**, unreleased, and **no version bump**: this
-  session changed no code. `main` carries 0.0.3 and there is no tag.
+- **The plugin is feature-complete and is now in a hardening track.**
+  `docs/implementation-plan.md` runs WP0..WP9 and every row reads *done*. Three
+  reviews landed on 2026-08-28, and between them they turned "what is left to
+  build" into "what is left to make releasable". That is now **WP10..WP16** in
+  the same file, carried by two new ADRs.
+- **This session was a planning session.** It reviewed the plugin against a
+  general production-readiness brief, analysed a second review Jan commissioned
+  from ChatGPT, read the whole-stack compatibility run that had landed a few
+  hours earlier, and wrote the plan the three of them imply. **It touched no
+  code** — one findings file, two ADRs, the implementation plan, this file and
+  the decisions ledger.
+- **There is a blocker, and it is not this plugin's fault but it is this
+  plugin's problem.** `redmine_custom_workflows`, which Jan runs, registers a
+  permission called `manage_project_workflow` — the same name as ours, with an
+  empty action list — and it loads first because plugins load alphabetically.
+  `Redmine::AccessControl.permission(name)` returns the first match, so **every
+  write action of this plugin answers 403, for administrators too.** Found by
+  `2026-08-28-claude-plugin-compat-5.1.md` F01. It is the first thing WP10 does.
+- **Nothing has been released.** The plugin is at 0.1.6, unreleased; `main`
+  carries 0.0.3 and there is no tag. Nothing runs in production anywhere, which
+  is why Jan asked for the architectural work to be done **now** — the two ADRs
+  below are both large diffs that become impossible once there are installations
+  to migrate.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
-  `claude/redmine-5-1-plugins-vohngm`; `git checkout -B claude/dev
-  origin/claude/dev` was the whole rescue, and this session's commit is on
-  `claude/dev`.
-- **`main`:** untouched, as always. The two histories are still unrelated.
-- **CI:** not re-run by this session, because no code changed. Run **136** on
-  `e0a5ac6` was green and `e7f1e90` (docs only) sat on top of it.
+  `claude/redmine-plugin-review-p5brtg`; `git checkout -B claude/dev
+  origin/claude/dev` was the whole rescue, and `origin/claude/dev` had moved on
+  by one commit (`c872fe8`) while the audit was being written, so the audit's
+  header says it reviewed `e7f1e90` and reads `c872fe8` into its summary.
+- **`main`:** untouched, as always.
 
 ## What this session produced
 
-One commit: the findings file, the `Open — for Jan` entry in
-`docs/DECISIONS.md`, and this file. No code, no tests, no locale changes.
+Five documents and no code.
 
-### What was actually built, so the findings can be trusted
+- **`docs/review/findings/2026-08-28-claude-audit.md`** — eleven findings, all
+  `open`: 0 blocker, 2 major, 5 minor, 4 nit. Every one was executed rather than
+  argued; four were reproduced on a running host.
+- **`docs/adr/ADR-002-compatibility-as-an-object.md`** — one manifest owns every
+  version fact; no feature probing; **three** compatibility states instead of
+  two; warn, never refuse; CI fails where runtime warns.
+- **`docs/adr/ADR-003-owned-administration-screens.md`** — the project dimension
+  moves to screens the plugin owns. Deface overrides 15 → 2, the workflow
+  controller patch 468 lines → under 60, core helper prepends 1 → 0.
+- **`docs/implementation-plan.md`** — WP10..WP16, with the sequencing reasoning
+  and a second definition of done that describes a release rather than a feature.
+- **`docs/DECISIONS.md`** — Jan's fourth and fifth answers of the day, and five
+  autonomous decisions including the two large rewrites that were **rejected**.
 
-A real Redmine, not a reasoning exercise:
+### The three reviews, and why none of them is redundant
 
-```
-Redmine 5.1-stable @ 16eb9e6 (5.1.13) · PostgreSQL 16 · Ruby 3.2.6 · Rails 6.1.7.10
-45 plugins registered · RAILS_ENV=production, eager loading ON
-```
+They found disjoint sets, which is the argument for having run all three.
 
-Forty-three of Jan's plugins, this one, and a 13-line local shim standing in for
-`redmine_base_deface` (a Planio plugin that is a hard dependency of
-`redmine_datetime_custom_field` and is not in Jan's repository). `redmine_vault`,
-which Jan asked to exclude, **does not exist in the repository** — nothing was
-excluded on its account.
-
-Getting it to boot at all took three fixes to *other* plugins, and all three are
-filed (F05, F06, F08). A naive "clone every default branch and start Redmine"
-does not work today.
-
-### The three causes of the 69 spec failures
-
-Measured by disabling one plugin at a time on the running host and re-running:
-
-| cause | failures | finding |
+| Run | Method | What only it found |
 | --- | --- | --- |
-| `manage_project_workflow` permission collision | **53** | F01 |
-| `respond_to?(:sprite_icon)` answering wrongly on 5.1 | **6** | F02 |
-| `redmine_view_issue_description`'s new permission gate | **10** | F04 |
-| | 69 | |
+| `2026-08-28-claude-plugin-compat-5.1.md` | 45 plugins on one Redmine 5.1 host | the permission-name blocker (F01); `respond_to?(:sprite_icon)` answered by neighbours (F02) |
+| `2026-08-28-claude-audit.md` (this session) | one plugin, executed end to end | the `WorkflowsHelper` prepend reproduced (F01); the SQLite migration abort (F02); issue-status deletion emptying a project scope (F03) |
+| ChatGPT, commissioned by Jan | read-only, suite not run | the version-policy gap stated sharply; mixed valid/invalid role ids (folded in as audit F05, with credit) |
 
-### What was proved to work
+Two of ChatGPT's headline claims were **not** carried over, and the reason is in
+`docs/DECISIONS.md`: *Security: MEDIUM* is supported by none of its own
+findings, and *Test confidence: MEDIUM* was reached without running the suite,
+which its own verification section says.
 
-- **27 project settings tabs from 15 plugins**, all rendering. Four neighbours
-  take `project_settings_tabs` over with a 2013-era alias chain
-  (`redmine_wiki_extensions`, `redmine_questions`, `redmine_contacts_helpdesk`,
-  and three more inside `ProjectsHelper`), three override it with `super` from
-  the controller's helper set, and this plugin's `ProjectsController.helper`
-  sits above all of them. **The mechanism Jan asked about holds.**
-- **68 URLs, no `Completed 500` anywhere in the production log.**
-- **All fifteen Deface overrides still match** on a 45-plugin host. **INV-9
-  holds.** No `deface_overrides_spec.rb` failure was an override missing its
-  anchor.
-- **No duplicate named routes** across the whole stack, and exactly **two**
-  duplicate permission names in 45 plugins (F01 and F07).
-- **The feature works end to end.** On the live host, giving a project its own
-  *empty* transitions workflow took a Manager's reachable statuses from
-  `["Closed", "Feedback", "In Progress", "New", "Rejected", "Resolved"]` to
-  `[]`, and returning the project to inheritance restored all six.
+### The thing worth remembering from the drift question
+
+Jan asked whether there is a way to tell if a new Redmine minor actually
+*changed* anything, "because then it is safe". There is, and the machinery was
+already here. `Services::CoreMethodDigest` was written for the test suite but
+does not need one:
+
+```
+available?=true
+digests computed at runtime: 19 in 34.5 ms
+```
+
+measured through `rails runner` on a live 5.1 host. That is what turned a binary
+warn-or-block question into ADR-002's three states, and it is why a *verified*
+host pays nothing: the digests are computed lazily, only when the running minor
+is unknown.
 
 ## Evidence
 
-| Check | Result |
+Everything below was executed in this container, not quoted from the repository.
+
+| Gate | Result |
 | --- | --- |
-| Plugin suite, 5.1-stable + PostgreSQL 16, **this plugin alone** | **861 examples, 0 failures** |
-| Plugin suite, same host, **45 plugins** | **861 examples, 69 failures**, every one attributed above |
-| Boot, `RAILS_ENV=production`, eager loading on | `Redmine::Plugin.all.size` → **45** |
-| Migrations | `rake db:migrate` + `rake redmine:plugins:migrate` clean for all 45 |
-| Page crawl | **68 URLs** as admin, **0** returning 5xx; `grep -c "Completed 500" log/production.log` → **0** |
-| Settings tabs | **27**, from 15 plugins, this plugin's `project_workflows` among them |
-| Duplicate named routes | **none** (`routes.map(&:name).tally`) |
-| Duplicate permission names | **two**: `manage_project_workflow` (F01), `create_tags` (F07) |
-| F01, live | `POST /projects/alpha/workflow/scope` as **admin** → **403**, log: *"Filter chain halted as :authorize rendered or redirected"* |
-| F01, isolated | commenting out one line in the neighbour's `init.rb` takes the suite from **69 → 16** failures |
-| F02, live | `GET /workflows` renders `decoration-red` **3×** and `icon-not-ok` **0×**; `grep -c decoration-red public/stylesheets/application.css` → **0** |
-| F03, experiment | `ProjectsHelper.prepend` → `/projects/alpha/settings` **HTTP 500**; restored → **200**, 27 tabs |
-| RuboCop / CI | **not run** — no code changed this session |
+| Plugin suite, Redmine 5.1-stable, SQLite, Ruby 3.2.6 | **861 examples, 0 failures, 9 pending** (the nine are the row-lock examples, which skip themselves on an adapter without `SELECT … FOR UPDATE`) |
+| RuboCop through `.github/lint/Gemfile` | **120 files, no offences** |
+| `node dev/check-bulk-js.mjs` | all checks pass |
+| CI run **137** on `e7f1e90` | **11/11 jobs success** — the 3 × 3 matrix, lint and the JavaScript gate, each cell also running migration reversibility and Zeitwerk |
+| Core sources checked against | Redmine 5.1-stable and 7.0-stable, fetched during the run |
+
+Four findings were reproduced live: the `WorkflowsHelper` alias-chain
+`NoMethodError`, the SQLite `no such column: TIMESTAMP` migration abort, the
+issue-status deletion that takes a member's status list from two entries to
+none, and the two writers raising `TypeError` on a malformed payload. One was
+measured: a five-project matrix save writes 1,620 rows in 48 statements.
 
 ## Exact next step
 
-**Answer F01.** It is the only thing that matters in the findings file, and it
-is blocked on one choice, which is written out in `docs/DECISIONS.md` under
-*Open — for Jan* with a recommendation (**B**: rename both permissions to
-`view_project_workflow_rules` / `manage_project_workflow_rules`).
+**Start WP10 — Ecosystem safety.** In this order:
 
-A fixing session can start the moment that is answered:
+1. Rename the permission pair to `view_project_workflow_rules` /
+   `manage_project_workflow_rules`, with a reversible migration over the
+   serialized `roles.permissions` array. Jan chose *rename both* implicitly by
+   accepting the plan; if he says otherwise, F10 of the whole-stack run is the
+   question. Verify on a host with `redmine_custom_workflows` installed.
+2. Add the convention spec that fails when a new unprefixed global is
+   registered — permission names were the only unprefixed globals in the plugin.
+3. Replace `respond_to?(:sprite_icon)` with a version comparison. An interim
+   constant is correct here; WP11 absorbs it into the manifest.
+4. The four small confirmed defects from `2026-08-28-claude-audit.md`: F01
+   (`WorkflowsHelper` onto the controller helper chain — a stopgap WP12
+   deletes), F02 (three `TIMESTAMP` literals), F04 (`is_a?(Hash)` in both
+   writers), F05 (mixed role ids answer 404).
 
-1. Rename the permission(s) in `init.rb`, the controllers, the views, the
-   locale files and the specs.
-2. Write the migration over `roles.permissions` — a serialized array, so it is
-   a Ruby-side map, not SQL.
-3. Add the spec the finding asks for: for every permission this plugin
-   registers, `Redmine::AccessControl.permission(name)` must return **this
-   plugin's** registration. That is the gate that would have caught F01 the day
-   it appeared, and it is red today.
-4. Then F02, which is small and needs no answer from Jan: ask the Redmine
-   version rather than `respond_to?(:sprite_icon)`, in the helper **and** in the
-   two specs that restate the same expression.
-
-F04 is a test-environment problem and worth doing third. F05..F09 are about
-other people's plugins and are recorded, not queued.
+Each with a test that is red on the old code, and the commit message says how
+that was known.
 
 ## Open choices
 
-- **F01/F10 of `2026-08-28-claude-plugin-compat-5.1` — how far does the
-  permission rename go?** **A)** rename only the colliding half. **B)** rename
-  both, symmetric. **Recommendation: B.** **Urgent: yes** for anyone running
-  `redmine_custom_workflows`, which Jan does — the feature is unusable there
-  today. Full text in `docs/DECISIONS.md`.
-- **F01 of `2026-08-27-bundled` — what should the refused-values count count?**
-  **A)** the values in the request — **implemented**. **B)** keep the total and
-  reword eight locale files. **Recommendation: A**, which is in place. **Not
-  urgent.**
+Nothing is blocking. Two things are worth Jan's eye when he next reads:
 
-  (Findings are numbered per review run, so several runs each have an F01.
-  These are different questions.)
-
-And still standing from before, because a later session must not undo them:
-
-- **G02 — a bulk tracker change spanning many projects asks twice per project.**
-  **Answered by Jan on 2026-08-27: `A for now, B if it becomes an issue later`.**
-  Status `wont-fix for now`.
-- **F21 — no event log for scope changes. Answered `A` by Jan on 2026-08-27.**
-  `created_by` and `updated_by` are the whole audit story. **A later session must
-  not add an event-log table on the grounds that the audit trail is thin: it is
-  thin on purpose.**
-- **The three WP9 answers of 2026-08-28** are built: the drawing lives on the
-  project screen (A), behind `view_project_workflow` (A), with a selector over
-  every role the project screen lists (B).
-- **The copy-form checkbox of 2026-08-28** is built and ticked by default.
+- **The permission rename is user-visible.** Roles that already hold the
+  permission are migrated, but the name on the role form changes. Nobody outside
+  Jan's own installation has one yet, which is why now is the moment.
+- **A second administration entry point** arrives with WP12. Administration will
+  have Redmine's own *Workflow* and the plugin's *Project workflows*, cross-linked.
+  That is ADR-003's stated price; if Jan would rather keep one entry point, the
+  ADR is the place to say so and the alternative it rejects is written down.
 
 ## Rebuilding the 45-plugin host (this session's, not the ordinary one)
 
@@ -1076,6 +1041,31 @@ Everything from here down is carried forward from earlier sessions.
 - **`rails-ujs` is loaded on all three versions**, so `link_to ..., method: :post,
   data: { confirm: ... }` works. The row and column actions and the undo do not
   depend on it — they are `link_to_function` with an `onclick`.
+
+### Traps from the 2026-08-28 audit session (building a host with no `apt`)
+
+- **The `pg` gem cannot be built in a stock Claude Code web container.**
+  `libpq-fe.h` is absent, there is no `apt-get`, and `pg` 1.5's `have_library`
+  probe additionally fails on a modern GCC even when headers are supplied by
+  hand. A PostgreSQL *server* is present and startable
+  (`service postgresql start`), which is useful for testing SQL directly through
+  `psql` — that is how "PostgreSQL parses 1,000 nested `OR`s fine" was measured
+  — but the Rails adapter cannot be installed.
+- **The whole suite runs on SQLite**, and this is the useful fallback: **861
+  examples, 0 failures, 9 pending**. Exactly one thing blocks it, and it is a
+  real defect rather than a test-environment quirk — the three
+  `TIMESTAMP '<literal>'` sites in migration 004, `ScopeCopier` and
+  `ProjectWorkflowCopier`. SQLite has no `TIMESTAMP` keyword, so `rake
+  redmine:plugins:migrate` aborts inside 004 with `no such column: TIMESTAMP`
+  and leaves migrations 001–003 applied. See `2026-08-28-claude-audit.md` F02.
+- **`rsync` is not installed**, so `dev/sync.sh` fails at its only command. A
+  six-line shell shim over `tar` is enough; `dev/setup.sh` otherwise works.
+- **`CoreMethodDigest` runs outside RSpec.** `rails runner` gives all nineteen
+  digests in 34.5 ms. Worth knowing before designing anything around it — it is
+  what ADR-002's runtime drift check is built on, and it also reveals what the
+  gate does *not* cover: the three singleton-class shadows, of which
+  `WorkflowTransition.replace_transitions` and
+  `WorkflowPermission.replace_permissions` are the two INV-1 rests on.
 
 ## Carrying on
 
