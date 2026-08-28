@@ -89,6 +89,18 @@ module RedmineProjectWorkflows
         table = ProjectWorkflowScope.table_name
         author = ProjectWorkflowScope.author_id_for(user)
         author_value = author ? connection.quote(author) : 'NULL'
+        # The literal is plain -- not the standard `TIMESTAMP '...'` type keyword,
+        # which SQLite does not have and where it fails with `no such column:
+        # TIMESTAMP` (finding F02 of 2026-08-28-claude-audit). Every supported
+        # adapter coerces a bare literal in the select list of an INSERT ...
+        # SELECT against the target column.
+        #
+        # **The narrow rule that goes with it:** never put an untyped literal in
+        # the select list of a DISTINCT, a UNION or a GROUP BY. PostgreSQL has to
+        # type the column to compare it, resolves `unknown` to `text`, and the
+        # INSERT then fails with `PG::DatatypeMismatch`. This SELECT is plain, and
+        # it has to stay plain -- migration 004 moved its DISTINCT into a subquery
+        # for exactly this, and `spec/plugin_conventions_spec.rb` greps for it.
         now = connection.quote(connection.quoted_date(Time.now.utc))
         target = ProjectWorkflowScope.where(project_id: target_project_id)
         before = target.count

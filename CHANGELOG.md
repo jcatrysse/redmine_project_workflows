@@ -141,6 +141,11 @@ The workflow as a drawing.
   `workflows` table and an error on every issue page. Redmine ships SQLite
   support, so this now works there too; the whole test suite passes on it.
 
+  The statement that needed it was the one with a `DISTINCT` in it, and that is
+  where the type had to go — PostgreSQL types a `DISTINCT` column before the
+  insert can coerce it. The `DISTINCT` now sits in a subquery and the constants
+  outside it, which every supported database reads the same way.
+
 - **A workflow diagram asked for one role that exists and one that does not now
   says so.** It drew the one it recognised, under a heading naming both — so a
   bookmark made before a role was deleted looked as though it still worked. It

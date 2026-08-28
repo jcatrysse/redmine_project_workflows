@@ -206,30 +206,60 @@ describe RedmineProjectWorkflows do
   # skipping form of the statement -- a scope somebody else had just created
   # was dropped without a word and reported as created anyway. A grep is the
   # cheapest thing that keeps it from coming back.
-  # Finding F02 of 2026-08-28-claude-audit. Three raw-SQL sites built their
-  # timestamp as the standard `TIMESTAMP '<literal>'` type-keyword form, which
-  # says what it means in a dialect SQLite does not have: there the statement
-  # fails with `no such column: TIMESTAMP`, migration 004 aborts with 001..003
-  # already committed, and the installation is left carrying
-  # `workflows.project_id` with no scope table under it -- a 500 on every issue
-  # page. Redmine ships SQLite support in its own Gemfile and
-  # `config/database.yml.example`.
+  # Finding F02 of 2026-08-28-claude-audit, and the CI failure that followed the
+  # first attempt at it. Two rules, both about one statement shape, both measured
+  # rather than reasoned.
   #
-  # A grep rather than a portability test, because the honest portability test is
-  # running the suite on the adapter, and this suite runs inside whichever host
-  # built it. What can be checked in every cell is that nobody reintroduces the
-  # construct. Red on the old code in all nine.
+  # The three raw-SQL sites built their timestamp as the standard
+  # `TIMESTAMP '<literal>'` type keyword, which says what it means in a dialect
+  # SQLite does not have: there migration 004 aborts with `no such column:
+  # TIMESTAMP`, with 001..003 already committed. Redmine ships SQLite support.
+  #
+  # Dropping the keyword alone turned all three PostgreSQL cells red with
+  # `PG::DatatypeMismatch: column "created_at" is of type timestamp without time
+  # zone but expression is of type text`. Measured on PostgreSQL 16: a bare
+  # literal in a **plain** select list is coerced against the target column, and
+  # under **DISTINCT** it is not -- DISTINCT has to type the column to compare it,
+  # and `unknown` resolves to `text` before the INSERT sees it.
+  #
+  # So: no type keyword anywhere, and no untyped literal inside a DISTINCT. Both
+  # halves are greps, because the honest test is running the statement on the
+  # adapter and this suite runs inside whichever host built it --
+  # `dev/check-backfill.sh` is that test, on every cell, and it is what caught the
+  # PostgreSQL failure. Each half is red on the shape it forbids.
   it 'builds no SQL literal with a type keyword the supported adapters do not share' do
     root = File.expand_path('..', __dir__)
     offenders = Dir.glob("#{root}/{app,lib,db}/**/*.rb").select do |file|
       File.read(file).lines.any? do |line|
-        next false if line.strip.start_with?('#')
+        # A Ruby comment, not a SQL line that opens with an interpolation --
+        # `#{now}` at the start of a heredoc line looks exactly like one, and the
+        # first version of the sibling example below skipped precisely the lines
+        # it existed to read.
+        next false if line.strip.match?(/\A#(?!\{)/)
 
         line.match?(/\bTIMESTAMP\s+(?:'|\#\{)/i)
       end
     end
 
     expect(offenders.map { |file| file.sub("#{root}/", '') }).to be_empty
+  end
+
+  it 'puts no untyped literal in the select list of a DISTINCT' do
+    root = File.expand_path('..', __dir__)
+    offenders = Dir.glob("#{root}/{app,lib,db}/**/*.rb").filter_map do |file|
+      # `#(?!\{)` and not `#`: a heredoc line that begins with `\#{now}` is SQL,
+      # not a comment, and stripping it removed the only interpolation this
+      # example looks for -- which is how the first version of it came back green
+      # against the exact shape it forbids. Caught by reverting and running.
+      body = File.read(file).gsub(/^\s*#(?!\{).*$/, '')
+      # Everything between SELECT DISTINCT and the FROM that closes its select
+      # list. A quote or an interpolation in there is a literal PostgreSQL will
+      # resolve to text.
+      lists = body.scan(/SELECT\s+DISTINCT\b(.*?)\bFROM\b/im).flatten
+      file.sub("#{root}/", '') if lists.any? { |list| list.include?("'") || list.include?('#{') }
+    end
+
+    expect(offenders).to be_empty
   end
 
   it 'writes with insert_all only in the two rule writers' do

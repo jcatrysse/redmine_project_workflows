@@ -47,8 +47,10 @@ One commit of code, after one of planning.
   digests would have vanished from the gate), and
   `spec/helpers/workflows_helper_spec.rb` now prepends the patch to the helper
   object, which is the position `controller.helper` produces.
-- **F02** — the three `TIMESTAMP '<literal>'` sites build the literal plain. A
-  conventions grep stops it coming back.
+- **F02** — the three `TIMESTAMP '<literal>'` sites build the literal plain, and
+  migration 004's `DISTINCT` moved into a subquery so the constants sit in a
+  plain outer select list. Two conventions greps stop both halves coming back.
+  **The first attempt was wrong and CI found it** — see below.
 - **F04** — both writers ask `is_a?(Hash)`; a payload that is not a matrix
   returns `MatrixSaveResult.none` instead of raising.
 - **F05** — a graph request naming one offered role and one that names nothing
@@ -79,13 +81,39 @@ fails on the old code" can be passed by accident**, and the only thing that
 caught it was actually reverting and running. It is recorded in the spec's own
 comment so the next reader does not re-learn it.
 
+### The second near-miss, and it is the same lesson
+
+`cea14d8` dropped the `TIMESTAMP '...'` keyword and turned **all three
+PostgreSQL cells red** four minutes later, at migration time:
+`PG::DatatypeMismatch: column "created_at" is of type timestamp without time
+zone but expression is of type text`. MySQL, MariaDB, RuboCop and the JavaScript
+gate were all green — the failure was adapter-specific and the local host is
+SQLite, which is exactly the gap the commit message had named under "not
+covered".
+
+Measured on PostgreSQL 16 afterwards rather than guessed: a bare literal in a
+**plain** select list is coerced against the target column; under **DISTINCT**
+it is not, because DISTINCT has to type the column to compare it and `unknown`
+resolves to `text`. The comment in migration 004 had claimed PostgreSQL coerces
+it — right about the statement that measurement ran, wrong about this one.
+
+No adapter conditional was needed: the DISTINCT moved into a subquery, the
+constants stayed outside it. The generated statements were then run through
+`psql` against real PostgreSQL 16 before pushing.
+
+And the conventions grep written to prevent a recurrence **was itself green
+against the shape it forbids**, because its comment stripper removed every line
+starting with `#` — which is what a heredoc line opening `#{now}` looks like.
+`#(?!\{)` is the fix. That is twice in one session that a guard passed by
+accident and only reverting-and-running found it.
+
 ## Evidence
 
 Everything below was executed in this container.
 
 | Gate | Result |
 | --- | --- |
-| Plugin suite, Redmine 5.1-stable, SQLite, Ruby 3.2.6 | **890 examples, 0 failures, 9 pending** (the nine skip themselves on an adapter with no `SELECT … FOR UPDATE`) |
+| Plugin suite, Redmine 5.1-stable, SQLite, Ruby 3.2.6 | **891 examples, 0 failures, 9 pending** (the nine skip themselves on an adapter with no `SELECT … FOR UPDATE`) |
 | RuboCop through `.github/lint/Gemfile` | **124 files, no offences** (204/200 on `ProjectWorkflowsController` was answered by extracting `GraphSelection`, not by raising the limit) |
 | `rake zeitwerk:check` | All is good! |
 | `node dev/check-bulk-js.mjs` | all checks pass |
@@ -93,10 +121,13 @@ Everything below was executed in this container.
 | `dev/check-backfill.sh` | OK — and it is the check that matters for F02, because it asserts the backfilled timestamps are **UTC**, the property the type-keyword form existed to make explicit |
 | Red on the old code | F01 3/5 examples · F02 the conventions grep, naming `db/migrate/004_…` · F04 8/8 examples · F05 2/3 (the third pins the de-duplication rule and passes either way by design) |
 
+| The generated SQL, against real PostgreSQL 16 through `psql` | migration 004's statement (with duplicate rows, so DISTINCT had work) and the copiers' — both insert, timestamp intact |
+| CI | run **142** on `cea14d8`: **failure**, three PostgreSQL cells. Read, diagnosed, fixed here. The next run is the one to read. |
+
 **Not covered:** only Redmine 5.1 was built locally, and on SQLite rather than a
 supported adapter (the `pg` gem cannot be built in this container — see Known
-traps). Cross-database and cross-version claims rest on CI, which has **not**
-been read for this commit.
+traps). The PostgreSQL evidence above is raw SQL through `psql`, not Rails.
+Cross-database and cross-version claims rest on CI.
 
 ## Exact next step
 

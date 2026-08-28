@@ -69,20 +69,36 @@ class CreateProjectWorkflowScopes < ActiveRecord::Migration[6.1]
   # the nine supported cells these columns were the server's local time, read
   # back as if it were UTC.
   #
-  # It also said PostgreSQL "does not cast a text literal to a timestamp inside a
-  # SELECT list". Measured on PostgreSQL 16: a bare quoted literal in the SELECT
-  # list of an INSERT ... SELECT is coerced to the target timestamp column with no
-  # cast at all, which is why the plain literal below is what is written.
+  # **The literal is plain, and it sits outside the DISTINCT.** Both halves of
+  # that are load-bearing and both were got wrong once, so the measurements are
+  # here rather than the conclusions.
   #
-  # It used to be the standard `TIMESTAMP '...'` type-keyword form, on the
-  # argument that it "says what it means" -- true, and it says it in a dialect
-  # SQLite does not have. There the whole statement fails with
-  # `no such column: TIMESTAMP`, migrations 001..003 have already committed, and
-  # the installation is left carrying `workflows.project_id` with no scope table
-  # under it, which makes every issue page a 500. Redmine ships SQLite support in
-  # its own Gemfile and `config/database.yml.example`, and nothing here declares
-  # it unsupported (finding F02 of 2026-08-28-claude-audit). The plain literal is
-  # accepted by all four, and the whole suite passes on SQLite with it.
+  # It used to be the standard `TIMESTAMP '...'` type-keyword form. That is a
+  # dialect SQLite does not have: there the statement fails with `no such column:
+  # TIMESTAMP`, migrations 001..003 have already committed, and the installation
+  # is left carrying `workflows.project_id` with no scope table under it, which
+  # makes every issue page a 500. Redmine ships SQLite support in its own Gemfile
+  # and `config/database.yml.example` (finding F02 of 2026-08-28-claude-audit).
+  #
+  # Dropping the keyword alone turned all three PostgreSQL cells red:
+  #
+  #     PG::DatatypeMismatch: column "created_at" is of type timestamp without
+  #     time zone but expression is of type text
+  #
+  # The comment that stood here claimed PostgreSQL coerces a bare literal in the
+  # SELECT list of an INSERT ... SELECT. Measured on PostgreSQL 16, that is true
+  # of a **plain** SELECT and false under **DISTINCT**: DISTINCT has to compare
+  # the column, so the `unknown` literal is resolved before the INSERT ever sees
+  # it, and `unknown` resolves to `text`. The original measurement was right about
+  # the statement it ran and wrong about this one.
+  #
+  # So the DISTINCT moved into a subquery and the constants stayed in the outer,
+  # plain SELECT list, where every supported adapter coerces them against the
+  # target column. No adapter conditional, one statement shape, and the rule to
+  # keep is narrow: **never put an untyped literal in the select list of a
+  # DISTINCT, a UNION or a GROUP BY.** `spec/plugin_conventions_spec.rb` greps
+  # for it, and `dev/check-backfill.sh` is what actually proves it -- it runs this
+  # backfill on every cell, and it is what caught the PostgreSQL failure.
   #
   # Changing a shipped migration is a judgement call, and this is the reasoning:
   # an installation that has already run 004 keeps whatever it wrote, and this
@@ -101,14 +117,15 @@ class CreateProjectWorkflowScopes < ActiveRecord::Migration[6.1]
         execute(<<~SQL.squish)
           INSERT INTO project_workflow_scopes
             (project_id, tracker_id, role_id, rule_type, created_at, updated_at)
-          SELECT DISTINCT w.project_id, w.tracker_id, w.role_id,
-                          #{connection.quote(rule_type)}, #{now}, #{now}
-          FROM #{workflows} w
-          WHERE w.project_id IS NOT NULL
-            AND w.type = #{connection.quote(sti_type)}
-            AND EXISTS (SELECT 1 FROM projects p WHERE p.id = w.project_id)
-            AND EXISTS (SELECT 1 FROM trackers t WHERE t.id = w.tracker_id)
-            AND EXISTS (SELECT 1 FROM roles r WHERE r.id = w.role_id)
+          SELECT d.project_id, d.tracker_id, d.role_id,
+                 #{connection.quote(rule_type)}, #{now}, #{now}
+          FROM (SELECT DISTINCT w.project_id, w.tracker_id, w.role_id
+                FROM #{workflows} w
+                WHERE w.project_id IS NOT NULL
+                  AND w.type = #{connection.quote(sti_type)}
+                  AND EXISTS (SELECT 1 FROM projects p WHERE p.id = w.project_id)
+                  AND EXISTS (SELECT 1 FROM trackers t WHERE t.id = w.tracker_id)
+                  AND EXISTS (SELECT 1 FROM roles r WHERE r.id = w.role_id)) d
         SQL
       end
     end

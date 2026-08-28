@@ -231,7 +231,37 @@ argued for the type-keyword form now say why it went. `spec/plugin_conventions_s
 greps for the construct so it cannot come back; that example is red on the old
 code, naming `db/migrate/004_create_project_workflow_scopes.rb`.
 
-Evidence beyond the grep, on SQLite, which is the adapter the finding is about:
+**The first fix was wrong, and CI caught it in four minutes.** Dropping the
+keyword alone turned all three PostgreSQL cells red at *migration* time:
+
+```
+PG::DatatypeMismatch: column "created_at" is of type timestamp without
+time zone but expression is of type text
+```
+
+Measured afterwards on PostgreSQL 16 rather than reasoned about: a bare literal
+in a **plain** select list is coerced against the target column, and under
+**DISTINCT** it is not — DISTINCT has to type the column to compare it, so
+`unknown` resolves to `text` before the INSERT sees it. The comment that stood in
+migration 004 claimed PostgreSQL coerces it; that measurement was right about the
+statement it ran and wrong about this one. Both facts are now in the migration's
+own comment.
+
+The repair needs no adapter conditional: the DISTINCT moved into a subquery and
+the constants stayed in the outer, plain select list. The two services were
+already plain SELECTs and keep the bare literal, with the narrow rule written
+beside each — *never put an untyped literal in the select list of a DISTINCT, a
+UNION or a GROUP BY*. A second conventions example greps for that, and it too was
+wrong at first: its comment stripper deleted any line beginning with `#`, which
+is exactly what a heredoc line opening `\#{now}` looks like, so it came back
+green against the shape it forbids. `#(?!\{)` is the correction, and the
+red-check is what found it.
+
+The generated statements were then run against a real PostgreSQL 16 before
+pushing — the migration's, with two duplicate rows so DISTINCT had work to do,
+and the copiers' — and both insert with the timestamp intact.
+
+Evidence beyond the greps, on SQLite, which is the adapter the finding is about:
 migrations from an empty database run clean, `VERSION=0` leaves `leftover
 columns: []`, `plugin tables: []`, `plugin schema_migrations rows: []`, and up
 again is clean (INV-8). `dev/check-backfill.sh` passes, and it is the check that
