@@ -287,49 +287,27 @@ module RedmineProjectWorkflows
       # Every stored row touching this status, in the two populations the reader's
       # roles resolve to: the project's own rows for the roles it answers for,
       # the generic rows for the rest. Both predicates name a project_id, nil
-      # included (INV-4).
+      # included (INV-4) -- WorkflowPopulations is where that is written, once,
+      # for this class and for WorkflowGraphQuery.
       #
       # One query for both directions -- the same rows answer "where can this go"
       # and "what leads here" -- and the OR over the two populations is built
       # before anything narrows it, because .or refuses a relation that has
-      # already been distinct'ed or ordered.
+      # already been distinct'ed or ordered. So the conditions below are added to
+      # what comes back, never to the halves.
       def edge_rows(roles)
-        scopes = population_scopes(roles.map(&:id))
-        return [] if scopes.empty?
+        combined = WorkflowPopulations.combined(
+          model: WorkflowTransition, project_id: @issue.project_id,
+          tracker_id: @tracker.id, role_ids: roles.map(&:id)
+        )
+        return [] if combined.nil?
 
-        combined = scopes.shift
-        scopes.each { |scope| combined = combined.or(scope) }
         # A row from a status to itself is not a move, and core puts the current
         # status back into the status list itself, so it would only pad the table.
         combined
           .where('old_status_id <> new_status_id')
           .where('old_status_id = :status_id OR new_status_id = :status_id', status_id: from_status_id)
           .pluck(:old_status_id, :new_status_id, :author, :assignee, :role_id)
-      end
-
-      # One relation per population the reader's roles resolve to: the project's
-      # own rows for the roles it answers for, the generic rows for the rest.
-      def population_scopes(role_ids)
-        resolver = Resolver.new(project_id: @issue.project_id, tracker_id: @tracker.id,
-                                role_ids: role_ids)
-        own_role_ids = resolver.overridden_role_ids_for(WorkflowTransition)
-        generic_role_ids = role_ids - own_role_ids
-
-        scopes = []
-        scopes << population(@issue.project_id, own_role_ids) if own_role_ids.any?
-        scopes << population(nil, generic_role_ids) if generic_role_ids.any?
-        scopes
-      end
-
-      # INV-4, made structural rather than merely true: this is the only place a
-      # relation on +workflows+ is built here, and it cannot be built without
-      # naming a project_id -- nil for the generic rows, an id for a project's
-      # own. A shared base relation carrying only the tracker would have been
-      # shorter and would have left a relation lying around that mixes both
-      # populations if anything ever executed it.
-      def population(project_id, role_ids)
-        WorkflowTransition.where(project_id: project_id, tracker_id: @tracker.id,
-                                 role_id: role_ids)
       end
 
       # One query for every status the rows name. 0 is core's "new issue" node
