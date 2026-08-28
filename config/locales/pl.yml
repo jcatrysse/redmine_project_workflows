@@ -121,3 +121,17 @@ pl:
   label_project_workflow_map_condition_author: Tylko gdy użytkownik jest autorem
   label_project_workflow_map_condition_assignee: Tylko gdy użytkownik jest osobą przypisaną
   label_project_workflow_map_condition_author_or_assignee: Tylko gdy użytkownik jest autorem lub osobą przypisaną
+  label_project_workflow_graph: Diagram przepływu pracy
+  label_project_workflow_graph_roles: Pokazane role
+  label_project_workflow_graph_diagnostics: Na co zwrócić uwagę
+  label_project_workflow_graph_table: Ten sam przepływ pracy jako tabela
+  label_project_workflow_graph_unreachable: Nieosiągalne z nowego zagadnienia
+  label_project_workflow_graph_dead_end: Stąd nic nie prowadzi dalej
+  label_project_workflow_graph_unmentioned: Nieużywane przez wybrane role
+  text_project_workflow_graph_aria: 'Diagram tego przepływu pracy: %{statuses} statusów i %{transitions} przejść. Te same informacje znajdują się w tabeli poniżej.'
+  text_project_workflow_graph_no_roles: Żadna z wybranych ról nie bierze udziału w przepływie pracy, więc nie ma czego narysować.
+  text_project_workflow_graph_empty: Ten projekt ma tutaj własny przepływ pracy, który nie zawiera żadnej reguły, więc diagram pokazuje wyłącznie punkt początkowy. Jest to celowa konfiguracja, a nie błąd.
+  text_project_workflow_graph_no_diagnostics: Każdy status w tym przepływie pracy jest osiągalny z nowego zagadnienia i ma wyjście.
+  text_project_workflow_graph_legend_solid: Ciągła strzałka oznacza zmianę, której może dokonać każdy, kto ma tę rolę.
+  text_project_workflow_graph_legend_dashed: Przerywana strzałka oznacza zmianę, której może dokonać tylko autor lub osoba przypisana.
+  text_project_workflow_graph_legend_band: Statusy poniżej linii kropkowanej są nieosiągalne z nowego zagadnienia.

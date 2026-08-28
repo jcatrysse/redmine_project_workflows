@@ -118,3 +118,17 @@ pt:
   label_project_workflow_map_condition_author: Apenas quando o utilizador é o autor
   label_project_workflow_map_condition_assignee: Apenas quando o utilizador é a pessoa atribuída
   label_project_workflow_map_condition_author_or_assignee: Apenas quando o utilizador é o autor ou a pessoa atribuída
+  label_project_workflow_graph: Diagrama do fluxo de trabalho
+  label_project_workflow_graph_roles: Perfis apresentados
+  label_project_workflow_graph_diagnostics: Ao que prestar atenção
+  label_project_workflow_graph_table: O mesmo fluxo de trabalho em tabela
+  label_project_workflow_graph_unreachable: Não é possível chegar a partir de uma nova tarefa
+  label_project_workflow_graph_dead_end: Daqui não sai nada
+  label_project_workflow_graph_unmentioned: Não utilizado pelos perfis selecionados
+  text_project_workflow_graph_aria: 'Diagrama deste fluxo de trabalho: %{statuses} estados e %{transitions} transições. A mesma informação está na tabela abaixo.'
+  text_project_workflow_graph_no_roles: Nenhum dos perfis selecionados participa num fluxo de trabalho, por isso não há nada para desenhar.
+  text_project_workflow_graph_empty: Este projeto tem aqui um fluxo de trabalho próprio e este não contém qualquer regra, pelo que o diagrama mostra apenas o ponto de partida. É uma configuração deliberada e não uma falha.
+  text_project_workflow_graph_no_diagnostics: Todos os estados deste fluxo de trabalho podem ser alcançados a partir de uma nova tarefa e têm saída.
+  text_project_workflow_graph_legend_solid: Uma seta contínua é uma alteração que qualquer pessoa com o perfil pode fazer.
+  text_project_workflow_graph_legend_dashed: Uma seta tracejada é uma alteração que só o autor ou o responsável podem fazer.
+  text_project_workflow_graph_legend_band: Os estados abaixo da linha pontilhada não podem ser alcançados a partir de uma nova tarefa.

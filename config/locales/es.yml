@@ -118,3 +118,17 @@ es:
   label_project_workflow_map_condition_author: Solo cuando el usuario es el autor
   label_project_workflow_map_condition_assignee: Solo cuando el usuario es la persona asignada
   label_project_workflow_map_condition_author_or_assignee: Solo cuando el usuario es el autor o la persona asignada
+  label_project_workflow_graph: Diagrama del flujo de trabajo
+  label_project_workflow_graph_roles: Perfiles mostrados
+  label_project_workflow_graph_diagnostics: En qué fijarse
+  label_project_workflow_graph_table: El mismo flujo de trabajo como tabla
+  label_project_workflow_graph_unreachable: No se puede alcanzar desde una petición nueva
+  label_project_workflow_graph_dead_end: De aquí no sale nada
+  label_project_workflow_graph_unmentioned: No lo usan los perfiles seleccionados
+  text_project_workflow_graph_aria: 'Diagrama de este flujo de trabajo: %{statuses} estados y %{transitions} transiciones. La misma información está en la tabla de abajo.'
+  text_project_workflow_graph_no_roles: Ninguno de los perfiles seleccionados participa en un flujo de trabajo, así que no hay nada que dibujar.
+  text_project_workflow_graph_empty: Este proyecto tiene aquí su propio flujo de trabajo y no contiene ninguna regla, por lo que el diagrama muestra solo el punto de partida. Es una configuración deliberada y no un fallo.
+  text_project_workflow_graph_no_diagnostics: Todos los estados de este flujo de trabajo se pueden alcanzar desde una petición nueva y tienen salida.
+  text_project_workflow_graph_legend_solid: Una flecha continua es un cambio que puede hacer cualquiera que tenga el perfil.
+  text_project_workflow_graph_legend_dashed: Una flecha discontinua es un cambio que solo puede hacer el autor o el asignado.
+  text_project_workflow_graph_legend_band: Los estados por debajo de la línea de puntos no se pueden alcanzar desde una petición nueva.

@@ -1,0 +1,153 @@
+<%#
+  The whole of a project's transitions workflow, as a drawing (WP9).
+
+  The order is the order somebody looking at a workflow needs it in:
+
+  1. Which roles the picture is about, and which of the three states of INV-3
+     governs each of them. A drawing of the generic workflow and a drawing of the
+     project's own look identical, so the sentence above it is what says which
+     one this is.
+  2. The picture.
+  3. What the picture is worth looking at *for*: the statuses no role can reach,
+     the ones with no way out, and the ones these roles have nothing to do with.
+     Jira draws those and says nothing about them; naming them is the part a
+     workflow administrator actually uses.
+  4. The same workflow as a table -- the readable twin, not an afterthought. No
+     aria attribute makes a drawing legible to a screen reader, and the table is
+     also what Ctrl-F finds and what prints legibly.
+
+  Transitions only: field permissions are a property of a status rather than of a
+  move, so they are not a graph. The comparison screen reads them side by side.
+%>
+<% layout = project_workflow_graph_layout(@graph) %>
+<% multiple_roles = @graph.role_states.size > 1 %>
+
+<div class="contextual">
+  <%= link_to l(:label_settings), settings_project_path(@project, tab: 'project_workflows') %>
+</div>
+
+<%= title l(:label_project_workflow_graph) %>
+
+<p>
+  <strong><%= l(:label_project) %>:</strong> <%= @project.name %>
+  &nbsp;
+  <strong><%= l(:label_tracker) %>:</strong> <%= @tracker.name %>
+</p>
+
+<%# The selector is omitted entirely when there is only one thing to pick: a
+    control with one option is a control that cannot be used. %>
+<% if @visible_roles.size > 1 %>
+  <%= form_tag({}, method: :get) do %>
+    <p>
+      <%= hidden_field_tag 'tracker_id', @tracker.id, id: nil %>
+      <label for="role_id"><%= l(:label_project_workflow_graph_roles) %></label>
+      <%= select_tag 'role_id',
+                     options_from_collection_for_select(@visible_roles, :id, :name, @roles.map(&:id)),
+                     multiple: true, size: [@visible_roles.size, 6].min %>
+      <%= project_workflows_toggle_multiselect_tag %>
+      <%= submit_tag l(:button_apply), name: nil %>
+    </p>
+  <% end %>
+<% end %>
+
+<% if @graph.role_states.empty? %>
+  <%# Nothing selected takes part in a workflow at all -- Non member and
+      Anonymous can be in the list because a scope exists for them, and a role
+      that has lost both issue permissions takes no part in a workflow. An empty
+      frame would read as "this workflow permits nothing", which is a different
+      statement. %>
+  <p class="nodata"><%= l(:text_project_workflow_graph_no_roles) %></p>
+<% else %>
+  <div class="box project-workflow-scope">
+    <% uniform = @graph.uniform_state %>
+    <% if uniform %>
+      <p>
+        <strong><%= l(:label_project_workflow_project_scope) %>:</strong>
+        <%= project_workflow_state_tag(uniform) %>
+        <em>(<%= l(:label_role_plural) %>: <%= @graph.roles.map(&:name).join(', ') %>)</em>
+      </p>
+    <% else %>
+      <%# The case that cannot be worked out from anywhere else: one role is
+          overridden while the next inherits, and the drawing is the union of the
+          two. %>
+      <p><strong><%= l(:label_project_workflow_project_scope) %>:</strong></p>
+      <ul class="project-workflow-map-scopes">
+        <% @graph.role_states.each do |role_state| %>
+          <li>
+            <%= role_state.role.name %>:
+            <%= project_workflow_state_tag(role_state.state) %>
+            <%= project_workflow_graph_matrix_link(@project, @tracker, role_state.role) %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+    <% if uniform %>
+      <p><%= project_workflow_graph_matrix_link(@project, @tracker, @graph.roles.first) %></p>
+    <% end %>
+  </div>
+
+  <% if @graph.empty_workflow? %>
+    <%# An own empty workflow draws as the entry node and nothing else. Without
+        this sentence that is indistinguishable from a broken plugin, and it is a
+        deliberate configuration rather than a fault (INV-3). %>
+    <p class="project-workflow-map-empty">
+      <em><%= l(:text_project_workflow_graph_empty) %></em>
+    </p>
+  <% end %>
+
+  <%= render partial: 'project_workflows/graph_svg', locals: { layout: layout } %>
+
+  <p class="project-workflow-graph-legend">
+    <em>
+      <%= l(:text_project_workflow_graph_legend_solid) %>
+      <%= l(:text_project_workflow_graph_legend_dashed) %>
+      <% if layout.band_top %><%= l(:text_project_workflow_graph_legend_band) %><% end %>
+    </em>
+  </p>
+
+  <h3><%= l(:label_project_workflow_graph_diagnostics) %></h3>
+  <% diagnostics = project_workflow_graph_diagnostics(@graph, layout) %>
+  <% if diagnostics.empty? %>
+    <p class="nodata"><%= l(:text_project_workflow_graph_no_diagnostics) %></p>
+  <% else %>
+    <ul class="project-workflow-graph-diagnostics">
+      <% diagnostics.each do |label, nodes| %>
+        <li><strong><%= label %>:</strong> <%= project_workflow_graph_node_names(nodes) %></li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <h3><%= l(:label_project_workflow_graph_table) %></h3>
+  <% if @graph.edges.empty? %>
+    <p class="nodata"><%= l(:text_project_workflow_map_no_outgoing) %></p>
+  <% else %>
+    <div class="autoscroll">
+      <table class="list project-workflow-graph-transitions">
+        <thead>
+          <tr>
+            <th><%= l(:label_current_status) %></th>
+            <th><%= l(:label_new_statuses_allowed) %></th>
+            <th><%= l(:label_project_workflow_compare_condition) %></th>
+            <% if multiple_roles %><th><%= l(:label_role) %></th><% end %>
+          </tr>
+        </thead>
+        <tbody>
+          <% @graph.edges.each do |edge| %>
+            <tr>
+              <td class="name">
+                <%= project_workflow_status_label(edge.old_status, edge.old_status_id) %>
+              </td>
+              <td class="name">
+                <%= project_workflow_status_label(edge.new_status, edge.new_status_id) %>
+              </td>
+              <td><%= project_workflow_map_conditions_label(edge.conditions) %></td>
+              <% if multiple_roles %>
+                <td><%= project_workflow_map_roles_label(edge.roles) %></td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+<% end %>

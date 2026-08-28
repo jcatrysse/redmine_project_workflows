@@ -55,6 +55,12 @@
             <div class="project-workflow-cell-details">
               <%= project_workflow_audit_tag(cell) %>
               <%= project_workflow_compare_link(@project, row.tracker, row.role, rule_type, cell.state) %>
+              <%# The drawing, in the transitions column only: it draws
+                  transitions, and a link to it from the field-permissions cell
+                  would promise a picture of something that is not a graph. %>
+              <% if rule_type == ProjectWorkflowScope::TRANSITIONS %>
+                <%= project_workflow_graph_link(@project, row.tracker, row.role) %>
+              <% end %>
             </div>
             <% if manage %>
               <%= render partial: 'project_workflows/scope_actions',

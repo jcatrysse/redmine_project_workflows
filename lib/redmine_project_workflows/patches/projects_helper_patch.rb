@@ -67,6 +67,13 @@ module RedmineProjectWorkflows
         # `@project` straight from `ProjectsController`.
         def apply!
           ProjectsController.helper(ProjectWorkflowsHelper)
+          # The settings tab offers WP9's drawing per row, and that link and its
+          # gate live in a helper of their own. Named here for the same reason
+          # ProjectWorkflowsHelper is: Rails' include_all_helpers is built from
+          # the host application's helper paths and does not reach a plugin's
+          # app/helpers, so a partial rendered by *core's* controller sees only
+          # what is named here.
+          ProjectsController.helper(ProjectWorkflowGraphsHelper)
           ProjectsController.helper(self)
           self
         end

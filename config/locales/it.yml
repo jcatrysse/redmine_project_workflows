@@ -118,3 +118,17 @@ it:
   label_project_workflow_map_condition_author: Solo quando l'utente è l'autore
   label_project_workflow_map_condition_assignee: Solo quando l'utente è la persona assegnata
   label_project_workflow_map_condition_author_or_assignee: Solo quando l'utente è l'autore o la persona assegnata
+  label_project_workflow_graph: Diagramma del flusso di lavoro
+  label_project_workflow_graph_roles: Ruoli mostrati
+  label_project_workflow_graph_diagnostics: A cosa fare attenzione
+  label_project_workflow_graph_table: Lo stesso flusso di lavoro come tabella
+  label_project_workflow_graph_unreachable: Non raggiungibile da una nuova segnalazione
+  label_project_workflow_graph_dead_end: Da qui non si esce
+  label_project_workflow_graph_unmentioned: Non usato dai ruoli selezionati
+  text_project_workflow_graph_aria: 'Diagramma di questo flusso di lavoro: %{statuses} stati e %{transitions} transizioni. Le stesse informazioni si trovano nella tabella qui sotto.'
+  text_project_workflow_graph_no_roles: Nessuno dei ruoli selezionati partecipa a un flusso di lavoro, quindi non c'è nulla da disegnare.
+  text_project_workflow_graph_empty: Questo progetto ha qui un flusso di lavoro proprio che non contiene alcuna regola, quindi il diagramma mostra solo il punto di partenza. È una configurazione voluta e non un errore.
+  text_project_workflow_graph_no_diagnostics: Ogni stato di questo flusso di lavoro è raggiungibile da una nuova segnalazione e ha una via d'uscita.
+  text_project_workflow_graph_legend_solid: Una freccia continua è un cambiamento che può fare chiunque abbia il ruolo.
+  text_project_workflow_graph_legend_dashed: Una freccia tratteggiata è un cambiamento che possono fare solo l'autore o l'assegnatario.
+  text_project_workflow_graph_legend_band: Gli stati sotto la linea punteggiata non sono raggiungibili da una nuova segnalazione.

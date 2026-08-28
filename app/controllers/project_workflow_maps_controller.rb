@@ -23,6 +23,10 @@ class ProjectWorkflowMapsController < ApplicationController
 
   helper ProjectWorkflowsHelper
   helper ProjectWorkflowMapsHelper
+  # Only for the offer of the whole drawing beside the local view (WP9). The
+  # panel keeps no permission of its own; the link is gated on the action the
+  # drawing authorizes, which is what that helper does.
+  helper ProjectWorkflowGraphsHelper
 
   before_action :find_issue_or_project
   before_action :find_tracker

@@ -118,3 +118,17 @@ fr:
   label_project_workflow_map_condition_author: Seulement si l'utilisateur est l'auteur
   label_project_workflow_map_condition_assignee: Seulement si l'utilisateur est la personne assignée
   label_project_workflow_map_condition_author_or_assignee: Seulement si l'utilisateur est l'auteur ou la personne assignée
+  label_project_workflow_graph: Diagramme du flux de travail
+  label_project_workflow_graph_roles: Rôles affichés
+  label_project_workflow_graph_diagnostics: Ce qu'il faut regarder
+  label_project_workflow_graph_table: Le même flux de travail sous forme de tableau
+  label_project_workflow_graph_unreachable: Inaccessible depuis une nouvelle demande
+  label_project_workflow_graph_dead_end: Rien n'en sort
+  label_project_workflow_graph_unmentioned: Non utilisé par les rôles sélectionnés
+  text_project_workflow_graph_aria: 'Diagramme de ce flux de travail : %{statuses} statuts et %{transitions} transitions. Les mêmes informations figurent dans le tableau ci-dessous.'
+  text_project_workflow_graph_no_roles: Aucun des rôles sélectionnés ne participe à un flux de travail ; il n'y a donc rien à dessiner.
+  text_project_workflow_graph_empty: Ce projet a ici son propre flux de travail et celui-ci ne contient aucune règle ; le diagramme ne montre donc que le point de départ. C'est une configuration délibérée et non une anomalie.
+  text_project_workflow_graph_no_diagnostics: Chaque statut de ce flux de travail est accessible depuis une nouvelle demande et possède une sortie.
+  text_project_workflow_graph_legend_solid: Une flèche continue est un changement que peut faire toute personne ayant le rôle.
+  text_project_workflow_graph_legend_dashed: Une flèche en pointillés est un changement que seuls l'auteur ou l'assigné peuvent faire.
+  text_project_workflow_graph_legend_band: Les statuts situés sous la ligne pointillée sont inaccessibles depuis une nouvelle demande.

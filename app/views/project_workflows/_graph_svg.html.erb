@@ -1,0 +1,82 @@
+<%#
+  The drawing itself (WP9). Inline SVG, laid out in Ruby by
+  Services::WorkflowGraphLayout, with the words that carry meaning underneath it
+  rather than inside it.
+
+  Four rules this file keeps, each of which has a reason that is not obvious:
+
+  * **currentColor everywhere.** Redmine 7.0 ships no dark mode, but third-party
+    themes change exactly the colours one would otherwise hard-code, and a
+    drawing with a black stroke on a dark theme is invisible. What the drawing
+    distinguishes it distinguishes by line style -- solid against dashed -- and
+    the legend below says which is which in words.
+  * **The arrowhead is a <marker>, not `context-stroke`.** That keyword is not
+    safe on every browser the supported Redmine versions run on. One marker
+    serves every arrow, because every arrow is the same colour; `currentColor`
+    inside it resolves against the <svg> root, which is the text colour.
+  * **The viewBox comes from the layout**, which measured it over the node boxes
+    *and* every point of every path. Sizing it here from the nodes would clip the
+    returning arcs, silently.
+  * **No <foreignObject>, no <script>, no <style>.** The first is unreliable and
+    the other two are an injection surface in a document built from user-supplied
+    status names.
+
+  `layout` is the local this partial needs; the graph is only used for the band
+  separator.
+%>
+<div class="autoscroll project-workflow-graph">
+  <svg viewBox="<%= layout.view_box %>" width="<%= layout.width %>" height="<%= layout.height %>"
+       xmlns="http://www.w3.org/2000/svg" role="img"
+       aria-label="<%= project_workflow_graph_aria_label(@graph) %>"
+       class="project-workflow-graph-svg" font-size="12">
+    <defs>
+      <marker id="project-workflow-graph-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4"
+              orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+        <path d="M 0 0 L 9 4 L 0 8 z" fill="currentColor" />
+      </marker>
+    </defs>
+
+    <%# The band of statuses the entry node cannot reach is separated by a rule
+        rather than by a caption inside the drawing: a caption is a <text> that
+        SVG cannot wrap or measure, so on a narrow drawing it would run outside
+        the viewBox and be clipped. The words are immediately below the picture
+        instead, where they can wrap. %>
+    <% if layout.band_top %>
+      <line x1="0" y1="<%= layout.band_top - 24 %>" x2="<%= layout.width %>" y2="<%= layout.band_top - 24 %>"
+            stroke="currentColor" stroke-width="1" stroke-dasharray="2 4" opacity="0.5" />
+    <% end %>
+
+    <g class="project-workflow-graph-edges" fill="none" stroke="currentColor" stroke-width="1.5">
+      <% layout.edges.each do |routed| %>
+        <path d="<%= routed.d %>"
+              marker-end="url(#project-workflow-graph-arrow)"
+              <%= routed.conditional ? 'stroke-dasharray="5 3"'.html_safe : ''.html_safe %>
+              class="project-workflow-graph-edge<%= routed.conditional ? ' conditional' : '' %><%= routed.back ? ' returning' : '' %>">
+          <title><%= project_workflow_graph_edge_title(routed.edge) %></title>
+        </path>
+      <% end %>
+    </g>
+
+    <g class="project-workflow-graph-nodes">
+      <% layout.nodes.each do |placed| %>
+        <% full_name = project_workflow_status_label(placed.node.status, placed.node.status_id) %>
+        <g class="project-workflow-graph-node<%= placed.node.entry? ? ' entry' : '' %><%= placed.band ? ' outside' : '' %>">
+          <title><%= full_name %></title>
+          <%# The entry node is core's "new issue" pseudo-status rather than a
+              status an issue can sit in, so it is drawn as a rounded pill; a
+              status outside the flow is dashed, and the words below say why. %>
+          <rect x="<%= placed.x %>" y="<%= placed.y %>" width="<%= placed.width %>" height="<%= placed.height %>"
+                rx="<%= placed.node.entry? ? placed.height / 2 : 4 %>"
+                fill="none" stroke="currentColor" stroke-width="1.5"
+                <%= placed.band ? 'stroke-dasharray="5 3"'.html_safe : ''.html_safe %> />
+          <text x="<%= placed.center_x %>" y="<%= project_workflow_graph_text_ys(placed).first %>"
+                text-anchor="middle" fill="currentColor">
+            <% project_workflow_graph_text_ys(placed).each_with_index do |line_y, index| %>
+              <tspan x="<%= placed.center_x %>" y="<%= line_y %>"><%= placed.lines[index] %></tspan>
+            <% end %>
+          </text>
+        </g>
+      <% end %>
+    </g>
+  </svg>
+</div>

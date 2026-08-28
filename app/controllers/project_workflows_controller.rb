@@ -31,11 +31,21 @@ class ProjectWorkflowsController < ApplicationController
 
   helper :workflows
   helper ProjectWorkflowsHelper
+  # WP9's drawing, and the condition wording it shares with the issue form's
+  # panel -- one phrase for one move, written once so the two screens cannot
+  # drift apart about what a move requires.
+  helper ProjectWorkflowGraphsHelper
+  helper ProjectWorkflowMapsHelper
 
   before_action :find_project_by_project_id
   before_action :authorize
   before_action :find_rule_type, only: %i[compare enable inherit clear]
-  before_action :find_tracker_and_role
+  # #graph is the one action that describes *several* roles at once, so it picks
+  # its selection out of a list of its own rather than through the single-role
+  # finder. Both finders intersect a request parameter with a list built from the
+  # project and never query on the parameter itself (INV-7).
+  before_action :find_tracker_and_role, except: %i[graph]
+  before_action :find_tracker_and_roles, only: %i[graph]
   # Only #enable. Every other action acts on a scope that already exists, or on
   # rules under one; taking a *new* workflow over is the one thing a role with no
   # member in the project is not offered (finding F05).
@@ -141,6 +151,26 @@ class ProjectWorkflowsController < ApplicationController
                            @custom_fields_by_name.keys
   end
 
+  # The whole of this project's transitions workflow for one tracker and a
+  # selection of roles, as a drawing with a table beneath it (WP9).
+  #
+  # Read-only, and behind the same +authorize+ as everything else here: the map
+  # shows what *other* roles may do, which is project configuration rather than
+  # information about one issue, so it sits behind +view_project_workflow+ while
+  # the issue form's own panel keeps no permission of its own (decided by Jan,
+  # 2026-08-28).
+  #
+  # Transitions only. Field permissions are not a graph -- they are a property of
+  # a status, not of a move between two -- and the comparison screen is where
+  # they are read side by side.
+  def graph
+    @rule_type = ProjectWorkflowScope::TRANSITIONS
+    @graph = RedmineProjectWorkflows::Services::WorkflowGraphQuery.new(
+      project: @project, tracker: @tracker, role_ids: @roles.map(&:id)
+    ).result
+    @manage_project_workflow = User.current.allowed_to?(:manage_project_workflow, @project)
+  end
+
   # The three actions of INV-3, for this project and this one combination. They
   # go through ScopeWriter like the administration screens do; the only
   # difference is that the selection cannot be anything but this project.
@@ -198,6 +228,54 @@ class ProjectWorkflowsController < ApplicationController
     offered = options.roles(@project)
     @role = options.visible_roles(@project, offered).detect { |role| role.id.to_s == params[:role_id].to_s }
     @role_offered = @role.present? && offered.any? { |role| role.id == @role.id }
+  end
+
+  # The drawing's selection: one tracker, and one or more roles out of the very
+  # list the settings tab and the matrix offer (answer B of 2026-08-28 -- every
+  # role the project screen already lists, not only the reader's own).
+  #
+  # A role the project does not offer, or a tracker it has not enabled, answers
+  # 404 rather than drawing something else: silently narrowing a selection to
+  # what happens to be allowed would draw one workflow under the heading of
+  # another.
+  def find_tracker_and_roles
+    return if performed?
+
+    options = RedmineProjectWorkflows::Services::ProjectOptions
+    @tracker = options.trackers(@project).detect { |tracker| tracker.id.to_s == params[:tracker_id].to_s }
+    @visible_roles = @tracker.nil? ? [] : options.visible_roles(@project)
+    @roles = selected_roles
+    render_404 if @tracker.nil? || @roles.empty?
+  end
+
+  # What the request asked for, intersected with the list above -- so a parameter
+  # can only ever name a role the project already offers, and no shape of it
+  # reaches a query (Project.where(id: ['1e5']) resolves to project 1, which is
+  # why the shape of an id is never relied on).
+  #
+  # With nothing asked for, the reader's own roles here, which is the union the
+  # status dropdown on an issue of theirs is built from and therefore the answer
+  # to "what may I do". A reader who holds none -- an administrator, or somebody
+  # with the permission through a group -- gets the whole list rather than an
+  # empty drawing.
+  def selected_roles
+    return [] if @visible_roles.empty?
+
+    requested = requested_role_ids
+    return @visible_roles.select { |role| requested.include?(role.id.to_s) } if requested.any?
+
+    own = User.current.roles_for_project(@project).to_set(&:id)
+    @visible_roles.select { |role| own.include?(role.id) }.presence || @visible_roles
+  end
+
+  # A scalar, a list, or anything else. Compared as strings against ids the
+  # server already holds, so a Hash or a nested array simply matches nothing and
+  # answers 404 -- it never reaches a query and never raises.
+  def requested_role_ids
+    value = params[:role_id]
+    return [] if value.blank?
+
+    (value.is_a?(Array) ? value : [value]).map(&:to_s)
   end
 
   # 403 rather than 404: the combination exists and this user may look at it, so

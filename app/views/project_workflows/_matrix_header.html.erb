@@ -8,6 +8,10 @@
   matrix, which is what keeps every cell a plain yes or no.
 %>
 <div class="contextual">
+  <%# The drawing, for this tracker and this role. Offered on both matrices even
+      though it only ever draws transitions: from the field-permissions matrix it
+      is the fastest way to see the flow the permissions hang off. %>
+  <%= project_workflow_graph_link(@project, @tracker, @role) %>
   <%= project_workflow_compare_link(@project, @tracker, @role, @rule_type, @scope_state.state) %>
   <%= link_to l(:label_settings), settings_project_path(@project, tab: 'project_workflows') %>
 </div>

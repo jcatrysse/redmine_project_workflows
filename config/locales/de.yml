@@ -118,3 +118,17 @@ de:
   label_project_workflow_map_condition_author: Nur wenn der Benutzer der Autor ist
   label_project_workflow_map_condition_assignee: Nur wenn der Benutzer der Bearbeiter ist
   label_project_workflow_map_condition_author_or_assignee: Nur wenn der Benutzer der Autor oder der Bearbeiter ist
+  label_project_workflow_graph: Workflow-Diagramm
+  label_project_workflow_graph_roles: Angezeigte Rollen
+  label_project_workflow_graph_diagnostics: Worauf zu achten ist
+  label_project_workflow_graph_table: Derselbe Workflow als Tabelle
+  label_project_workflow_graph_unreachable: Von einem neuen Ticket aus nicht erreichbar
+  label_project_workflow_graph_dead_end: Von hier führt nichts weiter
+  label_project_workflow_graph_unmentioned: Von den gewählten Rollen nicht verwendet
+  text_project_workflow_graph_aria: 'Diagramm dieses Workflows: %{statuses} Status und %{transitions} Übergänge. Dieselben Angaben stehen in der Tabelle darunter.'
+  text_project_workflow_graph_no_roles: Keine der gewählten Rollen nimmt an einem Workflow teil, es gibt also nichts zu zeichnen.
+  text_project_workflow_graph_empty: Dieses Projekt hat hier einen eigenen Workflow, und dieser enthält keine einzige Regel. Das Diagramm zeigt deshalb nur den Ausgangspunkt. Das ist eine bewusste Einstellung und kein Fehler.
+  text_project_workflow_graph_no_diagnostics: Jeder Status in diesem Workflow ist von einem neuen Ticket aus erreichbar und hat einen Ausgang.
+  text_project_workflow_graph_legend_solid: Ein durchgezogener Pfeil ist eine Änderung, die jeder mit dieser Rolle vornehmen darf.
+  text_project_workflow_graph_legend_dashed: Ein gestrichelter Pfeil ist eine Änderung, die nur der Autor oder der Bearbeiter vornehmen darf.
+  text_project_workflow_graph_legend_band: Status unterhalb der gepunkteten Linie sind von einem neuen Ticket aus nicht erreichbar.

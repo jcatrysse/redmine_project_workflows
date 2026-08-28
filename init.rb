@@ -44,11 +44,11 @@ Redmine::Plugin.register :redmine_project_workflows do
   project_module :issue_tracking do
     permission :view_project_workflow,
                { projects: :settings,
-                 project_workflows: %i[transitions permissions compare] },
+                 project_workflows: %i[transitions permissions compare graph] },
                read: true
     permission :manage_project_workflow,
                { projects: :settings,
-                 project_workflows: %i[transitions permissions compare update_transitions
+                 project_workflows: %i[transitions permissions compare graph update_transitions
                                        update_permissions enable inherit clear] },
                require: :member
   end
