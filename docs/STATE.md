@@ -27,7 +27,8 @@
   `--allow-unrelated-histories`. `main` also still carries the old two-cell CI.
 - **Open choices for Jan:** still just the one from last session (F01's wording),
   and it is not urgent. Nothing new was filed.
-- **One thing to check first:** CI on the head, `7bc8934`. See *Exact next step*.
+- **CI is green.** Run **123** passed all eleven jobs. Three earlier runs this
+  session were red on the six MySQL and MariaDB cells; see the traps for why.
 
 ## What this session produced
 
@@ -107,15 +108,14 @@ eight files.
 | Locale files | **all eight**, fifteen new keys each, parity green. `en` and `nl` by hand; `de`, `es`, `fr`, `it`, `pl` and `pt` translated |
 | Version gate | `init.rb` 0.1.6 = the newest `CHANGELOG.md` heading |
 | INV-9 | **untouched** — still fifteen overrides in twelve files. WP9 adds no Deface anchor; everything is in the plugin's own views |
-| CI | runs **118** and **119** were **red on six of nine cells** (every MySQL and MariaDB cell) on the PostgreSQL-only spec pattern, which is what this session's last commit repairs. **Run 121 was still in flight when this file was written** — read it |
+| CI | run **123**, on `048bf41`: **green on all eleven jobs** — the nine-cell matrix, RuboCop and the bulk-action JavaScript gate. Runs **118**, **119** and **121** were red on six of nine cells (every MySQL and MariaDB cell) on the PostgreSQL-only spec pattern, and runs **120** and **122** read `cancelled`, which is the concurrency group superseding them rather than a failure. The one commit after 123 is this note and two comments |
 
 ## Exact next step
 
-1. **Read CI for the head, `7bc8934`, and act on it.** This is not a formality
-   this time: two runs this session were red, on cells no PostgreSQL host can
-   see, and the repair has been verified locally on MariaDB but not yet by CI.
-   Runs 118 and 119 are the red ones; 120 and 121 were queued behind the fix and
-   their results are the ones that matter.
+1. **Read CI for the head and act on it if it is red.** Run **123** was green on
+   all eleven jobs, and the only commit after it changes two comments and this
+   file — but three runs this session *were* red, on cells no PostgreSQL host can
+   see, so read rather than assume.
 2. **Then it is Jan's turn.** WP0..WP9 are done, every findings file is closed,
    and the readable account for a user is `CHANGELOG.md`'s 0.1.6 entry and the
    README's *The workflow as a diagram* section.
@@ -259,6 +259,11 @@ the rest is carried forward.
   sprite, and then on the plugin's own arrowhead `<marker>`, which lives in
   `<defs>` whether anything uses it or not. Scope to the plugin's `<svg>`, and
   then to what makes a path an *arrow*: its `marker-end`.
+- **Redmine caps an issue status name at 30 characters** (`validates_length_of
+  :name, maximum: 30`), which is a useful number to know before sizing anything
+  that holds one: WP9's node box holds two lines of sixteen. A spec that creates
+  a longer status raises `Validation failed: Name is too long`, which reads like
+  a bug in the thing under test and is a fixture problem.
 - **SVG neither wraps nor measures text**, so anything drawn as `<text>` whose
   width the layout cannot know can run outside the `viewBox` and be clipped with
   no error anywhere. That is why WP9's band of unreachable statuses is separated
@@ -861,9 +866,10 @@ Read CLAUDE.md and docs/STATE.md. Carry on.
 
 WP0..WP9 are done and the plan is finished, so "carry on" means, in order:
 
-1. **Read CI for the head `7bc8934` and act on it if it is red.** Two runs this
-   session were red on the six MySQL and MariaDB cells; the repair is verified on
-   a local MariaDB but CI is the authority.
+1. **Read CI for the head and act on it if it is red.** Run 123 was green on all
+   eleven jobs and only comments and this file have landed since — but three runs
+   this session were red on the six MySQL and MariaDB cells, so read rather than
+   assume.
 2. **Nothing else is waiting.** Every finding in every findings file is closed or
    decided. One choice is with Jan (F01's wording) and its default is
    implemented.

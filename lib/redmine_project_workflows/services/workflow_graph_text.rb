@@ -16,7 +16,14 @@ module RedmineProjectWorkflows
     # is a signal to extract -- and because "how a name is shortened" is a
     # decision worth being able to change, and to test, without a graph.
     class WorkflowGraphText
-      # An em-width estimate for the font Redmine's own tables use.
+      # An em-width estimate for the font Redmine's own tables use. Two lines of
+      # (132 - 16) / 7 = 16 characters is 32, and **Redmine caps an issue
+      # status name at 30** (`validates_length_of :name, maximum: 30`), so the
+      # truncation below is close to unreachable in practice: only a name that
+      # cannot be broken on a space -- one word longer than sixteen characters,
+      # or two whose first is -- reaches it. That is a reason to leave the box
+      # width alone rather than a reason to drop the truncation, which is what
+      # keeps a pathological name from running across its neighbour.
       CHAR_WIDTH = 7
       # The white space either side of the text inside a node.
       INSET = 8
