@@ -15,10 +15,11 @@ git checkout -B claude/dev origin/claude/dev
 git rev-parse --short HEAD    # put this in your findings file
 ```
 
-Review the head of **`claude/dev`** unless you were told otherwise (answered
-**A** by Jan on 2026-08-27; `docs/review/README.md` gives the reasoning). `main`
-means "last released" and is a long way behind, so reviewing it would be a
-session spent on code that no longer exists.
+Review the head of **`claude/dev`**, and push your findings file there too
+(answered **A** by Jan on 2026-08-27 and **B** on 2026-08-28;
+`docs/review/README.md` gives the reasoning for both). `main` means "last
+released" and is a long way behind, so reviewing it would be a session spent on
+code that no longer exists — and nothing in this loop is written to it.
 
 `checkout -B` rather than `checkout` and `pull --ff-only`: the local
 `claude/dev` in a fresh container can have a history *unrelated* to the remote's,
@@ -143,8 +144,12 @@ Two things reviewers get wrong here:
   outcome." If you cannot write that sentence, mark the finding `speculative`
   or `nit` rather than inflating it.
 
-Then commit the file to `main` and verify the push landed. That is the only
-thing a reviewer pushes — the findings file goes to `main` even though the code
-you reviewed is on `claude/dev`, because that is where other sessions look for
-it. Push only the file: do not merge, rebase or otherwise move `claude/dev`'s
-code onto `main`, whose history is unrelated to it.
+Then commit the file to `claude/dev` and verify the push landed
+(`git ls-remote --heads origin`). That is the only thing a reviewer pushes: the
+findings file, on the same branch as the code it describes, in a commit of its
+own that touches no code. Nothing in this loop goes to `main` — answered **B** by
+Jan on 2026-08-28 — so do not merge, rebase or otherwise move anything onto it.
+
+A fixing session will answer this same file in place. Your wording is not lost by
+that: `git show <your-commit>:docs/review/findings/<file>` prints it exactly as
+you wrote it.

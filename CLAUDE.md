@@ -231,9 +231,11 @@ task is worth less than a clean stop.
   time and `main` quietly falls behind. If a session starts somewhere else, do
   not commit there — check out `claude/dev` (creating it from the remote if
   needed) and say so in the session report.
-- **The one exception:** a review session pushes its findings file to `main`,
-  because other sessions have to be able to see it. Code never goes to `main`
-  directly; Jan asks for the merge himself.
+- **No exception, since 2026-08-28.** A review session pushes its findings file
+  to `claude/dev` too, beside the code it describes — answered **B** by Jan, and
+  it replaced the older rule that sent findings to `main`. `main` means "last
+  released" and nothing is written to it by a session; Jan asks for the merge
+  himself.
 - Atomic commit per work package or coherent step. The message names the work
   package, what changed, and one line of gate evidence. Push after every commit
   and verify it landed (`git ls-remote --heads origin`) rather than assuming.

@@ -14,11 +14,11 @@ Three roles, three prompts, one shared file format:
 ## The cycle
 
 ```
-review session  ->  reviews claude/dev, commits its findings file to main
+review session  ->  reviews claude/dev, commits its findings file to claude/dev
                         |
-fix session     ->  brings that file onto claude/dev, reads every open finding,
-                    fixes or answers each one, updates its Status, pushes to
-                    claude/dev -- so main's copy keeps the original statuses
+fix session     ->  reads every open finding in that file, fixes or answers each
+                    one, updates its Status and Resolution in place, pushes to
+                    claude/dev -- one copy, so there is nothing to keep in step
                         |
 review session  ->  a new run, a new findings file (never edits an old one)
 ```
@@ -30,31 +30,35 @@ history of what was found and what was done about it stays readable.
 
 | Role | Reviews | Pushes to |
 | --- | --- | --- |
-| **Reviewer** | the head of `claude/dev`, unless Jan says otherwise | its findings file, to `main` |
+| **Reviewer** | the head of `claude/dev` | its findings file, to `claude/dev` |
 | **Fixer** | `claude/dev` | `claude/dev` only |
 
-A reviewer reviews **`claude/dev`, not `main`** — answered **A** by Jan on
-2026-08-27, on finding F09 of that day's review. `main` means "last released",
-and it is a long way behind: at the time of that answer it stood at `6c17b31`,
-three commits from before 0.1.0, while `claude/dev` carried eight work packages
-and three review rounds more. A reviewer who took the old instruction literally
-would spend a session on code that no longer exists, and the file format records
-the commit without checking it against the branch. Two consequences worth
-knowing:
+**Everything in this loop lives on `claude/dev`. Nothing goes to `main`** —
+answered **B** by Jan on 2026-08-28. `main` means "last released"; the branch is
+pinned in `CLAUDE.md` and there is now no exception to it, for findings any more
+than for code.
 
-* the two branches' histories are **unrelated** — `git merge-base main claude/dev`
-  prints nothing — so `main` is not an ancestor of anything you are reviewing,
-  and a merge, when Jan wants one, needs `--allow-unrelated-histories`;
-* a findings file therefore lives on `main` while the code it describes lives on
-  `claude/dev`. A fixer brings the file across (`FIX-PROMPT.md` says how) and
-  answers it **there**, so once a fixing session has run, `main`'s copy still
-  reads `open` for findings that are closed. Read a findings file from
-  `claude/dev` before believing its `Status:` lines.
+A reviewer reviews `claude/dev` rather than `main` for the reason Jan gave on
+2026-08-27 (finding F09 of that day's review): `main` is a long way behind — at
+the time of that answer it stood three commits from before 0.1.0 while
+`claude/dev` carried eight work packages and three review rounds more — so a
+reviewer following the old instruction would spend a session on code that no
+longer exists. The findings file now follows the code it describes.
 
-`CLAUDE.md` pins the development branch and keeps code off `main`. A reviewer's
-findings file is the single documented exception, because other sessions have
-to be able to see it. If the push is refused, commit where you stand and print
-the file rather than silently dropping it.
+What the older arrangement bought, and what replaces it: a copy on `main` kept
+the findings as the reviewer wrote them, because a fixing session answered a
+separate copy on `claude/dev`. With one copy that is no longer needed — the
+original wording is in git, and `git show <review-commit>:docs/review/findings/<file>`
+prints exactly what the reviewer wrote. One copy also removes the trap the old
+arrangement had: two files with the same name and different `Status:` lines, and
+a reader with no way to tell which one they had opened.
+
+Still worth knowing, because it will bite a merge rather than a review: the two
+branches' histories are **unrelated** — `git merge-base main claude/dev` prints
+nothing — so a merge, when Jan wants one, needs `--allow-unrelated-histories`.
+
+If a push is refused, commit where you stand and print the file rather than
+silently dropping it.
 
 Verify a push landed — `git ls-remote --heads origin` — rather than assuming.
 

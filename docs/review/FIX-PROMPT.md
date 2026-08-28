@@ -24,12 +24,17 @@ merge base piped into `xargs git log -1` prints **HEAD**, which looks exactly
 like a merge base that happens to be your own commit. `--is-ancestor` and its
 exit status cannot mislead.
 
-Findings files live on `main`, whose history is unrelated to this branch's, so
-fetch it rather than merging it:
+Findings files live on **this** branch, beside the code they describe — answered
+**B** by Jan on 2026-08-28, so there is nothing to fetch from `main` and nothing
+to bring across:
 
 ```bash
-git log --oneline origin/main -5     # has a reviewer pushed since you branched?
+git log --oneline -8 -- docs/review/findings/   # has a reviewer pushed since you branched?
 ```
+
+You answer the file in place: its `Status:` and `Resolution:` lines are yours to
+update, and the reviewer's original wording stays readable through
+`git show <review-commit>:docs/review/findings/<file>`.
 
 Then read `CLAUDE.md` and `docs/STATE.md`.
 

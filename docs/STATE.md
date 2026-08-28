@@ -22,15 +22,37 @@
   `claude/docs-review-f58si2`, which happened to point at the same commit as the
   real remote head; `git checkout -B claude/dev origin/claude/dev` was the whole
   rescue, and nothing was lost.
-- **`main`:** untouched. Jan asks for the merge himself, and the two histories
-  are still **unrelated** — no merge base, so a merge needs
+- **`main`:** its tree is untouched, but it has two more commits than it did: a
+  review session pushed a findings file there on 2026-08-28 under the *old*
+  convention and reverted it in the same session when Jan changed the convention.
+  Nothing else is written to `main` by a session; Jan asks for the merge himself,
+  and the two histories are still **unrelated** — no merge base, so a merge needs
   `--allow-unrelated-histories`. `main` also still carries the old two-cell CI.
-- **Open choices for Jan:** still just the one from last session (F01's wording),
-  and it is not urgent. Nothing new was filed.
-- **CI is green on the head.** Run **124** on `ee8ee54` passed all eleven jobs —
-  the nine-cell matrix, RuboCop and the bulk-action JavaScript gate. Three
-  earlier runs this session were red on the six MySQL and MariaDB cells; see the
-  traps for why.
+- **The review loop now lives entirely on `claude/dev`.** Answered **B** by Jan on
+  2026-08-28: a reviewer pushes its findings file beside the code it describes and
+  a fixer answers that same file in place. This replaced the older rule that sent
+  findings to `main` so that `main`'s copy kept the original statuses; with one
+  copy there is nothing to keep in step, and the reviewer's original wording is
+  still readable through `git show <review-commit>:docs/review/findings/<file>`.
+  `docs/review/README.md`, `PROMPT.md`, `FIX-PROMPT.md` and `CLAUDE.md` all say so.
+- **There is an open review run.** `docs/review/findings/2026-08-28-claude.md`,
+  against this head: **three major and two minor, none of them a blocker**. Read
+  it before anything else. In one line each — the drawing does not model core's
+  fallback from the *new issue* node to the tracker's default status, so on a
+  **stock Redmine** every status reads as unreachable (F01); the issue panel says
+  "no change of status is permitted" when one of several roles is
+  overridden-and-empty while the status list offers six (F02, predates WP9);
+  longest-path ranking turns Redmine's default *complete* workflow graph into
+  unreadable spaghetti at six statuses (F03); the unreachable band gets no ranking
+  of its own (F04); and two action links on the settings tab read as one sentence
+  (F05, found in a browser session on 2026-08-28 and never filed until now).
+- **Open choices for Jan:** still just the one from before (F01 of
+  `2026-08-27-bundled`, the refused-values wording), and it is not urgent.
+- **CI is green on the head.** Run **125** on `109adb7` — the head itself — passed
+  all eleven jobs, verified from the Actions API by the review session; run **124**
+  on `ee8ee54` did too — the nine-cell matrix, RuboCop and the bulk-action
+  JavaScript gate. Three earlier runs of the building session were red on the six
+  MySQL and MariaDB cells; see the traps for why.
 
 ## What this session produced
 
@@ -114,18 +136,30 @@ eight files.
 
 ## Exact next step
 
+**Be a fixing session on `docs/review/findings/2026-08-28-claude.md`.** The
+review that step 3 of the previous plan asked for has been done, against this
+head, and it found five things. `docs/review/FIX-PROMPT.md` is the prompt; the
+file is on this branch and is answered in place.
+
 1. **Read CI for the head and act on it if it is red.** It was green when this
-   was written — run **124** on `ee8ee54`, all eleven jobs — but three runs this
-   session *were* red, on cells no PostgreSQL host can see, so read rather than
-   assume.
-2. **Then it is Jan's turn.** WP0..WP9 are done, every findings file is closed,
-   and the readable account for a user is `CHANGELOG.md`'s 0.1.6 entry and the
-   README's *The workflow as a diagram* section.
-3. **If more work is wanted rather than needed**, a **review run** against the
-   current head is the honest option, and this time it has something new to
-   review: WP9 is about 1,400 lines of new code and specs that no reviewer has
-   seen. That is a better use of a review than a third pass over the same
-   pre-WP9 code.
+   was written — run **125** on `109adb7`, all eleven jobs — but three runs of the
+   building session *were* red, on cells no PostgreSQL host can see, so read
+   rather than assume.
+2. **F01 first.** The drawing takes core's *new issue* node as its only entry
+   point and does not model core's fallback to the tracker's default status
+   (`app/models/issue.rb:1123`). Redmine's own default data seeds no rule out of
+   that node, so on a **stock installation** every status is reported unreachable
+   and the picture collapses into a band. F03 and F04 are both easier to judge
+   once the drawing is no longer degenerate, so this one is not merely first by
+   severity.
+3. **Then F02**, which predates WP9 and is a one-view fix with a locale change
+   across eight files, and **F03/F04**, which are both `WorkflowGraphRanking`
+   and want a decision about ranking by shortest rather than longest path.
+   **F05** is small and independent of all of them.
+4. **Then it is Jan's turn.** The readable account for a user is
+   `CHANGELOG.md`'s 0.1.6 entry and the README's *The workflow as a diagram*
+   section — worth re-reading once F01 is fixed, because both describe the
+   diagnostic that F01 makes wrong.
 
 ## Open choices
 
@@ -866,17 +900,18 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-WP0..WP9 are done and the plan is finished, so "carry on" means, in order:
+WP0..WP9 are done and the plan is finished, but a review run against this head is
+**open**, so "carry on" means, in order:
 
-1. **Read CI for the head and act on it if it is red.** Run 124 was green on all
-   eleven jobs and only this file has landed since — but three runs this session
-   were red on the six MySQL and MariaDB cells, so read rather than assume.
-2. **Nothing else is waiting.** Every finding in every findings file is closed or
-   decided. One choice is with Jan (F01's wording) and its default is
+1. **Read CI for the head and act on it if it is red.** Run 125 on `109adb7` was
+   green on all eleven jobs — but three runs of the building session were red on
+   the six MySQL and MariaDB cells, so read rather than assume.
+2. **Be a fixing session on `docs/review/findings/2026-08-28-claude.md`**, which
+   is on this branch and is answered in place. Five findings: three major, two
+   minor, no blocker. F01 first — see *Exact next step* above for why the order
+   matters. Every finding in every **other** findings file is closed or decided,
+   and one choice is with Jan (the refused-values wording) with its default
    implemented.
-3. **If more work is wanted rather than needed**, a **review run** against the
-   current head — and unlike the last two, it has something genuinely new to
-   look at: WP9 is about 1,400 lines nobody has reviewed.
 
 Do not invent a work package on top of WP9, and do not re-open the 2026-08-27
 run's "Checked and not filed" table: 24 claims, thirteen rejected or already
