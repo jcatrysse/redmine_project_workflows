@@ -70,7 +70,7 @@ somebody in the first week.
 
 ### F01 — Copying a project does not carry its own workflow, and nothing anywhere says so
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** correctness
@@ -134,13 +134,43 @@ and matches what duplicating a role already does; whichever is chosen, the
 decision belongs in `docs/DECISIONS.md`, because the present state is silence
 rather than a choice.
 
-**Resolution:**
+**Resolution:** fixed — **copy it**, which is what the finding recommended and
+what duplicating a role or a tracker has done since 0.1.0. Logged as a Class B
+choice in `docs/DECISIONS.md` with both options, what A costs, and the
+recommendation; A is in place and is reversible from the screen.
+
+`Hooks::ProjectCopyHook` is the plugin's first and only `Redmine::Hook::Listener`
+and does nothing but check its arguments; `Services::ProjectWorkflowCopier` does
+the work. It copies the scopes and then the rules those scopes make visible, for
+the trackers the *target* has, in two INSERT … SELECT statements per rule type
+rather than a round trip per row. An own *empty* workflow arrives as an empty one
+(INV-3); a rule row with no scope is left behind, because the resolver ignores it
+where it is now; a target that already carries a scope of its own is not touched
+at all. The generic workflow and the source are untouched (INV-1) and every
+statement names a project_id (INV-4).
+
+The one thing the finding did not raise and the fix had to answer: `docs/design.md`
+counts the write paths that take scope rows before workflow rows, and that count
+was **four**. This is a fifth. It takes no `SELECT … FOR UPDATE` and it says so
+in the same paragraph, with the reason — the target was created a few statements
+earlier in the same transaction and no other request has seen its id. The count
+moved from four to five in the same commit, because that document already records
+how a counted claim with a path missing produced finding F01 of 2026-08-27.
+
+Red on the old code, measured rather than assumed: with the listener's body
+replaced by `nil` and nothing else changed, **3 of the 11** new examples fail —
+the scope and rules case, the own-empty case, and the one that compares the
+effective status list of the copy against the source's (`[1, 3]` expected,
+`[1, 2]` returned, the copy having fallen back to the generic workflow). The
+remaining eight are the copier's own cases and the controls, which cannot fail
+against code that has no copier. Documented in `README.md`, `CHANGELOG.md` (an
+`### Added` bullet of its own) and `docs/design.md`'s table of Redmine's seams.
 
 ---
 
 ### F02 — Three query services build a relation on `workflows` with no `project_id`, so INV-4's own grep comes back dirty
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** code-quality
@@ -198,13 +228,46 @@ naming these three as deliberate, the way `CLAUDE.md` names
 `copy_one_with_projects`, is the cheap answer and is better than nothing; it is
 not as good as making the shape impossible.
 
-**Resolution:**
+**Resolution:** fixed — the shape is impossible rather than merely commented,
+which is the half of the suggested direction the finding itself called the
+better one.
+
+`TransitionQuery` and `PermissionQuery` now build both populations with
+`WorkflowPopulations`, which is what it was extracted for, and add everything
+else — the status, the author/assignee condition — to what comes back rather than
+to the halves. `StatusListQuery` keeps its local shape, because the bulk pair
+grouping does not fit `WorkflowPopulations`, but its `base_scope` is gone: the
+one method that builds a relation there takes the project_id as a **positional**
+argument, exactly as `WorkflowPopulations.relation` does, so a relation without
+one cannot exist in the file even for a line.
+
+`spec/plugin_conventions_spec.rb` now greps for the construct. It checks the
+**statement** rather than a window of lines — the match is grown until its
+parentheses balance — so a base relation assigned on one line and given a
+project_id by a later statement does *not* clear it. A three-line window did
+clear it, which is worth recording: the first version of this test passed against
+the very shape it exists to reject.
+
+One behaviour had to be preserved and was nearly lost. `WorkflowPopulations`
+answered `[]` for a blank project_id, and an issue with no project yet reads the
+**generic** workflow — the choice `Issue#tracker=` records in its own comment.
+Since no project means no scope can exist, the Resolver already answers "nothing
+overridden", so dropping that guard is the whole change and the relation still
+carries an explicit `project_id: nil`. Two examples pin it, in
+`transition_query_spec.rb` and `permission_query_spec.rb`.
+
+Red on the old code: with the old `base_scope` put back in `PermissionQuery`
+alone, the conventions example fails naming
+`lib/redmine_project_workflows/services/permission_query.rb:26`; with the blank
+project_id guard put back in `WorkflowPopulations`, the two new nil-project
+examples fail and nothing else does. No answer changed anywhere: 852 examples
+green on 7.0 and on 5.1.
 
 ---
 
 ### F03 — The diagram's accessible label counts the *New issue* node as a status and Redmine's fallback as a transition
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** accessibility
@@ -258,7 +321,33 @@ rather than being folded into the count — a screen-reader user has as much use
 existing key takes two interpolations; a third, or a second sentence, is the whole
 change, in eight locale files.
 
-**Resolution:**
+**Resolution:** fixed — both counts now count what the words say, and the
+fallback is given a clause of its own rather than dropped.
+
+`project_workflow_graph_aria_label` counts `layout.nodes` excluding the entry
+node and `layout.edges` excluding the fallback, and appends
+`text_project_workflow_graph_aria_fallback` when there is one. A separate locale
+key rather than a third interpolation on the existing one: the clause only exists
+on the workflows that have a fallback, and a single sentence that has to read
+well with and without a clause is harder to keep honest in eight files than two
+short ones. All eight are translated; `fr` and `pl` were reworded after drafting
+to use the same words for *fallback* and *issue* their own legend sentence
+already uses.
+
+Worth naming, because it reverses something: `docs/STATE.md` recorded the
+previous session's deliberate choice to count the arrows, on the grounds that the
+number of arrows is what a reader of the picture wants. That argument does not
+survive the sentence saying *transitions*, and it never covered the entry node
+being counted as a status, which is the half of this finding that is simply
+wrong.
+
+Red on the old code: with the two counts put back to `layout.nodes.size` and
+`layout.edges.size`, **2 of the 3** new examples fail on the rendered page — a
+three-status chain announced as four statuses and three transitions where the
+sentence claims three and three, and a two-status workflow with a fallback
+announced as three and two where it should be two and one. The third example (a
+workflow with no fallback says nothing about one) is the negative case and
+correctly stays green.
 
 ---
 

@@ -57,6 +57,14 @@ one of them has surprised somebody.
   for a matrix save where every control was left at *(No change)*; this plugin
   tells you nothing was saved, because the same message has to cover the case
   where the values you sent were not accepted.
+- **Copying a project copies its workflow.** Redmine's *Copy project* brings the
+  members, trackers, categories and issues across, and since 0.1.6 it brings the
+  project's own workflow too — the decisions and the rules, an own *empty*
+  workflow included, for the trackers the copy actually has. Before that the
+  copy quietly ran the generic workflow, which in the ordinary case (a project
+  given its own workflow to be *stricter*) made the copy more permissive than
+  the original with nothing said. A copy into a project that already runs a
+  workflow of its own leaves that project's decisions alone.
 - **Uninstalling is a data change, not just a code change.** See
   [Upgrading and uninstalling](#upgrading-and-uninstalling).
 

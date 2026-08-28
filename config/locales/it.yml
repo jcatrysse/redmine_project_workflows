@@ -129,6 +129,7 @@ it:
   label_project_workflow_graph_fallback: 'Ripiego di Redmine stesso'
   label_project_workflow_graph_show_anyway: 'Mostra comunque il diagramma'
   text_project_workflow_graph_aria: 'Diagramma di questo flusso di lavoro: %{statuses} stati e %{transitions} transizioni. Le stesse informazioni si trovano nella tabella qui sotto.'
+  text_project_workflow_graph_aria_fallback: 'Una freccia in più è il ripiego di Redmine stesso e non una transizione configurata: è da lì che parte una nuova segnalazione.'
   text_project_workflow_graph_no_roles: Nessuno dei ruoli selezionati partecipa a un flusso di lavoro, quindi non c'è nulla da disegnare.
   text_project_workflow_graph_empty: Almeno uno dei ruoli selezionati ha qui un flusso di lavoro proprio che non contiene alcuna regola, quindi per esso non è consentito alcun cambio di stato. È una configurazione voluta e non un errore.
   text_project_workflow_graph_nothing: 'Il flusso di lavoro che si applica qui non contiene alcuna transizione per i ruoli selezionati, quindi lo stato di una segnalazione esistente non può mai cambiare.'

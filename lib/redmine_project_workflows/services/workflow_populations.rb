@@ -20,10 +20,13 @@ module RedmineProjectWorkflows
     # anything ever executed it. Here a relation cannot be built without a
     # project_id: nil for the generic rows, an id for a project's own.
     #
-    # TransitionMapQuery (WP8) and WorkflowGraphQuery (WP9) are the two callers.
-    # What they share is exactly this split and nothing else -- one reads the
-    # edges around one status of one issue, the other the whole graph -- which
-    # is why the split is what was extracted and not a base class.
+    # Four callers: TransitionQuery and PermissionQuery -- the resolver itself,
+    # and the two hottest paths the plugin owns -- plus TransitionMapQuery (WP8)
+    # and WorkflowGraphQuery (WP9). What they share is exactly this split and
+    # nothing else -- one asks which statuses an issue may move to, the next
+    # which fields it may change, the third the edges around one status, the
+    # last the whole graph -- which is why the split is what was extracted and
+    # not a base class.
     class WorkflowPopulations
       # One relation per population that has any role in it, in a fixed order:
       # the project's own rows first, the generic rows second. Empty when there
@@ -32,9 +35,17 @@ module RedmineProjectWorkflows
       # +model+ is WorkflowTransition or WorkflowPermission -- the Resolver reads
       # the rule type off it, so the scope lookup and the rows can never describe
       # different kinds of rule.
+      #
+      # A blank +project_id+ is not an error and does not answer nothing: an
+      # issue that has no project yet reads the generic workflow, which is the
+      # choice Issue#new_statuses_allowed_to and Issue#tracker= already make and
+      # which this is now the only implementation of. No project means no scope
+      # can exist, so the Resolver answers "nothing overridden" and every role
+      # falls into the generic half -- one relation, still carrying an explicit
+      # +project_id: nil+ (INV-4).
       def self.scopes(model:, project_id:, tracker_id:, role_ids:)
         ids = Array(role_ids).compact.map(&:to_i).uniq
-        return [] if ids.empty? || project_id.blank? || tracker_id.blank?
+        return [] if ids.empty? || tracker_id.blank?
 
         own = Resolver.new(project_id: project_id, tracker_id: tracker_id, role_ids: ids)
                       .overridden_role_ids_for(model)

@@ -129,6 +129,7 @@ fr:
   label_project_workflow_graph_fallback: 'Repli propre à Redmine'
   label_project_workflow_graph_show_anyway: 'Afficher quand même le diagramme'
   text_project_workflow_graph_aria: 'Diagramme de ce flux de travail : %{statuses} statuts et %{transitions} transitions. Les mêmes informations figurent dans le tableau ci-dessous.'
+  text_project_workflow_graph_aria_fallback: 'Une flèche supplémentaire est le repli propre à Redmine et non une transition configurée : c''est là que démarre une nouvelle demande.'
   text_project_workflow_graph_no_roles: Aucun des rôles sélectionnés ne participe à un flux de travail ; il n'y a donc rien à dessiner.
   text_project_workflow_graph_empty: Au moins un des rôles sélectionnés dispose ici d'un flux de travail propre qui ne contient aucune règle ; aucun changement de statut ne lui est donc permis. C'est une configuration délibérée et non une anomalie.
   text_project_workflow_graph_nothing: 'Le flux de travail applicable ici ne contient aucune transition pour les rôles sélectionnés ; le statut d''une demande existante ne peut donc jamais changer.'

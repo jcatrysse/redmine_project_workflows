@@ -5,6 +5,7 @@ require_relative 'redmine_project_workflows/version_helper'
 require_relative 'redmine_project_workflows/bulk_actions_helper'
 require_relative 'redmine_project_workflows/services/matrix_scope'
 require_relative 'redmine_project_workflows/services/resolver'
+require_relative 'redmine_project_workflows/services/workflow_populations'
 require_relative 'redmine_project_workflows/services/transition_query'
 require_relative 'redmine_project_workflows/services/permission_query'
 require_relative 'redmine_project_workflows/services/matrix_save_result'
@@ -13,11 +14,11 @@ require_relative 'redmine_project_workflows/services/permission_writer'
 require_relative 'redmine_project_workflows/services/scope_combinations'
 require_relative 'redmine_project_workflows/services/scope_writer'
 require_relative 'redmine_project_workflows/services/scope_copier'
+require_relative 'redmine_project_workflows/services/project_workflow_copier'
 require_relative 'redmine_project_workflows/services/scope_state'
 require_relative 'redmine_project_workflows/services/status_list_query'
 require_relative 'redmine_project_workflows/services/inventory_query'
 require_relative 'redmine_project_workflows/services/project_options'
-require_relative 'redmine_project_workflows/services/workflow_populations'
 require_relative 'redmine_project_workflows/services/transition_map_query'
 require_relative 'redmine_project_workflows/services/workflow_graph_query'
 require_relative 'redmine_project_workflows/services/workflow_graph_text'
@@ -36,6 +37,10 @@ require_relative 'redmine_project_workflows/patches/project_patch'
 require_relative 'redmine_project_workflows/patches/projects_helper_patch'
 require_relative 'redmine_project_workflows/patches/role_patch'
 require_relative 'redmine_project_workflows/patches/tracker_patch'
+# The hook listener registers itself with Redmine::Hook the moment the class
+# body is read, and `require` is a no-op the second time -- so a reload cannot
+# register it twice. The same reasoning as the Deface overrides in init.rb.
+require_relative 'redmine_project_workflows/hooks/project_copy_hook'
 
 module RedmineProjectWorkflows
   def self.load_deface_overrides!

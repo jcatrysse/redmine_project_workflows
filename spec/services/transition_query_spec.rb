@@ -224,4 +224,44 @@ describe RedmineProjectWorkflows::Services::TransitionQuery do
       expect(statuses_for(issue)).to contain_exactly(global_status)
     end
   end
+
+  # An issue with no project yet reads the *generic* workflow. That was true
+  # before the population split moved into WorkflowPopulations (F02 of the
+  # second 2026-08-28 review) and it is the same choice Issue#tracker= makes,
+  # which says so in its own comment -- so it is pinned here rather than left to
+  # be inferred from the absence of a failure. WorkflowPopulations returning
+  # nothing for a blank project_id, which was its behaviour before, would break
+  # exactly this and nothing else in the suite.
+  describe 'an issue that has no project yet' do
+    let(:admin) { users(:users_001) }
+
+    it 'reads the generic workflow' do
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, old_status_id: old_status.id,
+                                 new_status_id: global_status.id, project_id: nil,
+                                 author: false, assignee: false)
+      issue = Issue.new(tracker: tracker, status: old_status, author: admin)
+
+      statuses = described_class.allowed_statuses(
+        issue: issue, user: admin, initial_status: old_status, author: false, assignee: false
+      )
+
+      expect(statuses).to contain_exactly(global_status)
+    end
+
+    # No project means no scope can exist, so no project's own rules may leak in
+    # through the back door either (INV-4).
+    it "cannot read a project's own rules" do
+      give_own_workflow(project, tracker, role)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, old_status_id: old_status.id,
+                                 new_status_id: project_status.id, project_id: project.id,
+                                 author: false, assignee: false)
+      issue = Issue.new(tracker: tracker, status: old_status, author: admin)
+
+      statuses = described_class.allowed_statuses(
+        issue: issue, user: admin, initial_status: old_status, author: false, assignee: false
+      )
+
+      expect(statuses).to be_empty
+    end
+  end
 end

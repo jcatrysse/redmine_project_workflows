@@ -237,6 +237,61 @@ describe RedmineProjectWorkflows do
     expect(File.read("#{root}/CLAUDE.md")).to include('copy_one_with_projects')
   end
 
+  # One Ruby statement, starting at +index+: the line, plus as many following
+  # lines as it takes for its parentheses to balance. Six lines is the ceiling,
+  # which is three more than the longest such call in this repository and stops
+  # a stray parenthesis inside a string from swallowing a whole file.
+  def statement_at(lines, index)
+    statement = +''
+    lines[index, 6].each do |line|
+      statement << line
+      break if statement.count('(') <= statement.count(')')
+    end
+    statement
+  end
+
+  # INV-4, from the other side: the grep the invariant's own wording invites.
+  #
+  # F02 of the second 2026-08-28 review found three query services holding a
+  # relation on `workflows` narrowed by tracker and status but *not* by project,
+  # with every branch adding the project_id afterwards. No branch executed the
+  # half, so nothing mixed the two populations -- but a reviewer grepping for
+  # exactly the forbidden construct found three hits inside the remedy and had
+  # to read each one to clear it, and a fourth branch or a `to_a` moved one line
+  # up would have turned a safe pattern into a silent wrong answer with no test
+  # that would notice.
+  #
+  # The three are gone: the two resolver paths go through WorkflowPopulations
+  # and StatusListQuery takes the project_id as a positional argument of the one
+  # method that builds a relation. This is what keeps them gone.
+  #
+  # What is checked is the *statement*, not a fixed window of lines: a call
+  # written across several lines names its project_id below the model, so the
+  # match is grown until its parentheses balance and the project_id has to be
+  # inside that. A base relation assigned on one line and given a project_id by
+  # a later statement -- exactly the shape F02 found -- does not clear it, which
+  # a line window would wrongly have done.
+  #
+  # It sees only the calls written as WorkflowRule/Transition/Permission.something,
+  # which is the reviewer's own grep. A relation built through a variable is out
+  # of its reach: WorkflowPopulations.relation is the one place that does that,
+  # and it takes the project_id as a positional argument for this very reason.
+  it 'builds no relation on workflows without a project_id in the same statement' do
+    root = File.expand_path('..', __dir__)
+    pattern = /\bWorkflow(?:Rule|Transition|Permission)\.(?:where|find|all|count|pluck)\b/
+    offenders = Dir.glob("#{root}/{app,lib}/**/*.rb").flat_map do |file|
+      lines = File.readlines(file)
+      lines.each_index.filter_map do |index|
+        next unless lines[index].match?(pattern)
+        next if statement_at(lines, index).include?('project_id')
+
+        "#{file.sub("#{root}/", '')}:#{index + 1}"
+      end
+    end
+
+    expect(offenders).to be_empty
+  end
+
   # F12. Redmine evals plugins/*/Gemfile into its own, so anything the plugin
   # names lands in the bundle of every installation, production included.
   # docs/DECISIONS.md:57 already recorded the rule -- the linter lives in

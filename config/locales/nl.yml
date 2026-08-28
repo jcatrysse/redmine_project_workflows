@@ -129,6 +129,7 @@ nl:
   label_project_workflow_graph_fallback: 'Terugval van Redmine zelf'
   label_project_workflow_graph_show_anyway: 'Toon het diagram toch'
   text_project_workflow_graph_aria: 'Diagram van deze workflow: %{statuses} statussen en %{transitions} overgangen. Dezelfde informatie staat in de tabel hieronder.'
+  text_project_workflow_graph_aria_fallback: 'Eén extra pijl is de terugval van Redmine zelf en geen ingestelde overgang: daar begint een nieuw issue.'
   text_project_workflow_graph_no_roles: Geen van de geselecteerde rollen neemt deel aan een workflow, dus er valt niets te tekenen.
   text_project_workflow_graph_empty: Minstens één van de geselecteerde rollen heeft hier een eigen workflow die geen enkele regel bevat, dus is er voor die rol geen statuswijziging toegestaan. Dat is een bewuste keuze en geen fout.
   text_project_workflow_graph_nothing: 'De workflow die hier geldt, bevat voor de geselecteerde rollen geen enkele overgang, dus kan de status van een bestaand issue nooit wijzigen.'

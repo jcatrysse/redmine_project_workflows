@@ -67,11 +67,33 @@ module ProjectWorkflowGraphsHelper
   # the readable twin rather than an afterthought, and a long label here would
   # only be read out ahead of the thing that actually answers.
   #
+  # Both counts count what the words say, which +layout.nodes.size+ and
+  # +layout.edges.size+ did not (finding F03 of 2026-08-28, second run). The
+  # entry node is core's +old_status_id = 0+ pseudo-status and not a status an
+  # issue can sit in -- the drawing shows it as *New issue*, and the dead-end
+  # diagnostic already excludes it for the same reason -- so a workflow of six
+  # statuses was announced as seven. Core's fallback arrow is Redmine's own
+  # behaviour rather than a transition anybody configured; the picture
+  # distinguishes it with a dotted stroke and the table calls it *Redmine's own
+  # fallback*, and this was the one place that counted it as an ordinary move.
+  #
+  # It is excluded from the count and given a clause of its own instead, so a
+  # screen-reader user is told the same thing the dotted arrow tells a sighted
+  # one rather than losing it. A separate key, not a third interpolation: the
+  # sentence only exists on the workflows that have a fallback, and eight
+  # locale files are easier to keep honest with two short strings than with one
+  # that has to read well with a clause missing.
+  #
   # The count is interpolated as +statuses+ and not as +count+: +count+ makes
   # I18n look for one/other subkeys under the key, and a plain string then
   # answers "translation missing" in every language.
   def project_workflow_graph_aria_label(layout)
-    l(:text_project_workflow_graph_aria, statuses: layout.nodes.size, transitions: layout.edges.size)
+    label = l(:text_project_workflow_graph_aria,
+              statuses: layout.nodes.count { |placed| !placed.node.entry? },
+              transitions: layout.edges.count { |routed| !routed.fallback })
+    return label unless layout.edges.any?(&:fallback)
+
+    "#{label} #{l(:text_project_workflow_graph_aria_fallback)}"
   end
 
   # The stroke pattern for one arrow, as an attribute or as nothing at all.

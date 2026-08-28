@@ -129,6 +129,7 @@ en:
   label_project_workflow_graph_fallback: 'Redmine''s own fallback'
   label_project_workflow_graph_show_anyway: 'Show the diagram anyway'
   text_project_workflow_graph_aria: 'Diagram of this workflow: %{statuses} statuses and %{transitions} transitions. The same information is in the table below.'
+  text_project_workflow_graph_aria_fallback: 'One further arrow is Redmine''s own fallback rather than a configured transition: it is where a new issue starts.'
   text_project_workflow_graph_no_roles: None of the selected roles takes part in a workflow, so there is nothing to draw.
   text_project_workflow_graph_empty: At least one of the selected roles has a workflow of its own here that holds no rule at all, so no change of status is permitted for it. That is a deliberate configuration and not a fault.
   text_project_workflow_graph_nothing: 'The workflow that applies here holds no transition at all for the selected roles, so once an issue exists its status can never change.'

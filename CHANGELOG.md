@@ -64,6 +64,28 @@ The workflow as a drawing.
   below the dotted line, instead of one flat row with every arrow between them
   bowed underneath it.
 
+  **What a screen reader is told first counts what the words say.** The label
+  read out before the drawing announced the *New issue* starting point as a
+  status and Redmine's fallback as a transition, so a workflow of six statuses
+  and five transitions was announced as seven and six. Both are out of the
+  counts now, and the fallback is named in a clause of its own instead — a
+  screen-reader user has the same use for it as a sighted one has for the dotted
+  arrow.
+
+- **Copying a project copies its workflow.** *Copy project* brought the members,
+  the trackers, the categories and the issues across and left the project's own
+  workflow behind, so the copy ran the **generic** workflow: in the ordinary case
+  — a project given its own workflow to be *stricter* than the generic one — the
+  copy came out **more permissive** than the original, with no message and
+  nothing in the documentation that said so. The first sign of it was somebody
+  closing an issue that should not have been closeable.
+
+  The copy now carries the decisions and the rules together, for the trackers the
+  copy actually has, and an own *empty* workflow arrives as an empty one rather
+  than as inheritance. Copying a role or a tracker has worked this way since
+  0.1.0; this is the same promise for a project. A copy into a project that
+  already runs a workflow of its own changes nothing there.
+
 ### Fixed
 
 - **The workflow panel on the issue form no longer contradicts the status list
@@ -78,6 +100,17 @@ The workflow as a drawing.
   workflow* sat side by side with no separator between them, and the second is
   the most consequential thing either screen offers. They are separated now, as
   are *Empty this workflow* and *Return to the generic workflow*.
+
+### Internal
+
+- The two hottest queries in the plugin — which statuses an issue may move to,
+  and which fields it may change — built their database query in two halves and
+  gave each half its project before running it. Every half was given one, so no
+  answer was ever wrong; but the shape is one edit away from a query that reads
+  another project's rules, and it is the exact shape this repository's own rule
+  forbids. Both now go through the one place that cannot build such a half, as
+  the diagram and the issue panel already did, and a test fails the build if the
+  shape comes back. No behaviour changes.
 
 ## 0.1.5
 

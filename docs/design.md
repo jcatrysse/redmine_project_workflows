@@ -124,6 +124,19 @@ transaction, over the combinations `WorkflowRule.copy_pairs_for_project` says it
 is about to write — computed without touching either table, which is what makes
 the lock takeable before the first rule is written.
 
+There is a **fifth** write path, added for finding F01 of the second 2026-08-28
+review, and it deliberately takes **no** lock: `ProjectWorkflowCopier`, which
+copies a project's workflow when the project itself is copied. It is named here
+rather than left out, because a counted claim with a path missing is exactly how
+the fourth one came to be skipped. It writes scopes before rules like the other
+four, and it needs no `SELECT … FOR UPDATE` because there is nothing to contend
+for: it runs inside `Project#copy`'s own transaction against a project created a
+few statements earlier, whose id no other request has yet seen, and it refuses
+outright — `[0, 0]`, nothing written — if that project already carries any scope
+of its own. If it ever gains a caller that writes into a project somebody else
+can reach, it needs the lock the other four take, and this paragraph is the
+reason it does not have one already.
+
 That sentence used to read "every path therefore takes scope rows before workflow
 rows", written on the strength of three paths having been changed, and the copy
 was never checked against it (finding F01). It is worth naming the shape rather
@@ -289,6 +302,7 @@ this plugin can be tried on.
 | `issue_statuses/index.html.erb` | the *not used by any workflow* badge beside a status | **left alone** | **left alone.** It asks `WorkflowTransition.where('old_status_id = ? OR new_status_id = ?').exists?` with no `project_id` predicate, on 5.1, 6.1 and 7.0 alike, so with the plugin installed the badge is computed across the generic rules and every project's. That is the better answer for a status a project uses, and the wrong one for a project row with no scope, which applies to nothing (INV-3). It is a badge, not a gate — the Delete link beside it is rendered unconditionally — and correcting it would mean a sixteenth Deface override, one more anchor to go stale (INV-9), for a hint |
 | `Role#workflow_rules`, `Tracker#workflow_rules` (`dependent: :delete_all`) | deleting a role or tracker | **left alone** | no change needed — the association covers project rows, and migration 004's foreign keys cascade the scopes |
 | `Project` destroy | deleting a project | **left alone** | no change needed — migration 003's foreign key cascades the rules, migration 004's the scopes |
+| `Project#copy` | copying a project | **hook** | the plugin's only `Redmine::Hook::Listener`. `Project#copy`'s list of things to copy is a local array of method names with no extension point, so `model_project_copy_before_save` — called with the source and the destination inside core's transaction, identically on 5.1, 6.1 and 7.0 — is the whole seam. `ProjectWorkflowCopier` copies the scopes and then the rules the scopes make visible, for the trackers the copy actually has. Before this the copy silently ran the **generic** workflow, which is more permissive than the original in the ordinary case where a project was given its own workflow to be stricter (finding F01 of the second 2026-08-28 review) |
 | `Redmine::DefaultData::Loader` | the default workflow on a fresh install | **left alone** | no change needed — it creates rows without a `project_id`, which is exactly the generic workflow |
 | `Issue#project=` | moving an issue to another project | **left alone** | **not handled, deliberately.** It re-checks the *tracker* against the new project and never the *status*, so an issue moved into a project whose own workflow does not use its status lands on a status that project cannot leave. Core has the same asymmetry — it is not a regression — but per-project workflows make it reachable without an administrator changing anything. WP4 looked at it and left it: the repair sits on the path of every issue save and every bulk move, and `safe_attributes=` assigns `project_id` before `tracker_id` on purpose, so a wrong order would reset statuses that should have been left alone. Finding G03, and an open choice in `DECISIONS.md` |
 

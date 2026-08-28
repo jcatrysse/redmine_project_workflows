@@ -89,4 +89,18 @@ describe RedmineProjectWorkflows::Services::PermissionQuery do
 
     expect(rules.map(&:rule)).to eq(['readonly'])
   end
+  # The same pinned choice as in transition_query_spec: an issue with no project
+  # reads the generic workflow (F02 of the second 2026-08-28 review).
+  it 'reads the generic workflow for an issue that has no project yet' do
+    admin = users(:users_001)
+    WorkflowPermission.create!(
+      tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,
+      field_name: 'subject', rule: 'required', project_id: nil
+    )
+    issue = Issue.new(tracker: tracker, status: status, author: admin)
+
+    rules = described_class.rules_for(issue: issue, user: admin, old_status_id: status.id)
+
+    expect(rules.map(&:rule)).to eq(['required'])
+  end
 end

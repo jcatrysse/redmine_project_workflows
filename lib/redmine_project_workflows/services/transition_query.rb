@@ -9,6 +9,19 @@ module RedmineProjectWorkflows
     # project rows together and would hand a project its neighbours' rules
     # (INV-4). Every scope built here names a project_id, nil included.
     class TransitionQuery
+      # The two populations come from WorkflowPopulations rather than from a
+      # base relation narrowed here and given a project_id on each branch
+      # (finding F02 of 2026-08-28, second run). The answer is the same one --
+      # every branch did add a project_id -- but the relation that had none
+      # cannot be built here any more, so there is no half for a later edit to
+      # execute by accident. An issue with no project reads the generic
+      # workflow, unchanged: WorkflowPopulations says so in its own comment.
+      #
+      # Everything that is not the population split is added to what comes back,
+      # never to the halves, because .or refuses a relation whose two sides have
+      # already been narrowed differently. `(own OR generic) AND status AND
+      # author/assignee` is the same set as the old `(status AND author/assignee
+      # AND own) OR (status AND author/assignee AND generic)`.
       def self.allowed_statuses(issue:, user:, initial_status:, author:, assignee:)
         tracker = issue.tracker
         return [] unless tracker
@@ -16,30 +29,20 @@ module RedmineProjectWorkflows
         roles = issue.send(:roles_for_workflow, user)
         return [] if roles.empty?
 
-        role_ids = roles.map(&:id)
-        resolver = Resolver.new(project_id: issue.project_id, tracker_id: tracker.id, role_ids: role_ids)
-        overridden_role_ids = resolver.overridden_role_ids_for(WorkflowTransition)
-        global_role_ids = role_ids - overridden_role_ids
+        combined_scope = WorkflowPopulations.combined(
+          model: WorkflowTransition, project_id: issue.project_id,
+          tracker_id: tracker.id, role_ids: roles.map(&:id)
+        )
+        return [] if combined_scope.nil?
 
-        status_id = initial_status&.id || 0
-        workflow_scope = WorkflowTransition.where(tracker_id: tracker.id, old_status_id: status_id)
+        combined_scope = combined_scope.where(old_status_id: initial_status&.id || 0)
         unless author && assignee
-          workflow_scope = if author || assignee
-                             workflow_scope.where('author = ? OR assignee = ?', author, assignee)
+          combined_scope = if author || assignee
+                             combined_scope.where('author = ? OR assignee = ?', author, assignee)
                            else
-                             workflow_scope.where(author: false, assignee: false)
+                             combined_scope.where(author: false, assignee: false)
                            end
         end
-
-        scopes = []
-        if overridden_role_ids.any?
-          scopes << workflow_scope.where(project_id: issue.project_id, role_id: overridden_role_ids)
-        end
-        scopes << workflow_scope.where(project_id: nil, role_id: global_role_ids) if global_role_ids.any?
-        return [] if scopes.empty?
-
-        combined_scope = scopes.shift
-        scopes.each { |scope| combined_scope = combined_scope.or(scope) }
 
         # One statement, no join, no DISTINCT (finding F04). This used to be a
         # join *plus* a subquery against the same table -- one primary-key

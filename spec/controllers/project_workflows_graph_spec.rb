@@ -466,4 +466,64 @@ describe ProjectWorkflowsController, type: :controller do
       expect(assigns(:graph).stored_edges.map(&:new_status_id)).to contain_exactly(assigned.id, closed.id)
     end
   end
+  # Finding F03 of the second 2026-08-28 review. The accessible label is the
+  # first and often the only thing a screen-reader user hears about the drawing,
+  # and it counted the *New issue* pseudo-status as a status and core's fallback
+  # arrow as a transition -- so a workflow of three statuses and two transitions
+  # was announced as four and three.
+  #
+  # Red against the previous commit: it counted layout.nodes.size and
+  # layout.edges.size, which are exactly the numbers these two examples reject.
+  describe 'what a screen reader is told first' do
+    before { log_in(2, :view_project_workflow) }
+
+    def aria_label
+      graph_svg[/aria-label="([^"]*)"/, 1]
+    end
+
+    it 'counts statuses and configured transitions, and neither pseudo-node' do
+      transition(0, new_status)
+      transition(new_status, assigned)
+      transition(assigned, closed)
+
+      get :graph, params: graph_params
+
+      # Four nodes are drawn -- New issue, and the three statuses -- and four
+      # arrows, of which the entry rule is one.
+      expect(assigns(:graph).nodes.size).to eq(4)
+      expect(aria_label).to include(ERB::Util.html_escape(
+                                      I18n.t(:text_project_workflow_graph_aria, statuses: 3, transitions: 3)
+                                    ))
+    end
+
+    # The fallback is not a transition anybody configured, so it is out of the
+    # count -- and said in a clause of its own rather than dropped, because a
+    # screen-reader user has the same use for it as a sighted one has for the
+    # dotted arrow.
+    it "keeps Redmine's own fallback out of the count and names it instead" do
+      transition(new_status, assigned)
+
+      get :graph, params: graph_params
+
+      expect(assigns(:graph).fallback_edge).not_to be_nil
+      expect(aria_label).to include(ERB::Util.html_escape(
+                                      I18n.t(:text_project_workflow_graph_aria, statuses: 2, transitions: 1)
+                                    ))
+      expect(aria_label).to include(ERB::Util.html_escape(
+                                      I18n.t(:text_project_workflow_graph_aria_fallback)
+                                    ))
+    end
+
+    it 'says nothing about a fallback on a workflow that has no fallback' do
+      transition(0, new_status)
+      transition(new_status, assigned)
+
+      get :graph, params: graph_params
+
+      expect(assigns(:graph).fallback_edge).to be_nil
+      expect(aria_label).not_to include(ERB::Util.html_escape(
+                                          I18n.t(:text_project_workflow_graph_aria_fallback)
+                                        ))
+    end
+  end
 end

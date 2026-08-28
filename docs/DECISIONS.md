@@ -207,6 +207,39 @@
     Reachable only through a hand-built request or an API client either way: no
     screen can submit a value the whitelist refuses.
 
+- **Choice (finding F01, 2026-08-28-claude-second):** Redmine's *Copy project*
+  brought everything else across and left the project's own workflow behind, so
+  the copy silently ran the generic workflow. Nothing anywhere said so — no ADR,
+  no design note, no README line — so this was an unconsidered gap rather than a
+  choice. Which should it be?
+  - **A — copy the workflow.** A copied project runs the same workflow as the
+    original: the decisions and the rules, an own *empty* workflow included, for
+    the trackers the copy actually has. **Implemented, as the safest reversible
+    default:** a `model_project_copy_before_save` listener and
+    `Services::ProjectWorkflowCopier`. Reversible from the screen — one *Return
+    to the generic workflow* per combination on the copy's own Workflow tab —
+    and reversible in code by deleting one `require_relative` and one file.
+  - **B — say it instead.** Leave the behaviour and write it down: a paragraph
+    in the README and a line on the copy form saying a copy starts from the
+    generic workflow. Cheaper, and it makes the surprise visible rather than
+    removing it.
+  - **Recommendation:** **A**, which is what is in place. The direction of the
+    surprise decides it: a project is usually given its own workflow to be
+    *stricter* than the generic one, so under B the copy comes out **more
+    permissive** than the original and the first sign of it is somebody closing
+    an issue that should not have been closeable. A also matches what
+    duplicating a role or a tracker has done since 0.1.0, and what
+    `Project.copy_from` already does with trackers, modules and custom fields —
+    the workflow was the one piece of configuration left behind.
+  - **What A costs, so it is a choice rather than a default:** a copy of a
+    project with a large own workflow now writes those rules too (two INSERT …
+    SELECT statements, no per-row round trip); and an operator who copies a
+    strict project *in order to* start from the generic workflow now has to
+    return the copy to inheritance by hand. There is no checkbox for it, because
+    adding one means a Deface anchor on core's copy form (INV-9) for a case
+    nobody has asked for yet.
+  - **Urgent?** no — A ships and is reversible from the screen.
+
 *(Everything else here is answered. Items land here with their options, a plain-language explanation
 of each and a recommendation, while the build continues on the safest default.
 Everything ever filed here has been answered, and **G02 on the day it was
@@ -551,3 +584,15 @@ than it looks on paper.
 | 2026-08-28 | Separating adjacent action links (finding F05) | **A pipe, which is Redmine's own idiom** | `app/views/projects/show.html.erb` puts one between *Summary*, *Calendar* and *Gantt*. Chosen over a `contextual` block (wrong element inside a table cell) and over a CSS separator (the plugin ships no stylesheet, and an inline style is one a theme cannot reach). |
 | 2026-08-28 | Where the drawing's extent is measured | **A class of its own, `Services::WorkflowGraphExtent`** | `WorkflowGraphLayout` crossed `Metrics/ClassLength` again (201/200) once the band ranking went in — the eighth time this repository has taken that signal. "How far the finished drawing runs" is a real subject with a trap of its own: measuring over the boxes alone clips every arc that bows outside them, silently, and that already has a spec. A dead copy of `both_reachable?` came out with it. |
 | 2026-08-28 | Version number for this round | **No bump; the fixes fold into the unreleased 0.1.6 entry** | Same reasoning the 0.1.5 entry records: 0.1.6 has never been released (`main` carries 0.0.3, there is no tag), and these are corrections to the very feature 0.1.6 introduces. A reader looking for "when did the diagram arrive" finds one heading, describing what it actually does. |
+
+## Decided (autonomous) — 2026-08-28, second WP9 review-fix session
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-08-28 | Where the project copy hooks in (finding F01) | **`model_project_copy_before_save`, with the work in `Services::ProjectWorkflowCopier`** | `Project#copy`'s list of things to copy is a local array of method names and offers no other seam; the hook is called with the source and the destination inside core's own transaction, identically on 5.1, 6.1 and 7.0. Scopes are written before rules, and only the rules a *source* scope makes visible are carried — a rule row the resolver ignores where it is now is one the copy has no use for either (INV-3). A failure is deliberately not rescued: it is inside core's transaction, so raising rolls the whole copy back and says so, where rescuing would hand the operator a project that looks copied and quietly permits more than the original. Considered and rejected: patching `Project#copy` itself (a sixth copied core method in the digest table, for a seam core already provides). |
+| 2026-08-28 | Whether the project copy takes the scope lock the other four write paths take | **No, and `docs/design.md` now names it as the fifth path and says why** | There is nothing to contend for: the target project was created a few statements earlier inside the same transaction and no other request has seen its id, and the copier refuses outright if that project already carries any scope of its own. The reason this is written down rather than simply omitted is that `docs/design.md` already records how a counted claim with a path missing produced finding F01 of 2026-08-27 — so the count moved from four to five in the same commit as the path. |
+| 2026-08-28 | What a copy does to a target that already runs its own workflow | **Nothing at all — `[0, 0]`, no scope and no rule written** | "Copied over" is not one of INV-3's three actions, and a project that has already decided something about its own workflow must not have that decision replaced by a copy it did not ask for. Core only ever calls this on a project it has just created, so on the real path the guard never fires; it exists so that a console or a future caller cannot use the copier as an undocumented fourth action. |
+| 2026-08-28 | The accessible label's counts (finding F03) | **Count statuses excluding the entry node and transitions excluding the fallback, and name the fallback in a clause of its own** | The previous session had left the fallback in the count deliberately, on the grounds that the number a reader of the picture wants is the number of arrows — and `docs/STATE.md` said so. It is still the wrong number here, because the sentence says *transitions*, and the entry node counted as a status is unambiguously wrong on top of it: a six-status workflow was announced as seven, in the one sentence a screen-reader user hears before deciding whether to read on. A separate locale key rather than a third interpolation, so the clause can be absent without leaving a sentence that has to read well both ways; eight locale files, one new string each. |
+| 2026-08-28 | The three query services holding a base relation with no project_id (finding F02) | **Make the shape impossible, not merely commented** | `TransitionQuery` and `PermissionQuery` now go through `WorkflowPopulations`, which was extracted for exactly this split and whose own comment argues this case; `StatusListQuery` keeps its local shape but takes the project_id as a positional argument of the one method that builds a relation, the way `WorkflowPopulations.relation` does. The finding offered a comment naming the three as deliberate — the cheap answer — and said itself it is not as good. A `plugin_conventions_spec.rb` example greps for the construct and checks the *statement*, not a window of lines, so a base relation given its project by a later statement does not clear it. |
+| 2026-08-28 | What `WorkflowPopulations` answers for a blank project_id | **The generic population, not nothing** | Routing the two resolver paths through it would otherwise have changed behaviour: an issue with no project yet reads the generic workflow, which is the choice `Issue#tracker=` records in its own comment and `Issue#new_statuses_allowed_to` already made. Since no project means no scope can exist, the Resolver already answers "nothing overridden" for one — dropping the extra guard is the whole change, and the relation still carries an explicit `project_id: nil` (INV-4). Two new examples pin it, and both are red with the guard back in. |
+| 2026-08-28 | Version number for this round | **No bump; it folds into the unreleased 0.1.6 entry** | Same reasoning as the two rounds before it: 0.1.6 has never been released (`main` carries 0.0.3, there is no tag). The project copy is an `### Added` bullet of its own in that entry rather than part of the diagram bullet, because it is not about the diagram. |

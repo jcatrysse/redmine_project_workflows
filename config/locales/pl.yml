@@ -132,6 +132,7 @@ pl:
   label_project_workflow_graph_fallback: 'Własne działanie awaryjne Redmine'
   label_project_workflow_graph_show_anyway: 'Pokaż diagram mimo to'
   text_project_workflow_graph_aria: 'Diagram tego przepływu pracy: %{statuses} statusów i %{transitions} przejść. Te same informacje znajdują się w tabeli poniżej.'
+  text_project_workflow_graph_aria_fallback: 'Jedna dodatkowa strzałka to własne działanie awaryjne Redmine, a nie skonfigurowane przejście: tam zaczyna się nowe zagadnienie.'
   text_project_workflow_graph_no_roles: Żadna z wybranych ról nie bierze udziału w przepływie pracy, więc nie ma czego narysować.
   text_project_workflow_graph_empty: Co najmniej jedna z wybranych ról ma tutaj własny przepływ pracy, który nie zawiera żadnej reguły, więc nie jest dla niej dozwolona żadna zmiana statusu. Jest to celowa konfiguracja, a nie błąd.
   text_project_workflow_graph_nothing: 'Przepływ pracy obowiązujący w tym miejscu nie zawiera dla wybranych ról żadnego przejścia, więc status istniejącego zagadnienia nigdy nie może się zmienić.'

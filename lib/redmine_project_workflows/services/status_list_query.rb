@@ -66,8 +66,24 @@ module RedmineProjectWorkflows
 
       private
 
-      def base_scope
-        WorkflowTransition.where('old_status_id <> new_status_id')
+      # INV-4 made structural, the way Services::WorkflowPopulations.relation
+      # does it for the resolver's own two paths (finding F02 of 2026-08-28,
+      # second run): the project_id is a positional argument of the only method
+      # in this file that builds a relation on +workflows+, so a relation
+      # without one cannot exist here even for a line. It used to be a base
+      # relation narrowed by neither project nor tracker, which every branch
+      # then narrowed correctly -- a safe pattern one edit away from a silent
+      # mix of the two populations.
+      #
+      # +project_id+ is nil for the generic rows and an id, or a list of ids,
+      # for projects. A list is what INV-4 allows verbatim: each condition still
+      # names the projects it reads.
+      #
+      # Self-transitions are excluded as they are everywhere else in the plugin:
+      # a row from a status to itself is not a move.
+      def transitions_in(project_id, tracker_id)
+        WorkflowTransition.where(project_id: project_id, tracker_id: tracker_id)
+                          .where('old_status_id <> new_status_id')
       end
 
       # One condition per distinct override *configuration*, plus one per tracker
@@ -115,7 +131,7 @@ module RedmineProjectWorkflows
         end
 
         groups.map do |(tracker_id, role_ids), project_ids|
-          base_scope.where(project_id: project_ids, tracker_id: tracker_id, role_id: role_ids)
+          transitions_in(project_ids, tracker_id).where(role_id: role_ids)
         end
       end
 
@@ -135,7 +151,7 @@ module RedmineProjectWorkflows
       # nil when this tracker has nothing generic left to read: every role the
       # caller asked about is answered by the projects themselves.
       def generic_condition(tracker_id, excluded_role_ids)
-        scope = base_scope.where(project_id: nil, tracker_id: tracker_id)
+        scope = transitions_in(nil, tracker_id)
         return excluded_role_ids.any? ? scope.where.not(role_id: excluded_role_ids) : scope if @role_ids.nil?
 
         role_ids = @role_ids - excluded_role_ids

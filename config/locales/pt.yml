@@ -129,6 +129,7 @@ pt:
   label_project_workflow_graph_fallback: 'Recurso do próprio Redmine'
   label_project_workflow_graph_show_anyway: 'Mostrar o diagrama mesmo assim'
   text_project_workflow_graph_aria: 'Diagrama deste fluxo de trabalho: %{statuses} estados e %{transitions} transições. A mesma informação está na tabela abaixo.'
+  text_project_workflow_graph_aria_fallback: 'Mais uma seta é o recurso do próprio Redmine e não uma transição configurada: é onde uma nova tarefa começa.'
   text_project_workflow_graph_no_roles: Nenhum dos perfis selecionados participa num fluxo de trabalho, por isso não há nada para desenhar.
   text_project_workflow_graph_empty: Pelo menos um dos perfis selecionados tem aqui um fluxo de trabalho próprio que não contém qualquer regra, pelo que não lhe é permitida qualquer mudança de estado. É uma configuração deliberada e não uma falha.
   text_project_workflow_graph_nothing: 'O fluxo de trabalho que se aplica aqui não contém qualquer transição para os perfis selecionados, pelo que o estado de uma tarefa existente nunca pode mudar.'

@@ -129,6 +129,7 @@ de:
   label_project_workflow_graph_fallback: 'Redmines eigener Rückfall'
   label_project_workflow_graph_show_anyway: 'Diagramm trotzdem anzeigen'
   text_project_workflow_graph_aria: 'Diagramm dieses Workflows: %{statuses} Status und %{transitions} Übergänge. Dieselben Angaben stehen in der Tabelle darunter.'
+  text_project_workflow_graph_aria_fallback: 'Ein weiterer Pfeil ist Redmines eigener Rückfall und kein konfigurierter Übergang: dort beginnt ein neues Ticket.'
   text_project_workflow_graph_no_roles: Keine der gewählten Rollen nimmt an einem Workflow teil, es gibt also nichts zu zeichnen.
   text_project_workflow_graph_empty: Mindestens eine der gewählten Rollen hat hier einen eigenen Workflow, der keine einzige Regel enthält; für sie ist deshalb keine Statusänderung erlaubt. Das ist eine bewusste Einstellung und kein Fehler.
   text_project_workflow_graph_nothing: 'Der hier geltende Workflow enthält für die gewählten Rollen keinen einzigen Übergang, daher kann sich der Status eines bestehenden Tickets nie ändern.'
