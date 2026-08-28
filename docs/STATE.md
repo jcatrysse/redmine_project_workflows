@@ -88,7 +88,7 @@ than a check, because a registered override is not a matching one.
 
 Twenty-four new locale keys in all eight files, translated.
 
-### The review pass (`4b5e032` and the commit after it, this file with them)
+### The review pass (`4b5e032` and `4c984d5`, this file with them)
 
 Three things the reviewer role found in the two commits above, all fixed here:
 
@@ -126,7 +126,7 @@ Everything below was executed in this container.
 | Migrations up → `VERSION=0` → up, from an empty database (6.1) | clean: `leftover columns: []`, `plugin tables: []`, `plugin schema_migrations rows: []` (INV-8) |
 | Locale parity | all eight files, 0 missing and 0 extra keys; the page rendered in each locale the host offers with no missing translation |
 | The page itself | rendered and read as text: 15 overrides listed, 15 ticks, the state sentence, core's own `table.list` markup throughout |
-| CI | run **145** on `924a9af`, run **146** on `0563647` and run **147** on `4b5e032`: **success on all eleven jobs** each — the full 3 x 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. The fourth commit's run is the next session's first thing to read. |
+| CI | run **145** on `924a9af`, run **146** on `0563647` and run **147** on `4b5e032` and run **148** on `4c984d5`, **the head**: **success on all eleven jobs** each — the full 3 x 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Only this file changes after run 148, so run 149 covers a documentation commit and nothing else. |
 
 **Red on the old code, observed rather than assumed** — every one by editing a
 host copy, running, and restoring:
@@ -1178,9 +1178,9 @@ Read CLAUDE.md and docs/STATE.md. Carry on.
 WP0..WP11 are done. "Carry on" means, in order:
 
 1. **Read CI for the head and act on it if it is red.** Only PostgreSQL was run
-   locally; six of the nine cells are MySQL or MariaDB. Runs 145 and 146 are
-   green on the first two commits of this session, and the third commit's run
-   had not finished when this file was written.
+   locally; six of the nine cells are MySQL or MariaDB. Runs 145 to 148 are
+   green on all eleven jobs, and 148 is the head's code — the run after it
+   covers this file and nothing else.
 2. **WP12** — ADR-003, the owned administration screens. *Exact next step* has
    the build order and the two small things WP11 leaves for it.
 3. **Before any release, repeat the 45-plugin run.** It is still the only
