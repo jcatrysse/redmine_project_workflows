@@ -88,7 +88,7 @@ than a check, because a registered override is not a matching one.
 
 Twenty-four new locale keys in all eight files, translated.
 
-### The review pass (`<third commit>`)
+### The review pass (`4b5e032` and the commit after it, this file with them)
 
 Three things the reviewer role found in the two commits above, all fixed here:
 
@@ -105,6 +105,13 @@ Three things the reviewer role found in the two commits above, all fixed here:
   core's own locale files and 5.1 does not.
 - **Dead code** in `CoreMethodDigest.patched_owner` (a `Module` branch nothing
   reached).
+- **The page put good news in an amber box.** `.nodata` and `.warning` are one
+  rule in core's stylesheet on 5.1 and 7.0 alike — the same amber, the same
+  border — and a bare `.notice` has no styling at all, because the green box is
+  `div.flash.notice` and belongs to a flash. There is no neutral box in Redmine
+  to put "this Redmine is tested" in, so a verified host now gets a plain
+  paragraph and the three states that are not reassurances share the amber one,
+  with the sentence carrying the difference.
 
 ## Evidence
 
@@ -119,7 +126,7 @@ Everything below was executed in this container.
 | Migrations up → `VERSION=0` → up, from an empty database (6.1) | clean: `leftover columns: []`, `plugin tables: []`, `plugin schema_migrations rows: []` (INV-8) |
 | Locale parity | all eight files, 0 missing and 0 extra keys; the page rendered in each locale the host offers with no missing translation |
 | The page itself | rendered and read as text: 15 overrides listed, 15 ticks, the state sentence, core's own `table.list` markup throughout |
-| CI | run **145** on `924a9af`: **success on all eleven jobs**. Run **146** on `0563647`: **success on all eleven jobs**. The third commit's run is the next session's first thing to read. |
+| CI | run **145** on `924a9af`, run **146** on `0563647` and run **147** on `4b5e032`: **success on all eleven jobs** each — the full 3 x 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. The fourth commit's run is the next session's first thing to read. |
 
 **Red on the old code, observed rather than assumed** — every one by editing a
 host copy, running, and restoring:
@@ -372,6 +379,14 @@ run that stood up a 45-plugin host, then everything carried forward.
   lines of a failure report look exactly like three lines of a success report.
   A whole `for` loop over three hosts reported success with one host red. Grep
   for `examples,` **and** `Failed examples` rather than tailing.
+- **Redmine has no neutral message box, and `.nodata` is not one.** `.nodata`
+  and `.warning` are a single rule in `application.css` on 5.1 and on 7.0 — the
+  same amber background and border — so `.nodata` is a *warning* wearing another
+  name, and putting a reassuring sentence in one says the opposite of the
+  sentence. A bare `<div class="notice">` is not the alternative either: the
+  green box is `div.flash.notice` and needs the flash class. Good news gets a
+  plain paragraph; the amber box is for the states that are not good news, with
+  the text carrying which one it is.
 - **A colon followed by a space inside an unquoted YAML scalar breaks the
   file.** Appending locale lines with a heredoc is fine until one sentence
   contains `place: a screen`, and then `Psych::SyntaxError: mapping values are

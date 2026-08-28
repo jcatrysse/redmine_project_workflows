@@ -12,9 +12,13 @@
 
 <h3><%= l(:label_project_workflow_diagnostics_compatibility) %></h3>
 
-<div class="<%= project_workflow_diagnostics_state_class(@diagnostics.state) %>">
-  <%= project_workflow_diagnostics_state_sentence(@diagnostics.compatibility) %>
-</div>
+<%# A box only where there is something to say. See the helper: core has no
+    neutral box -- .nodata and .warning are the same amber rule -- so good news
+    is a paragraph. %>
+<% state_class = project_workflow_diagnostics_state_class(@diagnostics.state) %>
+<%= content_tag(state_class ? :div : :p,
+                project_workflow_diagnostics_state_sentence(@diagnostics.compatibility),
+                class: state_class) %>
 
 <table class="list">
   <tbody>

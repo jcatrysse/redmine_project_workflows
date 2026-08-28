@@ -39,14 +39,20 @@ module ProjectWorkflowDiagnosticsHelper
     end
   end
 
-  # The CSS class for the box that sentence sits in. Redmine's own boxes, and
-  # colour supporting the text rather than carrying it.
+  # Whether that sentence sits in one of Redmine's boxes, and which.
+  #
+  # Read out of core's own stylesheet rather than chosen: `.nodata` and
+  # `.warning` are **one rule** on 5.1 and on 7.0 alike -- the same amber, the
+  # same border -- and a bare `.notice` has no styling at all, because the green
+  # box is `div.flash.notice` and belongs to a flash. So there is no neutral box
+  # to put good news in, and a verified host gets a plain paragraph instead of
+  # an amber one saying everything is fine.
+  #
+  # The three that are not reassurances share the amber box, and the sentence is
+  # what distinguishes them: colour supports the text here, it does not carry
+  # it.
   def project_workflow_diagnostics_state_class(state)
-    case state
-    when :verified then 'nodata'
-    when :unverified then 'notice'
-    else 'warning' # drifted, and unmeasured -- neither is a reassurance
-    end
+    'warning' unless state == :verified
   end
 
   def project_workflow_diagnostics_drift_status(status)
