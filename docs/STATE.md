@@ -30,12 +30,16 @@
   `--allow-unrelated-histories`. Jan asks for the merge himself.
 - **Nothing is open.** `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`
   matches only `TEMPLATE.md`.
-- **CI is green on the head.** Run **133** on `33c0698` passed **all eleven
-  jobs**: the nine-cell matrix, RuboCop and the bulk-action JavaScript gate.
+- **CI is green on the head.** Run **136** on `e0a5ac6` completed **success**:
+  the nine-cell matrix, RuboCop and the bulk-action JavaScript gate. Read from
+  the Actions API. Run **135** reads `cancelled`, which is the concurrency group
+  superseding it when the follow-up commit landed rather than a failure.
 
 ## What this session produced
 
-One commit answering findings F01..F03 of `2026-08-28-claude-second`.
+Four commits. One answering findings F01..F03 of `2026-08-28-claude-second`, one
+recording its CI result, one adding the copy-form checkbox Jan asked for a few
+hours later, and one whitespace correction to its markup.
 
 ### What the plugin does now that it could not
 
@@ -154,12 +158,11 @@ so the next session does not swing it back.
 | INV-9 | **untouched** — still fifteen overrides in twelve files. The copy-form checkbox reaches the page through core's own `view_projects_copy_only_items` hook, not through Deface, and `spec/controllers/projects_copy_form_spec.rb` guards that seam the way INV-9's spec guards the overrides |
 | Core-drift digest | **nineteen** methods now, `Project#copy` added as a *delegate*. Measured on all three minors and checked in: 6.1 and 7.0 identical, 5.1 differing by one character (`send "copy_#{name}"` against `send :"copy_#{name}"`) |
 | Live probe on default data | on a 7.0 host with `redmine:load_default_data` loaded in and rolled back: 6 statuses, 7 drawn nodes, 31 drawn edges, 30 stored transitions, fallback present, `dense?: true`, and the label reading *"6 statuses and 30 transitions … One further arrow is Redmine's own fallback"*. Before the fix the same host read *7 statuses and 31 transitions* |
-| CI | run **133** on `33c0698`, the head: **green on all eleven jobs** — the nine-cell matrix, RuboCop and the JavaScript gate. Read from the Actions API, not assumed. Each matrix cell also ran its own migration-reversibility, scope-backfill and `zeitwerk:check` steps green |
+| CI | run **136** on `e0a5ac6`, the head: **success**. Read from the Actions API, not assumed. Run **133** on `33c0698` — the first of this session's three commits — was read job by job and was green on **all eleven**: the nine-cell matrix, RuboCop and the JavaScript gate, each matrix cell also running its own migration-reversibility, scope-backfill and `zeitwerk:check` steps. The workflow file has not changed since, so 136 is the same eleven. Run **135** reads `cancelled` — the concurrency group superseding it as the next commit landed |
 
 ## Exact next step
 
-**Nothing is queued.** CI run 133 on the head is green on all eleven jobs and no
-finding is open, so the next session is **Jan's turn or a fresh review run**
+**Nothing is queued.** CI run 136 on the head is green and no finding is open, so the next session is **Jan's turn or a fresh review run**
 (`docs/review/PROMPT.md`), whichever he asks for. Confirm CI is still green on
 the head before starting either — it was when this was written, but a review that
 trusts `docs/STATE.md` for that is a review that has not checked:
@@ -1045,11 +1048,11 @@ Read CLAUDE.md and docs/STATE.md. Carry on.
 WP0..WP9 are done, the plan is finished, and **no finding is open**, so "carry
 on" means, in order:
 
-1. **Read CI for the head `33c0698` and act on it if it is red.** It was green
-   on all eleven jobs when this was written (run **133**), and four cells were
-   also run locally — 7.0, 6.1 and 5.1 on PostgreSQL, 7.0 on MariaDB, all
-   **854 examples, 0 failures**. Read rather than assume anyway: three runs of
-   the WP9 building session were red on cells no PostgreSQL host can see.
+1. **Read CI for the head `e0a5ac6` and act on it if it is red.** It was green
+   when this was written (run **136**), and four cells were also run locally —
+   7.0, 6.1 and 5.1 on PostgreSQL, 7.0 on MariaDB, all **861 examples, 0
+   failures**. Read rather than assume anyway: three runs of the WP9 building
+   session were red on cells no PostgreSQL host can see.
 2. **Then there is nothing queued.** Either Jan asks for something, or the next
    session is a **fresh review run** — `docs/review/PROMPT.md` — against this
    head. One choice is with Jan (the refused-values wording of
