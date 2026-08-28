@@ -52,3 +52,10 @@ get 'issues/:issue_id/workflow_map',    to: 'project_workflow_maps#show',
                                         as: 'issue_workflow_map'
 get 'projects/:project_id/workflow_map', to: 'project_workflow_maps#show',
                                          as: 'project_workflow_map'
+
+# The diagnostics page (WP11, ADR-002). Administrator-only and read-only: what
+# this Redmine is, and whether what the plugin copied out of it still matches.
+# On its own path for the same reason as the administration routes above --
+# plugin routes are drawn after core's, and nothing here may shadow one.
+get 'project_workflow_diagnostics', to: 'project_workflow_diagnostics#show',
+                                    as: 'project_workflow_diagnostics'

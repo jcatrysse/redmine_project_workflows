@@ -6,6 +6,24 @@ The workflow as a drawing.
 
 ### Added
 
+- **A diagnostics page, and an answer for a Redmine nobody has tested this
+  against.** *Administration → Project workflow diagnostics* says which Redmine
+  this is, which ones the plugin is tested against, and — on a Redmine it has
+  never been tested against — whether any of the parts of Redmine it replaces
+  have actually changed. The plugin replaces twenty-one of Redmine's own
+  methods rather than extending them, so it now records a fingerprint of each
+  one for every Redmine it has been tested on and compares them on a host it
+  has not. There are three answers: tested, untested with no differences, and
+  untested with differences named one by one, each with the file Redmine
+  defines it in. It is a warning and never a refusal — the plugin keeps
+  working, and so do the screens an administrator would use to put it right.
+
+  The same page answers three more questions whose wrong answer is otherwise
+  silent: whether the permissions the plugin registered are the ones Redmine
+  answers with (two plugins can claim a name, and the loser's screens refuse
+  everybody), whether each change it makes to Redmine's own classes is in
+  place, and which of Redmine's screens it adds to.
+
 - **A workflow diagram, per role.** A new **Workflow diagram** screen draws the
   whole of a project's status transitions for one tracker: a box per status, an
   arrow per permitted change, and Redmine's *New issue* starting point on the
@@ -188,6 +206,21 @@ The workflow as a drawing.
   plugin reimplements, understands both ways a patch can be attached. Without
   that, three of the nineteen methods it watches would have dropped out of the
   gate silently when the helper patch stopped being a `prepend`.
+- That watch now covers what it depends on. It missed every class method,
+  including the two that *all* workflow writes are routed through, and it missed
+  the one private Redmine method the plugin calls without replacing — which
+  would raise rather than answer differently if Redmine ever renamed it.
+  Nineteen watched methods become twenty-three. The first thing the wider watch
+  found: Redmine 7.0 rewrote one of those two write methods. It is the same
+  rules with a lookup table in front of them, and the plugin replaces the method
+  outright, so nothing had to follow — but nothing would have noticed either.
+- Every version fact the plugin holds — the Redmine versions it is tested
+  against, their Ruby and Rails, the databases, the fingerprints, and the
+  version Redmine started drawing its icons differently at — moved into one file
+  that the plugin, its tests and its README all read. They used to be seven
+  separate statements of the same thing, and the test run *skipped itself* on a
+  Redmine it had no fingerprints for. It now fails instead: the plugin is
+  lenient about an untested Redmine and the build is not.
 - The workflow diagram's role selection moved into
   `RedmineProjectWorkflows::GraphSelection`, the third extraction from
   `ProjectWorkflowsController` for the same reason as the first two.

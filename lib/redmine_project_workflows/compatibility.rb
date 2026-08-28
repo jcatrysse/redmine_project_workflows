@@ -85,6 +85,14 @@ module RedmineProjectWorkflows
         "#{::Redmine::VERSION::MAJOR}.#{::Redmine::VERSION::MINOR}"
       end
 
+      # The whole version, patch level and all, for the diagnostics page. The
+      # manifest is measured per minor -- core does not change a method body in a
+      # patch release -- so nothing compares against this; it is what an
+      # administrator reads back to somebody.
+      def host_version
+        ::Redmine::VERSION.to_s
+      end
+
       def verified?(minor = host_minor)
         minors.key?(minor)
       end
@@ -192,7 +200,7 @@ module RedmineProjectWorkflows
           "Redmine #{host_minor} is not a version this plugin has been tested against " \
           "(#{verified_minors.join(', ')}), and #{drift.size} of the core methods it depends on " \
           "differ from Redmine #{newest_verified_minor}: #{drift.map(&:method_name).join(', ')}. " \
-          'See Administration > Project workflows.'
+          'See Administration > Project workflow diagnostics.'
         end
       end
 

@@ -1,0 +1,130 @@
+<%# The diagnostics page (WP11, ADR-002). Four questions whose wrong answer is
+    silent: which Redmine this is and whether anything the plugin copied out of
+    it has changed, whether the permissions it registered are the ones Redmine
+    answers with, whether its patches are attached, and which of Redmine's own
+    screens it changes.
+
+    Core's own app/views/admin/info.html.erb is the model for the markup: a
+    `table.list` with a `td.tick` per row, and no styling of the plugin's own. %>
+<%= title l(:label_project_workflow_diagnostics) %>
+
+<p><%= l(:text_project_workflow_diagnostics_description) %></p>
+
+<h3><%= l(:label_project_workflow_diagnostics_compatibility) %></h3>
+
+<div class="<%= project_workflow_diagnostics_state_class(@diagnostics.state) %>">
+  <%= project_workflow_diagnostics_state_sentence(@diagnostics.compatibility) %>
+</div>
+
+<table class="list">
+  <tbody>
+    <tr>
+      <td class="name"><%= l(:label_project_workflow_diagnostics_host) %></td>
+      <td>Redmine <%= @diagnostics.compatibility.host_version %></td>
+    </tr>
+    <tr>
+      <td class="name"><%= l(:label_project_workflow_diagnostics_tested) %></td>
+      <td><%= @diagnostics.compatibility.verified_minors.join(', ') %></td>
+    </tr>
+    <tr>
+      <td class="name">Ruby</td>
+      <td><%= RUBY_VERSION %></td>
+    </tr>
+    <tr>
+      <td class="name">Rails</td>
+      <td><%= Rails::VERSION::STRING %></td>
+    </tr>
+    <tr>
+      <td class="name"><%= l(:label_project_workflow_diagnostics_database) %></td>
+      <td><%= @diagnostics.database %></td>
+    </tr>
+  </tbody>
+</table>
+
+<% if @diagnostics.drift.any? %>
+  <h4><%= l(:label_project_workflow_diagnostics_drift) %></h4>
+  <p><%= l(:text_project_workflow_diagnostics_drift_help) %></p>
+  <table class="list">
+    <thead>
+      <tr>
+        <th><%= l(:field_name) %></th>
+        <th><%= l(:label_details) %></th>
+        <th><%= l(:label_project_workflow_diagnostics_source) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @diagnostics.drift.each do |entry| %>
+        <tr>
+          <td class="name"><%= entry.method_name %></td>
+          <td><%= project_workflow_diagnostics_drift_status(entry.status) %></td>
+          <td><%= entry.source %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>
+
+<h3><%= l(:label_permissions) %></h3>
+
+<table class="list">
+  <tbody>
+    <% @diagnostics.permission_checks.each do |check| %>
+      <tr>
+        <td class="name"><%= check.name %></td>
+        <td>
+          <% unless check.ok %>
+            <%= l(:text_project_workflow_diagnostics_permission_captured, claimants: check.claimants) %>
+          <% end %>
+        </td>
+        <td class="tick"><%= project_workflow_diagnostics_tick(check.ok) %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<h3><%= l(:label_project_workflow_diagnostics_patches) %></h3>
+
+<table class="list">
+  <tbody>
+    <% @diagnostics.patch_checks.each do |check| %>
+      <tr>
+        <td class="name"><%= check.name %></td>
+        <td>
+          <%= "#{check.style}: #{check.owners.join(', ')}" %>
+          <%= "(#{check.module_name})" if check.module_name %>
+          <% unless check.ok %>
+            <br><%= l(:text_project_workflow_diagnostics_patch_missing) %>
+          <% end %>
+        </td>
+        <td class="tick"><%= project_workflow_diagnostics_tick(check.ok) %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<h3><%= l(:label_project_workflow_diagnostics_overrides) %></h3>
+
+<p><%= l(:text_project_workflow_diagnostics_overrides_help) %></p>
+
+<% if @diagnostics.registered_overrides.empty? %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% else %>
+  <table class="list">
+    <thead>
+      <tr>
+        <th><%= l(:field_name) %></th>
+        <th><%= l(:label_project_workflow_diagnostics_screen) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @diagnostics.registered_overrides.each do |name, virtual_path| %>
+        <tr>
+          <td class="name"><%= name %></td>
+          <td><%= virtual_path %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>
+
+<% html_title(l(:label_project_workflow_diagnostics)) -%>

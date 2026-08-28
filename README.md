@@ -530,7 +530,7 @@ so it records a fingerprint of each of them for every Redmine it has been tested
 on, and on an unknown one it compares.
 
 That gives three answers, in the log at startup and on
-**Administration → Project workflows**:
+**Administration → Project workflow diagnostics**:
 
 - **Verified** — this Redmine is one the plugin is tested against. Nothing is
   measured and nothing is said.
@@ -545,3 +545,23 @@ an administrator would use to put it right keep working with it. What the check
 proves is precise and worth stating plainly — that the *bodies* the plugin
 copied are unchanged. It does not prove that Redmine still calls them the same
 way. It is evidence, not a guarantee.
+
+### Administration → Project workflow diagnostics
+
+The same page answers three more questions, and all four are questions whose
+wrong answer is otherwise **silent**:
+
+- **Permissions.** Two plugins can register the same permission name. Redmine
+  answers with whichever was registered first, and the loser's screens then
+  refuse everybody, administrators included, with nothing in any log. The page
+  says whether the names this plugin registered are the ones Redmine answers
+  with. (This is not hypothetical: it happened to this plugin on a real
+  installation, which is why both permissions are called
+  `*_project_workflow_rules`.)
+- **Patches.** Which of Redmine's own classes this plugin changes, and whether
+  each change is in place. A patch that is not applied leaves Redmine behaving
+  as it does without the plugin, which looks like the plugin doing nothing
+  rather than like an error.
+- **Screens.** Which of Redmine's own screens the plugin adds to. A screen that
+  looks wrong is worth reporting even when everything is listed here: the list
+  says what was registered, not what was placed.

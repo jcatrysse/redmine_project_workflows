@@ -1152,3 +1152,43 @@ and the bulk-edit form, for the reason WP8 already gives.
 Against PostgreSQL, MySQL and MariaDB. The break in core is between 5.1 and
 6.0 (SVG sprite icons replaced CSS icons), not between 6.1 and 7.0.
 Version-conditional code stays behind one helper.
+
+**The table above is a copy.** The authority is
+`lib/redmine_project_workflows/compatibility.yml` — the compatibility manifest
+of ADR-002 — and `RedmineProjectWorkflows::Compatibility` is the only thing that
+reads it. Everything that needs a version fact goes through that module:
+`VersionHelper`, the drift spec, the conventions spec, the diagnostics page and
+the README's Compatibility section, whose numbers a spec compares against the
+manifest on every run. Nothing else in `app/` or `lib/` may read
+`Redmine::VERSION`, and `spec/plugin_conventions_spec.rb` fails if anything
+does.
+
+### Three states, and the diagnostics page (WP11)
+
+`requires_redmine` declares a floor and no ceiling, deliberately: core turns an
+out-of-range version into a boot failure with no rescue, so a range would trade
+an uncertain divergence for a certain outage. What replaces the ceiling is a
+measurement.
+
+- **verified** — the running minor is in the manifest. Nothing is measured and
+  nothing is said; a verified host pays nothing at all.
+- **unverified, no drift** — the minor is unknown, and every body the plugin
+  copied is byte-identical to the newest verified minor's. One line in the log.
+- **unverified, drift** — the minor is unknown and at least one differs. The
+  same line names them, and the diagnostics page names each one with the file
+  core defines it in. A warning, never a refusal: an installation that has just
+  been upgraded must keep the screens an administrator would put it right from.
+
+`Administration → Project workflow diagnostics` is where all of it is readable,
+and it carries three more checks whose wrong answer is otherwise silent: whether
+each permission the plugin registered is the one `AccessControl` answers with
+(two plugins can claim a name and the loser's screens answer 403 to everybody),
+whether every patch is attached where it should be, and which Deface overrides
+are registered against which view. The last is a listing rather than a check —
+a registered override is not a matching one, and INV-9's assertions are what
+say it matches.
+
+The page is administrator-only and reads: `require_admin`, no permission of its
+own, and no action on the controller that writes. It is reached from an
+`admin_menu` entry, which needs no Deface anchor — the first of the two
+administration entry points ADR-003 accepts.

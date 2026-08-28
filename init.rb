@@ -57,6 +57,28 @@ Redmine::Plugin.register :redmine_project_workflows do
   # symmetric and the names say what they govern: this project's workflow
   # *rules*, not the workflow feature. Migration 006 carries existing grants
   # across. **Do not shorten either name back.**
+  # The one administration entry point this plugin has, and the first of the two
+  # ADR-003 accepts. `Redmine::MenuManager.map :admin_menu` is a stable
+  # extension point on all three supported versions, so an administration screen
+  # of the plugin's own needs no Deface override to be reachable (INV-9 stays at
+  # fifteen).
+  #
+  # Administrator-only twice over: Redmine renders the admin menu only for
+  # administrators, and the controller requires one itself -- a menu that is not
+  # drawn is not an authorization.
+  # Both the sprite name and the CSS class, exactly as core's own eleven entries
+  # pass them: 6.0 and later read `:icon` and draw `sprite_icon(name)` from
+  # core's own sheet -- `summary` is in it on 6.1 and 7.0 -- while 5.1's
+  # MenuItem ignores the option entirely and draws the picture behind
+  # `.icon-summary`, which its stylesheet defines. Deliberately no `plugin:`
+  # option: that would send `sprite_icon` looking for a sheet in this plugin's
+  # assets, and this plugin ships none.
+  menu :admin_menu, :project_workflow_diagnostics,
+       { controller: 'project_workflow_diagnostics', action: 'show' },
+       caption: :label_project_workflow_diagnostics,
+       icon: 'summary',
+       html: { class: 'icon icon-summary' }
+
   project_module :issue_tracking do
     permission :view_project_workflow_rules,
                { projects: :settings,

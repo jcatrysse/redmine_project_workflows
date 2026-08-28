@@ -27,8 +27,8 @@
 | WP9 | The workflow as a drawing, per role | **done** |
 | — | *WP0..WP9 delivered the plugin. WP10..WP16 are the hardening track that makes it releasable.* | |
 | WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **done** |
-| WP11 | Compatibility as an object (ADR-002) | **next** |
-| WP12 | Owned administration screens (ADR-003) | planned |
+| WP11 | Compatibility as an object (ADR-002) | **done** |
+| WP12 | Owned administration screens (ADR-003) | **next** |
 | WP13 | One write-coordination service, and bounded bulk writes | planned |
 | WP14 | The remaining defect backlog | planned |
 | WP15 | The test debt three reviews named | planned |
@@ -799,6 +799,36 @@ Implements **ADR-002**. Read it first; this is the build order.
 states correctly for both a drifted and an undrifted core, the diagnostics page
 names a captured permission, and the compatibility job fails on a minor with no
 manifest entry.
+
+**Done**, 2026-08-28, in two commits.
+
+The manifest is `lib/redmine_project_workflows/compatibility.yml` and
+`RedmineProjectWorkflows::Compatibility`; `spec/upstream/core_method_digests.yml`
+is absorbed into it. `VersionHelper` reads it, the drift spec reads it, the
+README's Compatibility section is compared against it by four examples, and
+`spec/plugin_conventions_spec.rb` fails if anything in `app/` or `lib/` reads
+`Redmine::VERSION` anywhere else. The three states resolve lazily and are
+announced once per process from `init.rb`; the drift spec **fails** on an
+unmeasured minor where it used to skip. `CoreMethodDigest::TARGETS` covers the
+singleton classes and the manifest's declared dependencies, so nineteen watched
+methods became twenty-three — and the first thing that found was that 7.0
+rewrote `WorkflowTransition.replace_transitions` (an index in front of the same
+rules; the plugin replaces the method outright, so nothing followed).
+
+`Administration → Project workflow diagnostics` is the page: the compatibility
+state and the drift table, the permission-ownership check that generalises
+WP10's blocker, the attachment of every patch, and the registered Deface
+overrides as a listing. Two things came out of building it that were not in the
+plan: `IssuesControllerPatch` attaches `ProjectWorkflowMapsHelper` rather than
+itself, so the attachment table needed a fourth element and reported a correctly
+applied patch as missing until it had one; and the singleton-coverage example
+asked the manifest where it meant to ask the measurement, and was green with the
+new targets reverted.
+
+Not done, and deliberately: **a CI job of its own**. The compatibility question
+is asked inside the rspec job on every one of the nine cells, which is where the
+host is, so a separate job would either duplicate the matrix or ask the question
+somewhere it cannot be answered.
 
 ---
 
