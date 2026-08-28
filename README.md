@@ -138,9 +138,11 @@ Take a backup, as with any migration that touches a core table.
 
    This is the plugin's own screen, and it is where everything about projects
    lives. Redmine's own **Administration → Workflow** goes on doing exactly what
-   Redmine does, for the workflow every project shares. (Until this release the
-   project controls were added to Redmine's screens instead; both still work
-   while that move is finished, and the plugin's screens are the ones to use.)
+   Redmine does, for the workflow every project shares — it has no project
+   controls on it at all, and it carries a link across to this one. (Earlier
+   alpha releases added the project controls to Redmine's screens instead. If you
+   have a bookmark to one of those with a project in its address, the project part
+   is now ignored: open **Administration → Project workflows** instead.)
 2. Select Role, Tracker, and Project.
    - **Generic** means the workflow every project uses unless it overrides it.
    - Selecting a real project shows that project's own workflow.
@@ -232,7 +234,7 @@ Three things are worth knowing:
 - **The builtin roles are not offered on the tab.** *Non member* and *Anonymous*
   have no members in any project, so the tab does not offer to give the project
   its own workflow for them; a system administrator can still do it from
-  **Administration → Workflow**. If one has, the tab **does** list the row, and
+  **Administration → Project workflows**. If one has, the tab **does** list the row, and
   the project can empty that workflow or give it back — otherwise a workflow the
   project runs would be in force with nothing on the project's own screens able
   to explain or undo it. The same holds for an ordinary role whose last member

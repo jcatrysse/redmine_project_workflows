@@ -9,7 +9,7 @@
 <%= render partial: 'project_workflow_rules/selection_form' %>
 
 <% if @trackers && @roles && @statuses.any? %>
-  <%= render partial: 'redmine_project_workflows/scope_panel',
+  <%= render partial: 'project_workflow_rules/scope_panel',
              locals: { rule_type: ProjectWorkflowScope::PERMISSIONS } %>
 
   <%= form_tag update_permissions_project_workflow_rules_path, method: :patch, id: 'workflow_form' do %>

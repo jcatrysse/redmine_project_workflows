@@ -13,16 +13,21 @@
 # `map.compact`, `unless present?`, `== 0`, a negated `include?`, an inverted
 # `==`. What is left falls into three groups:
 #
-# 1. **The four patch files whose method bodies are Redmine's own.**
-#    `issue_patch.rb`, `workflows_controller_patch.rb`, `workflows_helper_patch.rb`
-#    and `workflow_rule_patch.rb` reimplement core methods with one or two
-#    project-blind queries replaced (see `docs/design.md`, "Integration points in
-#    Redmine core"). Their shape is core's shape, and that is the property that
-#    makes them auditable: you can diff them against a real checkout and see
-#    exactly what the plugin changed. Refactoring them to satisfy a size or
-#    complexity metric would destroy that and buy nothing -- the complexity is
-#    Redmine's, and the plugin does not own it. This accounts for every
-#    `Metrics/*` entry below.
+# 1. **The patch files whose method bodies are Redmine's own.** `issue_patch.rb`,
+#    `workflow_rule_patch.rb` and `project_workflow_matrix_helper.rb` reimplement
+#    core methods with one or two project-blind queries replaced (see
+#    `docs/design.md`, "Integration points in Redmine core"). Their shape is
+#    core's shape, and that is the property that makes them auditable: you can
+#    diff them against a real checkout and see exactly what the plugin changed.
+#    Refactoring them to satisfy a size or complexity metric would destroy that
+#    and buy nothing -- the complexity is Redmine's, and the plugin does not own
+#    it. This accounts for every `Metrics/*` entry below.
+#
+#    Two files left this group in WP12. `workflows_helper_patch.rb` was deleted
+#    by ADR-003, and `workflows_controller_patch.rb` shrank from 468 lines to
+#    four narrowed queries and stopped offending against any `Metrics/*` cop --
+#    which is what a decision to reduce the core-modification surface looks like
+#    from the lint gate.
 # 2. **`insert_all` and `update_all` in the writers.** Deliberate, and an
 #    invariant rather than a shortcut: INV-2 says every write goes through
 #    `TransitionWriter` / `PermissionWriter`, which whitelist `rule`, `field_name`
@@ -72,8 +77,6 @@ Metrics/AbcSize:
     - 'app/helpers/project_workflow_matrix_helper.rb'
     - 'lib/redmine_project_workflows/patches/issue_patch.rb'
     - 'lib/redmine_project_workflows/patches/workflow_rule_patch.rb'
-    - 'lib/redmine_project_workflows/patches/workflows_controller_patch.rb'
-    - 'lib/redmine_project_workflows/patches/workflows_helper_patch.rb'
     - 'lib/redmine_project_workflows/services/transition_query.rb'
 
 # Offense count: 7
@@ -83,7 +86,6 @@ Metrics/CyclomaticComplexity:
   Exclude:
     - 'lib/redmine_project_workflows/patches/issue_patch.rb'
     - 'lib/redmine_project_workflows/patches/workflow_rule_patch.rb'
-    - 'lib/redmine_project_workflows/patches/workflows_controller_patch.rb'
     - 'lib/redmine_project_workflows/services/transition_query.rb'
 
 # Offense count: 6
@@ -93,7 +95,6 @@ Metrics/MethodLength:
   Exclude:
     - 'lib/redmine_project_workflows/patches/issue_patch.rb'
     - 'lib/redmine_project_workflows/patches/workflow_rule_patch.rb'
-    - 'lib/redmine_project_workflows/patches/workflows_controller_patch.rb'
     - 'lib/redmine_project_workflows/services/transition_query.rb'
 
 # Offense count: 2
@@ -115,8 +116,6 @@ Metrics/PerceivedComplexity:
     - 'app/helpers/project_workflow_matrix_helper.rb'
     - 'lib/redmine_project_workflows/patches/issue_patch.rb'
     - 'lib/redmine_project_workflows/patches/workflow_rule_patch.rb'
-    - 'lib/redmine_project_workflows/patches/workflows_controller_patch.rb'
-    - 'lib/redmine_project_workflows/patches/workflows_helper_patch.rb'
     - 'lib/redmine_project_workflows/services/transition_query.rb'
 
 # Offense count: 2
@@ -125,9 +124,9 @@ Metrics/PerceivedComplexity:
 # SupportedStylesForLeadingUnderscores: disallowed, required, optional
 # Group 3. `find_statuses` memoises into @statuses because @statuses is what the
 # workflow views read. Renaming it to @find_statuses to satisfy the cop would
-# leave the matrix with no statuses at all. Two files since WP12: core's own
-# controller still has the patched copy, and the plugin's own administration
-# controller has its own.
+# leave the matrix with no statuses at all. Two files since WP12: the patch on
+# core's own controller still narrows the query to the generic workflow, and the
+# plugin's own administration controller has its own copy.
 Naming/MemoizedInstanceVariableName:
   Exclude:
     - 'app/controllers/project_workflow_rules_controller.rb'

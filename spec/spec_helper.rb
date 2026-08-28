@@ -44,8 +44,8 @@ end
 # Here rather than in one spec file because four write paths have to answer it
 # and they are tested from three of them: the two matrix writers and the two
 # scope actions from spec/services/workflow_concurrency_spec.rb, and the copy
-# screen from spec/controllers/workflows_controller_spec.rb, which needs a
-# controller. Finding F01 was one path missing the lock while a universal claim
+# screen from spec/controllers/project_workflow_rules_controller_spec.rb, which
+# needs a controller. Finding F01 was one path missing the lock while a universal claim
 # stood in docs/design.md; a second copy of the helpers would be the same shape
 # of mistake in the tests.
 module WorkflowStatementOrderHelpers

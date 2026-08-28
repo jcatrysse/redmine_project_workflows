@@ -342,7 +342,7 @@ this plugin can be tried on.
 | `issue_statuses/index.html.erb` | the *not used by any workflow* badge beside a status | **left alone** | **left alone.** It asks `WorkflowTransition.where('old_status_id = ? OR new_status_id = ?').exists?` with no `project_id` predicate, on 5.1, 6.1 and 7.0 alike, so with the plugin installed the badge is computed across the generic rules and every project's. That is the better answer for a status a project uses, and the wrong one for a project row with no scope, which applies to nothing (INV-3). It is a badge, not a gate — the Delete link beside it is rendered unconditionally — and correcting it would mean a sixteenth Deface override, one more anchor to go stale (INV-9), for a hint |
 | `Role#workflow_rules`, `Tracker#workflow_rules` (`dependent: :delete_all`) | deleting a role or tracker | **left alone** | no change needed — the association covers project rows, and migration 004's foreign keys cascade the scopes |
 | `Project` destroy | deleting a project | **left alone** | no change needed — migration 003's foreign key cascades the rules, migration 004's the scopes |
-| `Project#copy` | copying a project | **hook + delegate** | two of core's own extension points and one four-line delegate. `model_project_copy_before_save` — called with the source and the destination inside core's transaction, identically on 5.1, 6.1 and 7.0 — is where `ProjectWorkflowCopier` runs: the scopes, then the rules those scopes make visible, for the trackers the copy actually has. `view_projects_copy_only_items` — rendered inside the copy form's own checkbox fieldset on all three — is where the **Project workflows (N)** checkbox goes, ticked like every item beside it, so **no Deface override and INV-9 stays at fifteen**. The delegate is `Project#copy` itself: core hands the model hook no options, so the plugin's `#copy` remembers whether the checkbox was ticked on the destination object and calls `super`. Before all this the copy silently ran the **generic** workflow, which is more permissive than the original in the ordinary case where a project was given its own workflow to be stricter (finding F01 of the second 2026-08-28 review; the checkbox is Jan's answer the day after) |
+| `Project#copy` | copying a project | **hook + delegate** | two of core's own extension points and one four-line delegate. `model_project_copy_before_save` — called with the source and the destination inside core's transaction, identically on 5.1, 6.1 and 7.0 — is where `ProjectWorkflowCopier` runs: the scopes, then the rules those scopes make visible, for the trackers the copy actually has. `view_projects_copy_only_items` — rendered inside the copy form's own checkbox fieldset on all three — is where the **Project workflows (N)** checkbox goes, ticked like every item beside it, so **no Deface override and INV-9's count is untouched**. The delegate is `Project#copy` itself: core hands the model hook no options, so the plugin's `#copy` remembers whether the checkbox was ticked on the destination object and calls `super`. Before all this the copy silently ran the **generic** workflow, which is more permissive than the original in the ordinary case where a project was given its own workflow to be stricter (finding F01 of the second 2026-08-28 review; the checkbox is Jan's answer the day after) |
 | `Redmine::DefaultData::Loader` | the default workflow on a fresh install | **left alone** | no change needed — it creates rows without a `project_id`, which is exactly the generic workflow |
 | `Issue#project=` | moving an issue to another project | **left alone** | **not handled, deliberately.** It re-checks the *tracker* against the new project and never the *status*, so an issue moved into a project whose own workflow does not use its status lands on a status that project cannot leave. Core has the same asymmetry — it is not a regression — but per-project workflows make it reachable without an administrator changing anything. WP4 looked at it and left it: the repair sits on the path of every issue save and every bulk move, and `safe_attributes=` assigns `project_id` before `tracker_id` on purpose, so a wrong order would reset statuses that should have been left alone. Finding G03, and an open choice in `DECISIONS.md` |
 
@@ -503,8 +503,8 @@ screens: the summary, the two matrices and the copy form. Reached from an
 
 Everything about *projects* belongs here. Redmine's own Administration →
 Workflow screens go on doing exactly what Redmine does, for the generic
-workflow — which is what lets eleven of the fifteen overrides below be deleted
-rather than maintained, and `WorkflowsControllerPatch` shrink to the
+workflow — which is what let ten of the fifteen overrides be deleted rather than
+maintained, and `WorkflowsControllerPatch` shrink from 468 lines to the
 `project_id: nil` predicate that is the one thing core genuinely gets wrong
 (INV-4).
 
@@ -529,70 +529,68 @@ Three things are unchanged by the move, deliberately:
 `transition_tag` and `field_permission_tag`, plus the scope-state label, the
 summary count link and the project selector. It is named with `helper` in each of
 the three controllers that render a matrix, and it stays out of `WorkflowsHelper`
-for the reason `Patches::WorkflowsHelperPatch#apply!` gives at length. Both cell
-helpers are still copies of core bodies and are still watched by the drift gate,
-through a `CoreMethodDigest::TARGETS` entry of their own — a copy is a copy
-wherever it is filed.
+for the reason `Patches::WorkflowsControllerHelperPatch` gives at length — that
+patch is what puts it into core's own workflow controller's chain, which core's
+`workflows/_form` needs because the row and column actions are rendered into it.
+Both cell helpers are still copies of core bodies and are still watched by the
+drift gate, through a `CoreMethodDigest::TARGETS` entry of their own — a copy is
+a copy wherever it is filed.
 
 ### Deface overrides
 
-Fifteen Deface overrides in twelve files. **Ten** of them are what ADR-003
-deletes once the area above has taken their place; the eleventh, on
-`workflows/_action_menu`, is kept and narrowed to the cross-link alone — ADR-003
-asks for a link in each direction, and somebody who lands on Redmine's screen
-looking for the project selector that used to be there has nothing else telling
-them where it went (answered **A** by Jan, 2026-08-28). The count after WP12 is
-therefore **five in three files**, not the four ADR-003's table predicted: that
-table counted the bulk actions and the issue form and forgot to count the
-cross-link its own Consequences section asks for. Eleven are on the administration
-screens; two are on `workflows/_form`, which the project matrices render as
-well, so one pair serves both; and the last two are on the issue form, one per
-branch of the way core renders the status control:
+**Five Deface overrides in three files.** It was fifteen in twelve files until
+ADR-003 moved the project dimension onto the plugin's own administration area:
+ten of them, in nine files, were deleted once that area had taken their place.
+The one on `workflows/_action_menu` is kept and *narrowed* to the cross-link
+alone — ADR-003 asks for a link in each direction, and somebody who lands on
+Redmine's screen looking for the project selector that used to be there has
+nothing else telling them where it went (answered **A** by Jan, 2026-08-28).
+
+Five rather than the four ADR-003's own table predicted: that table counted the
+bulk actions and the issue form and forgot to count the cross-link its own
+Consequences section asks for.
+
+Three are on core's workflow screens — one on `workflows/_action_menu` and two
+on `workflows/_form`, which the plugin's matrices render as well, so one pair
+serves both — and the last two are on the issue form, one per branch of the way
+core renders the status control:
 
 | View | Anchor | Adds |
 | --- | --- | --- |
-| `workflows/edit` | `div.autoscroll` (top) | hidden `project_id[]` fields |
-| `workflows/edit` | `div.autoscroll` (before) | the scope panel: state and the three actions |
-| `workflows/edit` | the `submit_tag l(:button_edit)` expression | the project selector |
-| `workflows/permissions` | `div.autoscroll` (top) | hidden `project_id[]` fields |
-| `workflows/permissions` | `div.autoscroll` (before) | the scope panel |
-| `workflows/permissions` | the `submit_tag l(:button_edit)` expression | the project selector |
-| `workflows/copy` | the `select_tag('source_role_id'` expression | the source project selector |
-| `workflows/copy` | the `select_tag 'target_role_ids'` expression | the target project selector |
-| `workflows/index` | the `title [l(:label_workflow)` expression (**surround**) | the link to the inventory above the heading, the project selector below it |
-| `workflows/index` | the count cell's url hash | the project selection, carried into the link |
-| `workflows/_action_menu` | `div.contextual` (bottom) | the link to the inventory, and the cross-link to the plugin's own area (ADR-003; Jan, 2026-08-28) |
+| `workflows/_action_menu` | `div.contextual` (bottom) | the cross-link to the plugin's own area (ADR-003; Jan, 2026-08-28) |
 | `workflows/_form` | the column header (`td[data-erb-style]`, bottom) | the column's three actions |
 | `workflows/_form` | the row header (`td.name`, bottom) | the row's three actions |
 | `issues/_attributes` | the `f.select :status_id` expression (after) | the link to the workflow panel (WP8) |
 | `issues/_attributes` | the `l(:field_status)` expression (after) | the same link, where core renders no select — the own-empty case |
 
-The summary page's count cell is a *surround* on one side and a *replace* on the
-other because the two halves belong on either side of core's heading, and
-because the cell itself differs between versions: 5.1 renders an `icon-not-ok`
-span instead of a zero, 6.0 and later colour the number. The anchor is the part
-the two shapes have in common — the url hash — and
-`RedmineProjectWorkflows::VersionHelper` decides which shape to reproduce.
+The five hang on four distinct anchors: `workflows/_form`'s two cells serve
+core's own transitions screen and both of the plugin's matrices, and the issue
+form's two are two branches of one `if`. All four exist verbatim in Redmine 5.1,
+6.1 and 7.0, and `workflows/_form` and `_action_menu` are byte-identical between
+6.1 and 7.0.
 
-The scope panel renders only when the selection contains at least one real
-project. An administrator who does not use the plugin sees core's screens
-unchanged.
-
-The fifteen overrides in the table above hang on twelve distinct anchors -- ten
-on the administration screens, where three of them serve `workflows/edit` and
-`workflows/permissions` alike, and two on the issue form. All twelve exist
-verbatim in Redmine 5.1, 6.1 and 7.0, and `workflows/edit`, `permissions` and
-`copy` are byte-identical between 6.1 and 7.0. The two on `workflows/_form` are header *cells* rather than the toggle
+The two on `workflows/_form` are header *cells* rather than the toggle
 expression inside them, because 5.1 writes that toggle as a bare
 `link_to_function` and 6.0 and later as `toggle_checkboxes_link` — while the two
 cells are identical on all three, and anchoring on the cell puts the actions
 after the status name, where they read as belonging to it. Deface renames an
 attribute whose value contains ERB, which is why the column header is matched as
-`td[data-erb-style]`. `spec/integration/deface_overrides_spec.rb` asserts that each override
-actually reaches the rendered page (**INV-9**), with an assertion that only
-that override can satisfy — the selector and the hidden field both render
-`project_id[]`, so a shared assertion would have let either of them stop
-matching unnoticed.
+`td[data-erb-style]`.
+
+`spec/integration/deface_overrides_spec.rb` asserts that each override actually
+reaches the rendered page (**INV-9**), with an assertion that only that override
+can satisfy. That rule was learned from the pair that is now gone — the selector
+and the hidden field both rendered `project_id[]`, so a shared assertion would
+have let either of them stop matching unnoticed — and the cross-link nearly
+repeated it in another form: an unscoped `include('href="/project_workflow_rules"')`
+is true of every administration page whatever the override does, because WP12's
+`admin_menu` entry renders that href into the `admin` layout. The assertion is
+scoped to `div.contextual`, the element the override writes into.
+
+The same file also asserts what core's screens no longer carry: no project
+selector, no hidden `project_id[]` field, no scope panel and no project selectors
+on the copy form. A count of the overrides in the source cannot see an override
+left registered by accident; a rendered page can.
 
 ### Comparing a project's workflow with the generic one
 
@@ -1012,7 +1010,7 @@ leading out of it for the reader's roles — a terminal *Closed*, most obviously
 So the branch is not a plugin corner at all: it is where a reader is *most*
 likely to want the panel, because nothing else on the form explains it. That is
 why the link is anchored in **both** branches of core's `if`, and why the
-INV-9 count is fifteen rather than fourteen.
+INV-9 count is five rather than four.
 
 Measured rather than assumed, on all three versions:
 `spec/integration/issue_status_help_spec.rb` and the `IssuesController` group in
@@ -1176,7 +1174,7 @@ Two layout details measured on a model rather than guessed:
 | Transitions only | field permissions are a property of a status rather than of a move between two, so they are not a graph. The comparison screen reads them side by side |
 | The drawing is inline SVG, laid out in Ruby | at this size the technology does not affect speed; what matters is what reaches the browser. SVG keeps the status names real text (selectable, findable, readable aloud), `currentColor` carries the theme, and it prints. Mermaid is about a megabyte, Graphviz as WebAssembly two to three, and dagre / ELK / Cytoscape want an npm build step this plugin does not have |
 | No caching | the answer is small -- about 8 kB of markup for twelve statuses and thirty rules. If it is ever wanted the key is (project, tracker, sorted role ids, the scope row's `updated_on` or `generic`, the rule count) |
-| **INV-9 untouched** -- still fifteen overrides in twelve files | everything here is in the plugin's own views and controller; no new Deface anchor |
+| **INV-9 untouched** -- no new Deface anchor | everything here is in the plugin's own views and controller; no new Deface anchor |
 
 Asking for the drawing costs the Resolver's cached scope lookup, one query for
 which of the overridden roles hold a rule, one edge query, the cached effective

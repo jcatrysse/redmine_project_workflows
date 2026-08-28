@@ -69,8 +69,8 @@ describe ProjectWorkflowDiagnosticsController, type: :controller do
     it 'lists the Deface overrides against the views they are registered on' do
       get :show
 
-      expect(response.body).to include('redmine_project_workflows_edit_add_scope_panel')
-      expect(response.body).to include('workflows/edit')
+      expect(response.body).to include('redmine_project_workflows_action_menu_cross_link')
+      expect(response.body).to include('workflows/_action_menu')
     end
 
     # The drift table is absent when there is nothing to say, rather than

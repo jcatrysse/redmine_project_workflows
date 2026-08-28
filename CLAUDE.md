@@ -72,14 +72,17 @@ task description seems to ask for it.
   `db/schema.rb` and wipes the plugin's migration bookkeeping, after which
   `VERSION=0` silently does nothing.
 - **INV-9 A Deface override that does not match is a build failure.** The
-  **fifteen** view overrides — in twelve files under
+  **five** view overrides — in three files under
   `lib/redmine_project_workflows/overrides/` — are the plugin's only hold on
   Redmine's screens, and an unmatched selector produces no error, just a
-  missing project selector. `spec/integration/deface_overrides_spec.rb` asserts
+  missing link. `spec/integration/deface_overrides_spec.rb` asserts
   each one against the real rendered page, on every supported Redmine version,
   with an assertion **only that override can satisfy**: two overrides both
   rendering `project_id[]` meant either could have stopped matching unnoticed.
   `docs/design.md` carries the table; keep the count in all three places.
+  It was fifteen in twelve files until ADR-003 moved the project dimension onto
+  screens the plugin owns; the ten that went were exactly the ones anchored on
+  views the plugin does not own.
 
 ## Hard gates
 

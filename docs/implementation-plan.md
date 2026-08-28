@@ -846,24 +846,37 @@ branch stays green at every commit:
 3. **Done.** The copy screen is on it, with its six selectors and their
    validation.
 
-   Steps 1-3 are **additive**: core's screens still carry the eleven overrides
-   and the 468-line patch, and their spec is untouched and green. Steps 4-8 are
+   Steps 1-3 were **additive**: core's screens still carried the eleven overrides
+   and the 468-line patch, and their spec was untouched and green. Steps 4-8 are
    what take them away, and the behavioural spec moves with them.
-4. `WorkflowsControllerPatch` is cut back to the `project_id: nil` predicate on
-   `index`, `edit`, `permissions`, `update` and `update_permissions` — 468 lines
-   to under 60.
-5. `WorkflowsHelperPatch` is deleted; WP10's stopgap goes with it.
-6. The eleven overrides on core's workflow views and their assertions are
-   **deleted, not rewritten**. INV-9's count changes in `CLAUDE.md`,
-   `docs/design.md` and `spec/integration/deface_overrides_spec.rb`.
-7. Cross-links both ways between core's workflow screen and the plugin's.
-8. With two anchors left, a runtime anchor check on the diagnostics page becomes
+4. **Done.** `WorkflowsControllerPatch` is cut back to the `project_id: nil`
+   predicate — 468 lines to about 40 of code, on `index`, `edit`, `permissions`
+   and `find_statuses`. Not on `update` and `update_permissions`, which the plan
+   and ADR-003 both named: their writes already go through
+   `WorkflowTransition.replace_transitions` and
+   `WorkflowPermission.replace_permissions`, which the plugin's own singleton
+   patches route to the writers with `project_id` fixed at `nil` (INV-1). What
+   both lists missed is `find_statuses`, whose "used statuses only" query is a
+   `workflows` query like any other.
+5. **Done.** `WorkflowsHelperPatch` is deleted, and WP10's stopgap with it. What
+   replaces it is `WorkflowsControllerHelperPatch`, which attaches
+   `ProjectWorkflowMatrixHelper` to core's controller and nothing of its own:
+   core's `workflows/_form` carries the row and column actions of WP5, so without
+   it core's own workflow screen raises `NoMethodError`.
+6. **Done.** Ten overrides in nine files, and their assertions, are **deleted,
+   not rewritten**; the eleventh is narrowed to the cross-link. INV-9 is **five
+   in three files**, changed in `CLAUDE.md`, `docs/design.md` and
+   `spec/integration/deface_overrides_spec.rb`.
+7. **Done.** Cross-links both ways between core's workflow screen and the
+   plugin's.
+8. With four anchors left, a runtime anchor check on the diagnostics page becomes
    a line rather than a suite — and it closes the one gap ADR-002's drift check
    explicitly does not cover.
 
-**Done when:** the table in ADR-003 is true — overrides 15 → 2 or 4, the
-controller patch under 60 lines, shadowed core methods about 13, core helper
-prepends 0 — and nothing a user can do on the administration screens has changed.
+**Done when:** the table in ADR-003 is true — overrides 15 → 5, the controller
+patch under 60 lines, shadowed core methods down by the two the deleted modules
+carried, core helper prepends 0 — and nothing a user can do on the administration
+screens has changed.
 
 ---
 

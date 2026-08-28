@@ -12,7 +12,7 @@
   <%# The scope panel, and the sentence about what one cell stands for. On core's
       screens these came from two Deface overrides on a view the plugin does not
       own; here they are simply rendered where they belong (ADR-003). %>
-  <%= render partial: 'redmine_project_workflows/scope_panel',
+  <%= render partial: 'project_workflow_rules/scope_panel',
              locals: { rule_type: ProjectWorkflowScope::TRANSITIONS } %>
 
   <%= form_tag update_project_workflow_rules_path, method: :patch, id: 'workflow_form' do %>

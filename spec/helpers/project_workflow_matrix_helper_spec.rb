@@ -5,7 +5,7 @@ require_relative '../spec_helper'
 # The plugin's own matrix cell helpers. They live in `ProjectWorkflowMatrixHelper`
 # and are attached to the helper chains of the three controllers that render a
 # matrix -- never to `WorkflowsHelper` itself, for the reason
-# `Patches::WorkflowsHelperPatch#apply!` gives at length (finding F01 of
+# `Patches::WorkflowsControllerHelperPatch` gives at length (finding F01 of
 # 2026-08-28-claude-audit).
 #
 # A helper spec has no controller, so the layering is reproduced on the helper

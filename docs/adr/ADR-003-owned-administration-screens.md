@@ -67,6 +67,41 @@ Concretely:
 | shadowed core methods | 22 | about 13 |
 | core helper prepends | 1 (`WorkflowsHelper`) | 0 |
 
+## Measured result (2026-08-28, WP12 steps 4-8)
+
+The subtraction landed. What the table above predicted against what was
+measured, so that the ADR can be read as a claim that was checked:
+
+| | predicted | measured |
+| --- | --- | --- |
+| Deface overrides | 2, or 4 if the bulk actions stay | **5 in 3 files** |
+| `workflows_controller_patch.rb` | under 60 lines, five narrowed queries | **about 40 lines of code**, three actions and one finder |
+| shadowed core methods | about 13 | 24 in the manifest, two fewer than before — see below |
+| core helper prepends | 0 | **0** |
+
+Three of the four differ from the prediction, and each for a reason worth
+writing down:
+
+- **Five overrides, not four.** The table counted the two bulk actions and the
+  two on the issue form and forgot to count the cross-link its own Consequences
+  section asks for.
+- **`update` and `update_permissions` needed no predicate.** Decision 3 above
+  names five actions; the write half of the pair already goes through
+  `WorkflowTransition.replace_transitions` and
+  `WorkflowPermission.replace_permissions`, which the plugin's singleton patches
+  route to its writers with `project_id` fixed at `nil` (INV-1). What the list
+  missed instead is `find_statuses`, whose "used statuses only" query carries no
+  `project_id` either.
+- **The shadowed-method count barely moved.** The prediction assumed the copies
+  disappear with the patch. They do not: `ProjectWorkflowRulesController` carries
+  core's seven workflow actions and four of its private finders, because the
+  plugin's screens *are* those screens now. Two digests went --
+  `WorkflowsHelper#options_for_workflow_select`, which nothing shadows any more,
+  and `WorkflowsController#find_trackers_roles_and_statuses_for_edit`, whose
+  copy existed only to move work behind an authorization check that is now
+  simply declared first. A copy is a copy wherever it is filed, and the drift
+  gate follows it (`CoreMethodDigest::TARGETS`).
+
 ## Alternatives considered
 
 - **Leave it as it is.** Defensible today: the anchors are tested on nine cells

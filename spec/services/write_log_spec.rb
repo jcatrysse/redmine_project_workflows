@@ -89,7 +89,7 @@ describe 'what a real save writes to the log' do
     allow(Rails).to receive(:logger).and_return(logger)
   end
 
-  describe WorkflowsController, type: :controller do
+  describe ProjectWorkflowRulesController, type: :controller do
     render_views false
 
     before { @request.session[:user_id] = 1 }

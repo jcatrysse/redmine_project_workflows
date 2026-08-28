@@ -20,7 +20,7 @@ module RedmineProjectWorkflows
   # own controller it answered before anyone had checked who was asking
   # (finding G01).
   module WorkflowSelection
-    # The parameters the plugin adds to core's workflow screens.
+    # The parameters the plugin's administration screens read a project from.
     PROJECT_PARAM_KEYS = %i[project_id target_project_ids source_project_id].freeze
     # The two non-numeric values the matrix selector accepts.
     PROJECT_KEYWORDS = %w[global all].freeze

@@ -11,17 +11,23 @@ require_relative '../spec_helper'
 # together with the assertion for the new override, and with CLAUDE.md and
 # docs/design.md, which carry the same numbers in words -- the third example
 # below is what stops those drifting apart.
-INV9_COUNTS = { overrides: 15, files: 12 }.freeze
+INV9_COUNTS = { overrides: 5, files: 3 }.freeze
+# The counts as the documents write them: prose, not digits.
+INV9_COUNT_WORDS = { 1 => 'one', 2 => 'two', 3 => 'three', 4 => 'four', 5 => 'five',
+                     6 => 'six', 7 => 'seven', 8 => 'eight', 9 => 'nine', 10 => 'ten',
+                     11 => 'eleven', 12 => 'twelve', 13 => 'thirteen',
+                     14 => 'fourteen', 15 => 'fifteen' }.freeze
 
-# F08. INV-9 says there are fifteen overrides in twelve files, and three places
-# write that down -- CLAUDE.md, docs/design.md and the comment below. The suite
-# asserts each of the fifteen against the rendered page with an assertion only
-# that one can satisfy, and asserted the *count* nowhere: a sixteenth override
-# added without an assertion passed every gate, silently, which is the exact
-# shape INV-9 exists to prevent.
+# F08. INV-9 says there are five overrides in three files -- ten in nine files
+# fewer than before ADR-003 -- and three places write that down: CLAUDE.md,
+# docs/design.md and the comment below. The suite asserts each of the five
+# against the rendered page with an assertion only that one can satisfy, and
+# asserted the *count* nowhere: a sixth override added without an assertion
+# passed every gate, silently, which is the exact shape INV-9 exists to
+# prevent.
 #
 # This is a speed bump, and it should be described as one rather than as a proof.
-# It cannot tell that override sixteen has an assertion; what it does is turn a
+# It cannot tell that override six has an assertion; what it does is turn a
 # silent omission into a deliberate one, because adding an override now forces
 # the author to touch the constant, and the review rule for touching it is "add
 # the assertion in the same commit" (CLAUDE.md's forbidden-constructs table).
@@ -64,11 +70,12 @@ describe 'the INV-9 override inventory' do
   # not.
   #
   # The name is taken from inside each Deface::Override.new call rather than by
-  # grepping the file for `name:`. A plain grep finds seventeen in fifteen
-  # overrides, because two of the overrides render form fields whose own markup
-  # carries `name: 'source_project_id'` and `name: 'target_project_ids[]'` -- and
+  # grepping the file for `name:`. A plain grep used to find seventeen in fifteen,
+  # because two of the deleted overrides rendered form fields whose own markup
+  # carried `name: 'source_project_id'` and `name: 'target_project_ids[]'` -- and
   # a gate that counted those would have been wrong in the direction that hides a
-  # missing override.
+  # missing override. The construct is kept now that they are gone: what made it
+  # wrong can come back with any override that renders a form field.
   def override_names
     override_files.flat_map do |file|
       File.read(file).split('Deface::Override.new')[1..].map do |call|
@@ -93,19 +100,34 @@ describe 'the INV-9 override inventory' do
 
   # The numbers in the three documents have to be the numbers here. Asserted
   # against the prose because that is where a reader looks first, and a stale
-  # "fifteen" beside a constant reading sixteen is how INV-9 stopped being
-  # believable the last three times a count in this repository drifted.
+  # "five" beside a constant reading six is how INV-9 stopped being believable
+  # the last three times a count in this repository drifted.
+  #
+  # Against the *phrase*, not the word. While the counts were fifteen and twelve
+  # a bare `include('fifteen')` was a real assertion, because no document says
+  # "fifteen" about anything else. ADR-003 took them to five and three, which are
+  # ordinary English words that appear in both files for a dozen unrelated
+  # reasons -- so the word alone would have gone on passing over any count
+  # whatsoever. What is asserted is the sentence the reader actually reads.
   it 'is the count CLAUDE.md and docs/design.md write down' do
     root = File.expand_path('../..', __dir__)
-    words = { 15 => 'fifteen', 12 => 'twelve' }
+    overrides = INV9_COUNT_WORDS.fetch(INV9_COUNTS[:overrides])
+    files = INV9_COUNT_WORDS.fetch(INV9_COUNTS[:files])
 
     [File.read("#{root}/CLAUDE.md"), File.read("#{root}/docs/design.md")].each do |document|
-      expect(document.downcase).to include(words.fetch(INV9_COUNTS[:overrides]))
-      expect(document.downcase).to include(words.fetch(INV9_COUNTS[:files]))
+      text = document.downcase.delete('*')
+      expect(text).to match(/\b#{overrides} (?:view |deface )?overrides\b/)
+      expect(text).to match(/\bin #{files} files\b/)
     end
   end
 end
 
+# Three of the five overrides are on core's own workflow screens, and they are
+# what is left there after ADR-003: the cross-link into core's action menu, and
+# the row and column actions on core's transition grid. Everything else the
+# plugin used to inject into these views is gone, together with the ten
+# overrides that injected it -- so the negative assertions below are as much a
+# part of INV-9 as the positive ones.
 describe WorkflowsController, type: :controller do
   include DefaceOverrideIconHelpers
 
@@ -117,342 +139,64 @@ describe WorkflowsController, type: :controller do
 
   let(:role)    { roles(:roles_001) }
   let(:tracker) { trackers(:trackers_001) }
+  let(:project) { projects(:projects_001) }
 
-  # There are fifteen overrides across twelve files, and each needs an assertion
-  # that only *it* can satisfy. `include('project_id[]')` was not one: the
-  # selector and the hidden field both render that name, so either could have
-  # stopped matching without the suite noticing. Thirteen of them are on the
-  # workflow screens and are asserted here; the other two are on the issue form
-  # and are asserted in the IssuesController group at the foot of this file.
-  def hidden_project_field
-    /<input[^>]*type="hidden"[^>]*name="project_id\[\]"/
+  def render_transitions
+    get :edit, params: { role_id: [role.id], tracker_id: [tracker.id], used_statuses_only: '0' }
   end
 
-  # What the *matrix* form will submit. The selector above it is a <select> of
-  # the same name, so only the hidden inputs answer "what does Save carry".
-  def hidden_project_values(body)
-    body.scan(/<input\b[^>]*>/).filter_map do |tag|
-      next unless tag.include?('type="hidden"') && tag.include?('name="project_id[]"')
-
-      tag[/value="([^"]*)"/, 1]
-    end
-  end
-
-  # F16. The copy screen's two project labels had no `for` and did not wrap
-  # their select, so a screen reader read the option list with no field name --
-  # on the one screen where the two selects differ only in which is the source
-  # and which the target, and where getting them the wrong way round deletes a
-  # workflow. Asserted on the rendered page rather than on the partial, because
-  # the ids come from the two render sites.
-  it 'associates each label on the copy screen with its own select' do
-    get :copy
-
-    expect(response).to have_http_status(:ok)
-    ids = css_select('select#project_id_source, select#project_id_target').map { |node| node['id'] }
-    expect(ids).to contain_exactly('project_id_source', 'project_id_target')
-    ids.each do |id|
-      expect(css_select("label[for='#{id}']")).not_to be_empty, "no label is associated with ##{id}"
-    end
-  end
-
-  it 'injects the project selector into the transitions page' do
-    get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                         project_id: ['global'], used_statuses_only: '0' }
-    expect(response).to have_http_status(:ok)
-    expect(response.body).to include('id="project_id"')
-  end
-
-  it 'injects the hidden project fields into the transitions page' do
-    get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                         project_id: ['global'], used_statuses_only: '0' }
-    expect(response).to have_http_status(:ok)
-    expect(response.body).to match(hidden_project_field)
-  end
-
-  it 'injects the project selector into the field permissions page' do
-    get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
-                                project_id: ['global'] }
-    expect(response).to have_http_status(:ok)
-    expect(response.body).to include('id="project_id"')
-  end
-
-  it 'injects the hidden project fields into the field permissions page' do
-    get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
-                                project_id: ['global'] }
-    expect(response).to have_http_status(:ok)
-    expect(response.body).to match(hidden_project_field)
-  end
-
-  # F01. The hidden fields are the only thing that carries the project
-  # selection from the selector form into the matrix form -- core puts the two
-  # in separate `form_tag` blocks on all three supported versions -- and they
-  # used to expand 'all' into every project id. The selection then stopped
-  # being 'all' for the rest of the session: the redirect after Save carried
-  # every id (an 8-10 KB Location header on a large installation, which nginx
-  # rejects with a 414 at its default buffer size), and so did all four
-  # scope-action links on the page that came back. The scope panel four files
-  # away has kept the keyword verbatim since WP1 and is asserted to; these are
-  # the same rule applied to the form that saves.
-  it 'keeps the whole-selection keyword in the transitions save form' do
-    get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                         project_id: ['all'], used_statuses_only: '0' }
-
-    expect(response).to have_http_status(:ok)
-    expect(hidden_project_values(response.body)).to eq(['all'])
-  end
-
-  it 'keeps the whole-selection keyword in the field permissions save form' do
-    get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
-                                project_id: ['all'], used_statuses_only: '0' }
-
-    expect(response).to have_http_status(:ok)
-    expect(hidden_project_values(response.body)).to eq(['all'])
-  end
-
-  it 'injects both project selectors into the copy page' do
-    get :copy
-    expect(response).to have_http_status(:ok)
-    expect(response.body).to include('source_project_id')
-    expect(response.body).to include('target_project_ids')
-  end
-
-  # WP1 / INV-9. The scope panel is anchored on div.autoscroll, the same element
-  # the hidden project fields use. It renders only when a real project is
-  # selected: the generic workflow has no scope, so an administrator who does
-  # not use the plugin keeps core's screens unchanged.
-  describe 'the scope panel' do
-    let(:project) { projects(:projects_001) }
-
-    it 'reaches the transitions page when a project is selected' do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: [project.id.to_s], used_statuses_only: '0' }
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include('project-workflow-scope')
-      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_state_inherits)))
-      expect(response.body).to include('project_workflow_scopes')
-    end
-
-    it 'reaches the field permissions page when a project is selected' do
-      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
-                                  project_id: [project.id.to_s] }
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include('project-workflow-scope')
-      expect(response.body).to include('project_workflow_scopes')
-    end
-
-    it 'offers the two enable actions while the project inherits' do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: [project.id.to_s], used_statuses_only: '0' }
-
-      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_enable_copy)))
-      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_enable_empty)))
-      expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inherit)))
-    end
-
-    # The grid below the panel shows what the selection *stores*, so a project
-    # that inherits renders as an empty matrix -- which reads as "nothing is
-    # permitted here" and is the opposite of the truth. The panel is the only
-    # place that can say so, and it also has to say that Save will not change
-    # such a combination, because it no longer does.
-    it 'says why the grid is empty for a combination that inherits' do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: [project.id.to_s], used_statuses_only: '0' }
-
-      expect(response.body).to include(
-        ERB::Util.html_escape(I18n.t(:text_project_workflow_scope_inheriting_note, count: 1))
-      )
-    end
-
-    it 'says nothing of the kind once the project has taken the combination over' do
-      give_own_workflow(project, tracker, role)
-
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: [project.id.to_s], used_statuses_only: '0' }
-
-      expect(response.body).not_to include(
-        ERB::Util.html_escape(I18n.t(:text_project_workflow_scope_inheriting_note, count: 1))
-      )
-    end
-
-    it 'offers the empty and inherit actions once the project has a scope' do
-      give_own_workflow(project, tracker, role)
-
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: [project.id.to_s], used_statuses_only: '0' }
-
-      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_state_own_empty)))
-      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_clear)))
-      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inherit)))
-    end
-
-    # 'all' has to stay 'all' in the action links: expanding it would put every
-    # project id into the URL.
-    it 'keeps the whole-selection keyword in its links' do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: ['all'], used_statuses_only: '0' }
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include('project-workflow-scope')
-      expect(response.body).to match(/project_workflow_scopes\?[^"']*project_id(%5B%5D|\[\])=all/)
-    end
-
-    it 'stays out of the way when only the generic workflow is selected' do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: ['global'], used_statuses_only: '0' }
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).not_to include('project-workflow-scope')
-    end
-  end
-
-  # WP3 / INV-9. The summary page carries three of the overrides: the header
-  # above the grid, the link to the inventory in core's own action menu, and the
-  # count cells, which core builds without a project and which therefore linked
-  # to the generic matrix however the page was filtered.
-  describe 'the summary page' do
-    let(:project) { projects(:projects_001) }
-
-    it 'gets the project selector above the grid' do
-      get :index
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include('id="project_id"')
-    end
-
-    it 'gets the link to the inventory' do
-      get :index
-
-      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_inventory)))
-      expect(response.body).to include('project_workflow_inventories')
-    end
-
-    # The count cells are the third override, and this is the assertion only
-    # they can satisfy: the header's selector renders 'project_id' too, but it
-    # never renders it inside a link to workflows/edit.
-    it 'carries the selected project into every count link' do
-      give_own_workflow(project, tracker, role)
-
-      get :index, params: { project_id: [project.id.to_s] }
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to match(
-        %r{href="[^"]*/workflows/edit\?[^"]*project_id(%5B%5D|\[\])=#{project.id}}
-      )
-    end
-
-    it 'draws the inventory link the way the host draws icons' do
-      get :index
-      link = response.body[%r{<a class="icon icon-list".*?</a>}m]
-
-      expect(link).to be_present
-      if core_renders_sprites?
-        expect(link).to include('<svg')
-      else
-        expect(link).not_to include('<svg')
-      end
-    end
-
-    # The count cells are the plugin's markup now, so an empty one has to look
-    # the way core's did on the host it is running on.
-    it 'marks an empty cell the way the host does' do
-      get :index
-      cell = response.body[%r{<a title="Edit".*?</a>}m]
-
-      expect(cell).to be_present
-      if core_renders_sprites?
-        expect(cell).to include('decoration-red')
-      else
-        expect(cell).to include('icon-not-ok')
-      end
-    end
-
-    # ... and leaves core's own URL alone for an administrator who does not use
-    # the plugin, which is the other half of the same override.
-    it 'leaves the count links as core built them by default' do
-      get :index
-
-      expect(response.body).to match(%r{href="[^"]*/workflows/edit\?[^"]*role_id=})
-      expect(response.body).not_to match(%r{href="[^"]*/workflows/edit\?[^"]*project_id})
-    end
-  end
-
-  # The action-menu override carries two links, and both reach the two matrices,
-  # which render core's action menu partial. The summary and copy pages do not
-  # render that partial; the summary page gets the inventory link from the
-  # plugin's own header instead, and both link to workflows/edit from their own
-  # heading.
+  # The third override, and the one ADR-003 asks for by name ("core's workflow
+  # screen points at the plugin's, and the plugin's points back"). Answered
+  # **A** by Jan on 2026-08-28.
   #
-  # Asserted together because they are one override: a single Deface call
-  # rendering two anchors, so either going missing means the same thing.
-  it 'injects both of the plugin\'s links into the action menu' do
-    get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                         project_id: ['global'], used_statuses_only: '0' }
+  # Scoped to core's own action menu, and that scoping is the whole assertion.
+  # `href="/project_workflow_rules"` appears on **every** administration page
+  # whatever this override does, because the admin_menu entry WP12 registered is
+  # in the `admin` layout -- so the unscoped version of this example stayed green
+  # with the link deleted from the override and the page rendered without it.
+  # Found by deleting it and watching the example not fail, which is the only way
+  # this kind of near-miss ever shows up.
+  it 'injects the cross-link into the action menu' do
+    render_transitions
 
     expect(response).to have_http_status(:ok)
-    # Both scoped to core's own action menu, and that scoping is the whole
-    # assertion. `href="/project_workflow_rules"` appears on **every**
-    # administration page whatever this override does, because the admin_menu
-    # entry WP12 registered is in the `admin` layout -- so the unscoped version
-    # of this example stayed green with the link deleted from the override and
-    # the page rendered without it. Found by deleting it and watching the example
-    # not fail, which is the only way this kind of near-miss ever shows up.
-    expect(css_select('div.contextual a[href="/project_workflow_inventories"]')).to be_present
     expect(css_select('div.contextual a[href="/project_workflow_rules"]')).to be_present
   end
 
-  # WP0 / claude F04. Since Redmine 6.0 core renders sprite_icon('') inside
-  # every .toggle-multiselect span, and toggleMultiSelectIconInit() calls
-  # updateSVGIcon($(this).find('svg')[0], iconType) for each of them. A span
-  # without an <svg> makes that argument undefined, getElementsByTagName
-  # raises, and because the call sits inside $(document).ready every
-  # initialisation registered after it is skipped. Redmine 5.1 has no
-  # sprite_icon at all and core's own spans are empty there, so the plugin's
-  # span has to match whatever core does on the host it is running on.
-  describe 'the multiselect toggle the plugin injects' do
-    def toggle_spans(body)
-      body.scan(%r{<span class="toggle-multiselect[^"]*">(.*?)</span>}m).flatten
-    end
+  # It reaches the field permissions screen too, which is the other of the two
+  # core renders this partial from.
+  it 'injects the cross-link into the field permissions action menu' do
+    get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id] }
 
-    it 'matches core on the transitions page' do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: ['global'], used_statuses_only: '0' }
-      spans = toggle_spans(response.body)
+    expect(response).to have_http_status(:ok)
+    expect(css_select('div.contextual a[href="/project_workflow_rules"]')).to be_present
+  end
 
-      expect(spans.size).to be >= 3
-      if core_renders_sprites?
-        expect(spans).to all(include('<svg'))
-      else
-        expect(spans).to all(satisfy { |inner| inner.exclude?('<svg') })
-      end
-    end
+  # The inventory link went with the project dimension: "which projects have
+  # taken a workflow over" is a question about projects, and it is asked from
+  # the plugin's own action bar now. A second link here would be the override
+  # that was never narrowed.
+  it 'leaves the inventory link on the plugin\'s own screens' do
+    render_transitions
 
-    it 'matches core on the field permissions page' do
-      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id],
-                                  project_id: ['global'] }
-      spans = toggle_spans(response.body)
-
-      expect(spans.size).to be >= 3
-      if core_renders_sprites?
-        expect(spans).to all(include('<svg'))
-      else
-        expect(spans).to all(satisfy { |inner| inner.exclude?('<svg') })
-      end
-    end
+    expect(css_select('div.contextual a[href="/project_workflow_inventories"]')).to be_empty
   end
 
   # WP5 / claude F06 / INV-9. The row and column actions, which are two overrides
-  # on core's own workflows/_form -- the partial the project matrices render as
-  # well, so one pair serves both screens. Each assertion is one only that
-  # override can satisfy: the column action's selector names a new status and
-  # the row action's an old one, and only the row override can produce
-  # .old-status-0, which is the "new issue" row.
+  # on core's own workflows/_form -- the partial the plugin's matrices render as
+  # well, so one pair serves both screens, and it is core's screen that owns the
+  # anchors. Each assertion is one only that override can satisfy: the column
+  # action's selector names a new status and the row action's an old one, and
+  # only the row override can produce .old-status-0, which is the "new issue"
+  # row.
+  #
+  # They keep working here because
+  # RedmineProjectWorkflows::Patches::WorkflowsControllerHelperPatch puts
+  # ProjectWorkflowMatrixHelper into this controller's helper chain. Without it
+  # core's own workflow screen raises NoMethodError, which is why that patch is
+  # the one thing ADR-003 leaves attached to this controller besides the queries.
   describe 'the row and column actions' do
-    before do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: ['global'], used_statuses_only: '0' }
-    end
+    before { render_transitions }
 
     it 'reaches every column of every transition grid' do
       status = issue_statuses(:issue_statuses_002)
@@ -488,89 +232,55 @@ describe WorkflowsController, type: :controller do
     end
   end
 
-  # WP5. How much one cell stands for, and what "no change" means, above the
-  # matrix. It says something only when a cell stands for more than one
-  # workflow -- which is the case core's own no-change cells appear in.
-  describe 'the note above the matrix' do
-    let(:other_tracker) { trackers(:trackers_002) }
+  # ADR-003's subtraction, asserted rather than assumed. Ten overrides in nine
+  # files were deleted; an override left registered by accident, or a partial
+  # still rendered from somewhere, would put this markup back on a screen that
+  # is meant to be Redmine's own -- and INV-9's count alone would not notice,
+  # because it counts what is in the source rather than what reaches a page.
+  describe 'what core\'s screens no longer carry' do
+    it 'has no project selector or hidden project field on the transitions page' do
+      render_transitions
 
-    def escaped(key)
-      ERB::Util.html_escape(I18n.t(key, no_change: I18n.t(:label_no_change_option)))
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include('project_id[]')
+      expect(response.body).not_to include('id="project_id"')
     end
 
-    it 'says how many workflows one cell stands for' do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
-                           project_id: ['global'], used_statuses_only: '0' }
+    it 'has no project selector or hidden project field on the field permissions page' do
+      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id] }
 
-      sentence = I18n.t(:text_project_workflow_bulk_selection,
-                        count: 2, trackers: 2, roles: 1, scopes: 1)
-
-      expect(response.body).to include(ERB::Util.html_escape(sentence))
-      expect(response.body).to include(escaped(:text_project_workflow_bulk_legend))
-      expect(response.body).to include(escaped(:text_project_workflow_bulk_legend_actions))
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include('project_id[]')
     end
 
-    it 'stays quiet when a cell is one workflow' do
+    it 'has no scope panel, whatever the request asks for' do
       get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: ['global'], used_statuses_only: '0' }
+                           project_id: [project.id.to_s], used_statuses_only: '0' }
 
-      expect(response.body).not_to include('project-workflow-bulk-note')
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include('project-workflow-scope')
     end
 
-    # Core renders "no change" cells on the field permissions page too, so the
-    # sentence explaining them belongs there -- but that page has no row or
-    # column actions, so the sentence about those must not follow it there.
-    it 'reaches the field permissions page, without explaining a control it has not got' do
-      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
-                                  project_id: ['global'] }
+    it 'has no project selector on the summary page, and core\'s own count links' do
+      get :index
 
-      expect(response.body).to include('project-workflow-bulk-note')
-      expect(response.body).to include(escaped(:text_project_workflow_bulk_legend))
-      expect(response.body).not_to include(escaped(:text_project_workflow_bulk_legend_actions))
-      expect(response.body).not_to include('project-workflow-bulk-action')
-    end
-  end
-
-  # WP6. What the last row or column action did, and a way back. Unlike the note
-  # above it, this does not wait for a cell to stand for more than one workflow:
-  # the actions are there whatever the size of the selection, and so is the cost
-  # of clicking one by accident.
-  describe 'the counter and the undo above the matrix' do
-    let(:other_tracker) { trackers(:trackers_002) }
-
-    it 'is on the transitions page for a selection of one workflow per cell' do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id],
-                           project_id: ['global'], used_statuses_only: '0' }
-
-      expect(response.body).to include('id="project-workflow-bulk-undo"')
-      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_bulk_undo)))
-      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_bulk_unsaved)))
-      # The two sentences the script fills in come down as data attributes, so
-      # every string on the page stays in the locale files.
-      expect(response.body).to include('data-project-workflow-changed')
-      expect(response.body).to include('data-project-workflow-undone')
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include('id="project_id"')
+      expect(response.body).to match(%r{href="[^"]*/workflows/edit\?[^"]*role_id=})
+      expect(response.body).not_to match(%r{href="[^"]*/workflows/edit\?[^"]*project_id})
     end
 
-    it 'is on the transitions page for a wide selection too' do
-      get :edit, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
-                           project_id: ['global'], used_statuses_only: '0' }
+    it 'has no project selectors on the copy page' do
+      get :copy
 
-      expect(response.body).to include('id="project-workflow-bulk-undo"')
-    end
-
-    # No row or column actions there, so nothing for a counter to count or an
-    # undo to undo.
-    it 'is absent from the field permissions page' do
-      get :permissions, params: { role_id: [role.id], tracker_id: [tracker.id, other_tracker.id],
-                                  project_id: ['global'] }
-
-      expect(response.body).to include('project-workflow-bulk-note')
-      expect(response.body).not_to include('id="project-workflow-bulk-undo"')
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include('source_project_id')
+      expect(response.body).not_to include('target_project_ids')
     end
   end
 end
 
-# WP8 / INV-9. The fourteenth and fifteenth overrides, the only two outside the
+# WP8 / INV-9. The fourth and fifth overrides, the only two outside the
 # workflow screens: the link to the workflow panel, beside core's own status
 # control on the issue form.
 #
@@ -640,7 +350,7 @@ describe IssuesController, type: :controller do
     end
   end
 
-  # The fifteenth override, and the reason it exists.
+  # The fifth override, and the reason it exists.
   #
   # An own empty workflow permits nothing, so `new_statuses_allowed_to` returns
   # [] -- it appends the issue's own status only when the workflow permitted

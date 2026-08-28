@@ -44,12 +44,14 @@ module RedmineProjectWorkflows
       #   :included  -- mixed into another patch rather than into core.
       #
       # A fourth element names the module to look for where it is not the patch
-      # itself. IssuesControllerPatch is the one: it puts
-      # ProjectWorkflowMapsHelper into IssuesController's chain and nothing of
-      # its own, because there is no core method to override -- only a helper
-      # that a Deface override calls from a view IssuesController owns. Asking
-      # for the patch module there reported a correctly applied patch as
-      # missing, which is how this element came to exist.
+      # itself. Two patches are like that, and both for the same reason: they
+      # put one of the plugin's helpers into a controller's chain and carry
+      # nothing of their own, because there is no core method to override --
+      # only a helper that a Deface override calls from a view core owns.
+      # IssuesControllerPatch was the first, and asking for the patch module
+      # there reported a correctly applied patch as missing, which is how this
+      # element came to exist; WorkflowsControllerHelperPatch is the second
+      # (ADR-003).
       #
       # spec/services/diagnostics_spec.rb fails if a module under Patches is
       # missing from this list, so a new patch cannot be added without appearing
@@ -64,8 +66,8 @@ module RedmineProjectWorkflows
         ['WorkflowPermissionPatch', :singleton, %w[WorkflowPermission]],
         ['WorkflowRulePatch', :singleton, %w[WorkflowRule]],
         ['WorkflowTransitionPatch', :singleton, %w[WorkflowTransition]],
-        ['WorkflowsControllerPatch', :prepend, %w[WorkflowsController]],
-        ['WorkflowsHelperPatch', :helper, %w[WorkflowsController]]
+        ['WorkflowsControllerHelperPatch', :helper, %w[WorkflowsController], 'ProjectWorkflowMatrixHelper'],
+        ['WorkflowsControllerPatch', :prepend, %w[WorkflowsController]]
       ].freeze
 
       # One line of the page each. Neither carries a sentence: the view builds
@@ -145,9 +147,9 @@ module RedmineProjectWorkflows
       # a claim about nothing.
       #
       # What it is for: an administrator comparing what this plugin says it
-      # touches against a screen that looks wrong. ADR-003 reduces the list to
-      # two, and at two a runtime anchor check becomes a line rather than a
-      # suite.
+      # touches against a screen that looks wrong. ADR-003 reduced the list to
+      # five in three files, and at five a runtime anchor check becomes a line
+      # rather than a suite.
       def registered_overrides
         ::Deface::Override.all.flat_map do |virtual_path, overrides|
           ours = overrides.keys.select { |name| name.to_s.start_with?(OVERRIDE_PREFIX) }

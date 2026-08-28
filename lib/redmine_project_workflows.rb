@@ -39,7 +39,7 @@ require_relative 'redmine_project_workflows/patches/workflows_controller_patch'
 require_relative 'redmine_project_workflows/patches/workflow_transition_patch'
 require_relative 'redmine_project_workflows/patches/workflow_permission_patch'
 require_relative 'redmine_project_workflows/patches/workflow_rule_patch'
-require_relative 'redmine_project_workflows/patches/workflows_helper_patch'
+require_relative 'redmine_project_workflows/patches/workflows_controller_helper_patch'
 require_relative 'redmine_project_workflows/patches/project_patch'
 require_relative 'redmine_project_workflows/patches/projects_helper_patch'
 require_relative 'redmine_project_workflows/patches/role_patch'
@@ -82,10 +82,10 @@ module RedmineProjectWorkflows
     # controller's helper chain, which Rails' include_all_helpers does not do
     # for a plugin's app/helpers. See the patch.
     Patches::IssuesControllerPatch.apply!
-    # Nor a prepend, and for the reason ProjectsHelperPatch gives above: a
-    # neighbour's alias chain on WorkflowsHelper would copy our
-    # options_for_workflow_select and lose its super. See the patch.
-    Patches::WorkflowsHelperPatch.apply!
+    # Nor a prepend: this only puts the plugin's matrix helper into core's
+    # workflow controller's chain, which core's own workflows/_form needs since
+    # the row and column actions of WP5 are rendered into it. See the patch.
+    Patches::WorkflowsControllerHelperPatch.apply!
     prepend_once(Role, Patches::RolePatch)
     prepend_once(Tracker, Patches::TrackerPatch)
   end

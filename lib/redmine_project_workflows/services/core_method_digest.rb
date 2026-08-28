@@ -62,18 +62,19 @@ module RedmineProjectWorkflows
       TARGETS = [
         ['Issue', 'RedmineProjectWorkflows::Patches::IssuePatch', :instance],
         ['Project', 'RedmineProjectWorkflows::Patches::ProjectPatch', :instance],
-        ['WorkflowsHelper', 'RedmineProjectWorkflows::Patches::WorkflowsHelperPatch', :instance],
         # Not a patch module, and watched all the same: ProjectWorkflowMatrixHelper
         # holds the plugin's copies of core's two matrix cell helpers, and a copy
-        # that leaves Patches must not leave the gate with it (ADR-003).
+        # that leaves Patches must not leave the gate with it (ADR-003). Since
+        # WorkflowsHelperPatch was deleted this is the only module of the
+        # plugin's carrying a WorkflowsHelper body at all.
         ['WorkflowsHelper', 'ProjectWorkflowMatrixHelper', :instance],
         ['WorkflowsController', 'RedmineProjectWorkflows::Patches::WorkflowsControllerPatch', :instance],
-        # Also not a patch module. ADR-003 moves the project dimension onto the
+        # Also not a patch module. ADR-003 moved the project dimension onto the
         # plugin's own administration controller, which carries copies of core's
         # seven workflow actions and of the four private finders under them --
         # and core's WorkflowsController is prepended by the entry above, so
-        # reaching core's body here means walking past that patch. See
-        # {core_source}.
+        # reaching core's body for one of the four the patch still holds means
+        # walking past that patch. See {core_source}.
         ['WorkflowsController', 'ProjectWorkflowRulesController', :instance],
         ['Role', 'RedmineProjectWorkflows::Patches::RolePatch', :instance],
         ['Tracker', 'RedmineProjectWorkflows::Patches::TrackerPatch', :instance],

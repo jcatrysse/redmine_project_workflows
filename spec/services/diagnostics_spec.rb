@@ -92,10 +92,10 @@ describe RedmineProjectWorkflows::Services::Diagnostics do
   end
 
   describe 'the Deface overrides' do
-    # INV-9 counts fifteen, in twelve files. This asserts the number the page
-    # lists agrees with the number the plugin's own override files declare --
-    # read from disk, so the two cannot drift -- rather than restating fifteen,
-    # which would be a fourth place to keep the count.
+    # INV-9 counts five, in three files. This asserts the number the page lists
+    # agrees with the number the plugin's own override files declare -- read from
+    # disk, so the two cannot drift -- rather than restating five, which would be
+    # a fourth place to keep the count.
     it 'lists exactly the overrides the plugin declares in its own files' do
       declared = Dir.glob(File.expand_path('../../lib/redmine_project_workflows/overrides/*.rb', __dir__))
                     .sum { |file| File.read(file).scan(/name:\s*'(redmine_project_workflows_[a-z_]+)'/).size }
@@ -107,7 +107,7 @@ describe RedmineProjectWorkflows::Services::Diagnostics do
       names, paths = diagnostics.registered_overrides.transpose
 
       expect(names).to all(start_with(described_class::OVERRIDE_PREFIX))
-      expect(paths).to include('workflows/edit', 'issues/_attributes')
+      expect(paths).to include('workflows/_action_menu', 'workflows/_form', 'issues/_attributes')
     end
   end
 

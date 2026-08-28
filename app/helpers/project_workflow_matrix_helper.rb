@@ -5,9 +5,15 @@
 # These are the plugin's versions of two of Redmine's own cell helpers --
 # +transition_tag+ and +field_permission_tag+ -- plus three helpers of the
 # plugin's own. They are here rather than in a module under +Patches+ because
-# since ADR-003 nothing of the plugin attaches to core's +WorkflowsHelper+ or to
-# core's +WorkflowsController+ at all: the screens that need these cells are the
-# plugin's own, and they reach the module through +helper+ in the ordinary way.
+# since ADR-003 nothing of the plugin is mixed into core's +WorkflowsHelper+:
+# the screens that need these cells are the plugin's own, and they reach the
+# module through +helper+ in the ordinary way.
+#
+# Core's workflow controller reaches it that way too, through
+# {RedmineProjectWorkflows::Patches::WorkflowsControllerHelperPatch} -- beside
+# +WorkflowsHelper+, never inside it. Core's own +workflows/_form+ carries the
+# row and column actions of WP5, which are one of the plugin's two surviving
+# overrides there, and those call +project_workflow_bulk_actions+.
 #
 # **Still a copy of core, and still watched as one.** Both cell helpers
 # reimplement a body core owns, so
