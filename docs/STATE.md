@@ -6,171 +6,177 @@
 
 ## Current position
 
-- **Work package: WP9 is done, and so the plan is finished.** `docs/implementation-plan.md`
-  runs WP0..WP9 and every row now reads *done*. WP9 is "the workflow as a
-  drawing, per role": a project's whole transitions workflow for one tracker,
-  drawn as boxes and arrows on the project screen, with a role selector.
-- **This session built it, from a plan the previous session had written and not
-  started.** Five commits, each pushed and verified with
-  `git ls-remote --heads origin`.
-- **The plugin is at 0.1.6**, still unreleased — `main` carries 0.0.3 and there
-  is no tag. The version *was* bumped this time, unlike last session: a whole
-  feature earns a `CHANGELOG.md` heading a reader can find, where four small
-  fixes to an unrun version did not. `spec/plugin_conventions_spec.rb` asserts
-  `init.rb` and the newest changelog heading agree, and both moved together.
+- **The plan is finished and the review loop is running.**
+  `docs/implementation-plan.md` runs WP0..WP9 and every row reads *done*. What
+  happens now is review sessions finding things and fixing sessions answering
+  them.
+- **This session was a fixing session** on
+  `docs/review/findings/2026-08-28-claude.md`, the review of WP9. It found five
+  things; **all five are now `fixed`**, each with a `Resolution:` line saying
+  what was done and how it was known to be red on the old code. One commit,
+  pushed and verified with `git ls-remote --heads origin`.
+- **The plugin is still at 0.1.6**, unreleased. No version bump: these are
+  corrections to the very feature 0.1.6 introduces, and 0.1.6 has never been
+  released (`main` carries 0.0.3, there is no tag), so they fold into that
+  entry. The 0.1.6 `CHANGELOG.md` entry was rewritten to describe what the
+  diagram actually does now, and it gained a `### Fixed` section for the two
+  findings that are not about the diagram.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
-  `claude/docs-review-f58si2`, which happened to point at the same commit as the
-  real remote head; `git checkout -B claude/dev origin/claude/dev` was the whole
-  rescue, and nothing was lost.
-- **`main`:** its tree is untouched, but it has two more commits than it did: a
-  review session pushed a findings file there on 2026-08-28 under the *old*
-  convention and reverted it in the same session when Jan changed the convention.
-  Nothing else is written to `main` by a session; Jan asks for the merge himself,
-  and the two histories are still **unrelated** — no merge base, so a merge needs
-  `--allow-unrelated-histories`. `main` also still carries the old two-cell CI.
-- **The review loop now lives entirely on `claude/dev`.** Answered **B** by Jan on
-  2026-08-28: a reviewer pushes its findings file beside the code it describes and
-  a fixer answers that same file in place. This replaced the older rule that sent
-  findings to `main` so that `main`'s copy kept the original statuses; with one
-  copy there is nothing to keep in step, and the reviewer's original wording is
-  still readable through `git show <review-commit>:docs/review/findings/<file>`.
-  `docs/review/README.md`, `PROMPT.md`, `FIX-PROMPT.md` and `CLAUDE.md` all say so.
-- **There is an open review run.** `docs/review/findings/2026-08-28-claude.md`,
-  against this head: **three major and two minor, none of them a blocker**. Read
-  it before anything else. In one line each — the drawing does not model core's
-  fallback from the *new issue* node to the tracker's default status, so on a
-  **stock Redmine** every status reads as unreachable (F01); the issue panel says
-  "no change of status is permitted" when one of several roles is
-  overridden-and-empty while the status list offers six (F02, predates WP9);
-  longest-path ranking turns Redmine's default *complete* workflow graph into
-  unreadable spaghetti at six statuses (F03); the unreachable band gets no ranking
-  of its own (F04); and two action links on the settings tab read as one sentence
-  (F05, found in a browser session on 2026-08-28 and never filed until now).
-- **Open choices for Jan:** still just the one from before (F01 of
-  `2026-08-27-bundled`, the refused-values wording), and it is not urgent.
-- **CI is green on the head.** Run **125** on `109adb7` — the head itself — passed
-  all eleven jobs, verified from the Actions API by the review session; run **124**
-  on `ee8ee54` did too — the nine-cell matrix, RuboCop and the bulk-action
-  JavaScript gate. Three earlier runs of the building session were red on the six
-  MySQL and MariaDB cells; see the traps for why.
+  `claude/docs-review-916e7x`; `git checkout -B claude/dev origin/claude/dev`
+  was the whole rescue and nothing was lost. Head is `6290492`.
+- **`main`:** untouched. It means "last released" and no session writes to it —
+  findings included (answered **B** by Jan on 2026-08-28). The two histories are
+  still **unrelated**: no merge base, so a merge needs
+  `--allow-unrelated-histories`. Jan asks for the merge himself.
+- **Nothing is open.** `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`
+  matches only `TEMPLATE.md`.
+- **CI was green on the head this session started from** — run **127** on
+  `0853e06`, all eleven jobs, read from the Actions API. The run for `6290492`
+  was still in flight when this was written; **read it before doing anything
+  else** (see *Exact next step*).
 
 ## What this session produced
 
-WP9, in five commits: the data half, the screen, the documentation, a QA pass,
-and one cross-database repair.
+One commit, `6290492`, answering findings F01..F05 of 2026-08-28.
 
-### What the plugin can do now that it could not
+### What the plugin does now that it did not
 
-Open **Workflow diagram** on a project — from the Workflow tab, from the top of
-either matrix, or from the panel on the issue form — and see the whole of that
-project's status transitions for one tracker as a picture: a box per status, an
-arrow per permitted change, and Redmine's *New issue* starting point on the left.
+**The workflow diagram is right on a stock Redmine.** This is F01 and it was the
+serious one. Redmine ships a workflow with **no rule at all** in the *New issue*
+row — `redmine:load_default_data` seeds none — and Redmine does not refuse to
+create issues because of it: `Issue#new_statuses_allowed_to` ends with
 
-The part that is better than Jira's, and the reason the package existed: Jira
-draws one diagram per issue type and hides *who may make a move* in a dialogue
-behind the arrow, so its picture shows the transitions somebody may make rather
-than the ones you may. Redmine decides its workflow per tracker **and per role**,
-so the screen has a **Roles shown** selector and starts on the roles the reader
-holds. Underneath, in words: the statuses **no permitted move can reach**, the
-ones **nothing leads out of**, and the ones **the selected roles' rules never
-mention**. The first two are real defects in a workflow and nothing else in
-Redmine reports either.
+```ruby
+statuses << default_status if include_default || (new_record? && statuses.empty?)
+```
 
-### The five objects behind it
+so when nothing says which status a new issue starts in, it starts on the
+tracker's default status. The drawing modelled only the stored rules, so on a
+freshly installed Redmine **every** status was reported as "cannot be reached
+from a new issue" and the picture collapsed into a band of dashed boxes. Measured
+on a real host with default data before and after:
+
+| | before | after |
+| --- | --- | --- |
+| statuses in the unreachable band | 6 | **0** |
+| dead ends reported | 6 | 0 |
+| the fallback arrow | absent | `New issue → New`, dotted |
+
+The fallback is an `Edge` carrying `fallback: true`. It is **not** a stored rule
+and nothing treats it as one: it is drawn dotted (against the conditional
+arrow's dashes), it has its own legend sentence naming it as Redmine's behaviour,
+the table's condition cell says *Redmine's own fallback* rather than *anyone*,
+and `Result#empty_workflow?` counts `stored_edges` — so Redmine having a default
+cannot make an own *empty* workflow read as one somebody filled in, which is
+INV-3 and is the whole reason the scope model exists.
+
+**A workflow with no progression says so instead of drawing spaghetti.** This is
+F03. Redmine's default workflow is a *complete* graph — every status may become
+every other — and the layered picture of one is a column per status with an arc
+between every pair; it is unreadable at six statuses, which is where the shipped
+configuration already sits. `Result#dense?` judges it and the screen says the
+workflow permits nearly every move, folding the drawing into a `<details>` with
+*Show the diagram anyway*. Folded, not deleted.
+
+**The statuses no new issue can reach get columns of their own.** F04. The band
+used to be one flat row in query order with every edge among its members bowed
+underneath it, which at four or five statuses is a bundle of indistinguishable
+arcs. It is now ranked by the same three phases the main graph gets.
+
+**The issue panel no longer contradicts the status list beside it.** F02, which
+predates WP9. A reader holding two roles — one with a deliberately empty project
+workflow, one with rules — was told "no change of status is permitted" while the
+form offered six statuses. The absolute sentence is now used only when *every*
+one of the reader's roles is in that state.
+
+**The two scope actions no longer read as one sentence.** F05. A pipe between
+each pair, which is Redmine's own idiom.
+
+### The one suggestion that was investigated and rejected
+
+F03's first suggested direction was to rank by **shortest** path from the entry
+node rather than longest, and the finding said the change "belongs in
+`WorkflowGraphRanking` alone". It does not, and it would not work:
+
+- BFS layering only guarantees `layer(v) ≤ layer(u) + 1` for an edge `u → v`, so
+  a forward edge can end up **inside** a layer or pointing leftwards. Everything
+  downstream — `chain_for`, the dummy insertion, the routing, the straightening
+  — assumes every forward edge spans at least one layer to the right.
+- It would not remove the arcs anyway. A complete graph over five statuses
+  collapsed to three layers still has **twenty** edges between the members of one
+  layer, which is the same bundle in a different place.
+
+So the finding's *second* suggestion — say it in words — is the whole fix. This
+is recorded in `docs/DECISIONS.md` so that a later session does not re-derive it.
+
+### The objects, after this round
 
 | Object | What it is |
 | --- | --- |
-| `Services::WorkflowPopulations` | the two populations one project's roles resolve to, as **finished** relations. Extracted from WP8's `TransitionMapQuery`, which now uses it. It exists because INV-4 written twice is INV-4 with two places to get it wrong |
-| `Services::WorkflowGraphQuery` | nodes, edges and the per-role INV-3 state for one (project, tracker, role ids) |
-| `Services::WorkflowGraphRanking` | reachability, cycle break, layers, ordering — the graph's shape, with no coordinate in it |
-| `Services::WorkflowGraphLayout` | coordinates, routing, and the extent the `viewBox` comes from |
-| `Services::WorkflowGraphText` | a status name fitted into a fixed box. SVG does not wrap |
+| `Services::WorkflowPopulations` | the two populations one project's roles resolve to, as finished relations (INV-4 in one place) |
+| `Services::WorkflowGraphQuery` | nodes, edges, the per-role INV-3 state, **core's fallback edge**, and `dense?` |
+| `Services::WorkflowGraphRanking` | reachability, cycle break, layers, ordering. Now takes `roots:` and is run **twice**: from the entry node for the main graph, and over the band's own sub-graph with every band node a root |
+| `Services::WorkflowGraphLayout` | coordinates, routing and the text |
+| `Services::WorkflowGraphExtent` | **new.** How far the finished drawing runs, measured over the paths as well as the boxes |
+| `Services::WorkflowGraphText` | a status name fitted into a fixed box |
 
-Plus `ProjectWorkflowGraphsHelper`, two views, one route, `graph` added to the
-action list of **both** permissions in `init.rb`, and fifteen locale keys in all
-eight files.
-
-### Three things the roles found that the implementer had not
-
-- **The review role found a real defect in the first draft.** The view told two
-  different facts with one sentence: it keyed "this project has its own workflow
-  here and it holds no rule at all" on `edges.empty?`, which is *also* true of a
-  project that merely **inherits** a generic workflow nobody has filled in. So
-  the screen asserted a configuration the project had never made. That is INV-3's
-  defect in miniature — the state comes from the scope table, never from the
-  absence of rules — and it is now two sentences keyed on the state. Two
-  regression examples, both confirmed red against the previous commit.
-- **The QA role found a 404 that was the wrong answer.** A project nobody is a
-  member of offers no role at all, and the screen answered 404 — a missing page,
-  which it is not. It now renders, with the sentence the settings tab already
-  uses for the same state (already translated, so nothing new to write). 404
-  stays for what it is for: a tracker the project has not enabled, or a role it
-  does not offer.
-- **CI found a spec that only matched PostgreSQL.** See the traps.
-
-### The two layout details that were measured rather than guessed
-
-- **Only forward edges may pull during straightening.** A returning arc points at
-  a node far to the right; letting it tug drags the main path into a staircase.
-- **An edge spanning more than one layer is routed through its dummy cells**, not
-  drawn as one curve from end to end. The first implementation did the latter and
-  the curve passed straight through the box of the node in the layer between —
-  which is what the dummies had been inserted into the ordering to prevent. It
-  carries a spec.
+`app/views/project_workflows/_graph_figure.html.erb` is new: the SVG and its
+legend together, so that folding the drawing away folds its legend with it.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **808 examples, 0 failures** (was 735; seventy-three added) |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **808 examples, 0 failures** |
-| Plugin suite, 7.0-stable + **MariaDB 10.11** (mysql2 adapter) | **808 examples, 0 failures** — a **fourth** cell run locally, and the first time a MySQL-family cell has been. MariaDB was installed in the container; the recipe is in *Development environment* below |
-| Red on the old code | the layout's clipping gate was **broken on purpose and watched to fail**: sizing the `viewBox` from the node positions alone turns two examples red with `y 111 outside the viewBox for M 710 58 C 710 111 290 111 290 58`. Every example in `spec/controllers/project_workflows_graph_spec.rb` is red before the route exists. Two of the three empty-workflow regressions are red against the commit before them, and the third is documented as passing either way rather than claimed as a third. The CI repair's old pattern was re-installed on the MariaDB host and reproduced CI's message exactly |
-| Migrations up → 0 → up | **clean on 5.1 and 7.0**, run BEFORE the suite touched either: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`; after the re-migrate, both back. Nothing in WP9 touches a migration |
-| RuboCop | **114 files, no offences**, through `.github/lint/Gemfile`, and **no** `.rubocop.yml` or `.rubocop_todo.yml` change. `Metrics/ClassLength` was crossed once, at 356/200, and answered by extracting `WorkflowGraphRanking` and `WorkflowGraphText` — the seventh time this repository has taken that signal, and again a genuine improvement rather than placation |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **834 examples, 0 failures** (was 808; twenty-six added) |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **834 examples, 0 failures** |
+| Plugin suite, 7.0-stable + **MariaDB 10.11** (mysql2 adapter) | **834 examples, 0 failures** — a third cell, built this session; the recipe is in *Development environment* below |
+| Red on the old code | **measured, not assumed.** With `fallback_status` forced to return `nil` and nothing else changed, **7 of the 8** new F01 examples fail (the eighth is the negative case and correctly stays green). **3 of the 5** new band examples fail against `git show HEAD:` of the layout and the ranking (a chain in the band came back with three `nil` layers on one row; every edge inside the band came back with `back` true). Both F05 examples and the first F02 example fail against the previous views. **2 of the 3** new graph-screen examples fail against the previous `graph.html.erb` |
+| Migrations up → 0 → up | **clean on 5.1 and 7.0**, run BEFORE the suite touched either: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`; after the re-migrate, both back. Nothing this session touches a migration |
+| RuboCop | **115 files, no offences**, through `.github/lint/Gemfile`, with **no** `.rubocop.yml` or `.rubocop_todo.yml` change. `Metrics/ClassLength` was crossed once, at 201/200, and answered by extracting `WorkflowGraphExtent` and deleting a dead copy of `both_reachable?` — the eighth time this repository has taken that signal |
 | JavaScript gate | **34 checks pass** (`node dev/check-bulk-js.mjs`) |
-| Locale files | **all eight**, fifteen new keys each, parity green. `en` and `nl` by hand; `de`, `es`, `fr`, `it`, `pl` and `pt` translated |
-| Version gate | `init.rb` 0.1.6 = the newest `CHANGELOG.md` heading |
-| INV-9 | **untouched** — still fifteen overrides in twelve files. WP9 adds no Deface anchor; everything is in the plugin's own views |
-| CI | run **123**, on `048bf41`: **green on all eleven jobs** — the nine-cell matrix, RuboCop and the bulk-action JavaScript gate. Runs **118**, **119** and **121** were red on six of nine cells (every MySQL and MariaDB cell) on the PostgreSQL-only spec pattern, and runs **120** and **122** read `cancelled`, which is the concurrency group superseding them rather than a failure. Run **124**, on the head `ee8ee54`, is green on all eleven jobs too |
+| Locale files | **all eight**, five new keys each, parity green. `en` and `nl` by hand; `de`, `es`, `fr`, `it`, `pl` and `pt` translated. `text_project_workflow_graph_nothing` was reworded in all eight |
+| INV-9 | **untouched** — still fifteen overrides in twelve files. Nothing here adds a Deface anchor |
+| Live probe on default data | on a 7.0 host with `redmine:load_default_data` cleared in and rolled back: `entry rows: 0`, `generic transitions: 48`, `default status: "New"`, `fallback -> "New"`, `dense?: true`, `band: []`, `dead ends: []`. Before the fix the band held all six |
+| CI | run **127** on `0853e06` (the head this session started from): **green on all eleven jobs**. The run for `6290492` had not finished when this was written |
 
 ## Exact next step
 
-**Be a fixing session on `docs/review/findings/2026-08-28-claude.md`.** The
-review that step 3 of the previous plan asked for has been done, against this
-head, and it found five things. `docs/review/FIX-PROMPT.md` is the prompt; the
-file is on this branch and is answered in place.
+**Read CI for `6290492` and act on it if it is red.** Three PostgreSQL and one
+MariaDB cell were run locally and all four are green, but that is four of nine
+and six of the nine CI cells are MySQL-family.
 
-1. **Read CI for the head and act on it if it is red.** It was green when this
-   was written — run **125** on `109adb7`, all eleven jobs — but three runs of the
-   building session *were* red, on cells no PostgreSQL host can see, so read
-   rather than assume.
-2. **F01 first.** The drawing takes core's *new issue* node as its only entry
-   point and does not model core's fallback to the tracker's default status
-   (`app/models/issue.rb:1123`). Redmine's own default data seeds no rule out of
-   that node, so on a **stock installation** every status is reported unreachable
-   and the picture collapses into a band. F03 and F04 are both easier to judge
-   once the drawing is no longer degenerate, so this one is not merely first by
-   severity.
-3. **Then F02**, which predates WP9 and is a one-view fix with a locale change
-   across eight files, and **F03/F04**, which are both `WorkflowGraphRanking`
-   and want a decision about ranking by shortest rather than longest path.
-   **F05** is small and independent of all of them.
-4. **Then it is Jan's turn.** The readable account for a user is
-   `CHANGELOG.md`'s 0.1.6 entry and the README's *The workflow as a diagram*
-   section — worth re-reading once F01 is fixed, because both describe the
-   diagnostic that F01 makes wrong.
+```
+mcp__github__actions_list  list_workflow_runs  jcatrysse/redmine_project_workflows  branch: claude/dev
+```
+
+After that, **the next session is Jan's turn or a fresh review**, whichever he
+asks for. There is no open finding and no work package left. Two things a fresh
+review could usefully look at, neither of them filed as a finding because
+neither is a defect:
+
+1. **The two `dense?` thresholds** (`DENSE_MINIMUM_STATUSES = 4`,
+   nine tenths of the possible moves) are a judgement about readability rather
+   than a fact. They are logged as a Class B decision; if the folding turns out
+   to fire on workflows people did want a picture of, they are one constant each.
+2. **The `aria-label` counts the fallback arrow as a transition.** It says
+   "N statuses and M transitions", and M is the number of arrows drawn, which is
+   what a reader of the picture wants — but the fallback is not a transition
+   anybody configured. Left as it is deliberately; noted here so it is not
+   re-found as a surprise.
 
 ## Open choices
 
 **One**, filed 2026-08-27 and unchanged:
 
-- **F01 — what should the refused-values count count?** **A)** the values in the
-  request, whatever the selection was resolved into — **implemented**, one line
-  in `MatrixSaveResult#+`, and no locale file changes. **B)** keep the total and
-  reword the sentence to name refusals across the selection — nothing changes in
-  code, and it needs a new phrasing in **eight** locale files. **Recommendation:
-  A**, which is in place. **Not urgent.**
+- **F01 of `2026-08-27-bundled` — what should the refused-values count count?**
+  **A)** the values in the request, whatever the selection was resolved into —
+  **implemented**, one line in `MatrixSaveResult#+`, and no locale file changes.
+  **B)** keep the total and reword the sentence to name refusals across the
+  selection — nothing changes in code, and it needs a new phrasing in **eight**
+  locale files. **Recommendation: A**, which is in place. **Not urgent.**
+
+  (Note: this is a *different* F01 from the one this session fixed. Findings are
+  numbered per review run, and two runs both have an F01.)
 
 And still standing from before, because a later session must not undo them:
 
@@ -182,9 +188,9 @@ And still standing from before, because a later session must not undo them:
   `created_by` and `updated_by` are the whole audit story. **A later session must
   not add an event-log table on the grounds that the audit trail is thin: it is
   thin on purpose.**
-- **The three WP9 answers of 2026-08-28** are now built rather than pending: the
-  drawing lives on the project screen (A), behind `view_project_workflow` (A),
-  with a selector over every role the project screen lists (B).
+- **The three WP9 answers of 2026-08-28** are built: the drawing lives on the
+  project screen (A), behind `view_project_workflow` (A), with a selector over
+  every role the project screen lists (B).
 
 ## Development environment (rebuild from scratch in a fresh session)
 
@@ -239,6 +245,21 @@ dev/sync.sh .redmine/7.0-stable-postgresql
   PATH="/opt/rbenv/shims:$PATH" bundle exec rspec \
   plugins/redmine_project_workflows/spec/services/workflow_graph_layout_spec.rb)
 
+# what the screen does on Redmine's OWN default data, which the fixtures are not.
+# This is how F01 and F03 were measured. The test database already holds fixture
+# rows, so the loader refuses until they are cleared -- inside a transaction that
+# is then rolled back, so the database is left exactly as it was.
+(cd .redmine/7.0-stable-postgresql && RAILS_ENV=test RBENV_VERSION=3.3.6 \
+  PATH="/opt/rbenv/shims:$PATH" bundle exec rails runner '
+  ActiveRecord::Base.transaction do
+    [WorkflowRule, Issue, Tracker, IssueStatus, Enumeration, Role, Member].each(&:delete_all)
+    ActiveRecord::Base.connection.execute("DELETE FROM projects_trackers")
+    ActiveRecord::Base.connection.execute("DELETE FROM member_roles")
+    Redmine::DefaultData::Loader.load("en")
+    # ... build a project, run WorkflowGraphQuery, print what you need ...
+    raise ActiveRecord::Rollback
+  end')
+
 # what a layout actually produces, without a browser: a rails runner building a
 # WorkflowGraphQuery::Result by hand and printing the coordinates and the paths
 # is how WP9's drawing was checked to be tidy rather than merely green.
@@ -263,6 +284,42 @@ prerequisites and the MySQL variant.
 Everything below cost time at least once. The first group is new this session;
 the rest is carried forward.
 
+- **A screen that models "what the rules say" is not modelling "what Redmine
+  does".** Core's fallbacks live *outside* the rule tables:
+  `Issue#new_statuses_allowed_to` queries the workflow and then appends the
+  tracker's default status when the answer came back empty. Reading the query
+  core makes is not the same as reading the method that makes it, and the whole
+  of finding F01 is the difference between the two. Read core's method to its
+  last line before deciding what a table means.
+- **Redmine's fixtures are not Redmine's shipped configuration**, and the
+  difference is exactly where two of this round's findings lived. The test
+  fixtures carry no workflow at all and every spec writes its own, usually
+  including an entry rule; `redmine:load_default_data` writes 48 rules per
+  tracker, **no** entry rule, and a *complete* graph. A screen that is only ever
+  seen against fixtures is a screen nobody has seen. The probe is four lines and
+  is in *Development environment* below: clear the tables inside a transaction,
+  `Redmine::DefaultData::Loader.load("en")`, measure, `raise
+  ActiveRecord::Rollback`.
+- **"Red on the old code" needs the *right* break.** Reverting a whole file makes
+  new examples fail with `NoMethodError`, which proves the API changed rather
+  than that the behaviour did. The evidence worth writing down comes from
+  breaking the **one branch that decides the behaviour** and leaving the API
+  alone — here, forcing `fallback_status` to return `nil`, which turned 7 of 8
+  new examples red and correctly left the negative one green. For a view, the
+  whole-file revert *is* the right break, because a view has no API.
+- **Changing what a result object counts turns green examples red, and widening
+  the assertions is the wrong repair.** Adding one synthetic edge made eleven
+  passing examples fail. Every one of them was about *which population was read*,
+  so each was pointed at `stored_edges` — the collection it had always been about
+  — and the new edge got assertions of its own. An example that quietly tolerates
+  a new element is an example that has stopped saying anything.
+- **`Metrics/ClassLength` counts dead code too.** `WorkflowGraphLayout` came back
+  at 201/200, and four of those lines were a copy of `both_reachable?` that
+  nothing in the file had ever called. Look for what is unused before looking for
+  what to extract — and then extract anyway, because 200/200 is not a margin.
+- **`<details>` is the whole disclosure widget** and needs no JavaScript, no
+  stylesheet and no Redmine helper. Worth remembering in a plugin that ships no
+  assets at all: the alternatives all do.
 - **A regexp that spells a quote character is a PostgreSQL-only assertion.**
   PostgreSQL writes `FROM "workflows"`; MySQL and MariaDB write
   `` FROM `workflows` ``. A pattern with `"?` in it matched nothing on six of the
@@ -900,18 +957,19 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-WP0..WP9 are done and the plan is finished, but a review run against this head is
-**open**, so "carry on" means, in order:
+WP0..WP9 are done, the plan is finished, and **no finding is open**, so "carry
+on" means, in order:
 
-1. **Read CI for the head and act on it if it is red.** Run 125 on `109adb7` was
-   green on all eleven jobs — but three runs of the building session were red on
-   the six MySQL and MariaDB cells, so read rather than assume.
-2. **Be a fixing session on `docs/review/findings/2026-08-28-claude.md`**, which
-   is on this branch and is answered in place. Five findings: three major, two
-   minor, no blocker. F01 first — see *Exact next step* above for why the order
-   matters. Every finding in every **other** findings file is closed or decided,
-   and one choice is with Jan (the refused-values wording) with its default
-   implemented.
+1. **Read CI for the head `6290492` and act on it if it is red.** Four cells were
+   run locally — 7.0 and 5.1 on PostgreSQL, 7.0 on MariaDB — and all four are
+   green, but that is four of nine and six of the nine CI cells are
+   MySQL-family. Read rather than assume: three runs of the WP9 building session
+   were red on cells no PostgreSQL host can see.
+2. **Then there is nothing queued.** Either Jan asks for something, or the next
+   session is a **fresh review run** — `docs/review/PROMPT.md` — against this
+   head. One choice is with Jan (the refused-values wording of
+   `2026-08-27-bundled`'s F01) and its default is implemented, so nothing is
+   blocked on him.
 
 Do not invent a work package on top of WP9, and do not re-open the 2026-08-27
 run's "Checked and not filed" table: 24 claims, thirteen rejected or already
