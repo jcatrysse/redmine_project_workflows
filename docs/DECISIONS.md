@@ -176,6 +176,38 @@
 
 ## Open — for Jan
 
+- **Choice (finding F01/F10, `2026-08-28-claude-plugin-compat-5.1`):** the
+  permission `manage_project_workflow` has to be renamed, because
+  `redmine_custom_workflows` — which Jan runs — registers a permission of the
+  same name with no actions and no project module, loads first, and therefore
+  wins. The measured effect on a 45-plugin Redmine 5.1 host is that **every
+  write action of this plugin answers 403, administrators included**, and the
+  role form renders the checkbox twice with the same HTML id. Renaming ours is
+  the right side to move: the plugin is alpha and has never been released, the
+  neighbour has had the name for years, and the alternative is asking every
+  user to patch a third-party plugin. The question is only how far the rename
+  goes.
+  - **A — rename only the colliding half.** `view_project_workflow` keeps its
+    name; `manage_project_workflow` becomes something collision-free. Smallest
+    diff and smallest migration over `roles.permissions`, at the cost of a pair
+    that reads asymmetrically on the role form, where the two sit side by side
+    and nothing tells the reader the asymmetry is a scar rather than a
+    distinction.
+  - **B — rename both, e.g. `view_project_workflow_rules` /
+    `manage_project_workflow_rules`.** Symmetric, and the names say what the
+    permissions actually govern — the workflow *rules* of one project, not the
+    workflow feature. Costs a migration entry for a name that did not have to
+    move, and touches the locale files for both.
+  - **Recommendation: B.** The migration has to be written either way, and
+    carrying a second name through it is a line of code; carrying a permanently
+    lopsided pair of names is forever. Whichever is chosen, the fix should also
+    carry a spec asserting that `Redmine::AccessControl.permission(name)`
+    returns *this plugin's* registration for every permission it declares — the
+    collision was invisible for as long as it existed because nothing checked
+    that the registration won.
+  - **Urgent?** Yes for anyone running both plugins — the feature is entirely
+    unusable there today. Not urgent for this plugin's own CI, which is green.
+
 - **Choice (finding F01, 2026-08-27-bundled-followup):** when a matrix save
   refuses some of the values it was sent, the screen says *"N submitted values
   were not accepted and the rules they name were left unchanged."* On the

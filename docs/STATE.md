@@ -4,209 +4,165 @@
 > at the end of **every** session (overwritten, not appended). Write it as if
 > the next session knows nothing, because it does.
 
+
 ## Current position
 
 - **The plan is finished and the review loop is running.**
   `docs/implementation-plan.md` runs WP0..WP9 and every row reads *done*. What
   happens now is review sessions finding things and fixing sessions answering
   them.
-- **This session was a fixing session** on
-  `docs/review/findings/2026-08-28-claude-second.md`, the second review of WP9
-  and the first "can this go on a real system" pass. It found three things —
-  one minor, two nits; **all three are now `fixed`**, each with a `Resolution:`
-  line saying what was done and how it was known to be red on the old code.
-- **The plugin is still at 0.1.6**, unreleased. No version bump, for the third
-  round running and the same reason: 0.1.6 has never been released (`main`
-  carries 0.0.3, there is no tag). The project copy is a new `### Added` bullet
-  in that entry rather than part of the diagram bullet, because it is not about
-  the diagram.
+- **This session was a review session of an unusual kind**, asked for directly
+  by Jan: *build a Redmine 5.1 with every plugin in my repository beside this
+  one, and see whether it all still works* — with the old `alias_method`
+  patching those plugins use called out as the thing to watch. It **wrote no
+  code**, per `docs/review/README.md`. It produced
+  `docs/review/findings/2026-08-28-claude-plugin-compat-5.1.md`: **ten
+  findings, one blocker**.
+- **The blocker is F01, and it is the important thing in this file.**
+  `redmine_custom_workflows` registers a permission named
+  `manage_project_workflow` — the same name this plugin uses — with an empty
+  action hash, and it loads first. Redmine's `AccessControl.permission(name)`
+  returns the first registration, so on any Redmine carrying both plugins
+  **every write action of this plugin answers 403, administrators included**.
+  Reading works; nothing can be saved. It is logged as a choice for Jan in
+  `docs/DECISIONS.md` under *Open — for Jan*, because renaming a permission is
+  user-visible and needs a migration over `roles.permissions`.
+- **The plugin itself is sound.** Its suite is **861 examples, 0 failures** on
+  a Redmine 5.1 host with only this plugin installed, and the 69 failures on
+  the 45-plugin host all trace to three external causes, each attributed in the
+  findings file. Nothing in the plugin's own logic was found wrong.
+- **The design decision Jan pointed at is now measured, not argued.** Switching
+  `ProjectsController.helper(self)` back to `ProjectsHelper.prepend(self)` on
+  the running 45-plugin stack turns every project's settings page into an HTTP
+  **500** (`NoMethodError: super: no superclass method
+  'project_settings_tabs'`). The forbidden-constructs row about it in
+  `CLAUDE.md` is now backed by an experiment on a real host. That is F03.
+- **The plugin is still at 0.1.6**, unreleased, and **no version bump**: this
+  session changed no code. `main` carries 0.0.3 and there is no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
-  `claude/docs-review-isvs6l`; the local `claude/dev` in this container was the
-  *unrelated* five-commit history again (see Known traps), and
-  `git checkout -B claude/dev origin/claude/dev` was the whole rescue.
-- **`main`:** untouched. It means "last released" and no session writes to it —
-  findings included (answered **B** by Jan on 2026-08-28). The two histories are
-  still **unrelated**: no merge base, so a merge needs
-  `--allow-unrelated-histories`. Jan asks for the merge himself.
-- **Nothing is open.** `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`
-  matches only `TEMPLATE.md`.
-- **CI is green on the head.** Run **136** on `e0a5ac6` completed **success**:
-  the nine-cell matrix, RuboCop and the bulk-action JavaScript gate. Read from
-  the Actions API. Run **135** reads `cancelled`, which is the concurrency group
-  superseding it when the follow-up commit landed rather than a failure.
+  `claude/redmine-5-1-plugins-vohngm`; `git checkout -B claude/dev
+  origin/claude/dev` was the whole rescue, and this session's commit is on
+  `claude/dev`.
+- **`main`:** untouched, as always. The two histories are still unrelated.
+- **CI:** not re-run by this session, because no code changed. Run **136** on
+  `e0a5ac6` was green and `e7f1e90` (docs only) sat on top of it.
 
 ## What this session produced
 
-Four commits. One answering findings F01..F03 of `2026-08-28-claude-second`, one
-recording its CI result, one adding the copy-form checkbox Jan asked for a few
-hours later, and one whitespace correction to its markup.
+One commit: the findings file, the `Open — for Jan` entry in
+`docs/DECISIONS.md`, and this file. No code, no tests, no locale changes.
 
-### What the plugin does now that it could not
+### What was actually built, so the findings can be trusted
 
-**Copying a project copies its workflow, and the copy form asks first.** This is
-F01, plus Jan's question a few hours later, which is the better half of it. Redmine's *Copy project* brings the members, the trackers, the
-categories and the issues across; it did not bring the project's own workflow,
-so the copy silently ran the **generic** one. The direction of that surprise is
-the wrong way round: a project is usually given its own workflow to be *stricter*
-than the generic one, so the copy came out **more permissive** than the original,
-and the first sign of it was somebody closing an issue that should not have been
-closeable. Nothing anywhere said so — no ADR, no design note, no README line — so
-it was an unconsidered gap rather than a choice.
+A real Redmine, not a reasoning exercise:
 
-The copy now carries the decisions and the rules together. Measured on the same
-shape the finding was found in: a source with two scopes and five rules used to
-produce a copy with **0 and 0**; it now produces a copy that resolves to the same
-effective status list as the source.
+```
+Redmine 5.1-stable @ 16eb9e6 (5.1.13) · PostgreSQL 16 · Ruby 3.2.6 · Rails 6.1.7.10
+45 plugins registered · RAILS_ENV=production, eager loading ON
+```
 
-| | before | after |
+Forty-three of Jan's plugins, this one, and a 13-line local shim standing in for
+`redmine_base_deface` (a Planio plugin that is a hard dependency of
+`redmine_datetime_custom_field` and is not in Jan's repository). `redmine_vault`,
+which Jan asked to exclude, **does not exist in the repository** — nothing was
+excluded on its account.
+
+Getting it to boot at all took three fixes to *other* plugins, and all three are
+filed (F05, F06, F08). A naive "clone every default branch and start Redmine"
+does not work today.
+
+### The three causes of the 69 spec failures
+
+Measured by disabling one plugin at a time on the running host and re-running:
+
+| cause | failures | finding |
 | --- | --- | --- |
-| scopes on the copy | 0 | the source's, for the trackers the copy has |
-| rules on the copy | 0 | the ones a source scope makes visible |
-| an own *empty* workflow | became inheritance | stays an own empty workflow |
-| a project that already has its own workflow | — | untouched, nothing written |
+| `manage_project_workflow` permission collision | **53** | F01 |
+| `respond_to?(:sprite_icon)` answering wrongly on 5.1 | **6** | F02 |
+| `redmine_view_issue_description`'s new permission gate | **10** | F04 |
+| | 69 | |
 
-`Hooks::ProjectCopyHook` is the plugin's first `Redmine::Hook::Listener` and does
-nothing but check its arguments; `Services::ProjectWorkflowCopier` does the work,
-in two `INSERT … SELECT` statements per rule type rather than a round trip per
-row.
+### What was proved to work
 
-**Then Jan asked the obvious question the first answer had talked itself out of:**
-*"in Redmine when copying a project there is a checkbox to copy issues, wiki, and
-so on… should we not add a checkbox for project specific workflows?"* Yes. The
-reason the first answer gave for not adding one — that a checkbox means a
-sixteenth Deface anchor — was **wrong on a fact**:
-`app/views/projects/copy.html.erb` renders
-`call_hook :view_projects_copy_only_items, project: @source_project, f: f`
-*inside* that very fieldset, on 5.1, 6.1 and 7.0 identically. It is an extension
-point core added for exactly this. **INV-9 stays at fifteen.** The lesson is
-worth more than the checkbox: the cost that killed the idea was asserted from
-memory of how the plugin reaches Redmine's screens, and never checked against
-`copy.html.erb`. Read the view.
-
-So the form now lists **Project workflows (N)** among *Members*, *Issues* and the
-rest, ticked like all of them — same default as before, and now visible and
-reversible before the copy runs. Because it is ticked by default the parameter
-can only ever *narrow* what a copy carries, which is what keeps a new request
-parameter off INV-7's list.
-
-It is **Class B and logged as one** in `docs/DECISIONS.md`, with the alternative
-(say it instead of doing it), what copying costs, Jan's answer, and the six
-smaller decisions the checkbox itself needed.
-
-**One thing the finding did not raise and the fix had to answer:**
-`docs/design.md` counts the write paths that take scope rows before workflow rows,
-and that count was **four**. This is a fifth. It takes no `SELECT … FOR UPDATE`
-and the document now says so with the reason — the target project was created a
-few statements earlier inside the same transaction and no other request has seen
-its id. The count moved from four to five in the same commit, because that same
-document records how a counted claim with a path missing produced finding F01 of
-2026-08-27.
-
-**The two hottest queries can no longer be given a project by accident.** F02.
-`TransitionQuery` and `PermissionQuery` held a relation on `workflows` narrowed by
-tracker and status but not by project, and added the project on every branch. No
-branch executed the half, so no answer was ever wrong — but it is the exact shape
-`CLAUDE.md`'s forbidden-constructs table names, a reviewer grepping for it found
-three hits inside the remedy, and one moved `to_a` would have made it real. Both
-now go through `WorkflowPopulations`, which cannot build such a half;
-`StatusListQuery` keeps its local shape and takes the project_id as a
-**positional** argument of the one method that builds a relation there.
-`plugin_conventions_spec.rb` now fails the build if the shape comes back.
-
-**What a screen-reader user is told first is true.** F03. The label announced the
-*New issue* starting point as a status and Redmine's fallback as a transition, so
-on a stock Redmine a six-status workflow was announced as **seven statuses and 31
-transitions**. Measured on the same host after the fix: **six statuses and 30
-transitions**, with the fallback named in a clause of its own — a screen-reader
-user has the same use for it as a sighted one has for the dotted arrow.
-
-### The one thing this session reversed
-
-`docs/STATE.md` recorded the previous session's **deliberate** choice to count the
-fallback among the transitions, on the grounds that the number of arrows is what a
-reader of the picture wants. That argument does not survive the sentence saying
-*transitions*, and it never covered the entry node being counted as a status,
-which is simply wrong. Both are out of the counts now and the decision is logged,
-so the next session does not swing it back.
-
-### The objects, after this round
-
-| Object | What it is |
-| --- | --- |
-| `Hooks::ProjectCopyHook` | `model_project_copy_before_save`: argument checking, the checkbox question, and nothing else |
-| `Hooks::ProjectCopyFormHook` | `view_projects_copy_only_items`: a `ViewListener` whose `render_on` puts the *Project workflows (N)* checkbox in core's own list. No Deface override |
-| `Patches::ProjectPatch#copy` | four lines: remember whether the box was ticked on the destination project, then `super`. Core hands the model hook no options, and this is the one object both halves already have |
-| `Services::ProjectWorkflowCopier` | one project's workflow into another: scopes first, then the rules a *source* scope makes visible, for the trackers the target has |
-| `Services::WorkflowPopulations` | the two populations one project's roles resolve to, as finished relations (INV-4 in one place). **Now four callers**, the two resolver paths included |
-| `Services::StatusListQuery` | unchanged in what it answers; its one relation-building method takes the project_id positionally |
-| `ProjectWorkflowGraphsHelper#project_workflow_graph_aria_label` | counts statuses excluding the entry node and transitions excluding the fallback, and names the fallback separately |
+- **27 project settings tabs from 15 plugins**, all rendering. Four neighbours
+  take `project_settings_tabs` over with a 2013-era alias chain
+  (`redmine_wiki_extensions`, `redmine_questions`, `redmine_contacts_helpdesk`,
+  and three more inside `ProjectsHelper`), three override it with `super` from
+  the controller's helper set, and this plugin's `ProjectsController.helper`
+  sits above all of them. **The mechanism Jan asked about holds.**
+- **68 URLs, no `Completed 500` anywhere in the production log.**
+- **All fifteen Deface overrides still match** on a 45-plugin host. **INV-9
+  holds.** No `deface_overrides_spec.rb` failure was an override missing its
+  anchor.
+- **No duplicate named routes** across the whole stack, and exactly **two**
+  duplicate permission names in 45 plugins (F01 and F07).
+- **The feature works end to end.** On the live host, giving a project its own
+  *empty* transitions workflow took a Manager's reachable statuses from
+  `["Closed", "Feedback", "In Progress", "New", "Rejected", "Resolved"]` to
+  `[]`, and returning the project to inheritance restored all six.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **861 examples, 0 failures** (was 834; twenty-seven added) |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **861 examples, 0 failures** |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **861 examples, 0 failures** |
-| Plugin suite, 7.0-stable + **MariaDB 10.11** (mysql2 adapter) | **861 examples, 0 failures** — built this session because the change writes raw SQL (`IN (…)`, `TIMESTAMP '…'`, `EXISTS`), and no PostgreSQL host can see what the six MySQL-family cells see |
-| Red on the old code | **measured, not assumed.** F01, the copy: with the listener's body replaced by `nil`, **6 of the 16** copy examples fail. F01, the checkbox: with `copy_project_workflow?` forced to `true` and the view listener not loaded — the state between Jan's question and its answer — **5 of the 20** examples across the two files fail, three of them on the rendered copy form. F02: with the old `base_scope` back in `PermissionQuery` alone the conventions example fails naming `permission_query.rb:26`; with the blank-project guard back in `WorkflowPopulations` the two new nil-project examples fail and nothing else does. F03: with the two counts back to `.size`, **2 of the 3** new examples fail (the third is the negative case and correctly stays green) |
-| Migrations up → 0 → up | **clean on 5.1, 6.1 and 7.0**, run BEFORE the suite touched any of them: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`. Nothing this session touches a migration |
-| RuboCop | **120 files, no offences**, through `.github/lint/Gemfile`, with **no** `.rubocop.yml` or `.rubocop_todo.yml` change. Two `Rails/WhereExists` offences were fixed rather than excluded; one `Rails/SkipsModelValidations` carries the same inline disable and the same stated argument as `ScopeCopier`'s |
-| `zeitwerk:check` on 7.0 | **"All is good!"** — run because this session adds a directory (`lib/redmine_project_workflows/hooks/`) |
-| JavaScript gate | **34 checks pass** (`node dev/check-bulk-js.mjs`) |
-| Locale files | **all eight at 119 keys, exact parity**, two new keys each (`text_project_workflow_graph_aria_fallback` and `label_project_workflow_copy_item`). `en` and `nl` by hand; the other six translated, and `fr` and `pl` reworded after drafting to use the same words for *fallback* and *issue* their own legend sentence already uses |
-| INV-9 | **untouched** — still fifteen overrides in twelve files. The copy-form checkbox reaches the page through core's own `view_projects_copy_only_items` hook, not through Deface, and `spec/controllers/projects_copy_form_spec.rb` guards that seam the way INV-9's spec guards the overrides |
-| Core-drift digest | **nineteen** methods now, `Project#copy` added as a *delegate*. Measured on all three minors and checked in: 6.1 and 7.0 identical, 5.1 differing by one character (`send "copy_#{name}"` against `send :"copy_#{name}"`) |
-| Live probe on default data | on a 7.0 host with `redmine:load_default_data` loaded in and rolled back: 6 statuses, 7 drawn nodes, 31 drawn edges, 30 stored transitions, fallback present, `dense?: true`, and the label reading *"6 statuses and 30 transitions … One further arrow is Redmine's own fallback"*. Before the fix the same host read *7 statuses and 31 transitions* |
-| CI | run **136** on `e0a5ac6`, the head: **success**. Read from the Actions API, not assumed. Run **133** on `33c0698` — the first of this session's three commits — was read job by job and was green on **all eleven**: the nine-cell matrix, RuboCop and the JavaScript gate, each matrix cell also running its own migration-reversibility, scope-backfill and `zeitwerk:check` steps. The workflow file has not changed since, so 136 is the same eleven. Run **135** reads `cancelled` — the concurrency group superseding it as the next commit landed |
+| Plugin suite, 5.1-stable + PostgreSQL 16, **this plugin alone** | **861 examples, 0 failures** |
+| Plugin suite, same host, **45 plugins** | **861 examples, 69 failures**, every one attributed above |
+| Boot, `RAILS_ENV=production`, eager loading on | `Redmine::Plugin.all.size` → **45** |
+| Migrations | `rake db:migrate` + `rake redmine:plugins:migrate` clean for all 45 |
+| Page crawl | **68 URLs** as admin, **0** returning 5xx; `grep -c "Completed 500" log/production.log` → **0** |
+| Settings tabs | **27**, from 15 plugins, this plugin's `project_workflows` among them |
+| Duplicate named routes | **none** (`routes.map(&:name).tally`) |
+| Duplicate permission names | **two**: `manage_project_workflow` (F01), `create_tags` (F07) |
+| F01, live | `POST /projects/alpha/workflow/scope` as **admin** → **403**, log: *"Filter chain halted as :authorize rendered or redirected"* |
+| F01, isolated | commenting out one line in the neighbour's `init.rb` takes the suite from **69 → 16** failures |
+| F02, live | `GET /workflows` renders `decoration-red` **3×** and `icon-not-ok` **0×**; `grep -c decoration-red public/stylesheets/application.css` → **0** |
+| F03, experiment | `ProjectsHelper.prepend` → `/projects/alpha/settings` **HTTP 500**; restored → **200**, 27 tabs |
+| RuboCop / CI | **not run** — no code changed this session |
 
 ## Exact next step
 
-**Nothing is queued.** CI run 136 on the head is green and no finding is open, so the next session is **Jan's turn or a fresh review run**
-(`docs/review/PROMPT.md`), whichever he asks for. Confirm CI is still green on
-the head before starting either — it was when this was written, but a review that
-trusts `docs/STATE.md` for that is a review that has not checked:
+**Answer F01.** It is the only thing that matters in the findings file, and it
+is blocked on one choice, which is written out in `docs/DECISIONS.md` under
+*Open — for Jan* with a recommendation (**B**: rename both permissions to
+`view_project_workflow_rules` / `manage_project_workflow_rules`).
 
-```
-mcp__github__actions_list  list_workflow_runs  jcatrysse/redmine_project_workflows  branch: claude/dev
-```
+A fixing session can start the moment that is answered:
 
-Two things a fresh review could usefully look at, neither filed as a finding
-because neither is a defect:
+1. Rename the permission(s) in `init.rb`, the controllers, the views, the
+   locale files and the specs.
+2. Write the migration over `roles.permissions` — a serialized array, so it is
+   a Ruby-side map, not SQL.
+3. Add the spec the finding asks for: for every permission this plugin
+   registers, `Redmine::AccessControl.permission(name)` must return **this
+   plugin's** registration. That is the gate that would have caught F01 the day
+   it appeared, and it is red today.
+4. Then F02, which is small and needs no answer from Jan: ask the Redmine
+   version rather than `respond_to?(:sprite_icon)`, in the helper **and** in the
+   two specs that restate the same expression.
 
-1. **The two `dense?` thresholds** (`DENSE_MINIMUM_STATUSES = 4`, nine tenths of
-   the possible moves) are a judgement about readability rather than a fact.
-   Logged as a Class B decision; one constant each if the folding ever fires on
-   a workflow somebody did want a picture of.
-2. **The copy form's *Project workflows (N)* count is scopes, not rules.** Three
-   ticked combinations read as *(3)* whether they hold three rules or three
-   hundred. That is the same unit the settings tab and the inventory use, so it
-   is consistent rather than arbitrary — but it is a judgement, and one line in
-   `app/views/redmine_project_workflows/_copy_project_workflow.html.erb` to
-   change.
+F04 is a test-environment problem and worth doing third. F05..F09 are about
+other people's plugins and are recorded, not queued.
 
 ## Open choices
 
-**One.** The copy question filed a few hours earlier was answered by Jan the same
-day and is closed:
-
-- ~~**F01 of `2026-08-28-claude-second` — should copying a project copy its
-  workflow?**~~ **Answered by Jan on 2026-08-28: yes, and with a checkbox on the
-  copy form.** Built the same day. Nothing outstanding.
+- **F01/F10 of `2026-08-28-claude-plugin-compat-5.1` — how far does the
+  permission rename go?** **A)** rename only the colliding half. **B)** rename
+  both, symmetric. **Recommendation: B.** **Urgent: yes** for anyone running
+  `redmine_custom_workflows`, which Jan does — the feature is unusable there
+  today. Full text in `docs/DECISIONS.md`.
 - **F01 of `2026-08-27-bundled` — what should the refused-values count count?**
-  **A)** the values in the request — **implemented**, one line in
-  `MatrixSaveResult#+`. **B)** keep the total and reword the sentence in eight
-  locale files. **Recommendation: A**, which is in place. **Not urgent.**
+  **A)** the values in the request — **implemented**. **B)** keep the total and
+  reword eight locale files. **Recommendation: A**, which is in place. **Not
+  urgent.**
 
-  (Note: findings are numbered per review run, so three different runs each have
-  an F01. The two above are different questions.)
+  (Findings are numbered per review run, so several runs each have an F01.
+  These are different questions.)
 
 And still standing from before, because a later session must not undo them:
 
 - **G02 — a bulk tracker change spanning many projects asks twice per project.**
   **Answered by Jan on 2026-08-27: `A for now, B if it becomes an issue later`.**
-  Left as it is; when it is ever felt, the fix is **B**, and **not** the half
-  measure C. Status `wont-fix for now`.
+  Status `wont-fix for now`.
 - **F21 — no event log for scope changes. Answered `A` by Jan on 2026-08-27.**
   `created_by` and `updated_by` are the whole audit story. **A later session must
   not add an event-log table on the grounds that the audit trail is thin: it is
@@ -214,6 +170,61 @@ And still standing from before, because a later session must not undo them:
 - **The three WP9 answers of 2026-08-28** are built: the drawing lives on the
   project screen (A), behind `view_project_workflow` (A), with a selector over
   every role the project screen lists (B).
+- **The copy-form checkbox of 2026-08-28** is built and ticked by default.
+
+## Rebuilding the 45-plugin host (this session's, not the ordinary one)
+
+The ordinary single-plugin hosts are in the next section and are what almost
+every session wants. This recipe is only for repeating the compatibility run.
+
+```bash
+apt-get update -qq && apt-get install -y rsync libpq-dev
+pg_ctlcluster 16 main start
+su postgres -c "psql -c \"CREATE ROLE redmine LOGIN CREATEDB SUPERUSER PASSWORD 'redmine';\""
+su postgres -c "psql -c 'CREATE DATABASE redmine_stack OWNER redmine;'"
+
+git clone --depth 1 -b 5.1-stable https://github.com/redmine/redmine.git .redmine/5.1-stable-postgresql
+
+# every plugin repository, cloned to a staging directory, then copied into
+# plugins/<plugin id> -- the DIRECTORY NAME MUST BE THE ID from
+# Redmine::Plugin.register, which differs from the repository name for
+# redmine_tags (-> redmineup_tags), redmine_plugin_computed_custom_field
+# (-> computed_custom_field) and bless-this-redmine-sso.
+# Private repositories need `add_repo` before the clone will authenticate.
+
+# three plugins need a non-default branch on 5.1 (F08), and two need an edit
+# before the host will boot at all (F05, F06). The findings file lists all five.
+
+RAILS_ENV=production bundle install
+RAILS_ENV=production bundle exec rake generate_secret_token db:migrate redmine:plugins:migrate
+```
+
+Traps met while doing it, all of them costing time:
+
+- **`pkill -f "rails server"` does not kill the server.** The process is
+  `puma`, and the pattern misses it — so an edit "took effect" against a server
+  still running the old code, and the first run of the F03 experiment reported
+  a **false negative** (200 instead of 500). `pkill -f puma`, then verify with
+  `ps aux | grep [p]uma`.
+- **A backgrounded `rails server` started from a tool call gets killed with the
+  call.** Write a one-line launcher script and start it with
+  `(setsid nohup ./start_server.sh > log 2>&1 < /dev/null &)`.
+- **`rspec` disappears from the bundle when plugins are removed.** RSpec comes
+  from a *neighbouring plugin's* `Gemfile` on this host, so moving plugins aside
+  to get a baseline breaks the suite runner itself. Put the `group :test` block
+  in the host's `Gemfile.local` (what `dev/setup.sh` does) before bisecting.
+- **Bisect by renaming `init.rb` to `init.rb.off`, not by moving directories.**
+  Moving a directory changes the resolved bundle; renaming `init.rb` leaves
+  `Gemfile`s in place, so no `bundle install` is needed between runs. Note that
+  failure counts are **not monotone** — disabling a plugin others depend on adds
+  failures — so bisect one failing example, not the whole suite.
+- **Redmine 5.1 has no `assets:precompile`.** It serves static files from
+  `public/`. `rake assets:precompile` aborts with *"Don't know how to build
+  task"*, which reads like a broken host and is not.
+- **Plugin `app/overrides` directories break Zeitwerk eager loading**, because
+  Redmine puts every plugin's `app/*` on the eager-load path and deface's own
+  railtie only excludes railties' copies, not plugins'. That is what
+  `redmine_base_deface` exists to do.
 
 ## Development environment (rebuild from scratch in a fresh session)
 
@@ -312,8 +323,37 @@ prerequisites and the MySQL variant.
 
 ## Known traps
 
-Everything below cost time at least once. The first group is new this session;
-the rest is carried forward.
+Everything below cost time at least once. **This session's traps are in
+*Rebuilding the 45-plugin host* above**, because they are all about standing up
+a multi-plugin Redmine; everything in this section is carried forward from
+earlier sessions. Three general ones did come out of this run and belong here:
+
+- **A feature test on a method name is not a version test, and a neighbouring
+  plugin can make it lie.** `respond_to?(:sprite_icon)` is this plugin's answer
+  to "does the host draw SVG icons?", and on Redmine 5.1 both the `redmineup`
+  gem and `redmine_ai_triage` define that method as a back-compatibility shim.
+  The plugin then takes the Redmine 6 branch on a Redmine 5 host. When the
+  question is really "which Redmine is this?", ask
+  `Redmine::VERSION::MAJOR` — which is what `redmine_ai_triage` does, three
+  files away in the same host. This is F02.
+- **Two plugins can claim the same permission name, and the loser is silent.**
+  `Redmine::AccessControl` keeps a flat array and `permission(name)` returns the
+  **first** match; plugins load in alphabetical directory order. The plugin that
+  loses does not warn, does not raise, and does not appear anywhere in a log —
+  its screens simply answer 403, administrators included, because
+  `Project#allows_to?` is consulted *before* `User#allowed_to?` reaches its
+  `return true if admin?`. The only visible trace is a duplicated checkbox with
+  a duplicated HTML id on the role form. This is F01, and it is why the fix has
+  to carry a spec asserting the registration *won*.
+- **A spec that restates the production code's condition can be wrong in the
+  same direction as the code, and then it agrees with itself.**
+  `core_renders_sprites?` in two spec files is the same
+  `respond_to?(:sprite_icon)` expression the helper uses. When a neighbour made
+  it answer wrongly the specs did fail — but only because the *rendering* also
+  changed; had both sides been wrong in the same way the suite would have stayed
+  green over broken output. Ask the production helper, or ask a fact.
+
+The rest is carried forward.
 
 - **A cost asserted from memory can kill a good idea.** The first answer to F01
   ruled out a checkbox on core's copy form because it would mean a sixteenth
@@ -1045,19 +1085,23 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-WP0..WP9 are done, the plan is finished, and **no finding is open**, so "carry
-on" means, in order:
+WP0..WP9 are done and the plan is finished, so "carry on" means, in order:
 
-1. **Read CI for the head `e0a5ac6` and act on it if it is red.** It was green
-   when this was written (run **136**), and four cells were also run locally —
-   7.0, 6.1 and 5.1 on PostgreSQL, 7.0 on MariaDB, all **861 examples, 0
-   failures**. Read rather than assume anyway: three runs of the WP9 building
-   session were red on cells no PostgreSQL host can see.
-2. **Then there is nothing queued.** Either Jan asks for something, or the next
-   session is a **fresh review run** — `docs/review/PROMPT.md` — against this
-   head. One choice is with Jan (the refused-values wording of
-   `2026-08-27-bundled`'s F01) and its default is implemented, so nothing is
-   blocked on him.
+1. **Read `docs/review/findings/2026-08-28-claude-plugin-compat-5.1.md`.** Ten
+   findings, all `open`, one of them a blocker that makes this plugin unusable
+   next to `redmine_custom_workflows`. F05..F09 are about *other* plugins and
+   need no code here; F03 is a confirmation rather than a defect.
+2. **If Jan has answered the rename question** (`docs/DECISIONS.md`, *Open — for
+   Jan*), fix **F01** first: rename, migrate `roles.permissions`, and add the
+   spec that asserts `AccessControl.permission(name)` returns this plugin's
+   registration. That spec is red today and is the gate that would have caught
+   the collision.
+3. **If he has not**, do **F02** first — it needs no answer from anybody: ask
+   the Redmine version instead of `respond_to?(:sprite_icon)`, in
+   `version_helper.rb` and in the two specs that restate the same expression.
+   Then F04.
+4. **Read CI before starting either.** It was green on `e0a5ac6` (run **136**)
+   and this session added only documentation on top.
 
 Do not invent a work package on top of WP9, and do not re-open the 2026-08-27
 run's "Checked and not filed" table: 24 claims, thirteen rejected or already
