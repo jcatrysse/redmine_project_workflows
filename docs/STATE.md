@@ -6,7 +6,7 @@
 
 ## Current position
 
-- **WP10 is done. WP11 is next.** The hardening track WP10..WP16 was written
+- **WP10 is done, and the head is green on all nine cells. WP11 is next.** The hardening track WP10..WP16 was written
   yesterday-in-session-terms (`c67cc0f`) and its first package is now closed by
   two commits from two different sessions: `580a8d3` answered the whole-stack
   compatibility run, and this session answered the four confirmed defects of
@@ -50,7 +50,8 @@ One commit of code, after one of planning.
 - **F02** — the three `TIMESTAMP '<literal>'` sites build the literal plain, and
   migration 004's `DISTINCT` moved into a subquery so the constants sit in a
   plain outer select list. Two conventions greps stop both halves coming back.
-  **The first attempt was wrong and CI found it** — see below.
+  **The first attempt was wrong and CI found it** — see below; the head is green
+  on all nine cells now.
 - **F04** — both writers ask `is_a?(Hash)`; a payload that is not a matrix
   returns `MatrixSaveResult.none` instead of raising.
 - **F05** — a graph request naming one offered role and one that names nothing
@@ -122,7 +123,7 @@ Everything below was executed in this container.
 | Red on the old code | F01 3/5 examples · F02 the conventions grep, naming `db/migrate/004_…` · F04 8/8 examples · F05 2/3 (the third pins the de-duplication rule and passes either way by design) |
 
 | The generated SQL, against real PostgreSQL 16 through `psql` | migration 004's statement (with duplicate rows, so DISTINCT had work) and the copiers' — both insert, timestamp intact |
-| CI | run **142** on `cea14d8`: **failure**, three PostgreSQL cells. Read, diagnosed, fixed here. The next run is the one to read. |
+| CI | run **142** on `cea14d8`: **failure**, three PostgreSQL cells — read, diagnosed and fixed in `54891c2`. Run **143** on `54891c2`: **success on all eleven jobs**, the full 3 x 3 matrix plus lint and the JavaScript gate, each cell also running migration reversibility, the backfill check and Zeitwerk. |
 
 **Not covered:** only Redmine 5.1 was built locally, and on SQLite rather than a
 supported adapter (the `pg` gem cannot be built in this container — see Known
