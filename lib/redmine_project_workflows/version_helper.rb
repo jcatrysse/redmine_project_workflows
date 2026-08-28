@@ -8,11 +8,31 @@ module RedmineProjectWorkflows
   # Included into WorkflowsHelper through
   # RedmineProjectWorkflows::Patches::WorkflowsHelperPatch.
   module VersionHelper
-    # Redmine 5.1 draws its icons from CSS classes. Redmine 6.0 replaced them
-    # with SVG sprites and added the +sprite_icon+ helper, which 5.1 does not
-    # have.
+    # True from Redmine 6.0 on, where +IconsHelper#sprite_icon+ and
+    # +app/assets/images/icons.svg+ arrived and the +icon icon-add+ CSS classes
+    # stopped carrying a picture. 5.1 answers false and draws its icons from
+    # those classes.
+    #
+    # **The series, deliberately, and not +respond_to?(:sprite_icon)+.** That is
+    # what this asked until 2026-08-28, and on Redmine 5.1 it answers *true*:
+    # the +redmineup+ gem back-ports a +sprite_icon+ onto +ApplicationHelper+
+    # for every RedmineUP plugin, and +redmine_ai_triage+ back-ports another.
+    # The plugin then drew Redmine 6 markup on a Redmine 5 host, and the
+    # +icon-not-ok+ marker that says "this combination has no rules" disappeared
+    # from the workflow summary page in favour of an unstyled +0+ carrying a
+    # +decoration-red+ class 5.1's stylesheet does not define. Measured on a
+    # 45-plugin host (finding F02 of
+    # +docs/review/findings/2026-08-28-claude-plugin-compat-5.1.md+).
+    #
+    # A method name is not owned by Redmine; a version number is. Ask the fact.
+    def self.core_sprite_icons?
+      ::Redmine::VERSION::MAJOR >= 6
+    end
+
+    # The instance-side wrapper the views and the specs both go through, so that
+    # nothing restates the condition and no two statements of it can drift.
     def project_workflows_svg_icons?
-      respond_to?(:sprite_icon)
+      VersionHelper.core_sprite_icons?
     end
 
     # The multiselect expand/collapse control that core puts next to every

@@ -56,6 +56,16 @@ module RedmineProjectWorkflows
         # neighbour's aliased version, in either load order. Applying later
         # would fix one load order and leave the trap for the other.
         #
+        # **Measured, not argued.** On 2026-08-28 this was tried both ways on a
+        # running Redmine 5.1 carrying 44 other plugins: with
+        # `ProjectsController.helper` the settings page renders 27 tabs from 15
+        # plugins; with `ProjectsHelper.prepend(self)` the same page is an HTTP
+        # **500**, `NoMethodError: super: no superclass method
+        # 'project_settings_tabs'`. The neighbour that springs it is
+        # `redmine_wiki_extensions`, which sorts after this plugin and takes the
+        # method over with a classic alias chain. Finding F03 of
+        # `docs/review/findings/2026-08-28-claude-plugin-compat-5.1.md`.
+        #
         # Referencing the controller constant autoloads it, which is what puts
         # `ProjectsHelper` in the chain before us -- the order this needs.
         # Including a module twice is a no-op, so a code reload is harmless.

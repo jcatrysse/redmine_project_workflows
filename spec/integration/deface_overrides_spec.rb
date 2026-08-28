@@ -33,6 +33,20 @@ INV9_COUNTS = { overrides: 15, files: 12 }.freeze
 # overrides sharing a name is the other way this count can be right and the
 # overrides wrong -- Deface keys on the name, so the second would replace the
 # first.
+# Redmine 5.1 draws icons from CSS classes; 6.0 and later from SVG sprites.
+# Wherever the plugin renders markup core also renders, it has to match
+# whichever the host under test uses.
+#
+# Asks the production predicate rather than restating its condition -- see the
+# same helper in project_workflows_controller_spec.rb, and finding F02 of
+# 2026-08-28-claude-plugin-compat-5.1. Two of this file's groups need it, so it
+# lives here rather than in one of them.
+module DefaceOverrideIconHelpers
+  def core_renders_sprites?
+    RedmineProjectWorkflows::VersionHelper.core_sprite_icons?
+  end
+end
+
 describe 'the INV-9 override inventory' do
   let(:override_files) do
     Dir.glob(File.expand_path('../../lib/redmine_project_workflows/overrides/*.rb', __dir__))
@@ -93,6 +107,8 @@ describe 'the INV-9 override inventory' do
 end
 
 describe WorkflowsController, type: :controller do
+  include DefaceOverrideIconHelpers
+
   render_views
   fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members,
            :member_roles, :enabled_modules
@@ -120,13 +136,6 @@ describe WorkflowsController, type: :controller do
 
       tag[/value="([^"]*)"/, 1]
     end
-  end
-
-  # Redmine 5.1 draws icons from CSS classes; 6.0 and later from SVG sprites.
-  # Wherever the plugin renders markup core also renders, it has to match
-  # whichever the host under test uses.
-  def core_renders_sprites?
-    ApplicationController.helpers.respond_to?(:sprite_icon)
   end
 
   # F16. The copy screen's two project labels had no `for` and did not wrap
@@ -562,6 +571,8 @@ end
 # issue form renders it. What tells the two apart is whether the status select is
 # on the page at all.
 describe IssuesController, type: :controller do
+  include DefaceOverrideIconHelpers
+
   render_views
   fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members,
            :member_roles, :enabled_modules, :projects_trackers, :enumerations,
@@ -574,6 +585,9 @@ describe IssuesController, type: :controller do
 
   before do
     @request.session[:user_id] = 2
+    # A no-op unless a neighbouring plugin gates core's issue pages; see
+    # HostPluginPermissionHelpers.
+    grant_host_issue_page_permissions(roles(:roles_001))
     WorkflowTransition.create!(tracker_id: tracker.id, role_id: roles(:roles_001).id, project_id: nil,
                                old_status_id: 0, new_status_id: new_status.id)
     WorkflowTransition.create!(tracker_id: tracker.id, role_id: roles(:roles_001).id, project_id: nil,
@@ -606,7 +620,7 @@ describe IssuesController, type: :controller do
     link = response.body[%r{<a[^>]*class="icon-only icon-workflows project-workflow-map-link".*?</a>}m]
 
     expect(link).to be_present
-    if ApplicationController.helpers.respond_to?(:sprite_icon)
+    if core_renders_sprites?
       expect(link).to include('<svg')
     else
       expect(link).not_to include('<svg')

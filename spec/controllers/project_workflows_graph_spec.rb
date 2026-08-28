@@ -91,9 +91,9 @@ describe ProjectWorkflowsController, type: :controller do
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'is reachable with view_project_workflow' do
+    it 'is reachable with view_project_workflow_rules' do
       transition(new_status, assigned)
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :graph, params: graph_params
 
@@ -105,8 +105,8 @@ describe ProjectWorkflowsController, type: :controller do
     # 403 on a route that looks perfectly written, for administrators too, with
     # nothing anywhere naming the cause. A member holding only the *manage*
     # permission may plainly see the screen they are allowed to change.
-    it 'is reachable with manage_project_workflow alone' do
-      log_in(2, :manage_project_workflow)
+    it 'is reachable with manage_project_workflow_rules alone' do
+      log_in(2, :manage_project_workflow_rules)
 
       get :graph, params: graph_params
 
@@ -117,7 +117,7 @@ describe ProjectWorkflowsController, type: :controller do
       # The permission is on roles_001, which jsmith holds in projects_001 only.
       # A second project_id among the parameters must not move the screen: the
       # project comes from the path and from nowhere else (INV-7).
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :graph, params: { project_id: other_project.id, tracker_id: tracker.id,
                             role_id: [other_role.id] }
@@ -127,7 +127,7 @@ describe ProjectWorkflowsController, type: :controller do
   end
 
   describe 'what the selection may name' do
-    before { log_in(2, :view_project_workflow) }
+    before { log_in(2, :view_project_workflow_rules) }
 
     it 'is 404 for a tracker the project has not enabled' do
       disable_foreign_tracker
@@ -216,7 +216,7 @@ describe ProjectWorkflowsController, type: :controller do
 
   describe 'the default selection' do
     it "is the reader's own roles in this project" do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :graph, params: graph_params
 
@@ -237,7 +237,7 @@ describe ProjectWorkflowsController, type: :controller do
   end
 
   describe 'what it draws' do
-    before { log_in(2, :view_project_workflow) }
+    before { log_in(2, :view_project_workflow_rules) }
 
     # Finding F03. Redmine's own default data seeds a *complete* workflow --
     # every status may become every other -- and the layered drawing of one is a
@@ -438,7 +438,7 @@ describe ProjectWorkflowsController, type: :controller do
   end
 
   describe 'the role selector' do
-    before { log_in(2, :view_project_workflow) }
+    before { log_in(2, :view_project_workflow_rules) }
 
     it 'is offered when the project has more than one role to pick' do
       get :graph, params: graph_params
@@ -475,7 +475,7 @@ describe ProjectWorkflowsController, type: :controller do
   # Red against the previous commit: it counted layout.nodes.size and
   # layout.edges.size, which are exactly the numbers these two examples reject.
   describe 'what a screen reader is told first' do
-    before { log_in(2, :view_project_workflow) }
+    before { log_in(2, :view_project_workflow_rules) }
 
     def aria_label
       graph_svg[/aria-label="([^"]*)"/, 1]

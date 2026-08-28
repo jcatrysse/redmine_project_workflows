@@ -16,7 +16,7 @@
 # screens the panel links to authorize again for themselves (INV-7).
 #
 # Deliberately not an action on ProjectWorkflowsController: every action there
-# is behind +view_project_workflow+, and requiring that to read the workflow
+# is behind +view_project_workflow_rules+, and requiring that to read the workflow
 # governing your own issue would hide the panel from the people it is for.
 class ProjectWorkflowMapsController < ApplicationController
   menu_item :issues

@@ -189,8 +189,8 @@ Three properties follow, and all three are deliberate:
 | Screen | Who | What |
 | --- | --- | --- |
 | Administration → Workflow | system administrator | everything, generic and per project |
-| Project settings → Workflow | `view_project_workflow` | read the project's effective workflow |
-| Project settings → Workflow | `manage_project_workflow` | enable, edit and return to inheritance, for that project only |
+| Project settings → Workflow | `view_project_workflow_rules` | read the project's effective workflow |
+| Project settings → Workflow | `manage_project_workflow_rules` | enable, edit and return to inheritance, for that project only |
 
 The project screen reuses the familiar matrix but narrows it to the trackers
 enabled in that project and the roles that actually have members there. Every
@@ -199,9 +199,25 @@ widen that (**INV-7**).
 
 Both permissions live under the issue tracking module and both map
 `projects#settings` as well as the plugin's own actions, because the tab is
-rendered from that action. `manage_project_workflow` requires membership;
-`view_project_workflow` is a read permission, so it keeps working in a closed
-project while managing does not.
+rendered from that action. `manage_project_workflow_rules` requires membership;
+`view_project_workflow_rules` is a read permission, so it keeps working in a
+closed project while managing does not.
+
+**The `_rules` suffix, and why the names cannot go back.** These were
+`view_project_workflow` and `manage_project_workflow` until 2026-08-28.
+`redmine_custom_workflows` registers a permission called
+`manage_project_workflow` with an empty action hash;
+`Redmine::AccessControl.permission(name)` answers with the **first**
+registration of a name and plugins load in alphabetical directory order, so on
+any Redmine carrying both plugins the neighbour won and every write action here
+answered 403 — administrators included, because `Project#allows_to?` is
+consulted before `User#allowed_to?` reaches its `return true if admin?`. Nothing
+warned; the losing registration is silent. Measured on a 45-plugin Redmine 5.1
+host (finding F01 of `docs/review/findings/2026-08-28-claude-plugin-compat-5.1.md`)
+and answered **B** by Jan the same day: rename both, so the pair stays symmetric
+and the names say what they govern. Migration 006 carries existing grants
+across, except where a neighbour still claims the legacy name — there the stored
+symbol is ambiguous and it is left alone rather than renamed or duplicated.
 
 As built:
 
@@ -888,8 +904,8 @@ where this sentence stops being a convenience.
 
 | Who is reading | Link |
 | --- | --- |
-| `manage_project_workflow` on this project | the project's **Workflow** tab, at this tracker and role |
-| `view_project_workflow` only | the same tab, which is read-only for them anyway |
+| `manage_project_workflow_rules` on this project | the project's **Workflow** tab, at this tracker and role |
+| `view_project_workflow_rules` only | the same tab, which is read-only for them anyway |
 | a system administrator | *Administration → Workflow*, pre-filled with this project, tracker and role |
 | anybody else | no link — the sentence alone |
 
@@ -978,7 +994,7 @@ underneath it.
 | The tracker comes from the issue; on the new-issue form it arrives as a parameter and is **matched against the project's own trackers** | **INV-7** — no request parameter may widen the scope, and Rails resolves `where(id: ['1e5'])` to record 1 |
 | The roles are the user's own roles in that project | the dropdown reflects exactly those, and the map's whole job is to explain the dropdown |
 | One scope lookup plus one transitions query, both carrying an explicit `project_id` | **INV-4** |
-| No permission of its own, and a controller of its own rather than an action on `ProjectWorkflowsController` | every action there is behind `view_project_workflow`; requiring that to read the workflow governing your own issue would hide the panel from the people it is for |
+| No permission of its own, and a controller of its own rather than an action on `ProjectWorkflowsController` | every action there is behind `view_project_workflow_rules`; requiring that to read the workflow governing your own issue would hide the panel from the people it is for |
 | The condition of one *move* is worded "only when the user is the author", not the comparison screen's "also when…" | there the label names a whole grid, which is core's framing; here the conditions of one move have been collapsed, so a move naming only the author grid is one only the author may make, and "also" would say the opposite |
 
 The anchor is core's `f.select :status_id` expression in
@@ -1087,7 +1103,7 @@ Two layout details measured on a model rather than guessed:
 | Decision | Why |
 | --- | --- |
 | On the project screen, beside the matrix; **not** in the issue form's modal | answer **A**, 2026-08-28. Measured: five layers of a six-status workflow are 1016 px wide and each further status adds about 210 px, while `#ajax-modal` is about 900 px, so scaling to fit puts the status names below legibility |
-| Behind `view_project_workflow`; the WP8 panel keeps no permission of its own | answer **A**, 2026-08-28. The whole map shows what *other* roles may do, which is project configuration rather than information about one issue |
+| Behind `view_project_workflow_rules`; the WP8 panel keeps no permission of its own | answer **A**, 2026-08-28. The whole map shows what *other* roles may do, which is project configuration rather than information about one issue |
 | The selector offers `ProjectOptions.visible_roles` -- every role the project screen already lists | answer **B**, 2026-08-28. Not every role in the installation: *Non member* and *Anonymous* stay an administration matter (2026-08-26) |
 | Registered in the action list of **both** permissions in `init.rb` | an action missing from it is a silent 403 for everybody, administrators included, on a route that looks correctly written. It carries an authorization spec rather than a comment |
 | A tracker the project has not enabled, or a role it does not offer, answers **404** | silently narrowing a selection to what happens to be allowed would draw one workflow under the heading of another (**INV-7**) |

@@ -41,12 +41,28 @@ Redmine::Plugin.register :redmine_project_workflows do
   # The screens themselves are the plugin's, under /projects/:project_id/workflow,
   # and every one of them authorizes against the project in its own path
   # (INV-7). The administration screens stay administrator-only.
+  #
+  # **The `_rules` suffix is not decoration.** These were `view_project_workflow`
+  # and `manage_project_workflow` until 2026-08-28, and the second collided with
+  # `redmine_custom_workflows`, which registers a permission of that exact name
+  # with an empty action hash. Redmine keeps `AccessControl.@permissions` as a
+  # flat array and `AccessControl.permission(name)` returns the **first** match;
+  # plugins load in alphabetical directory order, so the neighbour won and every
+  # write action of this plugin answered 403 -- administrators included, because
+  # `Project#allows_to?` is consulted before `User#allowed_to?` reaches its
+  # `return true if admin?`. Nothing warned: the losing registration is silent.
+  # Measured on a 45-plugin Redmine 5.1 host on 2026-08-28
+  # (`docs/review/findings/2026-08-28-claude-plugin-compat-5.1.md`, F01), and
+  # answered **B** by Jan the same day -- rename both, so the pair stays
+  # symmetric and the names say what they govern: this project's workflow
+  # *rules*, not the workflow feature. Migration 006 carries existing grants
+  # across. **Do not shorten either name back.**
   project_module :issue_tracking do
-    permission :view_project_workflow,
+    permission :view_project_workflow_rules,
                { projects: :settings,
                  project_workflows: %i[transitions permissions compare graph] },
                read: true
-    permission :manage_project_workflow,
+    permission :manage_project_workflow_rules,
                { projects: :settings,
                  project_workflows: %i[transitions permissions compare graph update_transitions
                                        update_permissions enable inherit clear] },

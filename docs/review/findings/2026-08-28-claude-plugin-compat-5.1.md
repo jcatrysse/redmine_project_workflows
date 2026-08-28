@@ -78,7 +78,7 @@ list with commit hashes is in the appendix.
 
 ### F01 — `manage_project_workflow` collides with `redmine_custom_workflows`, and every write action of this plugin answers 403
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** blocker
 - **Confidence:** confirmed
 - **Category:** correctness
@@ -169,13 +169,53 @@ permission this plugin registers is not the one `AccessControl.permission`
 returns for that name. The collision was invisible for as long as it existed
 because nothing asserted the registration *won*.
 
-**Resolution:**
+**Resolution:** fixed. Answered **B** by Jan on 2026-08-28 — rename both, so the
+pair stays symmetric — and built the same day.
+
+`view_project_workflow` and `manage_project_workflow` are now
+`view_project_workflow_rules` and `manage_project_workflow_rules`, in `init.rb`,
+the two controllers, the three views, the eight locale files (**keys only** —
+the label text an administrator reads is unchanged, so nothing was retranslated
+and `spec/locales_spec.rb` parity is untouched) and the specs. The ivar
+`@manage_project_workflow` moved with them, because a line reading
+`@manage_project_workflow = allowed_to?(:manage_project_workflow_rules, ...)`
+looks like a typo.
+
+**Migration 006 carries existing grants across**, per name, and refuses to guess
+where it cannot know. A role may hold `:manage_project_workflow` because of the
+*neighbour*, and the stored symbol says nothing about which plugin it was
+granted for: renaming it would take the neighbour's permission away, and adding
+ours beside it would widen what that role may do. So the migration asks whether
+anything else still registers the legacy name — `AccessControl.permissions.any?`,
+which is the question that actually decides ambiguity and stays right if the
+neighbour is renamed or removed — and where the answer is yes it leaves the
+grant alone and prints what to grant instead. The name that is unambiguous still
+moves; one collision does not strand the pair. Reversible (INV-8): `down` maps
+back, and `VERSION=0` was run on 5.1, 6.1 and 7.0 with leftover columns `[]`,
+plugin tables `[]` and plugin `schema_migrations` rows `[]`.
+
+**Red on the old code, and stated precisely.** The new example in
+`plugin_conventions_spec.rb` — *owns every permission name it registers* —
+**cannot fail on this plugin's own CI**, where it is the only plugin installed;
+that is written into the example's own comment rather than left for a reader to
+discover. The evidence that matters is on the multi-plugin host: this plugin's
+suite went from **69 failures to 10** on the 45-plugin Redmine 5.1 host with the
+rename alone, and the 53 that disappeared are exactly this finding. The
+migration's own judgement is covered by
+`spec/models/permission_rename_migration_spec.rb` (7 examples); replacing
+`claimed_elsewhere?` with `false` turns *leaves the ambiguous grant alone* red,
+which was run and watched.
+
+Observed on the real host: `rake redmine:plugins:migrate` on the 45-plugin
+installation printed *"another plugin still registers manage_project_workflow;
+leaving role grants of it alone. Grant manage_project_workflow_rules to the roles
+that should have it."* — the designed behaviour, against the real neighbour.
 
 ---
 
 ### F02 — `respond_to?(:sprite_icon)` is not a test for "Redmine 6", and two neighbours make it answer wrongly on 5.1
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** major
 - **Confidence:** confirmed
 - **Category:** portability
@@ -266,13 +306,29 @@ in specs — should agree, and the specs should be asking the same question the
 production code asks rather than restating it, so that a neighbour cannot make
 both wrong in the same direction and hide the mismatch.
 
-**Resolution:**
+**Resolution:** fixed, both halves. `VersionHelper.core_sprite_icons?` is now
+`::Redmine::VERSION::MAJOR >= 6` — a fact no neighbouring plugin owns — and
+`project_workflows_svg_icons?` is a one-line wrapper over it, so the views are
+unchanged. The three spec sites that restated `respond_to?(:sprite_icon)` now
+call that same predicate; in `deface_overrides_spec.rb` the helper moved into a
+small module because two of its groups need it.
+
+Three new examples in `plugin_conventions_spec.rb`, and between them they are
+**red on every supported version**, which was measured rather than reasoned:
+with the old predicate restored, 5.1 fails *is not fooled by a neighbouring
+plugin defining sprite_icon* and 7.0 fails *is not fooled by a context that has
+no sprite_icon at all*; the third, a grep for the construct in `app/` and `lib/`,
+fails on both. All four runs were executed and the failures read.
+
+The user-visible half is confirmed gone on the 45-plugin host: the six icon
+failures in the suite are green, and `GET /workflows` no longer emits
+`decoration-red` on a Redmine 5.1 host.
 
 ---
 
 ### F03 — `ProjectsController.helper` is load-bearing: confirmed by experiment, not by argument
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** docs
@@ -338,13 +394,17 @@ this was measured on 2026-08-28 against a 45-plugin host, and naming
 currently argues from the general shape, and one named example is easier to
 trust.
 
-**Resolution:**
+**Resolution:** the suggested paragraph is in `apply!`, with both measurements
+(27 tabs from 15 plugins against HTTP 500), the exact `NoMethodError`, and
+`redmine_wiki_extensions` named as the neighbour that springs it. No behaviour
+changed and no test was added: there is nothing here a test on a single-plugin
+host could assert, which is the point of writing the measurement down instead.
 
 ---
 
 ### F04 — `redmine_view_issue_description` gates every issue page behind a new permission, and this plugin's issue-form specs cannot run beside it
 
-- **Status:** open
+- **Status:** adjusted
 - **Severity:** major
 - **Confidence:** confirmed
 - **Category:** test-quality
@@ -408,13 +468,40 @@ Whatever shape it takes, it belongs behind a "is this permission registered at
 all" check, so that the plugin's own CI — where the neighbour is absent — is
 unaffected.
 
-**Resolution:**
+**Resolution:** fixed, but **not the way this finding suggested, because that
+way is impossible** — hence `adjusted` rather than `fixed`.
+
+The finding asked for the demanded permissions to be *computed* rather than
+listed, so that a neighbour added next year would need no edit. There is nothing
+to compute from. `redmine_view_issue_description` declares
+`permission :view_issue_description, {}` — an **empty** action hash — and puts
+the gate in a `prepend` on `IssuesController`. `Redmine::AccessControl` therefore
+holds nothing at all connecting that permission to `issues#show`, and no amount
+of reflection can derive it. A reviewer's suggested direction that turns out to
+be unbuildable is worth saying so about, rather than quietly building something
+else.
+
+What was built is the second half of the suggestion, which does hold:
+`HostPluginPermissionHelpers#grant_host_issue_page_permissions` in
+`spec/spec_helper.rb` carries a **named** list of one, and grants only what
+`Redmine::AccessControl.permission(name)` says the host actually registered. On
+this plugin's own CI, where the neighbour is absent, it does nothing whatsoever
+— so it cannot widen what any example is granted there. The comment says all of
+this, including that a future neighbour needs one more name.
+
+Measured: with it, the 45-plugin Redmine 5.1 host runs **872 examples, 0
+failures**. Without it, the same host leaves the 10 examples this finding names.
+
+The operational half of the finding — that installing
+`redmine_view_issue_description` onto an existing Redmine locks every non-admin
+out of every issue until each role is granted `view_issue_description` — is not
+this repository's to fix and is repeated in the session report for Jan.
 
 ---
 
 ### F05 — A stock install of Jan's plugin set does not boot: `redmine_contacts` and the `redmineup` gem both define the route `auto_complete_taggable_tags`
 
-- **Status:** open
+- **Status:** wont-fix
 - **Severity:** major
 - **Confidence:** confirmed
 - **Category:** dependency
@@ -463,13 +550,18 @@ depends on the gem) or pin `redmineup` in that plugin's `Gemfile` to the last
 version that did not define it. Dropping the line is the smaller and more
 durable of the two.
 
-**Resolution:**
+**Resolution:** `wont-fix` **here** — it is `redmine_contacts`' line to delete,
+not this repository's. Recorded because a Redmine that does not boot is the
+first thing anyone rebuilding Jan's installation meets, and the error names
+neither plugin. Jan owns the fork; the smaller and more durable of the two
+options is dropping the route from it, since the `redmineup` gem the plugin
+already depends on provides an identical one.
 
 ---
 
 ### F06 — `redmine_wiki_custom_fields` breaks production boot, and does nothing when it does not
 
-- **Status:** open
+- **Status:** wont-fix
 - **Severity:** major
 - **Confidence:** confirmed
 - **Category:** dependency
@@ -533,13 +625,18 @@ demonstrates the failure is the clearest possible argument for keeping the rule.
 Worth telling whoever maintains that plugin: move the constant, and apply the
 patches from the body of `init.rb`.
 
-**Resolution:**
+**Resolution:** `wont-fix` **here** — `redmine_wiki_custom_fields` is a separate
+repository. Recorded in full because both of its defects are constructs
+`CLAUDE.md` already forbids in this plugin for exactly the reasons this
+neighbour demonstrates, and a live example is worth more than the rule: the
+plugin boots nothing in production and, once made to boot, does nothing at all.
+The evidence here is ready to be pasted into an issue there.
 
 ---
 
 ### F07 — `create_tags` is registered by two plugins under different modules
 
-- **Status:** open
+- **Status:** wont-fix
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** dependency
@@ -581,13 +678,18 @@ because whatever spec F01 grows should catch this class of problem for any
 future permission this plugin adds, and because the count of collisions across
 the whole stack — exactly two — is a useful number to have written down.
 
-**Resolution:**
+**Resolution:** `wont-fix` **here** — two RedmineUP plugins to reconcile. The
+class of problem *is* now guarded on this side: `plugin_conventions_spec.rb`
+asserts that every permission this plugin registers is the one
+`AccessControl.permission` answers with, so the next name this plugin adds
+cannot lose a collision silently (see F01). Nothing here can assert anything
+about `create_tags`, which this plugin does not register.
 
 ---
 
 ### F08 — Two plugins in the repository cannot run on Redmine 5.1 from their default branch
 
-- **Status:** open
+- **Status:** wont-fix
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** operability
@@ -623,13 +725,15 @@ Each was a boot abort with the plugin named in the message.
 Nothing for this repository. Worth a line in whatever document describes Jan's
 installation, saying which branch each of the three is deployed from.
 
-**Resolution:**
+**Resolution:** `wont-fix` **here** — branch selection for three neighbouring
+plugins. Worth a line in whatever document describes Jan's installation; the
+three branches are named above and in the appendix table.
 
 ---
 
 ### F09 — What was installed, and what was not
 
-- **Status:** open
+- **Status:** wont-fix
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** docs
@@ -692,13 +796,19 @@ installs it rather than the shim. If it does not, then
 `redmine_datetime_custom_field` cannot be loading on his installation either,
 and that is worth knowing.
 
-**Resolution:**
+**Resolution:** `wont-fix` — a record of what this run did and did not cover,
+not a defect. The one actionable item in it is a question for Jan and is
+repeated in the session report: **does the installation carry
+`redmine_base_deface`?** If it does, the honest next compatibility run installs
+the real plugin instead of this session's 13-line shim. If it does not, then
+`redmine_datetime_custom_field` cannot be loading there either, because its
+`requires_redmine_plugin` would abort the boot.
 
 ---
 
 ### F10 — Should this plugin's permission pair be renamed together or singly?
 
-- **Status:** question
+- **Status:** fixed
 - **Severity:** question
 - **Confidence:** n/a
 - **Category:** ux
@@ -735,7 +845,11 @@ against all 45 plugins on this host:
   permission actually governs, at the cost of migrating a name that did not
   have to move.
 
-**Resolution:**
+**Resolution:** answered **B** by Jan on 2026-08-28 and built the same day —
+`view_project_workflow_rules` and `manage_project_workflow_rules`. Logged under
+*Decided (Jan)* in `docs/DECISIONS.md`. The work is described in F01's
+resolution; nothing separate was needed for this half beyond carrying the second
+name through the same migration, which is one entry in its `RENAMES` hash.
 
 ---
 

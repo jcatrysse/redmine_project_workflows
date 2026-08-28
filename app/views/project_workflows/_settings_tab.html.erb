@@ -28,7 +28,7 @@
 <% else %>
   <p><%= l(:text_project_workflow_tab_description) %></p>
   <% back_url = settings_project_path(@project, tab: 'project_workflows') %>
-  <% manage = User.current.allowed_to?(:manage_project_workflow, @project) %>
+  <% manage = User.current.allowed_to?(:manage_project_workflow_rules, @project) %>
   <div class="autoscroll">
   <table class="list project-workflow-settings">
     <thead>

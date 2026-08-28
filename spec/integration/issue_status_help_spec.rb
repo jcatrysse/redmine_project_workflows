@@ -37,6 +37,9 @@ describe IssuesController, type: :controller do
 
   before do
     @request.session[:user_id] = 2
+    # A no-op unless a neighbouring plugin gates core's issue pages; see
+    # HostPluginPermissionHelpers.
+    grant_host_issue_page_permissions(role)
     # Set here rather than relied on from the fixtures: core renders the icon and
     # the modal only when at least one available status has a description, which
     # is the paragraph WP8 adds to the README, and a spec that reads a fixture's

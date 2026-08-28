@@ -10,7 +10,7 @@
 #
 # Administrator-only for now, which satisfies INV-7 trivially. WP4 adds the
 # project settings tab, where the same information is authorized with
-# +view_project_workflow+ against the one project it is about.
+# +view_project_workflow_rules+ against the one project it is about.
 class ProjectWorkflowInventoriesController < ApplicationController
   layout 'admin'
   self.main_menu = false

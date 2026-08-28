@@ -75,9 +75,39 @@ module WorkflowStatementOrderHelpers
   end
 end
 
+# What a *neighbouring* plugin demands before core's issue pages will render.
+#
+# `redmine_view_issue_description` prepends IssuesController and answers 403 to
+# #show, #edit and #update unless the reader holds :view_issue_description for
+# the issue's tracker. That is the plugin working as designed -- and it means
+# the examples here that open an issue form fail on a host carrying it, for a
+# reason that has nothing to do with what they assert. They are about the markup
+# on the form, not about who may reach it; this plugin's own authorization is
+# asserted where it belongs, against this plugin's own controllers.
+#
+# Named rather than derived, and it has to be: the gate is a controller prepend
+# and the permission is declared with an **empty** action hash, so
+# Redmine::AccessControl holds nothing connecting it to issues#show. There is
+# no computable answer -- which is a correction to what finding F04 of
+# 2026-08-28-claude-plugin-compat-5.1 suggested. A neighbour added later that
+# gates the same pages needs one more name in the list.
+#
+# The guard is what keeps that honest. On a host where the permission is not
+# registered -- which is the host CI runs, this plugin alone -- this does
+# nothing at all, so it cannot quietly widen what any example is granted.
+module HostPluginPermissionHelpers
+  ISSUE_PAGE_PERMISSIONS = %i[view_issue_description].freeze
+
+  def grant_host_issue_page_permissions(role)
+    demanded = ISSUE_PAGE_PERMISSIONS.select { |name| Redmine::AccessControl.permission(name) }
+    role.add_permission!(*demanded) if demanded.any?
+  end
+end
+
 RSpec.configure do |config|
   config.include ProjectWorkflowScopeHelpers
   config.include WorkflowStatementOrderHelpers
+  config.include HostPluginPermissionHelpers
 
   fixtures_dir = File.expand_path('../../../test/fixtures', __dir__)
 

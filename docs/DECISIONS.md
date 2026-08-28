@@ -176,38 +176,6 @@
 
 ## Open — for Jan
 
-- **Choice (finding F01/F10, `2026-08-28-claude-plugin-compat-5.1`):** the
-  permission `manage_project_workflow` has to be renamed, because
-  `redmine_custom_workflows` — which Jan runs — registers a permission of the
-  same name with no actions and no project module, loads first, and therefore
-  wins. The measured effect on a 45-plugin Redmine 5.1 host is that **every
-  write action of this plugin answers 403, administrators included**, and the
-  role form renders the checkbox twice with the same HTML id. Renaming ours is
-  the right side to move: the plugin is alpha and has never been released, the
-  neighbour has had the name for years, and the alternative is asking every
-  user to patch a third-party plugin. The question is only how far the rename
-  goes.
-  - **A — rename only the colliding half.** `view_project_workflow` keeps its
-    name; `manage_project_workflow` becomes something collision-free. Smallest
-    diff and smallest migration over `roles.permissions`, at the cost of a pair
-    that reads asymmetrically on the role form, where the two sit side by side
-    and nothing tells the reader the asymmetry is a scar rather than a
-    distinction.
-  - **B — rename both, e.g. `view_project_workflow_rules` /
-    `manage_project_workflow_rules`.** Symmetric, and the names say what the
-    permissions actually govern — the workflow *rules* of one project, not the
-    workflow feature. Costs a migration entry for a name that did not have to
-    move, and touches the locale files for both.
-  - **Recommendation: B.** The migration has to be written either way, and
-    carrying a second name through it is a line of code; carrying a permanently
-    lopsided pair of names is forever. Whichever is chosen, the fix should also
-    carry a spec asserting that `Redmine::AccessControl.permission(name)`
-    returns *this plugin's* registration for every permission it declares — the
-    collision was invisible for as long as it existed because nothing checked
-    that the registration won.
-  - **Urgent?** Yes for anyone running both plugins — the feature is entirely
-    unusable there today. Not urgent for this plugin's own CI, which is green.
-
 - **Choice (finding F01, 2026-08-27-bundled-followup):** when a matrix save
   refuses some of the values it was sent, the screen says *"N submitted values
   were not accepted and the rules they name were left unchanged."* On the
@@ -667,3 +635,20 @@ than it looks on paper.
 | 2026-08-28 | Whether an oversized bulk write should become a background job | **No; bound it instead** | Redmine 5.1's default ActiveJob backend is the async adapter, which is not something a workflow write may depend on. Project the row count, confirm above the threshold the plugin setting already carries, refuse above a ceiling. The transaction stays: a half-written selection is worse than a refused one. |
 | 2026-08-28 | Where the review of 2026-08-28 that ran no neighbouring plugins sits beside the one that ran forty-four | **Both files stand; neither supersedes the other** | They found disjoint sets. The whole-stack run found the blocker (a permission name captured by a neighbour) and the version-probe defect; the audit found the `WorkflowsHelper` prepend, the SQLite migration abort and the issue-status deletion that empties a project scope. The audit's F01 is explicitly calibrated against the whole-stack run: none of the forty-four neighbours triggers it today, so it is latent for Jan and live for a public release. Saying that in the finding is what keeps its severity honest. |
 | 2026-08-28 | Whether the ChatGPT review Jan commissioned gets a findings file of its own | **No; its findings are folded in with attribution** | Four of its points were already known or already answered, one (mixed valid and invalid role ids on the graph) was genuinely new and is `2026-08-28-claude-audit.md` F05 with the credit in the finding, and one (concurrent generic writes) is real but was attributed to the plugin when it is core's race inherited — the correction is in F07. Its two headline ratings are not carried over: *Security: MEDIUM* is supported by none of its own findings, and *Test confidence: MEDIUM* was reached without running the suite, which its own verification section says. |
+
+## Decided (Jan) — 2026-08-28, the permission rename
+
+| Date | Question | Answer | Notes |
+| --- | --- | --- | --- |
+| 2026-08-28 | The permission `manage_project_workflow` collides with `redmine_custom_workflows`, which registers the same name with an empty action hash and loads first — so every write action of this plugin answers 403, administrators included. Rename only the colliding half, or both? | **B — rename both:** `view_project_workflow_rules` / `manage_project_workflow_rules` | The migration had to be written either way and carrying a second name through it is one entry in a hash, where a permanently lopsided pair of names on the role form is forever. The labels an administrator reads are unchanged in all eight locale files — only the keys moved — so nothing was retranslated and no unreviewed locale gained a new string. Finding F01/F10 of `2026-08-28-claude-plugin-compat-5.1`, measured on a 45-plugin Redmine 5.1 host. |
+
+## Decided (autonomous) — 2026-08-28, the permission rename
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-08-28 | What migration 006 does with a legacy `manage_project_workflow` grant on an installation where the neighbour still registers that name | **Nothing, and it says so** | The stored symbol is a bare name: a role may hold it for `redmine_custom_workflows` rather than for this plugin, and nothing distinguishes the two. Renaming it takes the neighbour's permission away; adding ours beside it widens what the role may do, which is the one direction a migration must never move on its own. So it leaves the grant alone and prints what to grant instead — and on such an installation this plugin's write screens have never worked, so nothing that worked stops. The name that is *not* claimed elsewhere still moves: one collision does not strand the pair. |
+| 2026-08-28 | How the migration decides that a legacy name is ambiguous | **`Redmine::AccessControl.permissions.any? { it.name == legacy }`, not `Plugin.installed?(:redmine_custom_workflows)`** | It is the question that actually decides ambiguity, and it stays right if the neighbour is renamed, removed or replaced by some other plugin claiming the name. By the time a plugin migration runs, every plugin has registered. Known limit, written into the migration rather than hidden: a legacy symbol left behind by a plugin that has since been *uninstalled* reads as unambiguous and is renamed — there is nothing in the data to tell that grant from one of ours, and never migrating anything would cost every installation its role configuration to protect a case that leaves no trace. |
+| 2026-08-28 | Whether the permission **labels** change with the keys | **No — keys only** | The label is what an administrator reads on the role form, and *View the project's workflow* still says exactly what the permission does. Changing the text would mean new strings in `de`, `es`, `fr`, `it`, `pl` and `pt`, which are translated but unreviewed — six unreviewed strings bought for no gain. `spec/locales_spec.rb` parity is untouched. |
+| 2026-08-28 | How the plugin decides whether the host draws SVG icons (finding F02) | **`Redmine::VERSION::MAJOR >= 6`, never `respond_to?(:sprite_icon)`** | A method name is not owned by Redmine: on 5.1 the `redmineup` gem back-ports a `sprite_icon` for every RedmineUP plugin, and `redmine_ai_triage` back-ports another, so the old test answered *true* on a host with no sprite sheet. The two spec files that restated the same expression now call the production predicate, so no neighbour can make code and test wrong in the same direction. Three examples pin it, red on 5.1 and 7.0 respectively plus a grep for the construct. |
+| 2026-08-28 | How the specs get past a neighbour's authorization gate on core's issue pages (finding F04) | **A named list of one, guarded on the permission being registered** | The finding asked for it to be *computed*; it cannot be. `redmine_view_issue_description` declares its permission with an empty action hash and puts the gate in a controller `prepend`, so `AccessControl` holds nothing connecting it to `issues#show`. The guard is what keeps the accommodation honest: on this plugin's own CI the permission is not registered and the helper does nothing at all. Finding marked `adjusted` rather than `fixed`, because the fix is not the one the reviewer proposed. |
+| 2026-08-28 | Version number for this round | **No bump; it folds into the unreleased 0.1.6 entry** | Same reasoning as the four rounds before it: 0.1.6 has never been released (`main` carries 0.0.3, there is no tag). The rename is a `### Changed` bullet of its own because it is the first thing an upgrading administrator needs to read, and the icon fix is a `### Fixed` bullet because it is a defect in what 0.1.6 already shipped. |

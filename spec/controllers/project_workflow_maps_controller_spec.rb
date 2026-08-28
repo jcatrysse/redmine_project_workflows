@@ -307,7 +307,7 @@ describe ProjectWorkflowMapsController, type: :controller do
     end
 
     it 'offers the link once the reader may open that tab' do
-      role.add_permission!(:view_project_workflow)
+      role.add_permission!(:view_project_workflow_rules)
       generic_transition(new_status, assigned)
       issue = an_issue
 
@@ -366,7 +366,7 @@ describe ProjectWorkflowMapsController, type: :controller do
     actions = described_class.action_methods - ApplicationController.action_methods
 
     expect(actions.to_a).to eq(['show'])
-    %i[view_project_workflow manage_project_workflow].each do |name|
+    %i[view_project_workflow_rules manage_project_workflow_rules].each do |name|
       expect(Redmine::AccessControl.permission(name).actions)
         .not_to include('project_workflow_maps/show')
     end

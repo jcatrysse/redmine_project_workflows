@@ -156,7 +156,7 @@ class ProjectWorkflowsController < ApplicationController
   #
   # Read-only, and behind the same +authorize+ as everything else here: the map
   # shows what *other* roles may do, which is project configuration rather than
-  # information about one issue, so it sits behind +view_project_workflow+ while
+  # information about one issue, so it sits behind +view_project_workflow_rules+ while
   # the issue form's own panel keeps no permission of its own (decided by Jan,
   # 2026-08-28).
   #
@@ -168,7 +168,7 @@ class ProjectWorkflowsController < ApplicationController
     @graph = RedmineProjectWorkflows::Services::WorkflowGraphQuery.new(
       project: @project, tracker: @tracker, role_ids: @roles.map(&:id)
     ).result
-    @manage_project_workflow = User.current.allowed_to?(:manage_project_workflow, @project)
+    @manage_project_workflow_rules = User.current.allowed_to?(:manage_project_workflow_rules, @project)
   end
 
   # The three actions of INV-3, for this project and this one combination. They
@@ -304,8 +304,8 @@ class ProjectWorkflowsController < ApplicationController
 
     @scope_state = scope_state
     @own_workflow = @scope_state.scoped?
-    @manage_project_workflow = User.current.allowed_to?(:manage_project_workflow, @project)
-    @editable = @own_workflow && @manage_project_workflow
+    @manage_project_workflow_rules = User.current.allowed_to?(:manage_project_workflow_rules, @project)
+    @editable = @own_workflow && @manage_project_workflow_rules
     load_statuses
   end
 

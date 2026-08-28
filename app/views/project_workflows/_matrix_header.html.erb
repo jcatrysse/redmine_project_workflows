@@ -46,7 +46,7 @@
     <strong><%= l(:label_project_workflow_project_scope) %>:</strong>
     <%= project_workflow_state_tag(@scope_state.state) %>
   </p>
-  <% if @manage_project_workflow %>
+  <% if @manage_project_workflow_rules %>
     <p>
       <%= render partial: 'project_workflows/scope_actions',
                  locals: { project: @project, tracker: @tracker, role: @role,

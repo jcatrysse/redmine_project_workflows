@@ -48,8 +48,8 @@ it:
   button_project_workflow_inventory_show_all: Mostra ogni progetto, tracker e ruolo
   button_project_workflow_inventory_open_matrices: Apri le matrici del workflow
   error_project_workflow_inventory_filter: Uno o più valori di filtro non esistono più e sono stati ignorati.
-  permission_view_project_workflow: Visualizzare il workflow del progetto
-  permission_manage_project_workflow: Gestire il workflow del progetto
+  permission_view_project_workflow_rules: Visualizzare il workflow del progetto
+  permission_manage_project_workflow_rules: Gestire il workflow del progetto
   label_project_workflow_project_scope: Workflow di questo progetto
   label_project_workflow_open_matrix: Apri questo workflow
   text_project_workflow_tab_description: Una riga per ogni tracker e ruolo su cui questo progetto può decidere. Il numero indica quante regole possiede il progetto stesso; l'etichetta dice se sono quelle regole ad applicarsi o il workflow generico.

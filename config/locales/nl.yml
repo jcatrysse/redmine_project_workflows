@@ -48,8 +48,8 @@ nl:
   button_project_workflow_inventory_show_all: Toon elk project, elke tracker en elke rol
   button_project_workflow_inventory_open_matrices: Open de workflowmatrices
   error_project_workflow_inventory_filter: Een of meer filterwaarden bestaan niet meer en zijn genegeerd.
-  permission_view_project_workflow: Workflow van het project bekijken
-  permission_manage_project_workflow: Workflow van het project beheren
+  permission_view_project_workflow_rules: Workflow van het project bekijken
+  permission_manage_project_workflow_rules: Workflow van het project beheren
   label_project_workflow_project_scope: Workflow van dit project
   label_project_workflow_open_matrix: Deze workflow openen
   text_project_workflow_tab_description: Eén regel per tracker en rol waarover dit project kan beslissen. Het getal geeft aan hoeveel regels het project zelf heeft; het label zegt of die regels gelden of de algemene workflow.

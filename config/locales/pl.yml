@@ -51,8 +51,8 @@ pl:
   button_project_workflow_inventory_show_all: Pokaż każdy projekt, typ zagadnienia i rolę
   button_project_workflow_inventory_open_matrices: Otwórz macierze przepływu pracy
   error_project_workflow_inventory_filter: Co najmniej jedna wartość filtra już nie istnieje i została pominięta.
-  permission_view_project_workflow: Podgląd przepływu pracy projektu
-  permission_manage_project_workflow: Zarządzanie przepływem pracy projektu
+  permission_view_project_workflow_rules: Podgląd przepływu pracy projektu
+  permission_manage_project_workflow_rules: Zarządzanie przepływem pracy projektu
   label_project_workflow_project_scope: Przepływ pracy tego projektu
   label_project_workflow_open_matrix: Otwórz ten przepływ pracy
   text_project_workflow_tab_description: Jeden wiersz na typ zagadnienia i rolę, o których ten projekt może decydować. Liczba oznacza, ile reguł ma sam projekt; etykieta mówi, czy obowiązują te reguły, czy ogólny przepływ pracy.

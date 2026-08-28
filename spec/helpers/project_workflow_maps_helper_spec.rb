@@ -53,7 +53,7 @@ describe ProjectWorkflowMapsHelper, type: :helper do
     end
 
     it 'offers the project tab to somebody who may open it' do
-      role.add_permission!(:view_project_workflow)
+      role.add_permission!(:view_project_workflow_rules)
       User.current = users(:users_002)
 
       link = helper.project_workflow_map_edit_link(project, tracker, role, :own)

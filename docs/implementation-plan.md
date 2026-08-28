@@ -26,7 +26,7 @@
 | WP8 | Status help and the transition map on the issue form | done |
 | WP9 | The workflow as a drawing, per role | **done** |
 | — | *WP0..WP9 delivered the plugin. WP10..WP16 are the hardening track that makes it releasable.* | |
-| WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **next** |
+| WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **in progress** — the collision and the version probe are done; the convention spec and the four defects are not |
 | WP11 | Compatibility as an object (ADR-002) | planned |
 | WP12 | Owned administration screens (ADR-003) | planned |
 | WP13 | One write-coordination service, and bounded bulk writes | planned |
@@ -172,7 +172,7 @@ Three things came out differently from what this bullet list assumed:
 
 ## WP4 — Project settings tab and permissions
 
-- Permissions `view_project_workflow` and `manage_project_workflow` under the
+- Permissions `view_project_workflow_rules` and `manage_project_workflow_rules` under the
   issue tracking module. Managing includes enabling and returning to
   inheritance.
 - A tab in project settings, via a patch on
@@ -470,7 +470,7 @@ and the issue form keeps the panel it has: short, local, one question answered
 fast. That split also matches the use — on an issue you want to know what you may
 do now; on the project screen you want to understand the whole thing.
 
-**Behind `view_project_workflow`** — answer **A** to choice 2. The whole map shows
+**Behind `view_project_workflow_rules`** — answer **A** to choice 2. The whole map shows
 what *other* roles may do, which is project configuration rather than information
 about one issue. The WP8 panel keeps no permission of its own (a reader who may
 see the issue may know which workflow governs it); only the drawing is gated.
@@ -573,8 +573,8 @@ roles the project screen knows about.
 
   **The action must be registered in `init.rb` or `authorize` denies it.** Add
   `graph` to the action list of **both** permissions, as `transitions`,
-  `permissions` and `compare` already appear in both: `view_project_workflow`
-  carries `read: true`, and a member holding only `manage_project_workflow` would
+  `permissions` and `compare` already appear in both: `view_project_workflow_rules`
+  carries `read: true`, and a member holding only `manage_project_workflow_rules` would
   otherwise get a 403 on a screen they may plainly see. Forgetting this is a
   silent 403 on a route that looks correctly written, so it carries the
   authorization spec below rather than a comment.
@@ -636,7 +636,7 @@ plugin does not have.
   generic ones, and an inheriting one the reverse (INV-1, INV-4); the per-role
   states of INV-3; a subproject does not inherit its parent's (INV-6).
 - **Authorization:** every entry point answers 403 without
-  `view_project_workflow`; a member holding **only** `manage_project_workflow`
+  `view_project_workflow_rules`; a member holding **only** `manage_project_workflow_rules`
   reaches it (the registration trap above); and a `project_id` among the
   parameters cannot widen the project named by the path (INV-7). A role the
   project does not offer, and a tracker it has not enabled, answer 404 rather
@@ -650,7 +650,7 @@ editor, a far larger thing, and Redmine's tick-box matrix is honestly better at
 it); the drawing in the issue panel (choice 1, answer A); exporting it as a file;
 and the bulk-edit form, for the reason WP8 already gives.
 
-**Done when** a reader with `view_project_workflow` can open a project's workflow
+**Done when** a reader with `view_project_workflow_rules` can open a project's workflow
 as a drawing for any tracker and any role in that project, an inheriting
 combination draws the generic workflow and says so, an own empty one draws the
 entry node alone with its explanation, the diagnostics name the unreachable and
@@ -720,6 +720,34 @@ worth nothing until that is true again.
 marker on 5.1 with the RedmineUP shims present, the suite is green on SQLite as
 well as on the nine cells, and `spec/plugin_conventions_spec.rb` fails if a new
 unprefixed global is registered.
+
+### Progress, 2026-08-28
+
+**Done, and verified on a 45-plugin Redmine 5.1 host:**
+
+- **The permission rename.** `view_project_workflow_rules` /
+  `manage_project_workflow_rules`, answered **B** by Jan. Migration 006 carries
+  existing grants across and is reversible; where another plugin still registers
+  the legacy name the stored symbol is ambiguous, so it leaves that grant alone
+  and prints what to grant instead rather than renaming a neighbour's permission
+  away or widening what a role may do. On the real host the request that
+  answered 403 answers 302 and writes its rows; the role form has no duplicate
+  checkbox ids.
+- **The version probe.** `VersionHelper.core_sprite_icons?` is
+  `Redmine::VERSION::MAJOR >= 6` — the interim constant this work package calls
+  for, and the single place **WP11 has to move into ADR-002's manifest**. The
+  two spec files that restated `respond_to?(:sprite_icon)` now call that
+  predicate. `/workflows` draws 5.1's `icon-not-ok` again with the RedmineUP
+  shims present.
+
+Suite: **873 examples, 0 failures** on 5.1, 6.1 and 7.0 with PostgreSQL, and on
+the 45-plugin 5.1 host, which had 69 failures before.
+
+**Not started:** the unprefixed-globals convention spec — what exists is
+narrower, asserting only that the registration `AccessControl.permission(name)`
+answers with is this plugin's — and the four confirmed defects of
+`2026-08-28-claude-audit.md` (F01, F02, F04, F05). The suite has **not** been
+run on SQLite since, so that half of *done when* is unproven.
 
 ---
 

@@ -48,8 +48,8 @@ pt:
   button_project_workflow_inventory_show_all: Mostrar todos os projetos, tipos e funções
   button_project_workflow_inventory_open_matrices: Abrir as matrizes do fluxo de trabalho
   error_project_workflow_inventory_filter: Um ou mais valores de filtro já não existem e foram ignorados.
-  permission_view_project_workflow: Ver o fluxo de trabalho do projeto
-  permission_manage_project_workflow: Gerir o fluxo de trabalho do projeto
+  permission_view_project_workflow_rules: Ver o fluxo de trabalho do projeto
+  permission_manage_project_workflow_rules: Gerir o fluxo de trabalho do projeto
   label_project_workflow_project_scope: Fluxo de trabalho deste projeto
   label_project_workflow_open_matrix: Abrir este fluxo de trabalho
   text_project_workflow_tab_description: Uma linha por cada tipo e função sobre os quais este projeto pode decidir. O número indica quantas regras o próprio projeto tem; a etiqueta diz se são essas regras que se aplicam ou o fluxo de trabalho genérico.

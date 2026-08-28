@@ -94,7 +94,44 @@ The workflow as a drawing.
   Redmine provides for exactly this, so it looks and behaves like the items
   beside it and the plugin overrides nothing to put it there.
 
+### Changed
+
+- **The two permissions are renamed to `view_project_workflow_rules` and
+  `manage_project_workflow_rules`.** The labels an administrator reads in
+  **Administration → Roles** are unchanged — *View the project's workflow* and
+  *Manage the project's workflow* — and a migration carries existing grants
+  across, so on most installations there is nothing to do.
+
+  The reason is a name collision. `redmine_custom_workflows` registers a
+  permission called `manage_project_workflow`, and Redmine answers a permission
+  lookup with the **first** plugin that registered the name; plugins load in
+  alphabetical order, so it won. On any Redmine carrying both plugins, every
+  screen here that *writes* answered "You are not authorized to access this
+  page" — to administrators too — while the read-only screens worked. Nothing
+  in Redmine reports such a clash; the losing plugin is simply silent.
+
+  **One case the migration deliberately leaves alone.** Where another plugin
+  still registers `manage_project_workflow`, a role holding it may hold it for
+  *that* plugin, and nothing in the stored value says which. Renaming it would
+  take the neighbour's permission away and adding ours beside it would widen
+  what the role may do, so the migration keeps its hands off and prints what to
+  do instead: grant **Manage the project's workflow** to the roles that should
+  have it. On such an installation the permission has never worked anyway, so
+  nothing that used to work stops working.
+
 ### Fixed
+
+- **On Redmine 5.1, the workflow summary page marks an empty combination the way
+  Redmine 5.1 does again.** The plugin decided whether the host draws its icons
+  as SVG sprites — Redmine 6.0 and later — by asking whether a `sprite_icon`
+  helper existed. On Redmine 5.1 that answers *yes* as soon as any RedmineUP
+  plugin is installed, because the `redmineup` gem back-ports a `sprite_icon` of
+  its own (and `redmine_ai_triage` back-ports another). The plugin then drew
+  Redmine 6 markup on a Redmine 5 host, and a tracker-and-role combination with
+  **no rules at all** showed an unstyled `0` instead of the red "not ok" marker
+  Redmine 5.1 puts there — on the one page whose job is to show, at a glance,
+  which combinations are empty. It now asks the Redmine version, which is a fact
+  no neighbouring plugin can change.
 
 - **The workflow panel on the issue form no longer contradicts the status list
   beside it.** A reader holding two roles — one of them with a project workflow

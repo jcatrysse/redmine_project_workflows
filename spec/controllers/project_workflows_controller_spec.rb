@@ -68,7 +68,7 @@ describe ProjectWorkflowsController, type: :controller do
     it 'refuses somebody who is not a member of the project at all' do
       # rhill holds no membership anywhere in the fixtures, so the permission on
       # roles_001 is one this user never gets.
-      log_in(4, :view_project_workflow)
+      log_in(4, :view_project_workflow_rules)
 
       get :transitions, params: transitions_params
 
@@ -76,7 +76,7 @@ describe ProjectWorkflowsController, type: :controller do
     end
 
     it 'answers a member who may view the workflow' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :transitions, params: transitions_params
 
@@ -85,7 +85,7 @@ describe ProjectWorkflowsController, type: :controller do
     end
 
     it 'refuses a save from a member who may only view the workflow' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
       give_own_workflow(project, tracker, role)
 
       patch :update_transitions, params: transitions_params(
@@ -97,7 +97,7 @@ describe ProjectWorkflowsController, type: :controller do
     end
 
     it 'refuses a scope action from a member who may only view the workflow' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       post :enable, params: transitions_params(rule_type: ProjectWorkflowScope::TRANSITIONS)
 
@@ -106,7 +106,7 @@ describe ProjectWorkflowsController, type: :controller do
     end
 
     it 'answers a member who may manage the workflow' do
-      log_in(2, :manage_project_workflow)
+      log_in(2, :manage_project_workflow_rules)
       give_own_workflow(project, tracker, role)
 
       get :transitions, params: transitions_params
@@ -119,7 +119,7 @@ describe ProjectWorkflowsController, type: :controller do
     # projects_001 only. The other project must be out of reach even though the
     # very same user, the very same tracker and the very same role are involved.
     it 'refuses the same user on a project the permission does not cover' do
-      log_in(2, :manage_project_workflow)
+      log_in(2, :manage_project_workflow_rules)
 
       get :transitions, params: transitions_params(project_id: other_project.id, role_id: other_role.id)
 
@@ -127,7 +127,7 @@ describe ProjectWorkflowsController, type: :controller do
     end
 
     it 'refuses a write to a project the permission does not cover' do
-      log_in(2, :manage_project_workflow)
+      log_in(2, :manage_project_workflow_rules)
 
       post :enable, params: { project_id: other_project.id, tracker_id: tracker.id,
                               role_id: other_role.id, rule_type: ProjectWorkflowScope::TRANSITIONS }
@@ -145,7 +145,7 @@ describe ProjectWorkflowsController, type: :controller do
     end
 
     it 'refuses everyone once issue tracking is switched off for the project' do
-      log_in(2, :manage_project_workflow)
+      log_in(2, :manage_project_workflow_rules)
       project.enabled_module_names = project.enabled_module_names - ['issue_tracking']
 
       get :transitions, params: transitions_params
@@ -157,7 +157,7 @@ describe ProjectWorkflowsController, type: :controller do
   # The tracker and the role are picked out of lists built from the project, so
   # a parameter can only ever name something the project already offers.
   describe 'the tracker and the role' do
-    before { log_in(2, :manage_project_workflow) }
+    before { log_in(2, :manage_project_workflow_rules) }
 
     it 'answers 404 for a tracker the project has not enabled' do
       project.trackers = project.trackers - [foreign_tracker]
@@ -191,7 +191,7 @@ describe ProjectWorkflowsController, type: :controller do
       end
 
       it 'can be returned to the generic workflow' do
-        log_in(2, :manage_project_workflow)
+        log_in(2, :manage_project_workflow_rules)
 
         delete :inherit, params: transitions_params(
           role_id: unused_role.id, rule_type: ProjectWorkflowScope::TRANSITIONS
@@ -201,7 +201,7 @@ describe ProjectWorkflowsController, type: :controller do
       end
 
       it 'is not offered a new workflow of its own' do
-        log_in(2, :manage_project_workflow)
+        log_in(2, :manage_project_workflow_rules)
 
         post :enable, params: transitions_params(
           role_id: unused_role.id, rule_type: ProjectWorkflowScope::PERMISSIONS
@@ -229,7 +229,7 @@ describe ProjectWorkflowsController, type: :controller do
   end
 
   describe 'the transitions matrix' do
-    before { log_in(2, :manage_project_workflow) }
+    before { log_in(2, :manage_project_workflow_rules) }
 
     # "The generic workflow is visible read-only, as a reference" -- WP4. A
     # project that inherits has no rules of its own to show, and the generic
@@ -311,7 +311,7 @@ describe ProjectWorkflowsController, type: :controller do
   end
 
   describe 'saving the transitions matrix' do
-    before { log_in(2, :manage_project_workflow) }
+    before { log_in(2, :manage_project_workflow_rules) }
 
     # INV-1: a project write never touches generic rows.
     it 'writes the project rules and leaves the generic ones alone' do
@@ -406,7 +406,7 @@ describe ProjectWorkflowsController, type: :controller do
   end
 
   describe 'the field permissions matrix' do
-    before { log_in(2, :manage_project_workflow) }
+    before { log_in(2, :manage_project_workflow_rules) }
 
     it 'shows the generic rules read-only while the project inherits' do
       WorkflowPermission.create!(tracker_id: tracker.id, role_id: role.id, project_id: nil,
@@ -467,7 +467,7 @@ describe ProjectWorkflowsController, type: :controller do
   # Rails re-raises in the test environment, so on the old code these fail with
   # `TypeError: wrong element type String at 0` rather than with a wrong status.
   describe 'a payload that is an array rather than a matrix' do
-    before { log_in(2, :manage_project_workflow) }
+    before { log_in(2, :manage_project_workflow_rules) }
 
     it 'rejects it rather than raising, on the transitions matrix' do
       give_own_workflow(project, tracker, role)
@@ -491,13 +491,20 @@ describe ProjectWorkflowsController, type: :controller do
   describe 'the rendered page' do
     render_views
 
-    before { log_in(2, :manage_project_workflow) }
+    before { log_in(2, :manage_project_workflow_rules) }
 
     # Redmine 5.1 draws icons from CSS classes; 6.0 and later from SVG sprites.
     # Both shapes go through RedmineProjectWorkflows::VersionHelper, so both
     # branches are asserted here rather than assumed.
+    #
+    # Asks the production predicate rather than restating its condition. It used
+    # to restate it -- `ApplicationController.helpers.respond_to?(:sprite_icon)`
+    # -- and a neighbouring plugin back-porting that method made the two agree
+    # on the wrong answer (finding F02 of 2026-08-28-claude-plugin-compat-5.1).
+    # A spec that spells out the same test as the code it guards can only ever
+    # be wrong in the same direction.
     def core_renders_sprites?
-      ApplicationController.helpers.respond_to?(:sprite_icon)
+      RedmineProjectWorkflows::VersionHelper.core_sprite_icons?
     end
 
     it 'says the generic workflow is only a reference, and offers no form' do
@@ -566,8 +573,8 @@ describe ProjectWorkflowsController, type: :controller do
     end
 
     it 'offers no action at all to somebody who may only view the workflow' do
-      role.add_permission!(:view_project_workflow)
-      role.remove_permission!(:manage_project_workflow)
+      role.add_permission!(:view_project_workflow_rules)
+      role.remove_permission!(:manage_project_workflow_rules)
 
       get :transitions, params: transitions_params
 
@@ -701,7 +708,7 @@ describe ProjectWorkflowsController, type: :controller do
   # The three actions of INV-3, each acting on this project and this one
   # combination and on nothing else.
   describe 'the three actions' do
-    before { log_in(2, :manage_project_workflow) }
+    before { log_in(2, :manage_project_workflow_rules) }
 
     it 'gives the project its own workflow as a copy of the generic one' do
       generic_transition(new_status, assigned)
@@ -810,7 +817,7 @@ describe ProjectWorkflowsController, type: :controller do
       # Read-only, so the read permission is enough -- and nothing here can be
       # widened by a parameter: the project comes from the path.
       it 'answers somebody who may only view the workflow' do
-        log_in(2, :view_project_workflow)
+        log_in(2, :view_project_workflow_rules)
 
         get :compare, params: compare_params
 
@@ -820,7 +827,7 @@ describe ProjectWorkflowsController, type: :controller do
       # INV-7: jsmith holds roles_001 in projects_001 only, so the permission
       # added there must not reach projects_002.
       it 'refuses the same user in a project the permission was not given for' do
-        log_in(2, :view_project_workflow)
+        log_in(2, :view_project_workflow_rules)
 
         get :compare, params: compare_params(project_id: other_project.id)
 
@@ -828,7 +835,7 @@ describe ProjectWorkflowsController, type: :controller do
       end
 
       it 'answers 404 for a rule type it does not know' do
-        log_in(2, :view_project_workflow)
+        log_in(2, :view_project_workflow_rules)
 
         get :compare, params: compare_params(rule_type: 'everything')
 
@@ -841,7 +848,7 @@ describe ProjectWorkflowsController, type: :controller do
       # carries the table -- it said 404 for all of it until the WP6 review
       # checked it. These two examples are what keeps that table true.
       it 'answers 404 for a tracker the project does not have' do
-        log_in(2, :view_project_workflow)
+        log_in(2, :view_project_workflow_rules)
         project.trackers = project.trackers - [foreign_tracker]
 
         get :compare, params: compare_params(tracker_id: foreign_tracker.id)
@@ -850,7 +857,7 @@ describe ProjectWorkflowsController, type: :controller do
       end
 
       it 'answers 403 for a project whose issue tracking module is disabled' do
-        log_in(2, :view_project_workflow)
+        log_in(2, :view_project_workflow_rules)
         project.enabled_module_names = project.enabled_module_names - ['issue_tracking']
 
         get :compare, params: compare_params
@@ -862,7 +869,7 @@ describe ProjectWorkflowsController, type: :controller do
     describe 'what it says' do
       render_views
 
-      before { log_in(2, :view_project_workflow) }
+      before { log_in(2, :view_project_workflow_rules) }
 
       it 'says there is nothing to compare while the project inherits' do
         generic_transition(new_status, assigned)
@@ -956,7 +963,7 @@ describe ProjectWorkflowsController, type: :controller do
     describe 'the link to it' do
       render_views
 
-      before { log_in(2, :view_project_workflow) }
+      before { log_in(2, :view_project_workflow_rules) }
 
       let(:compare_path) do
         project_workflow_compare_path(project, tracker_id: tracker.id, role_id: role.id,
@@ -992,7 +999,7 @@ describe ProjectWorkflowsController, type: :controller do
   # already translated in all eight locale files.
   describe 'a save that carries no matrix at all' do
     before do
-      log_in(2, :manage_project_workflow)
+      log_in(2, :manage_project_workflow_rules)
       give_own_workflow(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)
       give_own_workflow(project, tracker, role, ProjectWorkflowScope::PERMISSIONS)
     end

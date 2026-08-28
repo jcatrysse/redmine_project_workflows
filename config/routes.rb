@@ -29,7 +29,7 @@ get    'projects/:project_id/workflow/permissions',   to: 'project_workflows#per
 patch  'projects/:project_id/workflow/permissions',   to: 'project_workflows#update_permissions'
 get    'projects/:project_id/workflow/compare',       to: 'project_workflows#compare',
                                                       as: 'project_workflow_compare'
-# The whole workflow as a drawing (WP9). Behind view_project_workflow like every
+# The whole workflow as a drawing (WP9). Behind view_project_workflow_rules like every
 # other action on this controller; the role selection travels as role_id[] and is
 # intersected with the roles the project offers before anything reads it.
 get    'projects/:project_id/workflow/graph',         to: 'project_workflows#graph',

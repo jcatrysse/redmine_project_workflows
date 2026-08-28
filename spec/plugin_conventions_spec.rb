@@ -79,7 +79,7 @@ describe RedmineProjectWorkflows do
   # any role, so the settings tab would be invisible to everyone but an
   # administrator and no spec that logs one in would notice.
   it 'registers its two project permissions under the issue tracking module' do
-    %i[view_project_workflow manage_project_workflow].each do |name|
+    %i[view_project_workflow_rules manage_project_workflow_rules].each do |name|
       permission = Redmine::AccessControl.permission(name)
 
       expect(permission).not_to be_nil, "#{name} is not registered"
@@ -93,8 +93,8 @@ describe RedmineProjectWorkflows do
   end
 
   it 'lets only the managing permission write' do
-    view = Redmine::AccessControl.permission(:view_project_workflow)
-    manage = Redmine::AccessControl.permission(:manage_project_workflow)
+    view = Redmine::AccessControl.permission(:view_project_workflow_rules)
+    manage = Redmine::AccessControl.permission(:manage_project_workflow_rules)
 
     expect(view.actions).not_to include('project_workflows/update_transitions')
     expect(view.actions).not_to include('project_workflows/enable')
@@ -138,7 +138,7 @@ describe RedmineProjectWorkflows do
   # inherited as well.
   it 'names every action of its own controller in a permission' do
     actions = ProjectWorkflowsController.action_methods - ApplicationController.action_methods
-    granted = %i[view_project_workflow manage_project_workflow].flat_map do |name|
+    granted = %i[view_project_workflow_rules manage_project_workflow_rules].flat_map do |name|
       Redmine::AccessControl.permission(name).actions
     end
 
@@ -345,9 +345,85 @@ describe RedmineProjectWorkflows do
   # Reading a workflow is a read action, so it goes on working in a closed
   # project; managing one is not, so it stops there.
   it 'marks viewing as a read action and managing as a write' do
-    expect(Redmine::AccessControl.permission(:view_project_workflow)).to be_read
-    expect(Redmine::AccessControl.permission(:manage_project_workflow)).not_to be_read
-    expect(Redmine::AccessControl.permission(:manage_project_workflow)).to be_require_member
+    expect(Redmine::AccessControl.permission(:view_project_workflow_rules)).to be_read
+    expect(Redmine::AccessControl.permission(:manage_project_workflow_rules)).not_to be_read
+    expect(Redmine::AccessControl.permission(:manage_project_workflow_rules)).to be_require_member
+  end
+
+  # Finding F01 of 2026-08-28-claude-plugin-compat-5.1, and the gate that turns
+  # it from a wall of 53 unexplained 403s into one sentence.
+  #
+  # `Redmine::AccessControl` keeps its permissions in a flat array and
+  # `.permission(name)` answers with the **first** registration of that name.
+  # Plugins load in alphabetical directory order. So a neighbour registering the
+  # same name earlier does not conflict, does not warn and does not raise -- it
+  # simply wins, and the losing plugin's screens answer 403 to everybody,
+  # administrators included, because `Project#allows_to?` is consulted before
+  # `User#allowed_to?` reaches its `return true if admin?`. That is exactly what
+  # `redmine_custom_workflows` did to `manage_project_workflow`.
+  #
+  # **Stated plainly: this example cannot fail on this plugin's own CI**, where
+  # it is the only plugin installed and every name is trivially unique. It fires
+  # when the suite is run on a host that also carries the neighbour -- which is
+  # how the collision was found, and is the run worth repeating before a
+  # release. Kept anyway, because the day it does fire it names the cause.
+  it 'owns every permission name it registers, with nothing else claiming one' do
+    %i[view_project_workflow_rules manage_project_workflow_rules].each do |name|
+      claimants = Redmine::AccessControl.permissions.select { |permission| permission.name == name }
+
+      expect(claimants.size).to eq(1),
+                                "#{name} is registered #{claimants.size} times; " \
+                                'AccessControl answers with the first, so one plugin silently loses'
+      expect(claimants.first.actions).to include('project_workflows/transitions'),
+                                         "#{name} resolves to another plugin's registration"
+    end
+  end
+end
+
+describe RedmineProjectWorkflows::VersionHelper do
+  # Finding F02 of 2026-08-28-claude-plugin-compat-5.1. The predicate used to be
+  # `respond_to?(:sprite_icon)`, and on Redmine 5.1 that answers *true* as soon
+  # as any RedmineUP plugin is installed -- the `redmineup` gem back-ports a
+  # `sprite_icon` onto ApplicationHelper, and `redmine_ai_triage` back-ports
+  # another. A method name is not owned by Redmine.
+  #
+  # The two examples are red on different hosts and green on the same code, so
+  # between them they are red on every supported version: the first fails on 5.1
+  # against the old predicate (a context that *has* sprite_icon), the second
+  # fails on 6.1 and 7.0 (a context that has *not*).
+  let(:series_draws_sprites) { Redmine::VERSION::MAJOR >= 6 }
+
+  it 'is not fooled by a neighbouring plugin defining sprite_icon' do
+    context = Class.new do
+      include RedmineProjectWorkflows::VersionHelper
+
+      def sprite_icon(*_args, **_options)
+        ''
+      end
+    end
+
+    expect(context.new.project_workflows_svg_icons?).to eq(series_draws_sprites)
+  end
+
+  it 'is not fooled by a context that has no sprite_icon at all' do
+    context = Class.new { include RedmineProjectWorkflows::VersionHelper }
+
+    expect(context.new.project_workflows_svg_icons?).to eq(series_draws_sprites)
+  end
+
+  # The construct itself, not only its answer: a second `respond_to?` test
+  # anywhere in the plugin would re-open F02 in a place this file's two examples
+  # do not reach. Comments are allowed to name it -- the version helper's own
+  # comment explains why it is wrong -- so this asks about code.
+  it 'decides no host feature by asking whether sprite_icon is defined' do
+    root = File.expand_path('..', __dir__)
+    offenders = Dir.glob("#{root}/{app,lib}/**/*.{rb,erb}").select do |file|
+      File.read(file).lines.any? do |line|
+        line.include?('respond_to?(:sprite_icon)') && !line.strip.start_with?('#')
+      end
+    end
+
+    expect(offenders.map { |file| file.sub("#{root}/", '') }).to be_empty
   end
 end
 

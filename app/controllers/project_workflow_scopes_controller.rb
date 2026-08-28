@@ -9,7 +9,7 @@
 # They are reached from the administration workflow screens and are
 # administrator-only, which satisfies INV-7 trivially. The same three actions are
 # also on ProjectWorkflowsController as of WP4, where they act on one project and
-# are authorized with +manage_project_workflow+ against it; that is the path a
+# are authorized with +manage_project_workflow_rules+ against it; that is the path a
 # non-administrator takes, and this one stays what it is.
 #
 # Every id that reaches a query is resolved against the database first and

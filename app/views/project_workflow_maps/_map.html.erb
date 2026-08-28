@@ -115,7 +115,7 @@
 
     <%# The whole workflow as a drawing (WP9). This panel answers "what may I do
         from here"; that screen answers "what does this workflow look like", and
-        it is behind view_project_workflow while this panel is not -- so the
+        it is behind view_project_workflow_rules while this panel is not -- so the
         offer is gated on the very action it authorizes rather than on a
         permission name, and a reader without it simply sees no link. %>
     <% if (graph_link = project_workflow_graph_link(@project, @tracker)) %>

@@ -64,7 +64,7 @@ describe ProjectsController, type: :controller do
     end
 
     it 'are one per tracker the project has enabled times role with members in it' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :settings, params: { id: project.id }
 
@@ -78,7 +78,7 @@ describe ProjectsController, type: :controller do
     # deciding the workflow for the people who are not its members stays a
     # system administrator's job.
     it 'leave out a role that has no member in this project' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :settings, params: { id: project.id }
 
@@ -96,7 +96,7 @@ describe ProjectsController, type: :controller do
     # screen that is meant to answer "why can nobody move issues here" to the
     # state that causes it.
     it 'include a role with no member that already has a scope' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
       give_own_workflow(project, tracker, roles(:roles_005))
 
       get :settings, params: { id: project.id }
@@ -107,7 +107,7 @@ describe ProjectsController, type: :controller do
     # ...and only for the tracker and rule type it actually has a scope for --
     # the row exists because the scope does, not because the role does.
     it 'do not include a role with no member and no scope anywhere in the project' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
       give_own_workflow(project, tracker, roles(:roles_005))
 
       get :settings, params: { id: project.id }
@@ -118,7 +118,7 @@ describe ProjectsController, type: :controller do
     # Decision A of 2026-08-26, unchanged: the project screen does not offer to
     # give such a role a workflow of its own. The row is there to be undone.
     it 'do not offer to take a new workflow over for such a role' do
-      log_in(2, :view_project_workflow, :manage_project_workflow)
+      log_in(2, :view_project_workflow_rules, :manage_project_workflow_rules)
       give_own_workflow(project, tracker, roles(:roles_005))
 
       get :settings, params: { id: project.id }
@@ -136,7 +136,7 @@ describe ProjectsController, type: :controller do
     # and roles does not add queries, and asking each row whether its role is
     # offered costs nothing after the first.
     it 'cost the same number of queries however many rows they have' do
-      log_in(2, :view_project_workflow, :manage_project_workflow)
+      log_in(2, :view_project_workflow_rules, :manage_project_workflow_rules)
       give_own_workflow(project, tracker, roles(:roles_005))
       helper = Object.new.extend(ProjectWorkflowsHelper)
 
@@ -159,7 +159,7 @@ describe ProjectsController, type: :controller do
     end
 
     it "name the state and the project's own rule count per kind of rule" do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
       give_own_workflow(project, tracker, role)
       WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
                                  old_status_id: issue_statuses(:issue_statuses_001).id,
@@ -175,7 +175,7 @@ describe ProjectsController, type: :controller do
     # its view. The rows come from a helper rather than from that method, so this
     # path needs nothing of its own -- which is exactly what it asserts.
     it 'are there when a failed save re-renders the settings page' do
-      log_in(2, :edit_project, :view_project_workflow)
+      log_in(2, :edit_project, :view_project_workflow_rules)
 
       put :update, params: { id: project.id, project: { name: '' } }
 
@@ -197,7 +197,7 @@ describe ProjectsController, type: :controller do
     end
 
     it 'lists the combinations, with a link into each matrix' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :settings, params: { id: project.id }
 
@@ -214,7 +214,7 @@ describe ProjectsController, type: :controller do
     # WP6: the same audit line the administration inventory carries, on the tab
     # a project manager actually looks at.
     it 'says who last changed a workflow the project owns' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
       RedmineProjectWorkflows::Services::ScopeWriter.enable(
         project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
         rule_type: ProjectWorkflowScope::TRANSITIONS, copy_generic: false,
@@ -233,7 +233,7 @@ describe ProjectsController, type: :controller do
     end
 
     it 'says nothing about a combination the project inherits' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :settings, params: { id: project.id }
 
@@ -243,7 +243,7 @@ describe ProjectsController, type: :controller do
 
     # WP6: the second of the comparison's three entry points.
     it 'links to the comparison for a workflow the project owns' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
       give_own_workflow(project, tracker, role, ProjectWorkflowScope::TRANSITIONS)
 
       get :settings, params: { id: project.id }
@@ -254,7 +254,7 @@ describe ProjectsController, type: :controller do
     end
 
     it 'does not link to the comparison for a combination the project inherits' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :settings, params: { id: project.id }
 
@@ -263,7 +263,7 @@ describe ProjectsController, type: :controller do
     end
 
     it 'offers no action to somebody who may only view the workflow' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       get :settings, params: { id: project.id }
 
@@ -273,7 +273,7 @@ describe ProjectsController, type: :controller do
     # A permission that manages but does not view still opens the tab: the entry
     # names the action it leads to, not one of the two permissions.
     it 'offers the actions, carrying a way back to the tab, to somebody who may manage it' do
-      log_in(2, :manage_project_workflow)
+      log_in(2, :manage_project_workflow_rules)
 
       get :settings, params: { id: project.id }
 
@@ -283,7 +283,7 @@ describe ProjectsController, type: :controller do
     end
 
     it 'is absent once issue tracking is switched off for the project' do
-      log_in(2, :view_project_workflow, :edit_project)
+      log_in(2, :view_project_workflow_rules, :edit_project)
       project.enabled_module_names = project.enabled_module_names - ['issue_tracking']
 
       get :settings, params: { id: project.id }
@@ -326,7 +326,7 @@ describe ProjectsController, type: :controller do
     # ProjectsHelper, where nothing answers, so core's own method dropped out of
     # the chain and every settings page raised NoMethodError.
     it 'keeps its own tab, the neighbour\'s and core\'s' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       with_neighbour_alias_chain do
         get :settings, params: { id: project.id }
@@ -345,7 +345,7 @@ describe ProjectsController, type: :controller do
     # outright -- NoMethodError on every project's settings page -- the moment
     # the tab override goes back inside ProjectsHelper.
     it 'survives a neighbour that aliases after this plugin has applied' do
-      log_in(2, :view_project_workflow)
+      log_in(2, :view_project_workflow_rules)
 
       with_later_neighbour_alias_chain do
         get :settings, params: { id: project.id }
