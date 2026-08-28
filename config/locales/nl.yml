@@ -127,7 +127,8 @@ nl:
   label_project_workflow_graph_unmentioned: Niet gebruikt door de geselecteerde rollen
   text_project_workflow_graph_aria: 'Diagram van deze workflow: %{statuses} statussen en %{transitions} overgangen. Dezelfde informatie staat in de tabel hieronder.'
   text_project_workflow_graph_no_roles: Geen van de geselecteerde rollen neemt deel aan een workflow, dus er valt niets te tekenen.
-  text_project_workflow_graph_empty: Dit project heeft hier een eigen workflow en die bevat geen enkele regel, dus toont het diagram alleen het startpunt. Dat is een bewuste keuze en geen fout.
+  text_project_workflow_graph_empty: Minstens één van de geselecteerde rollen heeft hier een eigen workflow die geen enkele regel bevat, dus is er voor die rol geen statuswijziging toegestaan. Dat is een bewuste keuze en geen fout.
+  text_project_workflow_graph_nothing: De workflow die hier geldt, bevat voor de geselecteerde rollen geen enkele overgang, dus toont het diagram alleen het startpunt.
   text_project_workflow_graph_no_diagnostics: Elke status in deze workflow is bereikbaar vanaf een nieuw issue en heeft een uitweg.
   text_project_workflow_graph_legend_solid: Een doorlopende pijl is een wijziging die iedereen met de rol mag maken.
   text_project_workflow_graph_legend_dashed: Een streepjespijl is een wijziging die alleen de auteur of de toegewezen persoon mag maken.

@@ -127,7 +127,8 @@ en:
   label_project_workflow_graph_unmentioned: Not used by the selected roles
   text_project_workflow_graph_aria: 'Diagram of this workflow: %{statuses} statuses and %{transitions} transitions. The same information is in the table below.'
   text_project_workflow_graph_no_roles: None of the selected roles takes part in a workflow, so there is nothing to draw.
-  text_project_workflow_graph_empty: This project has its own workflow here and it holds no rule at all, so the diagram shows the starting point and nothing else. That is a deliberate configuration and not a fault.
+  text_project_workflow_graph_empty: At least one of the selected roles has a workflow of its own here that holds no rule at all, so no change of status is permitted for it. That is a deliberate configuration and not a fault.
+  text_project_workflow_graph_nothing: The workflow that applies here holds no transition at all for the selected roles, so the diagram shows the starting point and nothing else.
   text_project_workflow_graph_no_diagnostics: Every status in this workflow can be reached from a new issue and has a way out.
   text_project_workflow_graph_legend_solid: A solid arrow is a change anyone holding the role may make.
   text_project_workflow_graph_legend_dashed: A dashed arrow is a change only the author or the assignee may make.

@@ -70,14 +70,22 @@ module ProjectWorkflowGraphsHelper
   # The count is interpolated as +statuses+ and not as +count+: +count+ makes
   # I18n look for one/other subkeys under the key, and a plain string then
   # answers "translation missing" in every language.
-  def project_workflow_graph_aria_label(graph)
-    l(:text_project_workflow_graph_aria, statuses: graph.nodes.size, transitions: graph.edges.size)
+  def project_workflow_graph_aria_label(layout)
+    l(:text_project_workflow_graph_aria, statuses: layout.nodes.size, transitions: layout.edges.size)
   end
 
   # The three diagnostics, each as [label, nodes], and only the ones that have
   # anything in them. Computed from the graph and the layout already in hand, so
   # they cost no query.
+  #
+  # A workflow with no transition at all reports none of them. Every status the
+  # tracker uses is unmentioned there, and a list of thirty of them under "not
+  # used by the selected roles" says nothing the one sentence above the drawing
+  # has not already said, while burying it (decided autonomously, 2026-08-28;
+  # reversible by deleting this guard).
   def project_workflow_graph_diagnostics(graph, layout)
+    return [] if graph.empty_workflow?
+
     unreachable = layout.band_nodes.map(&:node).select(&:mentioned)
     [
       [l(:label_project_workflow_graph_unreachable), unreachable],
@@ -103,6 +111,18 @@ module ProjectWorkflowGraphsHelper
             project_workflow_matrix_path(project, tracker, role, ProjectWorkflowScope::TRANSITIONS))
   end
 
+  # Whether this reader may open the drawing for this project, asked once per
+  # render rather than once per settings-tab row. No query either way -- the
+  # roles are memoised on User -- but the tab draws one link per tracker and
+  # role, and a permission check per cell is the shape that turns into one
+  # later.
+  def project_workflow_graph_offered?(project)
+    @project_workflow_graph_offered ||= {}
+    return @project_workflow_graph_offered[project.id] if @project_workflow_graph_offered.key?(project.id)
+
+    @project_workflow_graph_offered[project.id] = User.current.allowed_to?(GRAPH_ACTION, project)
+  end
+
   # The link into the drawing, or nothing at all where it would answer 403.
   #
   # Gated on the action rather than on a permission name, for the reason
@@ -111,7 +131,7 @@ module ProjectWorkflowGraphsHelper
   # off and the drawing picks the reader's own.
   def project_workflow_graph_link(project, tracker, role = nil, label: nil)
     return if project.nil? || tracker.nil?
-    return unless User.current.allowed_to?(GRAPH_ACTION, project)
+    return unless project_workflow_graph_offered?(project)
 
     options = { tracker_id: tracker.id }
     options[:role_id] = [role.id] if role

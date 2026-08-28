@@ -127,7 +127,8 @@ pt:
   label_project_workflow_graph_unmentioned: Não utilizado pelos perfis selecionados
   text_project_workflow_graph_aria: 'Diagrama deste fluxo de trabalho: %{statuses} estados e %{transitions} transições. A mesma informação está na tabela abaixo.'
   text_project_workflow_graph_no_roles: Nenhum dos perfis selecionados participa num fluxo de trabalho, por isso não há nada para desenhar.
-  text_project_workflow_graph_empty: Este projeto tem aqui um fluxo de trabalho próprio e este não contém qualquer regra, pelo que o diagrama mostra apenas o ponto de partida. É uma configuração deliberada e não uma falha.
+  text_project_workflow_graph_empty: Pelo menos um dos perfis selecionados tem aqui um fluxo de trabalho próprio que não contém qualquer regra, pelo que não lhe é permitida qualquer mudança de estado. É uma configuração deliberada e não uma falha.
+  text_project_workflow_graph_nothing: O fluxo de trabalho que se aplica aqui não contém qualquer transição para os perfis selecionados, pelo que o diagrama mostra apenas o ponto de partida.
   text_project_workflow_graph_no_diagnostics: Todos os estados deste fluxo de trabalho podem ser alcançados a partir de uma nova tarefa e têm saída.
   text_project_workflow_graph_legend_solid: Uma seta contínua é uma alteração que qualquer pessoa com o perfil pode fazer.
   text_project_workflow_graph_legend_dashed: Uma seta tracejada é uma alteração que só o autor ou o responsável podem fazer.

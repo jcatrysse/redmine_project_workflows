@@ -24,7 +24,7 @@
 | WP6 | Compare, audit, undo | **done** |
 | WP7 | Documentation, locales, release | **done** |
 | WP8 | Status help and the transition map on the issue form | done |
-| WP9 | The workflow as a drawing, per role | **planned** |
+| WP9 | The workflow as a drawing, per role | **done** |
 
 ---
 

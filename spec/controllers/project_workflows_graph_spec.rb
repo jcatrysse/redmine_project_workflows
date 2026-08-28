@@ -234,6 +234,52 @@ describe ProjectWorkflowsController, type: :controller do
       expect(drawing).not_to include('marker-end=')
     end
 
+    # The defect the review of this package's own diff turned up: a drawing with
+    # no arrows in it has two different causes, and they were being told with one
+    # sentence keyed on `empty_workflow?` alone.
+    #
+    # Two of the three examples below are red against that version -- the first,
+    # which had it claiming an own empty workflow for a project that inherits,
+    # and the third, which had it listing every status the tracker uses under
+    # "not used by the selected roles". The second passes either way: it is here
+    # so that the fix is pinned in *both* directions, because keying the sentence
+    # on the state rather than on the rules is only right if it still fires when
+    # one role of several is the empty one.
+    it 'does not claim an own empty workflow when the project simply inherits one with no rules' do
+      # No rule anywhere for this combination, and no scope either: the project
+      # follows a generic workflow that nobody has filled in. INV-3 -- the state
+      # comes from the scope table, never from the absence of rules.
+      get :graph, params: graph_params
+
+      expect(assigns(:graph).uniform_state).to eq(:inherits)
+      expect(assigns(:graph)).to be_empty_workflow
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_nothing)))
+      expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_empty)))
+    end
+
+    it 'says an own empty workflow is deliberate even when another role has rules' do
+      leave_one_role
+      give_own_workflow(project, tracker, role)
+
+      get :graph, params: graph_params
+
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_empty)))
+    end
+
+    it 'lists no diagnostics for a workflow with no transition at all' do
+      # Every status the tracker uses is "not used by the selected roles" there,
+      # and thirty of them under that heading buries the sentence that explains
+      # the whole thing.
+      give_own_workflow(project, tracker, role)
+      transition(new_status, assigned, role_id: other_role.id)
+
+      get :graph, params: graph_params(role_id: [role.id])
+
+      expect(assigns(:graph).unmentioned_nodes).not_to be_empty
+      expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_graph_unmentioned)))
+      expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_graph_diagnostics)))
+    end
+
     it 'renders a viewBox that contains every path it drew' do
       # The clipping regression, asserted on the real page rather than only on
       # the layout: a viewBox is an attribute nothing validates, and an arc

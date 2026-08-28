@@ -76,6 +76,9 @@ one of them has surprised somebody.
 - On the issue form, a **Workflow for this issue** panel: which workflow governs
   you, what it lets this issue move to, what leads into its current status, and
   why anything the workflow permits is not on offer right now.
+- A **workflow diagram** — the picture with the arrows — for any tracker and any
+  role in the project, with the statuses that cannot be reached and the ones
+  nothing leads out of named rather than merely drawn.
 - Optimised SQL performance for bulk workflow transition/permission updates.
 
 ## Installation
@@ -316,6 +319,54 @@ loaded when you click it.
 The panel is on the single-issue form — new, edit, and the inline edit form on the
 issue page. It is deliberately **not** on the bulk-edit form, where a selection
 can span projects and trackers, so one map would be wrong about most of it.
+
+### The workflow as a diagram
+
+The **Workflow diagram** link — on the project's Workflow tab, at the top of both
+matrices, and in the panel on the issue form — draws the whole of a project's
+status transitions for one tracker: a box per status, an arrow per permitted
+change, and the *New issue* starting point on the left.
+
+This is the picture people coming from Jira look for first, and it says one thing
+Jira's cannot. In Jira a diagram is drawn per issue type, and who may make a move
+is hidden in a dialogue behind the arrow — so the picture shows the transitions
+*somebody* may make, not the ones *you* may make. Redmine decides its workflow per
+tracker **and per role**, so the diagram has a **Roles shown** selector, and it
+starts on the roles you hold in that project. Picking *Developer* answers "what
+may a developer actually do here", which is the question somebody configuring a
+workflow is really asking.
+
+Under the drawing, in words:
+
+- **Cannot be reached from a new issue** — a status no sequence of permitted
+  moves leads to. These are drawn below a dotted line rather than in the flow.
+- **Nothing leads out of these** — a status an issue can enter and never leave.
+  Sometimes that is a deliberate terminal *Closed*; sometimes it is a rule
+  somebody forgot to add, and there is no other screen in Redmine that will tell
+  you.
+- **Not used by the selected roles** — a status the tracker's workflow uses under
+  some *other* role, which is why it is not in the picture.
+
+A solid arrow is a change anyone holding the role may make; a dashed one is a
+change only the author or the assignee may make. Underneath is **the same
+workflow as a table** — that is not an afterthought: it is what a screen reader
+reads, what Ctrl-F finds, and what prints legibly.
+
+The diagram is behind the **View project workflow** permission, because it shows
+what *other* roles may do, which is project configuration rather than information
+about your own issue. The panel on the issue form needs no permission and keeps
+none.
+
+Two things it deliberately does not do. It does not let you *edit* the workflow by
+dragging arrows — that is Jira's workflow editor, a far larger thing, and
+Redmine's tick-box matrix is honestly better at the job. And it draws status
+transitions only: field permissions are a property of a status rather than of a
+move between two, so they are not a graph, and the comparison screen is where they
+are read side by side.
+
+A project with its **own empty workflow** draws as the starting point and nothing
+else, with the sentence saying that is deliberate — the same case the issue panel
+exists to explain, from the other end.
 
 ## Settings
 

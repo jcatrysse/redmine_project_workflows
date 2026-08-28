@@ -130,7 +130,8 @@ pl:
   label_project_workflow_graph_unmentioned: Nieużywane przez wybrane role
   text_project_workflow_graph_aria: 'Diagram tego przepływu pracy: %{statuses} statusów i %{transitions} przejść. Te same informacje znajdują się w tabeli poniżej.'
   text_project_workflow_graph_no_roles: Żadna z wybranych ról nie bierze udziału w przepływie pracy, więc nie ma czego narysować.
-  text_project_workflow_graph_empty: Ten projekt ma tutaj własny przepływ pracy, który nie zawiera żadnej reguły, więc diagram pokazuje wyłącznie punkt początkowy. Jest to celowa konfiguracja, a nie błąd.
+  text_project_workflow_graph_empty: Co najmniej jedna z wybranych ról ma tutaj własny przepływ pracy, który nie zawiera żadnej reguły, więc nie jest dla niej dozwolona żadna zmiana statusu. Jest to celowa konfiguracja, a nie błąd.
+  text_project_workflow_graph_nothing: Przepływ pracy obowiązujący w tym miejscu nie zawiera dla wybranych ról żadnego przejścia, więc diagram pokazuje wyłącznie punkt początkowy.
   text_project_workflow_graph_no_diagnostics: Każdy status w tym przepływie pracy jest osiągalny z nowego zagadnienia i ma wyjście.
   text_project_workflow_graph_legend_solid: Ciągła strzałka oznacza zmianę, której może dokonać każdy, kto ma tę rolę.
   text_project_workflow_graph_legend_dashed: Przerywana strzałka oznacza zmianę, której może dokonać tylko autor lub osoba przypisana.

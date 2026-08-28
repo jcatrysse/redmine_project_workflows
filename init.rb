@@ -5,7 +5,7 @@ Redmine::Plugin.register :redmine_project_workflows do
   author 'Jan Catrysse'
   description 'Project workflows for Redmine'
   url 'https://github.com/jcatrysse/redmine_project_workflows'
-  version '0.1.5'
+  version '0.1.6'
   # 5.1 rather than 5.0, and it is a **hard dependency**, not merely the oldest
   # version anyone has tested (finding F03). `Issue#roles_for_workflow` does not
   # exist before 5.1 -- core introduced it there, replacing

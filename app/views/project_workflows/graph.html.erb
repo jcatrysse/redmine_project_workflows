@@ -86,35 +86,47 @@
     <% end %>
   </div>
 
-  <% if @graph.empty_workflow? %>
-    <%# An own empty workflow draws as the entry node and nothing else. Without
-        this sentence that is indistinguishable from a broken plugin, and it is a
-        deliberate configuration rather than a fault (INV-3). %>
+  <%# Two different reasons for a drawing with no arrows in it, and they must not
+      be told with one sentence. An *own empty* workflow is a deliberate
+      configuration this project made (INV-3); a workflow with no rule that the
+      project merely *inherits* is a generic workflow nobody has filled in. The
+      state is what tells them apart -- never the absence of rules, which is the
+      defect the whole scope model exists to fix. %>
+  <% if @graph.role_states.any? { |role_state| role_state.state == :own_empty } %>
     <p class="project-workflow-map-empty">
       <em><%= l(:text_project_workflow_graph_empty) %></em>
+    </p>
+  <% elsif @graph.empty_workflow? %>
+    <p class="project-workflow-map-empty">
+      <em><%= l(:text_project_workflow_graph_nothing) %></em>
     </p>
   <% end %>
 
   <%= render partial: 'project_workflows/graph_svg', locals: { layout: layout } %>
 
-  <p class="project-workflow-graph-legend">
-    <em>
-      <%= l(:text_project_workflow_graph_legend_solid) %>
-      <%= l(:text_project_workflow_graph_legend_dashed) %>
-      <% if layout.band_top %><%= l(:text_project_workflow_graph_legend_band) %><% end %>
-    </em>
-  </p>
+  <%# Only where there is an arrow to read: a legend explaining two kinds of
+      arrow over a drawing with none is instructions for something that is not
+      there. %>
+  <% unless @graph.empty_workflow? %>
+    <p class="project-workflow-graph-legend">
+      <em>
+        <%= l(:text_project_workflow_graph_legend_solid) %>
+        <%= l(:text_project_workflow_graph_legend_dashed) %>
+        <% if layout.band_top %><%= l(:text_project_workflow_graph_legend_band) %><% end %>
+      </em>
+    </p>
 
-  <h3><%= l(:label_project_workflow_graph_diagnostics) %></h3>
-  <% diagnostics = project_workflow_graph_diagnostics(@graph, layout) %>
-  <% if diagnostics.empty? %>
-    <p class="nodata"><%= l(:text_project_workflow_graph_no_diagnostics) %></p>
-  <% else %>
-    <ul class="project-workflow-graph-diagnostics">
-      <% diagnostics.each do |label, nodes| %>
-        <li><strong><%= label %>:</strong> <%= project_workflow_graph_node_names(nodes) %></li>
-      <% end %>
-    </ul>
+    <h3><%= l(:label_project_workflow_graph_diagnostics) %></h3>
+    <% diagnostics = project_workflow_graph_diagnostics(@graph, layout) %>
+    <% if diagnostics.empty? %>
+      <p class="nodata"><%= l(:text_project_workflow_graph_no_diagnostics) %></p>
+    <% else %>
+      <ul class="project-workflow-graph-diagnostics">
+        <% diagnostics.each do |label, nodes| %>
+          <li><strong><%= label %>:</strong> <%= project_workflow_graph_node_names(nodes) %></li>
+        <% end %>
+      </ul>
+    <% end %>
   <% end %>
 
   <h3><%= l(:label_project_workflow_graph_table) %></h3>

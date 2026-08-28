@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.1.6
+
+The workflow as a drawing.
+
+### Added
+
+- **A workflow diagram, per role.** A new **Workflow diagram** screen draws the
+  whole of a project's status transitions for one tracker: a box per status, an
+  arrow per permitted change, and Redmine's *New issue* starting point on the
+  left. It is reached from the project's Workflow tab, from the top of both
+  matrices, and from the panel on the issue form.
+
+  It is per **role**, and that is the part no comparable screen elsewhere has.
+  Redmine decides its workflow per tracker and per role, so the diagram offers
+  every role the project screen already lists and starts on the roles the reader
+  holds — "what may a developer actually do here" is a question it can answer
+  directly.
+
+  Underneath the picture, in words: the statuses **no permitted move can reach**
+  from a new issue, the ones **nothing leads out of**, and the ones **the
+  selected roles' rules never mention**. The first two are real defects in a
+  workflow, and nothing else in Redmine reports them. A solid arrow is a change
+  anyone with the role may make; a dashed one is a change only the author or the
+  assignee may make.
+
+  The same workflow is repeated as a table below the drawing. That is not an
+  afterthought — no drawing is legible to a screen reader, and the table is also
+  what Ctrl-F finds and what prints.
+
+  The screen is behind the existing **View project workflow** permission: the
+  diagram shows what *other* roles may do, which is project configuration rather
+  than information about one issue. The panel on the issue form still needs no
+  permission of its own.
+
+  A project with its **own empty workflow** draws as the starting point alone,
+  with the sentence saying that is a deliberate configuration and not a fault. A
+  project that merely *inherits* a generic workflow nobody has filled in draws
+  the same picture and says something different, because those are two different
+  facts.
+
+  No new dependency, no JavaScript and no build step: the drawing is inline SVG
+  with the layout computed in Ruby, so the status names stay real text and a
+  theme's colours carry through to it.
+
 ## 0.1.5
 
 The last finding left open from the review of 0.1.3 — the query behind the status

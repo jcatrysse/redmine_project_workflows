@@ -127,7 +127,8 @@ es:
   label_project_workflow_graph_unmentioned: No lo usan los perfiles seleccionados
   text_project_workflow_graph_aria: 'Diagrama de este flujo de trabajo: %{statuses} estados y %{transitions} transiciones. La misma información está en la tabla de abajo.'
   text_project_workflow_graph_no_roles: Ninguno de los perfiles seleccionados participa en un flujo de trabajo, así que no hay nada que dibujar.
-  text_project_workflow_graph_empty: Este proyecto tiene aquí su propio flujo de trabajo y no contiene ninguna regla, por lo que el diagrama muestra solo el punto de partida. Es una configuración deliberada y no un fallo.
+  text_project_workflow_graph_empty: Al menos uno de los perfiles seleccionados tiene aquí un flujo de trabajo propio que no contiene ninguna regla, así que para él no se permite ningún cambio de estado. Es una configuración deliberada y no un fallo.
+  text_project_workflow_graph_nothing: El flujo de trabajo que se aplica aquí no contiene ninguna transición para los perfiles seleccionados, por lo que el diagrama muestra solo el punto de partida.
   text_project_workflow_graph_no_diagnostics: Todos los estados de este flujo de trabajo se pueden alcanzar desde una petición nueva y tienen salida.
   text_project_workflow_graph_legend_solid: Una flecha continua es un cambio que puede hacer cualquiera que tenga el perfil.
   text_project_workflow_graph_legend_dashed: Una flecha discontinua es un cambio que solo puede hacer el autor o el asignado.
