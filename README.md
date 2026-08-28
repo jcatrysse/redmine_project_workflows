@@ -532,10 +532,14 @@ and a spec fails if the two disagree.
 The plugin installs and runs — it declares a minimum version and no maximum,
 because a version range would turn an upgrade into a Redmine that refuses to
 boot until an administrator deletes the plugin directory. What it does instead
-is **measure**. The plugin reimplements twenty-one of Redmine's own methods
-(there is no `super` to call: core's workflow queries carry no project column),
-so it records a fingerprint of each of them for every Redmine it has been tested
-on, and on an unknown one it compares.
+is **measure**. The plugin reimplements more than twenty of Redmine's own
+methods (there is no `super` to call: core's workflow queries carry no project
+column), so it records a fingerprint of each of them for every Redmine it has
+been tested on, and on an unknown one it compares. It does the same for the five
+places it adds something to one of Redmine's own screens: it checks, on the
+Redmine you are running, that each of them still finds the place it attaches
+to — because when one does not, Redmine says nothing at all and the screen
+simply comes out missing a control.
 
 That gives three answers, in the log at startup and on
 **Administration → Project workflow diagnostics**:

@@ -28,7 +28,7 @@ The workflow as a drawing.
   against.** *Administration → Project workflow diagnostics* says which Redmine
   this is, which ones the plugin is tested against, and — on a Redmine it has
   never been tested against — whether any of the parts of Redmine it replaces
-  have actually changed. The plugin replaces twenty-one of Redmine's own
+  have actually changed. The plugin replaces more than twenty of Redmine's own
   methods rather than extending them, so it now records a fingerprint of each
   one for every Redmine it has been tested on and compares them on a host it
   has not. There are three answers: tested, untested with no differences, and

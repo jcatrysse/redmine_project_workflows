@@ -275,11 +275,15 @@ not (finding F03):
 `spec/upstream/core_drift_spec.rb` is the gate for the first two. It reads core's
 own body for **every** method the plugin shadows on the host under test — via
 `UnboundMethod#super_method` and `RubyVM::AbstractSyntaxTree.of`, so the set is
-discovered rather than listed and a twenty-third copy cannot be added without
+discovered rather than listed and a new copy cannot be added without
 appearing — normalises and digests it, and compares against the digests in
 `lib/redmine_project_workflows/compatibility.yml`, measured per Redmine minor.
-**Twenty-three** entries: twenty-one copies (two of them private in core), one
-delegate and one declared dependency.
+**Twenty-four** entries: twenty-two copies (two of them private in core), one
+delegate and one declared dependency. It was twenty-six before ADR-003:
+`WorkflowsHelper#options_for_workflow_select` is shadowed by nothing any more,
+and `WorkflowsController#find_trackers_roles_and_statuses_for_edit` was copied
+only to move work behind an authorization check the plugin's own controller
+simply declares first.
 
 The delegate is `Project#copy`: it remembers whether the copy form's workflow
 checkbox was ticked and calls `super`. The gate covers the delegates too, and
