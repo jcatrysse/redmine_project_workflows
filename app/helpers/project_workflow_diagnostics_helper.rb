@@ -58,4 +58,13 @@ module ProjectWorkflowDiagnosticsHelper
   def project_workflow_diagnostics_drift_status(status)
     l(:"label_project_workflow_diagnostics_#{status}")
   end
+
+  # An anchor's answer, in words. Three states rather than a tick, because two of
+  # them are not "in order" and the difference between them is what an
+  # administrator does next: an anchor that did not match is a missing control on
+  # a screen, and one that could not be measured is a question this server could
+  # not answer.
+  def project_workflow_diagnostics_anchor_state(state)
+    l(:"label_project_workflow_diagnostics_anchor_#{state}")
+  end
 end

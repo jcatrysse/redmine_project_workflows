@@ -98,8 +98,14 @@ module RedmineProjectWorkflows
       end
 
       # Whether every question this page asks has the answer it should have.
+      #
+      # An anchor that could not be measured is deliberately not a failure: WP11
+      # settled that a state saying "I could not measure" must not be reported
+      # as either good news or bad. An anchor that was measured and did not
+      # match is a failure, because that is exactly INV-9's silent one.
       def ok?
-        state != :drifted && permission_checks.all?(&:ok) && patch_checks.all?(&:ok)
+        state != :drifted && permission_checks.all?(&:ok) && patch_checks.all?(&:ok) &&
+          anchor_checks.none? { |check| check.state == :unmatched }
       end
 
       # The permissions this plugin registered, found by their own actions
@@ -134,32 +140,101 @@ module RedmineProjectWorkflows
         end
       end
 
-      # The overrides this plugin has registered with Deface, as a LISTING and
-      # deliberately not as a check.
+      # The overrides this plugin has registered with Deface, and whether each
+      # one's selector still finds its anchor in the view this host actually
+      # ships (WP12 step 6).
       #
-      # There is no honest pass/fail to be had here. A registered override is
-      # not a *matching* one -- Deface reports nothing when a selector finds no
-      # anchor, which is why INV-9 exists and why
-      # spec/integration/deface_overrides_spec.rb asserts each one against a
-      # rendered page on all nine cells -- and the other failure, an override
-      # file that did not load, already stops the host from booting, because
-      # `load_deface_overrides!` logs and re-raises. A green tick here would be
-      # a claim about nothing.
+      # **This closes the one gap ADR-002's drift check explicitly does not
+      # cover.** That check compares core method *bodies*; an override hangs on
+      # core's *markup*, and Deface reports nothing at all when a selector finds
+      # no anchor -- the screen simply comes out missing a control. INV-9 is the
+      # rule, and `spec/integration/deface_overrides_spec.rb` is the gate, but a
+      # gate on nine CI cells cannot speak about the Redmine an administrator is
+      # actually running. This can, because ADR-003 took the count from fifteen
+      # anchors to four: at fifteen this would have been a second test suite.
       #
-      # What it is for: an administrator comparing what this plugin says it
-      # touches against a screen that looks wrong. ADR-003 reduced the list to
-      # five in three files, and at five a runtime anchor check becomes a line
-      # rather than a suite.
+      # How it asks. The template is read **from disk**, by the path Rails' own
+      # resolver gives for the virtual path, rather than from
+      # `ActionView::Template#source` -- Deface's own `encode!` rewrites that
+      # string in place once a page has been rendered, so a source read there
+      # would sometimes already carry the override and the question would answer
+      # itself. Then Deface's own parser and the override's own matcher decide,
+      # which is the same pair the applicator uses at render time; asking any
+      # other way would be a second opinion about a selector rather than the
+      # answer.
+      #
+      # Three states, not two. `:unmeasured` is for a template this process
+      # cannot read or a Deface whose shape has moved under us, and it is
+      # deliberately neither good news nor bad -- the same rule WP11 settled for
+      # a Ruby that cannot read core's source. A green tick over an unread file
+      # would be the exact failure this page exists to prevent.
+      AnchorCheck = Struct.new(:name, :virtual_path, :selector, :state, keyword_init: true)
+
+      def anchor_checks
+        our_overrides.map do |name, virtual_path, override|
+          AnchorCheck.new(name: name, virtual_path: virtual_path,
+                          selector: safe_selector(override),
+                          state: anchor_state(override, virtual_path))
+        end
+      end
+
+      # What the page lists under "Redmine screens this plugin changes": name
+      # and view, in a stable order.
       def registered_overrides
-        ::Deface::Override.all.flat_map do |virtual_path, overrides|
-          ours = overrides.keys.select { |name| name.to_s.start_with?(OVERRIDE_PREFIX) }
-          ours.map { |name| [name.to_s, virtual_path.to_s] }
-        end.sort
+        our_overrides.map { |name, virtual_path, _override| [name, virtual_path] }
+      end
+
+      private
+
+      # Ours, out of Deface's global registry -- which spans every installed
+      # plugin, so the prefix is what tells our five from the forty-four other
+      # plugins' on a real host.
+      def our_overrides
+        found = ::Deface::Override.all.flat_map do |virtual_path, overrides|
+          overrides.filter_map do |name, override|
+            [name.to_s, virtual_path.to_s, override] if name.to_s.start_with?(OVERRIDE_PREFIX)
+          end
+        end
+        found.sort_by { |name, virtual_path, _override| [virtual_path, name] }
       rescue StandardError
         []
       end
 
-      private
+      def anchor_state(override, virtual_path)
+        source = template_source(virtual_path)
+        return :unmeasured if source.nil?
+
+        document = ::Deface::Parser.convert(source.dup)
+        override.matcher.matches(document, false).empty? ? :unmatched : :matched
+      rescue StandardError, ScriptError
+        :unmeasured
+      end
+
+      def safe_selector(override)
+        override.selector.to_s
+      rescue StandardError
+        nil
+      end
+
+      # The file Rails would render for a virtual path, read raw.
+      #
+      # Through the resolver rather than by globbing the view paths, because the
+      # resolver is what decides which of several candidates wins -- a plugin
+      # that overrides a core view by shipping its own copy is exactly the case
+      # a glob would get wrong, and it is a case this plugin has to survive
+      # rather than mis-report. The leading underscore comes off the name and is
+      # passed as `partial:` instead, which is the shape the resolver expects.
+      def template_source(virtual_path)
+        prefix, _, name = virtual_path.rpartition('/')
+        partial = name.start_with?('_')
+        lookup = ::ActionView::LookupContext.new(::ApplicationController.view_paths)
+        lookup.formats = [:html]
+        template = lookup.find(partial ? name.delete_prefix('_') : name, [prefix], partial)
+        identifier = template.identifier
+        File.readable?(identifier) ? File.read(identifier) : nil
+      rescue StandardError
+        nil
+      end
 
       def attached?(patch, style, owner_name)
         owner = constant(owner_name)

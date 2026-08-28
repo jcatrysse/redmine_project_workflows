@@ -73,6 +73,23 @@ describe ProjectWorkflowDiagnosticsController, type: :controller do
       expect(response.body).to include('workflows/_action_menu')
     end
 
+    # WP12 step 6. The listing became a check: each override's selector is
+    # matched against the view this host actually ships, because a selector that
+    # stops matching is silent everywhere else.
+    it 'says whether each override still finds its anchor on this Redmine' do
+      get :show
+
+      expect(response.body).to include(
+        ERB::Util.html_escape(I18n.t(:label_project_workflow_diagnostics_anchor))
+      )
+      expect(response.body).to include(
+        ERB::Util.html_escape(I18n.t(:label_project_workflow_diagnostics_anchor_matched))
+      )
+      expect(response.body).not_to include(
+        ERB::Util.html_escape(I18n.t(:label_project_workflow_diagnostics_anchor_unmatched))
+      )
+    end
+
     # The drift table is absent when there is nothing to say, rather than
     # present and empty: an empty table under a heading reads as a measurement
     # that failed.

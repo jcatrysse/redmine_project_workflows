@@ -592,6 +592,20 @@ selector, no hidden `project_id[]` field, no scope panel and no project selector
 on the copy form. A count of the overrides in the source cannot see an override
 left registered by accident; a rendered page can.
 
+**And the diagnostics page asks the same question at runtime.** ADR-002's drift
+check compares core method *bodies*; an override hangs on core's *markup*, and
+nothing had ever compared that on the Redmine an administrator is actually
+running — the CI gate speaks for nine cells and no others. With four anchors
+that check is a table rather than a suite, which is exactly what ADR-003
+predicted. For each override the page reads the template from **disk**, by the
+path Rails' own resolver gives (not from `ActionView::Template#source`, which
+Deface's `encode!` rewrites in place once a page has been rendered — the
+question would answer itself), parses it with Deface's own parser and asks the
+override's own matcher. Three answers: found, not found, and *could not be
+checked*, which is neither good news nor bad and does not drag the page's
+overall verdict down with it — the same rule WP11 settled for a Ruby that cannot
+read core's source.
+
 ### Comparing a project's workflow with the generic one
 
 A scope **replaces** (**INV-5**), so the only question there is to ask about the

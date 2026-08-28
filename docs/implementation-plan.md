@@ -869,9 +869,10 @@ branch stays green at every commit:
    `spec/integration/deface_overrides_spec.rb`.
 7. **Done.** Cross-links both ways between core's workflow screen and the
    plugin's.
-8. With four anchors left, a runtime anchor check on the diagnostics page becomes
-   a line rather than a suite — and it closes the one gap ADR-002's drift check
-   explicitly does not cover.
+8. **Done.** The runtime anchor check is on the diagnostics page: for each of
+   the five overrides, whether its selector still finds its anchor in the
+   template this host ships. Three answers — found, not found, could not be
+   checked — and only the middle one counts against the page's overall verdict.
 
 **Done when:** the table in ADR-003 is true — overrides 15 → 5, the controller
 patch under 60 lines, shadowed core methods down by the two the deleted modules

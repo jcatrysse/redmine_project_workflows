@@ -110,7 +110,8 @@
 
 <p><%= l(:text_project_workflow_diagnostics_overrides_help) %></p>
 
-<% if @diagnostics.registered_overrides.empty? %>
+<% anchor_checks = @diagnostics.anchor_checks %>
+<% if anchor_checks.empty? %>
   <p class="nodata"><%= l(:label_no_data) %></p>
 <% else %>
   <table class="list">
@@ -118,13 +119,28 @@
       <tr>
         <th><%= l(:field_name) %></th>
         <th><%= l(:label_project_workflow_diagnostics_screen) %></th>
+        <th><%= l(:label_project_workflow_diagnostics_anchor) %></th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
-      <% @diagnostics.registered_overrides.each do |name, virtual_path| %>
+      <% anchor_checks.each do |check| %>
         <tr>
-          <td class="name"><%= name %></td>
-          <td><%= virtual_path %></td>
+          <td class="name"><%= check.name %></td>
+          <td><%= check.virtual_path %></td>
+          <td>
+            <%= project_workflow_diagnostics_anchor_state(check.state) %>
+            <% if check.state == :unmatched %>
+              <br><%= l(:text_project_workflow_diagnostics_anchor_unmatched, selector: check.selector) %>
+            <% end %>
+          </td>
+          <%# No tick for an anchor that could not be measured: a green one over
+              an unread file would be the failure this page exists to prevent,
+              and a red one would report a defect nobody has established. %>
+          <td class="tick">
+            <%= project_workflow_diagnostics_tick(false) if check.state == :unmatched %>
+            <%= project_workflow_diagnostics_tick(true) if check.state == :matched %>
+          </td>
         </tr>
       <% end %>
     </tbody>

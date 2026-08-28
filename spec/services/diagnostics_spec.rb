@@ -109,6 +109,63 @@ describe RedmineProjectWorkflows::Services::Diagnostics do
       expect(names).to all(start_with(described_class::OVERRIDE_PREFIX))
       expect(paths).to include('workflows/_action_menu', 'workflows/_form', 'issues/_attributes')
     end
+
+    # WP12 step 6, and the gap ADR-002's drift check explicitly does not cover:
+    # that check compares core method *bodies*, and an override hangs on core's
+    # *markup*. Deface reports nothing when a selector finds no anchor, so the
+    # screen simply comes out missing a control -- which is INV-9's whole
+    # subject, and until now nothing asked the question on the Redmine an
+    # administrator is actually running.
+    describe 'whether each anchor is still there' do
+      it 'finds every one of them on a supported host' do
+        states = diagnostics.anchor_checks.map(&:state)
+
+        expect(states).not_to be_empty
+        expect(states).to all(eq(:matched))
+      end
+
+      it 'reports the same overrides as the listing, with their selectors' do
+        checks = diagnostics.anchor_checks
+
+        expect(checks.map { |check| [check.name, check.virtual_path] })
+          .to eq(diagnostics.registered_overrides)
+        expect(checks.map(&:selector)).to all(be_present)
+      end
+
+      # The failure this exists to catch, produced rather than imagined: a
+      # selector that names markup the host does not have is exactly what a
+      # Redmine upgrade leaves behind, and it has to be `:unmatched` rather than
+      # an exception or a silent pass.
+      it 'says so when a selector names markup the host has not got' do
+        override = Deface::Override.find(virtual_path: 'workflows/_form')
+                                   .find { |o| o.name.to_s.end_with?('row_bulk_actions') }
+        original = override.args[:insert_bottom]
+        override.args[:insert_bottom] = 'td.no-such-anchor-on-any-redmine'
+
+        check = diagnostics.anchor_checks.find { |c| c.name == override.name.to_s }
+
+        expect(check.state).to eq(:unmatched)
+        expect(diagnostics.ok?).to be(false)
+      ensure
+        override.args[:insert_bottom] = original
+      end
+
+      # WP11's rule, applied to a second measurement: a state that says "I could
+      # not measure" must be neither good news nor bad. A template this process
+      # cannot read is that state, and it must not drag the page's overall
+      # answer down with it -- an administrator would be sent looking for a
+      # defect nobody has established.
+      it 'says it could not measure, rather than guessing, when the view cannot be read' do
+        allow(File).to receive(:read).and_call_original
+        allow(File).to receive(:readable?).and_call_original
+        allow(File).to receive(:readable?).with(/_action_menu/).and_return(false)
+
+        check = diagnostics.anchor_checks.find { |c| c.virtual_path == 'workflows/_action_menu' }
+
+        expect(check.state).to eq(:unmeasured)
+        expect(diagnostics.ok?).to be(true)
+      end
+    end
   end
 
   describe 'the overall answer' do

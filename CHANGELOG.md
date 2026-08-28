@@ -40,7 +40,12 @@ The workflow as a drawing.
   silent: whether the permissions the plugin registered are the ones Redmine
   answers with (two plugins can claim a name, and the loser's screens refuse
   everybody), whether each change it makes to Redmine's own classes is in
-  place, and which of Redmine's screens it adds to.
+  place, and — for each of the five additions it makes to Redmine's own
+  screens — whether the piece of Redmine it attaches to is still there. That
+  last one is the failure this plugin worried about most: when it is not,
+  Redmine says nothing at all and the screen simply comes out missing a
+  control. Three answers per addition: found, not found, and *could not be
+  checked*, which is reported as neither.
 
 - **A workflow diagram, per role.** A new **Workflow diagram** screen draws the
   whole of a project's status transitions for one tracker: a box per status, an
