@@ -157,6 +157,51 @@ describe ProjectWorkflowsController, type: :controller do
       expect(response).to have_http_status(:not_found)
     end
 
+    it 'says so rather than answering 404 when the project offers no role at all' do
+      # Nobody is a member and no scope brought a role in. That is a project
+      # nobody has joined, not a missing page -- and it is the same state the
+      # settings tab describes, so it borrows the tab's own sentence.
+      #
+      # As the administrator, necessarily: emptying the membership takes away
+      # the very permission a member would have been reading this with, so the
+      # only reader who can reach a project with no members is one who does not
+      # need one.
+      Member.where(project: project).destroy_all
+      log_in(1)
+
+      get :graph, params: graph_params
+
+      expect(response).to have_http_status(:ok)
+      expect(assigns(:visible_roles)).to be_empty
+      expect(response.body)
+        .to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_tab_nothing_to_configure)))
+    end
+
+    it 'draws nothing but says why when the selected role takes no part in a workflow' do
+      # Anonymous answers false to consider_workflow?, and it is on the list here
+      # only because a scope exists for it.
+      give_own_workflow(project, tracker, roles(:roles_005))
+
+      get :graph, params: graph_params(role_id: [roles(:roles_005).id])
+
+      expect(response).to have_http_status(:ok)
+      expect(assigns(:graph).role_states).to be_empty
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_no_roles)))
+    end
+
+    it 'names a status that no longer exists by its id rather than drawing a blank box' do
+      # The workflows table allows a row naming a deleted status -- core's own
+      # delete does not leave one behind, but a database can hold one -- and a
+      # box with no text in it is the worst way to render it.
+      doomed = IssueStatus.create!(name: 'Temporary')
+      transition(new_status, doomed)
+      IssueStatus.where(id: doomed.id).delete_all
+
+      get :graph, params: graph_params
+
+      expect(graph_svg).to include("##{doomed.id}")
+    end
+
     it 'offers a role that has no member here but already holds a scope' do
       # Finding F05's population: a workflow the project runs and its tab would
       # otherwise not list. visible_roles, not roles.

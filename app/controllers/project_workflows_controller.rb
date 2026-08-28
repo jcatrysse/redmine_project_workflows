@@ -243,9 +243,15 @@ class ProjectWorkflowsController < ApplicationController
 
     options = RedmineProjectWorkflows::Services::ProjectOptions
     @tracker = options.trackers(@project).detect { |tracker| tracker.id.to_s == params[:tracker_id].to_s }
-    @visible_roles = @tracker.nil? ? [] : options.visible_roles(@project)
+    return render_404 if @tracker.nil?
+
+    @visible_roles = options.visible_roles(@project)
     @roles = selected_roles
-    render_404 if @tracker.nil? || @roles.empty?
+    # 404 only where the request named something the project does not offer. A
+    # project that offers *no* role at all -- nobody is a member of it, and no
+    # scope brought one in -- is not a missing page, and the screen says so in
+    # the same sentence the settings tab uses for the same state.
+    render_404 if @roles.empty? && @visible_roles.any?
   end
 
   # What the request asked for, intersected with the list above -- so a parameter

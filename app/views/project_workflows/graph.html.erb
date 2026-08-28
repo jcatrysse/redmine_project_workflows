@@ -50,12 +50,17 @@
   <% end %>
 <% end %>
 
-<% if @graph.role_states.empty? %>
-  <%# Nothing selected takes part in a workflow at all -- Non member and
-      Anonymous can be in the list because a scope exists for them, and a role
-      that has lost both issue permissions takes no part in a workflow. An empty
-      frame would read as "this workflow permits nothing", which is a different
-      statement. %>
+<% if @visible_roles.empty? %>
+  <%# The project offers no role at all: nobody is a member of it, and no scope
+      brought one in. The settings tab says this in these words for this state,
+      so the two screens agree rather than inventing a second phrasing. %>
+  <p class="nodata"><%= l(:text_project_workflow_tab_nothing_to_configure) %></p>
+<% elsif @graph.role_states.empty? %>
+  <%# Roles were selected, and none of them takes part in a workflow -- Non
+      member and Anonymous can be in the list because a scope exists for them,
+      and a role that has lost both issue permissions takes no part in one. An
+      empty frame would read as "this workflow permits nothing", which is a
+      different statement. %>
   <p class="nodata"><%= l(:text_project_workflow_graph_no_roles) %></p>
 <% else %>
   <div class="box project-workflow-scope">
