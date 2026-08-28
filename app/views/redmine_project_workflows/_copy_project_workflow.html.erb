@@ -24,10 +24,6 @@
   Locals: project -- the *source* project (core passes it as `project`), plus
   whatever else call_hook puts in the context.
 %>
+<% key = RedmineProjectWorkflows::Services::ProjectWorkflowCopier::COPY_ONLY_KEY %>
 <% scope_count = ProjectWorkflowScope.where(project_id: project.id).count %>
-<label class="block">
-  <%= check_box_tag 'only[]',
-                    RedmineProjectWorkflows::Services::ProjectWorkflowCopier::COPY_ONLY_KEY,
-                    true, id: nil %>
-  <%= l(:label_project_workflow_copy_item) %> (<%= scope_count %>)
-</label>
+<label class="block"><%= check_box_tag 'only[]', key, true, id: nil %> <%= l(:label_project_workflow_copy_item) %> (<%= scope_count %>)</label>
