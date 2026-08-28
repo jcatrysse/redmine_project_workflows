@@ -1,4 +1,8 @@
-<%= title [l(:label_workflow), edit_workflows_path], l(:label_project_workflow_inventory) %>
+<%# The inventory is a page of the plugin's administration area, so its heading
+    leads back into that area rather than into Redmine's own workflow screens --
+    which since ADR-003 know nothing about projects. %>
+<%= title [l(:label_project_workflow_rules), project_workflow_rules_path],
+          l(:label_project_workflow_inventory) %>
 
 <p><%= l(:text_project_workflow_inventory_description) %></p>
 
@@ -43,7 +47,7 @@
       <%= link_to l(:button_project_workflow_inventory_show_all),
                   project_workflow_inventories_path(project_workflow_inventory_filter_params(deviations_only: '0')) %>
     <% end %>
-    <%= link_to l(:button_project_workflow_inventory_open_matrices), edit_workflows_path %>
+    <%= link_to l(:button_project_workflow_inventory_open_matrices), edit_project_workflow_rules_path %>
   </p>
 <% else %>
 <div class="autoscroll">

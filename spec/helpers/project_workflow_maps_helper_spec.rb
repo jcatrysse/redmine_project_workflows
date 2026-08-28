@@ -65,13 +65,16 @@ describe ProjectWorkflowMapsHelper, type: :helper do
     end
 
     # A combination the project inherits is governed by the *generic* workflow,
-    # so an administrator is sent to the screen that changes it.
-    it 'sends an administrator to the generic matrix while the project inherits' do
+    # so an administrator is sent to the screen that changes it -- the plugin's
+    # own administration matrix, which shows that workflow with the project named
+    # and the scope panel above it. Not core's, which since ADR-003 reads no
+    # project parameter and would drop it without saying so.
+    it 'sends an administrator to the administration matrix while the project inherits' do
       User.current = users(:users_001)
 
       link = helper.project_workflow_map_edit_link(project, tracker, role, :inherits)
 
-      expect(link).to include('/workflows/edit')
+      expect(link).to include('/project_workflow_rules/edit')
       expect(link).to include("project_id%5B%5D=#{project.id}")
     end
 

@@ -77,6 +77,7 @@ module RedmineProjectWorkflows
       # nobody can translate.
       PermissionCheck = Struct.new(:name, :ok, :claimants, keyword_init: true)
       PatchCheck = Struct.new(:name, :ok, :style, :owners, :module_name, keyword_init: true)
+      AnchorCheck = Struct.new(:name, :virtual_path, :selector, :state, keyword_init: true)
 
       # The compatibility half is the manifest's own answer, unchanged: the page
       # asks the module that owns the facts rather than copying them here.
@@ -168,10 +169,10 @@ module RedmineProjectWorkflows
       # deliberately neither good news nor bad -- the same rule WP11 settled for
       # a Ruby that cannot read core's source. A green tick over an unread file
       # would be the exact failure this page exists to prevent.
-      AnchorCheck = Struct.new(:name, :virtual_path, :selector, :state, keyword_init: true)
-
+      # Memoised: the view asks once, `ok?` asks again, and each answer costs a
+      # file read and a Nokogiri parse per override. One instance is one request.
       def anchor_checks
-        our_overrides.map do |name, virtual_path, override|
+        @anchor_checks ||= our_overrides.map do |name, virtual_path, override|
           AnchorCheck.new(name: name, virtual_path: virtual_path,
                           selector: safe_selector(override),
                           state: anchor_state(override, virtual_path))

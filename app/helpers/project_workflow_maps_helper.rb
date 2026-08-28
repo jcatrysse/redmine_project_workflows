@@ -126,9 +126,12 @@ module ProjectWorkflowMapsHelper
 
   private
 
+  # The plugin's own matrix, not Redmine's: since ADR-003 core's screens read no
+  # project parameter, so this link would have opened the generic matrix while
+  # naming the project in its label.
   def administration_workflow_link(project, tracker, role)
     link_to(l(:label_project_workflow_open_matrix),
-            edit_workflows_path(project_id: [project.id], tracker_id: [tracker.id],
-                                role_id: [role.id]))
+            edit_project_workflow_rules_path(project_id: [project.id], tracker_id: [tracker.id],
+                                             role_id: [role.id]))
   end
 end

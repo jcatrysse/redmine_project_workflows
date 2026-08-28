@@ -320,16 +320,20 @@ describe ProjectWorkflowMapsController, type: :controller do
     end
 
     # An administrator reading a combination the project inherits is sent to the
-    # generic workflow, because that is the one that governs -- pre-filled with
-    # this project, tracker and role.
-    it 'sends an administrator to the generic matrix while the project inherits' do
+    # administration matrix, pre-filled with this project, tracker and role: the
+    # generic workflow is what governs, and that screen shows it beside the scope
+    # panel that can take it over. The plugin's own matrix since ADR-003 -- core's
+    # reads no project parameter and would silently drop the project.
+    it 'sends an administrator to the administration matrix while the project inherits' do
       generic_transition(new_status, assigned)
       issue = an_issue
       @request.session[:user_id] = 1
 
       get :show, params: { issue_id: issue.id }
 
-      expect(response.body).to match(%r{href="[^"]*/workflows/edit\?[^"]*project_id(%5B%5D|\[\])=#{project.id}})
+      expect(response.body).to match(
+        %r{href="[^"]*/project_workflow_rules/edit\?[^"]*project_id(%5B%5D|\[\])=#{project.id}}
+      )
     end
 
     # The standalone page is what a browser without JavaScript lands on, and it

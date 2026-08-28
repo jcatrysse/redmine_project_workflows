@@ -169,11 +169,14 @@ describe ProjectWorkflowInventoriesController, type: :controller do
 
         get :index
 
+        # The plugin's own matrices. Since ADR-003 core's screens read no project
+        # parameter at all, so a link into them carrying one would land the
+        # reader on the generic matrix believing it was the project's.
         expect(response.body).to match(
-          %r{workflows/edit\?[^"']*project_id(%5B%5D|\[\])=#{project.id}}
+          %r{project_workflow_rules/edit\?[^"']*project_id(%5B%5D|\[\])=#{project.id}}
         )
         expect(response.body).to match(
-          %r{workflows/permissions\?[^"']*project_id(%5B%5D|\[\])=#{project.id}}
+          %r{project_workflow_rules/permissions\?[^"']*project_id(%5B%5D|\[\])=#{project.id}}
         )
       end
 

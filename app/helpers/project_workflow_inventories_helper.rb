@@ -41,11 +41,15 @@ module ProjectWorkflowInventoriesHelper
   # holds them, pre-filled with exactly this project, tracker and role.
   def project_workflow_inventory_count_link(cell, row, rule_type)
     options = { project_id: [row.project.id], tracker_id: [row.tracker.id], role_id: [row.role.id] }
+    # The plugin's own matrices, not Redmine's. Since ADR-003 core's screens read
+    # no project parameter at all, so this link used to carry a project into a
+    # screen that ignores it -- the reader would have landed on the generic
+    # matrix believing they were looking at the project's.
     path =
       if rule_type == ProjectWorkflowScope::PERMISSIONS
-        permissions_workflows_path(options)
+        permissions_project_workflow_rules_path(options)
       else
-        edit_workflows_path(options)
+        edit_project_workflow_rules_path(options)
       end
     link_to(cell.rule_count, path, title: l(:button_edit))
   end
