@@ -144,14 +144,20 @@ a row of its own because that is where the copies live.
   core's. Core treats a missing target as the generic workflow; the plugin's
   form always renders that selector with the generic workflow preselected and
   its blank option disabled.
-- **Accepted, and logged as an open choice.** Redmine's own workflow save
+- **Accepted, and answered by Jan the same day.** Redmine's own workflow save
   answers **HTTP 500** to a malformed matrix — `?transitions[]=x` or
   `transitions=x` reaches core's own `each_value` and raises `NoMethodError`.
   Measured on a 7.0 host, in both actions, for both a String and an Array. This
   is stock Redmine on a stock Redmine and nothing reaches the database (INV-2
-  holds), but the plugin's patch used to guard that screen, so it is a change
-  relative to the last release. No form produces such a request. See
-  `docs/DECISIONS.md`, "Open — for Jan".
+  holds, because the raise is above the writers), but the plugin's patch used to
+  guard that screen, so it is a change relative to the last release. No form
+  produces such a request. **Jan answered A on 2026-08-28: leave it** — a defect
+  of core's, fixed on core's controller by this plugin, on a screen this plugin
+  is meant to have stopped editing, is one more line a Redmine upgrade can
+  break. The plugin's own screens still reject the same payload with a message.
+  The reasoning is in `docs/DECISIONS.md` under "Decided (Jan)" and in the
+  header of `workflows_controller_patch.rb`, so nobody re-adds the guard as an
+  obvious improvement.
 
 ## Evidence
 
@@ -202,11 +208,13 @@ marked **Done** in the plan.
 
 ## Open choices
 
-One, and it blocks nothing — the HTTP 500 on Redmine's own workflow save for a
-malformed matrix, described above and written up in full in `docs/DECISIONS.md`
-under "Open — for Jan". We continued with option A (leave it, which is what
-ADR-003 decided for core's screens). Option B is six lines and one example if
-Jan wants it.
+**None.** WP12 raised exactly one — the HTTP 500 on Redmine's own workflow save
+for a malformed matrix — and Jan answered **A** (leave it) on 2026-08-28, the
+same day. It is in `docs/DECISIONS.md` under "Decided (Jan)" and in the header
+of `workflows_controller_patch.rb`. Nothing was implemented for it, because A
+was already the position ADR-003 had taken; what changed is that a future
+session now finds a decision there rather than a gap, and should not re-add the
+guard as an obvious improvement.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 

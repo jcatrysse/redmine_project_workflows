@@ -44,6 +44,7 @@
 | 2026-08-26 | Bulk editing (field permissions) | The field-permissions matrix keeps only core's `»` copy control — no row or column actions | Answered **A** the same day it was raised. The transitions matrix is the one with the clicking in it; core has no row or column toggles on the field-permissions matrix to repair, its cells are four-valued rather than yes or no, and `»` already covers "the same from here on". B — the same three actions adapted to four values — stays available as a small work package of its own if somebody actually wants it. |
 | 2026-08-26 | WP8 stays inside the 0.1.0 release | **A**: one release containing everything; no 0.2.0 | Answered **A**. 0.1.0 had never been tagged or published and `main` was still pre-WP1, so the first release anybody can install already contains WP8; a 0.2.0 heading would have described an upgrade path from a version that never existed. Considered and rejected: bumping `init.rb` to 0.2.0 with a heading of its own — still one line plus one heading if a reason appears, and `spec/plugin_conventions_spec.rb` asserts the version and the newest changelog heading agree, so it cannot be done by halves. |
 | 2026-08-26 | All eight locale files are translated | **A**: keep translating all eight, and `CLAUDE.md` now says so | Answered **A**. The rule in `CLAUDE.md` said the six beside `en` and `nl` merely carried the keys; the files had not matched that for some time, and WP8 followed the files. `en` and `nl` stay the authoritative pair. The cost is recorded rather than glossed: the six are unreviewed translation *presented as* translation, so a wrong word reads as a decision rather than as a gap, and `spec/locales_spec.rb` can assert key parity but never that a translation is right. Considered and rejected: **B**, keeping the rule and leaving new keys in those six in English and marked — honest and cheap, but it would have meant un-translating six files that are already done. Raised by the fresh-subagent review of WP8. |
+| 2026-08-28 | The HTTP 500 Redmine's own workflow save answers to a malformed matrix (WP12) | **A — leave it** | `params[:transitions]` arriving as anything but a nested hash — `?transitions[]=x`, or `transitions=x` — reaches core's own `each_value` and raises `NoMethodError`. Measured on a 7.0 host, in both save actions and for both a String and an Array. Stock Redmine on a stock Redmine, and nothing reaches the database (INV-2 holds) — but the plugin's patch guarded that screen until WP12, so it is a change relative to the last release even though it is not a change relative to Redmine. No form produces such a request; an administrator hand-building a POST does. **A** is what ADR-003 already decided for these screens: Redmine's do exactly what Redmine does, and the plugin's own screens go on rejecting the same payload with a message, because those are screens the plugin owns. **B** — a two-line guard in `WorkflowsControllerPatch` — was rejected: it is a defect of core's, fixed on core's controller, by this plugin, on a screen this plugin is meant to have stopped editing, and every such line is one a Redmine upgrade can break. Nothing to implement; A was already in place. |
 
 ## Decided (autonomous)
 
@@ -175,29 +176,6 @@
 | 2026-08-26 | Review (codex F02) | A target tracker or role that does not exist gets a key of its own, `error_workflow_copy_target_tracker_or_role` | Parallel to `error_workflow_copy_target_project`, and deliberately not merged with `error_workflow_copy_target`: "you selected nothing" and "what you selected is gone" send the administrator to look at different things. Added and translated in all eight locale files, per the locales rule. |
 
 ## Open — for Jan
-
-- **Choice (WP12, 2026-08-28):** Redmine's own *Administration → Workflow* save
-  answers **HTTP 500** to a malformed matrix. `params[:transitions]` arriving as
-  anything but a nested hash — `?transitions[]=x`, or `transitions=x` — reaches
-  core's own `each_value` and raises `NoMethodError`. Measured on a 7.0 host, in
-  both actions and for both a String and an Array. This is stock Redmine on a
-  stock Redmine and nothing reaches the database (INV-2 holds), but until WP12
-  the plugin's patch guarded that screen, so it is a change relative to the last
-  release even though it is not a change relative to Redmine. No form produces
-  such a request; an administrator hand-building a POST does.
-  - **A — leave it.** ADR-003's decision is that Redmine's screens do exactly
-    what Redmine does, and this is what Redmine does. The plugin's own screens
-    still reject the same payload with a message, because that is a screen the
-    plugin owns. **Implemented, as the position ADR-003 already took.**
-  - **B — keep a two-line guard** in `WorkflowsControllerPatch` rejecting a
-    non-Hash payload before core's loop. Costs about six lines and re-opens the
-    principle: a defect of core's, fixed on core's controller, by this plugin,
-    on a screen this plugin is meant to have stopped editing. Every such line is
-    one an upgrade of Redmine can break.
-  - **Recommendation:** A. It is not a security or data question — nothing is
-    written either way — and the whole point of WP12 was to stop carrying core's
-    behaviour on core's screens. If Jan wants B it is six lines and one example.
-  - **Urgent?** no — we continued with A; it blocks nothing.
 
 - **Choice (finding F01, 2026-08-27-bundled-followup):** when a matrix save
   refuses some of the values it was sent, the screen says *"N submitted values

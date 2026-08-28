@@ -36,6 +36,19 @@ module RedmineProjectWorkflows
     # A parameter cannot widen any of this: none of these bodies reads
     # `params[:project_id]`, so an id in the query string of a core workflow URL
     # names nothing and reaches nothing (INV-7).
+    #
+    # **Nor is a malformed matrix guarded here, deliberately.** Core's own
+    # `update` and `update_permissions` reach `params[:transitions]` with
+    # `each_value`, so a payload that is not a nested hash -- `?transitions[]=x`,
+    # or `transitions=x` -- raises `NoMethodError` and answers 500. That is stock
+    # Redmine on a stock Redmine, no form produces such a request, and nothing
+    # reaches the database (INV-2 holds, because the raise is above the writers).
+    # The plugin's patch used to shield this screen from it; Jan answered **A**
+    # on 2026-08-28 -- leave it. A defect of core's, fixed on core's controller
+    # by this plugin, on a screen this plugin is meant to have stopped editing,
+    # is one more line a Redmine upgrade can break. The plugin's *own*
+    # administration screens still reject the same payload with a message, and
+    # `ProjectWorkflowRulesController` is where that guard belongs.
     module WorkflowsControllerPatch
       # The generic workflow's own totals. Core's two `@roles` / `@trackers`
       # lines are byte-identical in Redmine 5.1, 6.1 and 7.0; only the count
