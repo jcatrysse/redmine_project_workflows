@@ -163,3 +163,4 @@ en:
   text_project_workflow_diagnostics_permission_captured: 'Another plugin has registered this name, and Redmine answers with theirs. This plugin''s screens will refuse everybody, administrators included. %{claimants} plugins claim the name.'
   text_project_workflow_diagnostics_patch_missing: 'Not in place. Redmine behaves as it does without this plugin here.'
   text_project_workflow_diagnostics_overrides_help: 'These are additions to screens Redmine owns. This lists what the plugin has registered, which is not the same as what it managed to place: a screen that looks wrong is worth reporting even when everything here is listed.'
+  text_project_workflow_diagnostics_unmeasured: 'Nobody has tested this plugin against Redmine %{version}, and this Ruby cannot read Redmine''s own source, so no comparison was possible.'

@@ -166,3 +166,4 @@ pl:
   text_project_workflow_diagnostics_permission_captured: 'Inna wtyczka zarejestrowała tę nazwę i Redmine odpowiada jej rejestracją. Ekrany tej wtyczki odmówią wszystkim, także administratorom. Liczba wtyczek zgłaszających tę nazwę: %{claimants}.'
   text_project_workflow_diagnostics_patch_missing: 'Nie zastosowano. Redmine zachowuje się tutaj tak, jakby tej wtyczki nie było.'
   text_project_workflow_diagnostics_overrides_help: 'To są dodatki do ekranów należących do Redmine. Wymieniono tu, co wtyczka zarejestrowała, co nie jest tym samym co to, co udało jej się umieścić: ekran, który wygląda źle, warto zgłosić, nawet jeśli wszystko jest tu wymienione.'
+  text_project_workflow_diagnostics_unmeasured: 'Nikt nie testował tej wtyczki z Redmine %{version}, a ten Ruby nie potrafi odczytać kodu źródłowego Redmine, więc porównanie nie było możliwe.'

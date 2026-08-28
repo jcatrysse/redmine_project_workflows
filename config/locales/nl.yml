@@ -163,3 +163,4 @@ nl:
   text_project_workflow_diagnostics_permission_captured: 'Een andere plug-in heeft deze naam geregistreerd en Redmine antwoordt met de hunne. De schermen van deze plug-in weigeren iedereen, ook beheerders. %{claimants} plug-ins claimen de naam.'
   text_project_workflow_diagnostics_patch_missing: 'Niet aanwezig. Redmine gedraagt zich hier zoals zonder deze plug-in.'
   text_project_workflow_diagnostics_overrides_help: 'Dit zijn toevoegingen aan schermen die Redmine bezit. Hier staat wat de plug-in geregistreerd heeft, wat niet hetzelfde is als wat ze effectief geplaatst kreeg: een scherm dat er verkeerd uitziet is het melden waard, ook als hier alles vermeld staat.'
+  text_project_workflow_diagnostics_unmeasured: 'Niemand heeft deze plug-in tegen Redmine %{version} getest, en deze Ruby kan de broncode van Redmine niet lezen, dus was geen vergelijking mogelijk.'

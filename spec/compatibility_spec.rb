@@ -171,6 +171,23 @@ describe RedmineProjectWorkflows::Compatibility do
       expect(described_class.drift.first.source).to include('app/models/issue.rb')
     end
 
+    # The fourth state, which ADR-002 does not list. Reading core's bodies needs
+    # RubyVM::AbstractSyntaxTree, so a Ruby without it can answer the version
+    # question and not the drift one -- and the wrong thing to do then is to
+    # report the second state, which says "no drift was detected" about a
+    # measurement that never ran. No supported host is such a Ruby, which is
+    # precisely why the claim would go unchallenged if it were made.
+    it 'says it could not measure, rather than that it found nothing' do
+      described_class.data_file = manifest_file(minor: '99.9',
+                                                digests: RedmineProjectWorkflows::Services::CoreMethodDigest.digests)
+      allow(RedmineProjectWorkflows::Services::CoreMethodDigest).to receive(:available?).and_return(false)
+
+      expect(described_class.state).to eq(:unmeasured)
+      expect(described_class.announce!(Logger.new(output = StringIO.new))).to be_present
+      expect(output.string).to include('cannot read')
+      expect(output.string).not_to include('no drift')
+    end
+
     # The status the digest cannot express: core no longer has the method at
     # all. That is the failure that raises NoMethodError rather than answering
     # differently, and it reads differently on the diagnostics page.

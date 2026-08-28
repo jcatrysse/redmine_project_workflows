@@ -141,7 +141,7 @@ module RedmineProjectWorkflows
       # class methods is prepended, and where core's own definition of
       # +replace_transitions+ is found.
       def self.patched_owner(owner_name, kind)
-        owner = owner_name.is_a?(Module) ? owner_name : safe_constant(owner_name)
+        owner = safe_constant(owner_name)
         return nil unless owner
 
         kind == :singleton ? owner.singleton_class : owner

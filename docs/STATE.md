@@ -6,107 +6,105 @@
 
 ## Current position
 
-- **WP10 is done, and the head is green on all nine cells. WP11 is next.** The hardening track WP10..WP16 was written
-  yesterday-in-session-terms (`c67cc0f`) and its first package is now closed by
-  two commits from two different sessions: `580a8d3` answered the whole-stack
-  compatibility run, and this session answered the four confirmed defects of
-  `2026-08-28-claude-audit`.
-- **The blocker is gone.** `redmine_custom_workflows` registers a permission
-  called `manage_project_workflow` with an empty action list and loads first, so
-  every write action of this plugin answered 403 — administrators included. Both
-  permissions are now `*_project_workflow_rules`, migration 006 carries existing
-  grants across and refuses to guess where a neighbour may own the legacy one,
-  and `spec/plugin_conventions_spec.rb` fails if anything else ever claims a name
-  this plugin registers.
-- **Four of the audit's eleven findings are fixed; seven stay open on purpose.**
-  F01 (the `WorkflowsHelper` prepend), F02 (the SQLite migration abort), F04
-  (the writers raising on a malformed payload) and F05 (a graph selection
-  narrowing silently) are `fixed` with `Resolution:` lines. F03, F06..F11 are
-  WP11, WP13 and WP14 work and are named as such in the plan.
+- **WP11 is done. WP12 is next, and it is the large one.** ADR-002 is
+  implemented end to end: the compatibility manifest, the three runtime states,
+  the extended drift gate, and the diagnostics page. WP12 implements ADR-003 —
+  the project dimension moves onto screens the plugin owns, fifteen Deface
+  overrides become two or four, and `WorkflowsControllerPatch` goes from 468
+  lines to under 60.
+- **The plugin now answers "which Redmine is this, and has anything I copied
+  changed?" by itself.** Everything version-shaped lives in
+  `lib/redmine_project_workflows/compatibility.yml` and
+  `RedmineProjectWorkflows::Compatibility`; nothing else in `app/` or `lib/` may
+  read `Redmine::VERSION`, and a convention example fails if anything does. On a
+  Redmine the manifest lists, the plugin measures nothing and says nothing. On
+  one it does not list, it digests every core body it copied and logs whether
+  any differs from the newest verified minor. **Administration → Project
+  workflow diagnostics** shows that plus three checks whose wrong answer is
+  otherwise silent: permission ownership, patch attachment, and the registered
+  Deface overrides.
+- **CI is now the strict half of the pair.** `spec/upstream/core_drift_spec.rb`
+  used to *skip* on a minor it had no digests for; it fails. Runtime stays
+  lenient on purpose — an unverified host boots, works and says so, because
+  refusing would brick an installation on an upgrade nobody chose.
+- **The gate covers nineteen methods no longer; it covers twenty-three.** The
+  three singleton-class shadows are in — including
+  `WorkflowTransition.replace_transitions` and
+  `WorkflowPermission.replace_permissions`, the two INV-1's write isolation is
+  routed through — and so is `Issue#roles_for_workflow`, the private core method
+  the plugin calls with `send` and does not shadow.
 - **Nothing has been released.** 0.1.6, unreleased; `main` carries 0.0.3 and
-  there is no tag. That is still why the large architectural work (ADR-003) is
+  there is no tag. That is still why the architectural work (ADR-003 / WP12) is
   being done now rather than later.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
-  `claude/redmine-plugin-review-p5brtg`; `git checkout -B claude/dev
-  origin/claude/dev` was the rescue, and `origin/claude/dev` had moved twice
-  while this session worked — read it again before assuming, which is how
-  `580a8d3` was found rather than duplicated.
+  `claude/docs-review-55061r`, which already pointed at the remote head;
+  `git checkout -B claude/dev origin/claude/dev` was the whole rescue.
 - **`main`:** untouched.
 
 ## What this session produced
 
-One commit of code, after one of planning.
+Three commits, all of WP11.
 
-**The four defects, each with a test that is red on the old code:**
+### The manifest (`924a9af`)
 
-- **F01** — `Patches::WorkflowsHelperPatch.apply!` puts the module into the
-  helper chains of `WorkflowsController` **and** `ProjectWorkflowsController`;
-  `apply_patches` no longer prepends it to `WorkflowsHelper`. Two knock-ons that
-  were not in the plan: `CoreMethodDigest` had to learn both attachment styles
-  (`super_method` answers nil once the patch leaves the ancestors, so three
-  digests would have vanished from the gate), and
-  `spec/helpers/workflows_helper_spec.rb` now prepends the patch to the helper
-  object, which is the position `controller.helper` produces.
-- **F02** — the three `TIMESTAMP '<literal>'` sites build the literal plain, and
-  migration 004's `DISTINCT` moved into a subquery so the constants sit in a
-  plain outer select list. Two conventions greps stop both halves coming back.
-  **The first attempt was wrong and CI found it** — see below; the head is green
-  on all nine cells now.
-- **F04** — both writers ask `is_a?(Hash)`; a payload that is not a matrix
-  returns `MatrixSaveResult.none` instead of raising.
-- **F05** — a graph request naming one offered role and one that names nothing
-  answers 404, which is what `#find_tracker_and_roles`' own comment had promised
-  since WP9. The four methods moved into
-  `RedmineProjectWorkflows::GraphSelection`.
+`lib/redmine_project_workflows/compatibility.yml` carries the verified Redmine
+minors with their Ruby and Rails, the databases, the per-minor core digests, the
+declared private-API dependencies, and the version core started drawing SVG
+icons at. `RedmineProjectWorkflows::Compatibility` is the only reader;
+`VersionHelper`, the drift spec, the conventions spec, the README and the
+diagnostics page all go through it. `spec/upstream/core_method_digests.yml` is
+absorbed and deleted — it was a test fixture, and half of what it knew is a fact
+the *running* plugin needs.
 
-### The near-miss worth remembering
+Four states, not the three ADR-002 names: `:verified`, `:unverified`,
+`:drifted`, and `:unmeasured` — see *the fourth state* below.
 
-The first version of the alias-chain spec **could not fail**. It copied
-`WorkflowsHelper`'s own definition by walking `super_method` down to it — the
-shape `projects_settings_tab_spec.rb` uses to model a neighbour loading *before*
-this plugin, which is the safe order. Restoring the prepend turned exactly one of
-five examples red, and the one that went red was the ancestors assertion, not
-either of the two rendering ones.
+### The gate, widened (same commit)
 
-Rewritten with a plain `alias_method` — what a neighbour loading *after* us does,
-and plugins load alphabetically — the prepend gives:
+`CoreMethodDigest::TARGETS` gained a third element saying where to look
+(`:instance` or `:singleton`), and the manifest's `dependencies:` list gets an
+entry per name. Nineteen measured methods became twenty-three. `digests` now
+reports shadows and dependencies in one hash; `missing_dependencies` is the
+separate, louder check, because a method that is *gone* raises where a method
+that *changed* merely answers differently.
 
-```
-ActionView::Template::Error:
-  super: no superclass method `options_for_workflow_select' for #<ActionView::Base>
-  .../patches/workflows_helper_patch.rb:64:in `options_for_workflow_select'
-```
+**The first thing it found:** Redmine 7.0 rewrote
+`WorkflowTransition.replace_transitions` to index the existing rows by
+`[old status, new status, tracker, role]` instead of scanning them per cell.
+Read against 6.1's body it is the same rules with a hash in front of them, and
+the plugin replaces that method outright rather than copying it — so nothing
+followed. It is written into the manifest's header, because "no change was
+needed" is a conclusion somebody reached by reading, not a gap.
 
-Three of five red, including both rendering examples. **The gate "a test that
-fails on the old code" can be passed by accident**, and the only thing that
-caught it was actually reverting and running. It is recorded in the spec's own
-comment so the next reader does not re-learn it.
+### The diagnostics page (`0563647`)
 
-### The second near-miss, and it is the same lesson
+Administrator-only, read-only, reached from an `admin_menu` entry — which needs
+no Deface anchor, so INV-9 stays at fifteen. It reports the compatibility state
+and, on a drifted host, a table naming each method with the file core defines it
+in; whether each permission the plugin registered is the one `AccessControl`
+answers with; where each of the thirteen modules under `Patches` attaches and
+whether it is there; and the registered Deface overrides as a **listing** rather
+than a check, because a registered override is not a matching one.
 
-`cea14d8` dropped the `TIMESTAMP '...'` keyword and turned **all three
-PostgreSQL cells red** four minutes later, at migration time:
-`PG::DatatypeMismatch: column "created_at" is of type timestamp without time
-zone but expression is of type text`. MySQL, MariaDB, RuboCop and the JavaScript
-gate were all green — the failure was adapter-specific and the local host is
-SQLite, which is exactly the gap the commit message had named under "not
-covered".
+Twenty-four new locale keys in all eight files, translated.
 
-Measured on PostgreSQL 16 afterwards rather than guessed: a bare literal in a
-**plain** select list is coerced against the target column; under **DISTINCT**
-it is not, because DISTINCT has to type the column to compare it and `unknown`
-resolves to `text`. The comment in migration 004 had claimed PostgreSQL coerces
-it — right about the statement that measurement ran, wrong about this one.
+### The review pass (`<third commit>`)
 
-No adapter conditional was needed: the DISTINCT moved into a subquery, the
-constants stayed outside it. The generated statements were then run through
-`psql` against real PostgreSQL 16 before pushing.
+Three things the reviewer role found in the two commits above, all fixed here:
 
-And the conventions grep written to prevent a recurrence **was itself green
-against the shape it forbids**, because its comment stripper removed every line
-starting with `#` — which is what a heredoc line opening `#{now}` looks like.
-`#(?!\{)` is the fix. That is twice in one session that a guard passed by
-accident and only reverting-and-running found it.
+- **The fourth state.** On a Ruby without `RubyVM::AbstractSyntaxTree` the
+  plugin can answer the version question and not the drift one — and the second
+  state's sentence says "no drift was detected", which would be a claim about a
+  measurement that never ran. No supported host is such a Ruby, which is exactly
+  why the claim would have gone unchallenged. `:unmeasured` says what happened.
+- **The locale example was vacuous, and fixing it found a version difference.**
+  It rendered the page in eight languages and asserted no missing translation —
+  but nothing checked that the language ever changed. Asserting the translated
+  title turned it red on 5.1 with `I18n::InvalidLocale: "nl" is not a valid
+  locale`. See the traps: 6.1 and 7.0 set `config.i18n.available_locales` from
+  core's own locale files and 5.1 does not.
+- **Dead code** in `CoreMethodDigest.patched_owner` (a `Module` branch nothing
+  reached).
 
 ## Evidence
 
@@ -114,53 +112,73 @@ Everything below was executed in this container.
 
 | Gate | Result |
 | --- | --- |
-| Plugin suite, Redmine 5.1-stable, SQLite, Ruby 3.2.6 | **891 examples, 0 failures, 9 pending** (the nine skip themselves on an adapter with no `SELECT … FOR UPDATE`) |
-| RuboCop through `.github/lint/Gemfile` | **124 files, no offences** (204/200 on `ProjectWorkflowsController` was answered by extracting `GraphSelection`, not by raising the limit) |
-| `rake zeitwerk:check` | All is good! |
+| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6), PostgreSQL 16 | **941 examples, 0 failures** on each. Was 891. |
+| RuboCop through `.github/lint/Gemfile` | **132 files, no offences** |
+| `rake zeitwerk:check` | All is good! — three new files under `lib/` and `app/` |
 | `node dev/check-bulk-js.mjs` | all checks pass |
-| Migrations up → `VERSION=0` → up, from an empty database | clean: `leftover columns: []`, `plugin tables: []`, `plugin schema_migrations rows: []` (INV-8) |
-| `dev/check-backfill.sh` | OK — and it is the check that matters for F02, because it asserts the backfilled timestamps are **UTC**, the property the type-keyword form existed to make explicit |
-| Red on the old code | F01 3/5 examples · F02 the conventions grep, naming `db/migrate/004_…` · F04 8/8 examples · F05 2/3 (the third pins the de-duplication rule and passes either way by design) |
+| Migrations up → `VERSION=0` → up, from an empty database (6.1) | clean: `leftover columns: []`, `plugin tables: []`, `plugin schema_migrations rows: []` (INV-8) |
+| Locale parity | all eight files, 0 missing and 0 extra keys; the page rendered in each locale the host offers with no missing translation |
+| The page itself | rendered and read as text: 15 overrides listed, 15 ticks, the state sentence, core's own `table.list` markup throughout |
+| CI | run **145** on `924a9af`: **success on all eleven jobs**. Run **146** on `0563647`: **success on all eleven jobs**. The third commit's run is the next session's first thing to read. |
 
-| The generated SQL, against real PostgreSQL 16 through `psql` | migration 004's statement (with duplicate rows, so DISTINCT had work) and the copiers' — both insert, timestamp intact |
-| CI | run **142** on `cea14d8`: **failure**, three PostgreSQL cells — read, diagnosed and fixed in `54891c2`. Run **143** on `54891c2`: **success on all eleven jobs**, the full 3 x 3 matrix plus lint and the JavaScript gate, each cell also running migration reversibility, the backfill check and Zeitwerk. |
+**Red on the old code, observed rather than assumed** — every one by editing a
+host copy, running, and restoring:
 
-**Not covered:** only Redmine 5.1 was built locally, and on SQLite rather than a
-supported adapter (the `pg` gem cannot be built in this container — see Known
-traps). The PostgreSQL evidence above is raw SQL through `psql`, not Rails.
-Cross-database and cross-version claims rest on CI.
+| Change | What went red |
+| --- | --- |
+| the host's minor removed from the manifest | 9 examples, where the old spec **skipped** |
+| `TARGETS` reverted to instance-only | the drift spec's key-parity example and `drift_against(host)` |
+| one `ATTACHMENTS` entry removed | the discovery example |
+| one override file skipped at load | the override-count example |
+| an impostor permission registration | two permission examples and `ok?` |
+
+**Not covered:** only PostgreSQL was run locally. Six of the nine CI cells are
+MySQL or MariaDB; nothing in this session writes SQL text, and CI is green on
+the first two commits.
 
 ## Exact next step
 
-**Start WP11 — compatibility as an object.** ADR-002 is the specification; the
-build order is in the plan. First the manifest
-(`lib/redmine_project_workflows/compatibility.rb` plus its data, absorbing
-`core_method_digests.yml` and WP10's interim version constant), then the three
-runtime states, then the diagnostics page, then CI failing where runtime warns.
+**Start WP12 — the owned administration screens (ADR-003).** Read the ADR first;
+the plan has the build order and it matters, because the branch stays green at
+every commit:
 
-Two things this session learned that WP11 should carry:
+1. the `admin_menu` entry, routes and controllers for the plugin's own
+   administration area, rendering core's `workflows/_form` exactly as
+   `ProjectWorkflowsController` already does. **One `admin_menu` entry now
+   exists** — `:project_workflow_diagnostics`, added by WP11 — so this is the
+   second, and the two want to read as one area rather than as two plugins.
+2. the scope panel, the project selector, the summary and the inventory move
+   onto it, with their specs;
+3. the copy screen, with its four selectors and their validation;
+4. `WorkflowsControllerPatch` cut back to the `project_id: nil` predicate;
+5. `WorkflowsHelperPatch` deleted — and with it WP10's stopgap and, from
+   `Diagnostics::ATTACHMENTS` and the manifest's digests, three entries;
+6. the eleven overrides **deleted, not rewritten**, with INV-9's count changed
+   in `CLAUDE.md`, `docs/design.md` and `spec/integration/deface_overrides_spec.rb`;
+7. cross-links both ways;
+8. with two anchors left, a runtime anchor check on the diagnostics page becomes
+   a line rather than a suite — and it closes the one gap ADR-002's drift check
+   explicitly does not cover.
 
-- `CoreMethodDigest` now handles both attachment styles, and F06 of the audit
-  still stands: `TARGETS` covers no singleton class, so
-  `WorkflowTransition.replace_transitions` and
-  `WorkflowPermission.replace_permissions` — the two methods INV-1's routing
-  rests on — are not digested at all, and `Issue#roles_for_workflow` is a called
-  dependency with no entry of any kind.
-- The permission-ownership check added in `580a8d3` is the shape the diagnostics
-  page wants: a boot-time assertion that every permission this plugin registers
-  still resolves to *its* action list. It cannot fail on this plugin's own CI,
-  and its comment says so — the diagnostics page is where it becomes useful.
+Two things WP11 leaves for it, both small: the digests of the three
+`WorkflowsHelper#*` methods leave the manifest when the patch does (measure, do
+not hand-edit — `dev/measure_compatibility.rb` prints the block), and
+`Diagnostics::ATTACHMENTS` has an example that fails if a module under `Patches`
+is missing from it, so deleting a patch means deleting its row in the same
+commit.
 
 ## Open choices
 
-Nothing is blocking. Jan followed both recommendations on 2026-08-28: rename both
-permissions rather than only the colliding one, and accept ADR-003's second
-administration entry point.
+Nothing is blocking, and nothing new needs Jan's answer. The two open questions
+he answered on 2026-08-28 (rename both permissions; accept ADR-003's second
+administration entry point) are both now implemented.
 
-## Rebuilding the 45-plugin host (this session's, not the ordinary one)
+## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
 The ordinary single-plugin hosts are in the next section and are what almost
-every session wants. This recipe is only for repeating the compatibility run.
+every session wants. This recipe is only for repeating the compatibility run of
+2026-08-28, which is the only environment in which the permission-ownership gate
+can fail -- and it is the run that found the blocker WP10 fixed.
 
 ```bash
 apt-get update -qq && apt-get install -y rsync libpq-dev
@@ -308,10 +326,57 @@ prerequisites and the MySQL variant.
 
 ## Known traps
 
-Everything below cost time at least once. **This session's traps are in
-*Rebuilding the 45-plugin host* above**, because they are all about standing up
-a multi-plugin Redmine; everything in this section is carried forward from
-earlier sessions. Three general ones did come out of this run and belong here:
+Everything below cost time at least once. **This session's are first**, then the
+run that stood up a 45-plugin host, then everything carried forward.
+
+- **Redmine 5.1 offers exactly one locale under `RAILS_ENV=test`, and 6.1 and
+  7.0 offer them all.** 6.1's and 7.0's `config/application.rb` set
+  `config.i18n.available_locales` from core's own `config/locales/*.yml`; 5.1's
+  does not. Measured on a 5.1 host: `I18n.load_path` holds 63 files including
+  **two** `nl.yml`, and `I18n.available_locales` is `[:en]` all the same — so
+  `I18n.t(key, locale: 'nl')` raises `I18n::InvalidLocale` and any page renders
+  in English however the user's language is set. A spec that renders in a
+  non-English locale has to ask the host which locales it has
+  (`%w[...] & I18n.available_locales.map(&:to_s)`), or it is red on three of the
+  nine cells. Whether the same holds outside the test environment was **not**
+  measured; it is core's own configuration either way and applies to core's
+  translations exactly as to this plugin's.
+- **A locale spec that only asserts "no missing translation" cannot fail.** If
+  the language never took effect the page renders in English, where nothing is
+  missing. Assert the *translated* string first, then the absence. Doing that is
+  what found the trap above.
+- **"Does the gate cover X?" has to ask the measurement, not the table.** The
+  example pinning the new singleton coverage asked
+  `digests_for(host_minor).keys` — the checked-in manifest — and stayed green
+  with the singleton targets removed from `CoreMethodDigest`, because the table
+  still listed what the gate had stopped measuring. Ask
+  `CoreMethodDigest.digests.keys`. Found by reverting `TARGETS` on a host and
+  watching the example *not* fail; that is now three guards in two sessions that
+  passed by accident, and every one was found by reverting and running.
+- **A patch can be correctly applied while its own module is in no chain at
+  all.** `IssuesControllerPatch.apply!` puts `ProjectWorkflowMapsHelper` into
+  `IssuesController`'s helper chain and nothing of its own — there is no core
+  method to override, only a helper a Deface override calls from a view core
+  owns. A check asking whether the *patch* is attached reported it as missing.
+  Ask what the patch actually attaches.
+- **`Redmine::Plugin#menu` forwards its options verbatim and sets no `plugin:`
+  key.** So an `admin_menu` entry's `icon:` resolves against **core's** sprite
+  sheet, which is what you want (`summary` is in it on 6.1 and 7.0), and passing
+  `plugin:` yourself would send `sprite_icon` looking for a sheet in this
+  plugin's assets, which it does not ship. 5.1's `MenuItem` has no `icon`
+  attribute and does not raise on an unknown option, so passing both `icon:` and
+  `html: { class: 'icon icon-summary' }` is right on all three — 5.1 draws the
+  picture behind the class, 6.0 and later draw the sprite.
+- **`... | tail -3` hides a failing suite, and `&&` does not stop.** The exit
+  status the shell sees is `tail`'s, which is 0 whatever rspec did, and three
+  lines of a failure report look exactly like three lines of a success report.
+  A whole `for` loop over three hosts reported success with one host red. Grep
+  for `examples,` **and** `Failed examples` rather than tailing.
+- **A colon followed by a space inside an unquoted YAML scalar breaks the
+  file.** Appending locale lines with a heredoc is fine until one sentence
+  contains `place: a screen`, and then `Psych::SyntaxError: mapping values are
+  not allowed in this context` names a column, not a key. Quote every value
+  written by a script.
 
 - **A feature test on a method name is not a version test, and a neighbouring
   plugin can make it lie.** `respond_to?(:sprite_icon)` is this plugin's answer
@@ -1095,27 +1160,23 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-WP0..WP9 are done. **WP10 is half done**, so "carry on" means, in order:
+WP0..WP11 are done. "Carry on" means, in order:
 
-1. **Read CI for the head and act on it if it is red.** Four of the nine cells
-   were run locally and were green; the five MySQL and MariaDB cells have not
-   been run anywhere. Nothing in the fixing commit writes SQL text, so a
-   difference would be a surprise — but three runs of the WP9 session were red
-   on cells no PostgreSQL host can see.
-2. **Finish WP10**: the unprefixed-globals convention spec, and the four small
-   confirmed defects of `2026-08-28-claude-audit.md` (F01, F02, F04, F05). Its
-   other two items are done; *Exact next step* says exactly what each of the
-   four means and what already exists.
-3. **Then WP11**, which absorbs `VersionHelper.core_sprite_icons?` into
-   ADR-002's manifest. That predicate is the interim constant WP10 called for
-   and the single place WP11 has to move from.
-4. **Before any release, repeat the 45-plugin run.** It is the only environment
-   in which the permission-collision gate can fail, and it is the one that found
-   the blocker WP10 fixed. The recipe is in *Rebuilding the 45-plugin host*.
+1. **Read CI for the head and act on it if it is red.** Only PostgreSQL was run
+   locally; six of the nine cells are MySQL or MariaDB. Runs 145 and 146 are
+   green on the first two commits of this session, and the third commit's run
+   had not finished when this file was written.
+2. **WP12** — ADR-003, the owned administration screens. *Exact next step* has
+   the build order and the two small things WP11 leaves for it.
+3. **Before any release, repeat the 45-plugin run.** It is still the only
+   environment in which the permission-ownership gate can fail, and the
+   diagnostics page is now where that gate reports — so the run is also the way
+   to see that page say something other than "in order".
 
 Do not invent a work package on top of WP16. Do not re-open the 2026-08-27 run's
 "Checked and not filed" table: 24 claims, thirteen rejected or already decided,
-four of them by Jan with an explicit instruction not to re-open them. And do not
-shorten the `_rules` suffix off either permission name — it is what keeps the
-plugin working beside `redmine_custom_workflows`, and `CLAUDE.md`'s
-forbidden-constructs table now carries the rule.
+four of them by Jan with an explicit instruction not to re-open them. Do not
+shorten the `_rules` suffix off either permission name. And do not hand-edit a
+digest in `lib/redmine_project_workflows/compatibility.yml` — read what changed
+first, then measure with `dev/measure_compatibility.rb`; updating a digest ahead
+of reading the diff is the one thing that makes the whole gate useless.

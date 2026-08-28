@@ -134,6 +134,22 @@ describe ProjectWorkflowDiagnosticsController, type: :controller do
   # because an administrator opening it is already looking at something else.
   describe 'in every locale' do
     let(:admin) { users(:users_001) }
+    # Only the ones this host actually offers, and that is a real difference
+    # between the supported versions rather than a convenience. 6.1 and 7.0 set
+    # `config.i18n.available_locales` from core's own config/locales/*.yml;
+    # 5.1's application.rb does not. Measured on a 5.1 host under
+    # RAILS_ENV=test: `I18n.load_path` holds 63 files including two nl.yml, and
+    # `I18n.available_locales` is `[:en]` all the same -- so
+    # `I18n.t(key, locale: 'nl')` raises InvalidLocale there and the page can
+    # only ever render in English. Whether that also holds outside the test
+    # environment was not measured; it is core's own configuration either way,
+    # and it applies to core's own translations exactly as it does to this
+    # plugin's.
+    #
+    # Asking the host keeps the example strong where it can be strong and
+    # honest where it cannot: on 6.1 and 7.0 it renders all eight. The eight
+    # files themselves are asserted by spec/locales_spec.rb on every cell.
+    let(:locales) { %w[en nl de es fr it pl pt] & I18n.available_locales.map(&:to_s) }
 
     before { @request.session[:user_id] = admin.id }
 
@@ -142,11 +158,16 @@ describe ProjectWorkflowDiagnosticsController, type: :controller do
     after { admin.update_columns(language: 'en') } # rubocop:disable Rails/SkipsModelValidations
 
     it 'renders with no missing translation' do
-      %w[en nl de es fr it pl pt].each do |locale|
+      locales.each do |locale|
         admin.update_columns(language: locale) # rubocop:disable Rails/SkipsModelValidations
 
         get :show
 
+        # First that the page really is in that language. Without this the
+        # example is vacuous: a locale that never took effect renders in
+        # English, where nothing is ever missing.
+        expect(response.body)
+          .to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_diagnostics, locale: locale))), locale
         expect(response.body).not_to include('translation missing'), locale
         expect(response.body).not_to include('translation_missing'), locale
       end

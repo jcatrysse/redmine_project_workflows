@@ -130,14 +130,29 @@ module RedmineProjectWorkflows
         Gem::Version.new(host_minor) >= Gem::Version.new(data.fetch('sprite_icons_from'))
       end
 
-      # :verified, :unverified or :drifted. Digests are computed lazily and only
-      # when the running minor is unknown, so a verified host pays nothing at
-      # all -- the measurement is 34.5 ms for nineteen methods on a 5.1 host, and
-      # a verified host already knows the answer.
+      # :verified, :unverified, :drifted -- or :unmeasured, which ADR-002 does
+      # not list and which exists so that the plugin never says "no drift was
+      # detected" when it detected nothing. Reading core's bodies needs
+      # RubyVM::AbstractSyntaxTree, so a Ruby without it can answer the version
+      # question and not the drift one. No supported host is such a Ruby (every
+      # Redmine in the manifest runs CRuby), which is exactly why the claim
+      # would go unchallenged if it were made.
+      #
+      # Digests are computed lazily and only when the running minor is unknown,
+      # so a verified host pays nothing at all -- the measurement is 34.5 ms for
+      # nineteen methods on a 5.1 host, and a verified host already knows the
+      # answer.
       def state
         return :verified if verified?
+        return :unmeasured unless measurable?
 
         drift.empty? ? :unverified : :drifted
+      end
+
+      # Whether the drift half of the question can be answered on this Ruby at
+      # all.
+      def measurable?
+        Services::CoreMethodDigest.available?
       end
 
       # Every body the plugin depends on that is not what the newest verified
@@ -193,6 +208,10 @@ module RedmineProjectWorkflows
         case state
         when :verified
           nil
+        when :unmeasured
+          "Redmine #{host_minor} is not a version this plugin has been tested against " \
+          "(#{verified_minors.join(', ')}), and this Ruby cannot read Redmine's own source, so no " \
+          'comparison was possible.'
         when :unverified
           "Redmine #{host_minor} is not a version this plugin has been tested against " \
           "(#{verified_minors.join(', ')}), but no drift was detected in what it copied from core."

@@ -24,6 +24,8 @@ module ProjectWorkflowDiagnosticsHelper
     case manifest.state
     when :verified
       l(:text_project_workflow_diagnostics_verified, version: manifest.host_minor)
+    when :unmeasured
+      l(:text_project_workflow_diagnostics_unmeasured, version: manifest.host_minor)
     when :unverified
       l(:text_project_workflow_diagnostics_unverified, version: manifest.host_minor,
                                                        newest: manifest.newest_verified_minor)
@@ -43,7 +45,7 @@ module ProjectWorkflowDiagnosticsHelper
     case state
     when :verified then 'nodata'
     when :unverified then 'notice'
-    else 'warning'
+    else 'warning' # drifted, and unmeasured -- neither is a reassurance
     end
   end
 
