@@ -35,12 +35,23 @@
 # deliberately wrong all-zero digest.
 #
 # Measured on 5.1-stable, 6.1-stable and 7.0-stable + PostgreSQL 16.
-# 6.1 and 7.0 are IDENTICAL on all eighteen; 5.1 differs in exactly three, the
-# controller actions, which matches what F03 measured across five branches.
+# 6.1 and 7.0 are IDENTICAL on all nineteen; 5.1 differs in exactly four, the
+# three controller actions and Project#copy, which matches what F03 measured
+# across five branches.
+#
+# Project#copy is the nineteenth, and it is a DELEGATE rather than a copy: the
+# plugin's version remembers whether the copy form's workflow checkbox was
+# ticked and calls super. It is here because the digest reports the copies *and*
+# the delegates, and rightly: if core ever changes how it reads options[:only],
+# or moves the model_project_copy_before_save hook out of that method, the
+# checkbox would silently stop being honoured. 5.1's body differs from 6.1's and
+# 7.0's in one character -- `send "copy_#{name}"` against `send :"copy_#{name}"`
+# -- which changes nothing the plugin depends on.
 '5.1':
   'Issue#new_statuses_allowed_to': '05489777c09e44ea90d93e75f647e0b2f8ca492ae2e2bbad5050ab7e1d8c9314'
   'Issue#tracker=': 'd2af7b8c34ddc05a162e2e49d31bd403d744512648359a2f0ce7d72167d5940f'
   'Issue#workflow_rule_by_attribute': '27764fe9e491dd28af3ae8be77a887ce39c503541d238a755b6870bc322d5824'
+  'Project#copy': '7927355b0a6dac6b1a59f7e6a3cf53db0c92c835d91ee3ff8b6ce2789d95c2f5'
   'Project#rolled_up_statuses': 'ce884e465f2b2f9f3b771057be80b77385e5fce58eb2bfdf91e375acaf836161'
   'Role#copy_workflow_rules': '6ec45f130ed5ce4042388cb80c9dab967bcbd99e0232933fd2ace4884442b388'
   'Tracker#copy_workflow_rules': 'd9a89609612bc32b49c0d393eb75b8836d6e9dcf6f7565931a0944f467fbf28c'
@@ -61,6 +72,7 @@
   'Issue#new_statuses_allowed_to': '05489777c09e44ea90d93e75f647e0b2f8ca492ae2e2bbad5050ab7e1d8c9314'
   'Issue#tracker=': 'd2af7b8c34ddc05a162e2e49d31bd403d744512648359a2f0ce7d72167d5940f'
   'Issue#workflow_rule_by_attribute': '27764fe9e491dd28af3ae8be77a887ce39c503541d238a755b6870bc322d5824'
+  'Project#copy': '83f58b8210c24d0c802d7430746d0960d15477758976684cd2b9c23baa4e0d4c'
   'Project#rolled_up_statuses': 'ce884e465f2b2f9f3b771057be80b77385e5fce58eb2bfdf91e375acaf836161'
   'Role#copy_workflow_rules': '6ec45f130ed5ce4042388cb80c9dab967bcbd99e0232933fd2ace4884442b388'
   'Tracker#copy_workflow_rules': 'd9a89609612bc32b49c0d393eb75b8836d6e9dcf6f7565931a0944f467fbf28c'
@@ -81,6 +93,7 @@
   'Issue#new_statuses_allowed_to': '05489777c09e44ea90d93e75f647e0b2f8ca492ae2e2bbad5050ab7e1d8c9314'
   'Issue#tracker=': 'd2af7b8c34ddc05a162e2e49d31bd403d744512648359a2f0ce7d72167d5940f'
   'Issue#workflow_rule_by_attribute': '27764fe9e491dd28af3ae8be77a887ce39c503541d238a755b6870bc322d5824'
+  'Project#copy': '83f58b8210c24d0c802d7430746d0960d15477758976684cd2b9c23baa4e0d4c'
   'Project#rolled_up_statuses': 'ce884e465f2b2f9f3b771057be80b77385e5fce58eb2bfdf91e375acaf836161'
   'Role#copy_workflow_rules': '6ec45f130ed5ce4042388cb80c9dab967bcbd99e0232933fd2ace4884442b388'
   'Tracker#copy_workflow_rules': 'd9a89609612bc32b49c0d393eb75b8836d6e9dcf6f7565931a0944f467fbf28c'

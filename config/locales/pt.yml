@@ -81,6 +81,7 @@ pt:
   label_project_workflow_bulk_confirm_threshold: 'Pedir confirmação quando uma ação de linha ou de coluna alterar mais de'
   text_project_workflow_bulk_confirm_threshold: 'Número de regras de fluxo de trabalho. Uma ação de linha ou de coluna que alterasse mais do que isto pede primeiro confirmação. 0 pergunta sempre.'
   label_project_workflow_compare: Comparar com o fluxo de trabalho genérico
+  label_project_workflow_copy_item: Fluxos de trabalho do projeto
   label_project_workflow_compare_difference: Diferença
   label_project_workflow_compare_project_only: Apenas neste projeto
   label_project_workflow_compare_generic_only: Apenas no fluxo de trabalho genérico

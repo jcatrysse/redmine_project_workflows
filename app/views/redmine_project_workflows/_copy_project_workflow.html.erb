@@ -1,0 +1,33 @@
+<%#
+  One more item in Redmine's *Copy project* checkbox list: this project's own
+  workflow (finding F01 of 2026-08-28 second run, and Jan's question the day
+  after -- the first answer copied the workflow unconditionally and said so only
+  in the README).
+
+  Rendered through core's own `view_projects_copy_only_items` hook, which sits
+  inside that fieldset on 5.1, 6.1 and 7.0 alike -- so this needs no Deface
+  override and INV-9's count stays at fifteen. The seam is core's API rather
+  than a selector, but it can still go away, so
+  spec/controllers/projects_copy_form_spec.rb asserts the checkbox reaches the
+  rendered page on every supported version, exactly as INV-9's spec does for the
+  overrides.
+
+  Core's markup verbatim: the same `<label class="block">`, the same `only[]`
+  name (which core's own toggle-all link selects on), the same `:id => nil`, and
+  the same "(count)" after the label. Nothing here is styled by the plugin.
+
+  Checked by default, like every one of core's items. The parameter can
+  therefore only ever *narrow* what is copied, never widen it, which is what
+  keeps a checkbox off INV-7's list of ways a request can reach further than the
+  screen offered.
+
+  Locals: project -- the *source* project (core passes it as `project`), plus
+  whatever else call_hook puts in the context.
+%>
+<% scope_count = ProjectWorkflowScope.where(project_id: project.id).count %>
+<label class="block">
+  <%= check_box_tag 'only[]',
+                    RedmineProjectWorkflows::Services::ProjectWorkflowCopier::COPY_ONLY_KEY,
+                    true, id: nil %>
+  <%= l(:label_project_workflow_copy_item) %> (<%= scope_count %>)
+</label>

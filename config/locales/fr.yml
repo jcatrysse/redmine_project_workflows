@@ -81,6 +81,7 @@ fr:
   label_project_workflow_bulk_confirm_threshold: 'Demander confirmation lorsqu''une action de ligne ou de colonne modifie plus de'
   text_project_workflow_bulk_confirm_threshold: 'Nombre de règles de workflow. Une action de ligne ou de colonne qui en modifierait davantage demande d''abord confirmation. 0 demande toujours.'
   label_project_workflow_compare: Comparer avec le workflow générique
+  label_project_workflow_copy_item: Flux de travail du projet
   label_project_workflow_compare_difference: Différence
   label_project_workflow_compare_project_only: Uniquement dans ce projet
   label_project_workflow_compare_generic_only: Uniquement dans le workflow générique

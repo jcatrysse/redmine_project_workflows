@@ -126,7 +126,8 @@ the lock takeable before the first rule is written.
 
 There is a **fifth** write path, added for finding F01 of the second 2026-08-28
 review, and it deliberately takes **no** lock: `ProjectWorkflowCopier`, which
-copies a project's workflow when the project itself is copied. It is named here
+copies a project's workflow when the project itself is copied — and only when
+the copy form's *Project workflows* box was left ticked. It is named here
 rather than left out, because a counted claim with a path missing is exactly how
 the fourth one came to be skipped. It writes scopes before rules like the other
 four, and it needs no `SELECT … FOR UPDATE` because there is nothing to contend
@@ -257,18 +258,24 @@ not (finding F03):
 `spec/upstream/core_drift_spec.rb` is the gate for the first two. It reads core's
 own body for **every** method the plugin shadows on the host under test — via
 `UnboundMethod#super_method` and `RubyVM::AbstractSyntaxTree.of`, so the set is
-discovered rather than listed and a nineteenth copy cannot be added without
+discovered rather than listed and a twentieth copy cannot be added without
 appearing — normalises and digests it, and compares against
-`spec/upstream/core_method_digests.yml`, measured per Redmine minor. **Eighteen**
-methods, two of which are private in core. It also calls core's implementation as
+`spec/upstream/core_method_digests.yml`, measured per Redmine minor. **Nineteen**
+methods, two of which are private in core, and one of which — `Project#copy` —
+is a delegate rather than a copy: it remembers whether the copy form's workflow
+checkbox was ticked and calls `super`. The gate covers the delegates too, and
+here that matters: core hands the `model_project_copy_before_save` hook no
+options, so if core changed how it reads `options[:only]` the checkbox would
+stop being honoured with nothing else to notice. It also calls core's implementation as
 an **oracle**, asserting that the plugin agrees with it wherever no project has
 taken a workflow over, and stops agreeing once one has. No gem, no network, no CI
 change: the suite runs inside the host checkout, so core's source is already on
 disk in all nine cells.
 
 Measured, not assumed: within the supported window 6.1 and 7.0 are **identical**
-on all eighteen, and 5.1 differs in exactly three — `WorkflowsController#update`,
-`#permissions` and `#update_permissions`. Outside it, `Issue#new_statuses_allowed_to`
+on all nineteen, and 5.1 differs in exactly four — `WorkflowsController#update`,
+`#permissions`, `#update_permissions` and `Project#copy`, the last by one
+character (`send "copy_#{name}"` against `send :"copy_#{name}"`). Outside it, `Issue#new_statuses_allowed_to`
 changed twice between 4.2 and 7.0 and both changes were semantic, which is why
 this gate exists rather than a note asking people to be careful.
 
@@ -302,7 +309,7 @@ this plugin can be tried on.
 | `issue_statuses/index.html.erb` | the *not used by any workflow* badge beside a status | **left alone** | **left alone.** It asks `WorkflowTransition.where('old_status_id = ? OR new_status_id = ?').exists?` with no `project_id` predicate, on 5.1, 6.1 and 7.0 alike, so with the plugin installed the badge is computed across the generic rules and every project's. That is the better answer for a status a project uses, and the wrong one for a project row with no scope, which applies to nothing (INV-3). It is a badge, not a gate — the Delete link beside it is rendered unconditionally — and correcting it would mean a sixteenth Deface override, one more anchor to go stale (INV-9), for a hint |
 | `Role#workflow_rules`, `Tracker#workflow_rules` (`dependent: :delete_all`) | deleting a role or tracker | **left alone** | no change needed — the association covers project rows, and migration 004's foreign keys cascade the scopes |
 | `Project` destroy | deleting a project | **left alone** | no change needed — migration 003's foreign key cascades the rules, migration 004's the scopes |
-| `Project#copy` | copying a project | **hook** | the plugin's only `Redmine::Hook::Listener`. `Project#copy`'s list of things to copy is a local array of method names with no extension point, so `model_project_copy_before_save` — called with the source and the destination inside core's transaction, identically on 5.1, 6.1 and 7.0 — is the whole seam. `ProjectWorkflowCopier` copies the scopes and then the rules the scopes make visible, for the trackers the copy actually has. Before this the copy silently ran the **generic** workflow, which is more permissive than the original in the ordinary case where a project was given its own workflow to be stricter (finding F01 of the second 2026-08-28 review) |
+| `Project#copy` | copying a project | **hook + delegate** | two of core's own extension points and one four-line delegate. `model_project_copy_before_save` — called with the source and the destination inside core's transaction, identically on 5.1, 6.1 and 7.0 — is where `ProjectWorkflowCopier` runs: the scopes, then the rules those scopes make visible, for the trackers the copy actually has. `view_projects_copy_only_items` — rendered inside the copy form's own checkbox fieldset on all three — is where the **Project workflows (N)** checkbox goes, ticked like every item beside it, so **no Deface override and INV-9 stays at fifteen**. The delegate is `Project#copy` itself: core hands the model hook no options, so the plugin's `#copy` remembers whether the checkbox was ticked on the destination object and calls `super`. Before all this the copy silently ran the **generic** workflow, which is more permissive than the original in the ordinary case where a project was given its own workflow to be stricter (finding F01 of the second 2026-08-28 review; the checkbox is Jan's answer the day after) |
 | `Redmine::DefaultData::Loader` | the default workflow on a fresh install | **left alone** | no change needed — it creates rows without a `project_id`, which is exactly the generic workflow |
 | `Issue#project=` | moving an issue to another project | **left alone** | **not handled, deliberately.** It re-checks the *tracker* against the new project and never the *status*, so an issue moved into a project whose own workflow does not use its status lands on a status that project cannot leave. Core has the same asymmetry — it is not a regression — but per-project workflows make it reachable without an administrator changing anything. WP4 looked at it and left it: the repair sits on the path of every issue save and every bulk move, and `safe_attributes=` assigns `project_id` before `tracker_id` on purpose, so a wrong order would reset statuses that should have been left alone. Finding G03, and an open choice in `DECISIONS.md` |
 

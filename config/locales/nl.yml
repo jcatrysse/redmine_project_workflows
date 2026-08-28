@@ -81,6 +81,7 @@ nl:
   label_project_workflow_bulk_confirm_threshold: 'Vraag bevestiging wanneer een rij- of kolomactie meer wijzigt dan'
   text_project_workflow_bulk_confirm_threshold: 'Aantal workflowregels. Een rij- of kolomactie die meer dan dit zou wijzigen, vraagt eerst om bevestiging. 0 vraagt altijd.'
   label_project_workflow_compare: Vergelijken met de algemene workflow
+  label_project_workflow_copy_item: Projectworkflows
   label_project_workflow_compare_difference: Verschil
   label_project_workflow_compare_project_only: Alleen in dit project
   label_project_workflow_compare_generic_only: Alleen in de algemene workflow

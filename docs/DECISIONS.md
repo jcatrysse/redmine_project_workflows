@@ -231,14 +231,19 @@
     duplicating a role or a tracker has done since 0.1.0, and what
     `Project.copy_from` already does with trackers, modules and custom fields —
     the workflow was the one piece of configuration left behind.
-  - **What A costs, so it is a choice rather than a default:** a copy of a
-    project with a large own workflow now writes those rules too (two INSERT …
-    SELECT statements, no per-row round trip); and an operator who copies a
-    strict project *in order to* start from the generic workflow now has to
-    return the copy to inheritance by hand. There is no checkbox for it, because
-    adding one means a Deface anchor on core's copy form (INV-9) for a case
-    nobody has asked for yet.
-  - **Urgent?** no — A ships and is reversible from the screen.
+  - **What A costs:** a copy of a project with a large own workflow now writes
+    those rules too (two INSERT … SELECT statements, no per-row round trip).
+  - **Answered by Jan on 2026-08-28, the same day:** *"in Redmine when copying a
+    project there is a checkbox to copy issues, wiki, and so on… should we not
+    add a checkbox for project specific workflows?"* **Yes — A with a checkbox**,
+    built the same day. The reason this entry originally gave for not having one
+    was **wrong on a fact**: it said a checkbox means a Deface anchor on core's
+    copy form (INV-9), and it does not. `app/views/projects/copy.html.erb`
+    renders `call_hook :view_projects_copy_only_items, project:, f:` inside that
+    very fieldset, on 5.1, 6.1 and 7.0 identically — an extension point core
+    added for exactly this. The item is ticked by default, so A stays the
+    default and the parameter can only ever narrow what is copied.
+  - **Urgent?** no — answered and built.
 
 *(Everything else here is answered. Items land here with their options, a plain-language explanation
 of each and a recommendation, while the build continues on the safest default.
@@ -596,3 +601,20 @@ than it looks on paper.
 | 2026-08-28 | The three query services holding a base relation with no project_id (finding F02) | **Make the shape impossible, not merely commented** | `TransitionQuery` and `PermissionQuery` now go through `WorkflowPopulations`, which was extracted for exactly this split and whose own comment argues this case; `StatusListQuery` keeps its local shape but takes the project_id as a positional argument of the one method that builds a relation, the way `WorkflowPopulations.relation` does. The finding offered a comment naming the three as deliberate — the cheap answer — and said itself it is not as good. A `plugin_conventions_spec.rb` example greps for the construct and checks the *statement*, not a window of lines, so a base relation given its project by a later statement does not clear it. |
 | 2026-08-28 | What `WorkflowPopulations` answers for a blank project_id | **The generic population, not nothing** | Routing the two resolver paths through it would otherwise have changed behaviour: an issue with no project yet reads the generic workflow, which is the choice `Issue#tracker=` records in its own comment and `Issue#new_statuses_allowed_to` already made. Since no project means no scope can exist, the Resolver already answers "nothing overridden" for one — dropping the extra guard is the whole change, and the relation still carries an explicit `project_id: nil` (INV-4). Two new examples pin it, and both are red with the guard back in. |
 | 2026-08-28 | Version number for this round | **No bump; it folds into the unreleased 0.1.6 entry** | Same reasoning as the two rounds before it: 0.1.6 has never been released (`main` carries 0.0.3, there is no tag). The project copy is an `### Added` bullet of its own in that entry rather than part of the diagram bullet, because it is not about the diagram. |
+
+## Decided (Jan) — 2026-08-28, third answer of the day
+
+| Date | Question | Answer | Notes |
+| --- | --- | --- | --- |
+| 2026-08-28 | Should *Copy project* have a checkbox for the project's own workflow, like the ones it has for issues and the wiki? | **Yes** | The reason the same day's entry gave for not adding one was wrong on a fact: it costed a checkbox as a sixteenth Deface anchor, and core renders `call_hook :view_projects_copy_only_items, project: @source_project, f: f` inside the copy form's own fieldset on 5.1, 6.1 and 7.0 — a plugin extension point for precisely this. **INV-9 stays at fifteen.** Built as a `Redmine::Hook::ViewListener` with `render_on`, so the markup is a partial rendered through the calling view and is core's own `<label class="block">` verbatim, `only[]` name included (core's toggle-all link selects on that name, so it toggles ours too). |
+
+## Decided (autonomous) — 2026-08-28, the copy-form checkbox
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-08-28 | Ticked or unticked by default | **Ticked, like every one of core's eight items** | It keeps the behaviour shipped a few hours earlier as the default, it matches the form the operator already knows, and — the part that is not taste — it means the parameter can only ever *narrow* what a copy carries. A box that had to be ticked to include the workflow would be a request parameter that widens the result, which is the shape INV-7 exists to keep out even on an administrator-only screen. |
+| 2026-08-28 | Shown always, or only when the project has a workflow of its own | **Always, with the count, exactly as core shows *Boards (0)*** | Core's list is a complete statement of what a copy will and will not carry, and an item that disappears at zero makes it an incomplete one. *Project workflows (0)* also tells the reader something true and useful. Reversible with one guard in the partial. |
+| 2026-08-28 | How the checkbox reaches the model hook, which core hands no options | **On the destination project object, set by a four-line `Project#copy` delegate** | Not `RedmineProjectWorkflows::Current` and not any other process-wide store: the destination is the one object both halves already hold, it cannot outlive the copy, two concurrent copies cannot see each other's answer, and there is nothing to reset. The delegate calls `super` and is the nineteenth entry in the core-drift digest table — which is right, because if core changed how it reads `options[:only]`, or moved the hook out of `#copy`, the checkbox would silently stop being honoured. |
+| 2026-08-28 | The checkbox's value in `only[]` | **`project_workflows`** | Core intersects its own eight names with what was submitted, so a name it does not know is ignored rather than dispatched to a `copy_<name>` method that does not exist. A collision would need core to add per-project workflows of its own, at which point this plugin has a larger question than a form value. |
+| 2026-08-28 | What a malformed `only` means | **Narrow, never widen** | `Array.wrap` and `to_s` on each entry, so a hash or a number simply fails to match the key and the workflow is not copied. Core's own `to_be_copied & Array.wrap(options[:only])` behaves the same way for its eight, so a hand-built request gets one consistent answer rather than two. |
+| 2026-08-28 | Guarding a core extension point that is not a Deface anchor | **The same discipline INV-9 asks for: a spec that asserts the checkbox reaches the rendered page** | `spec/controllers/projects_copy_form_spec.rb`, on the real `GET /projects/:id/copy` on every supported version. An extension point can be removed as silently as a selector can stop matching — core would just stop calling it, the checkbox would vanish, every copy would carry the workflow again, and nothing else in the suite would notice. |

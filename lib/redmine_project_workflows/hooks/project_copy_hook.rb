@@ -25,6 +25,9 @@ module RedmineProjectWorkflows
         destination = context[:destination_project]
         return unless source.is_a?(Project) && destination.is_a?(Project)
         return if source.new_record? || destination.new_record?
+        # The checkbox on the copy form, carried here by Patches::ProjectPatch#copy
+        # -- core's model hook is given the two projects and nothing else.
+        return unless destination.copy_project_workflow?
 
         RedmineProjectWorkflows::Services::ProjectWorkflowCopier.copy(
           source_project_id: source.id,

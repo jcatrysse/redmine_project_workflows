@@ -39,8 +39,8 @@ One commit answering findings F01..F03 of `2026-08-28-claude-second`.
 
 ### What the plugin does now that it could not
 
-**Copying a project copies its workflow.** This is F01 and it is the one a user
-would meet. Redmine's *Copy project* brings the members, the trackers, the
+**Copying a project copies its workflow, and the copy form asks first.** This is
+F01, plus Jan's question a few hours later, which is the better half of it. Redmine's *Copy project* brings the members, the trackers, the
 categories and the issues across; it did not bring the project's own workflow,
 so the copy silently ran the **generic** one. The direction of that surprise is
 the wrong way round: a project is usually given its own workflow to be *stricter*
@@ -64,9 +64,30 @@ effective status list as the source.
 `Hooks::ProjectCopyHook` is the plugin's first `Redmine::Hook::Listener` and does
 nothing but check its arguments; `Services::ProjectWorkflowCopier` does the work,
 in two `INSERT … SELECT` statements per rule type rather than a round trip per
-row. It is **Class B and logged as one** in `docs/DECISIONS.md`, with the
-alternative (say it instead of doing it), what copying costs, and why copying is
-the recommendation.
+row.
+
+**Then Jan asked the obvious question the first answer had talked itself out of:**
+*"in Redmine when copying a project there is a checkbox to copy issues, wiki, and
+so on… should we not add a checkbox for project specific workflows?"* Yes. The
+reason the first answer gave for not adding one — that a checkbox means a
+sixteenth Deface anchor — was **wrong on a fact**:
+`app/views/projects/copy.html.erb` renders
+`call_hook :view_projects_copy_only_items, project: @source_project, f: f`
+*inside* that very fieldset, on 5.1, 6.1 and 7.0 identically. It is an extension
+point core added for exactly this. **INV-9 stays at fifteen.** The lesson is
+worth more than the checkbox: the cost that killed the idea was asserted from
+memory of how the plugin reaches Redmine's screens, and never checked against
+`copy.html.erb`. Read the view.
+
+So the form now lists **Project workflows (N)** among *Members*, *Issues* and the
+rest, ticked like all of them — same default as before, and now visible and
+reversible before the copy runs. Because it is ticked by default the parameter
+can only ever *narrow* what a copy carries, which is what keeps a new request
+parameter off INV-7's list.
+
+It is **Class B and logged as one** in `docs/DECISIONS.md`, with the alternative
+(say it instead of doing it), what copying costs, Jan's answer, and the six
+smaller decisions the checkbox itself needed.
 
 **One thing the finding did not raise and the fix had to answer:**
 `docs/design.md` counts the write paths that take scope rows before workflow rows,
@@ -108,7 +129,9 @@ so the next session does not swing it back.
 
 | Object | What it is |
 | --- | --- |
-| `Hooks::ProjectCopyHook` | the plugin's only hook listener: `model_project_copy_before_save`, argument checking and nothing else |
+| `Hooks::ProjectCopyHook` | `model_project_copy_before_save`: argument checking, the checkbox question, and nothing else |
+| `Hooks::ProjectCopyFormHook` | `view_projects_copy_only_items`: a `ViewListener` whose `render_on` puts the *Project workflows (N)* checkbox in core's own list. No Deface override |
+| `Patches::ProjectPatch#copy` | four lines: remember whether the box was ticked on the destination project, then `super`. Core hands the model hook no options, and this is the one object both halves already have |
 | `Services::ProjectWorkflowCopier` | one project's workflow into another: scopes first, then the rules a *source* scope makes visible, for the trackers the target has |
 | `Services::WorkflowPopulations` | the two populations one project's roles resolve to, as finished relations (INV-4 in one place). **Now four callers**, the two resolver paths included |
 | `Services::StatusListQuery` | unchanged in what it answers; its one relation-building method takes the project_id positionally |
@@ -118,17 +141,18 @@ so the next session does not swing it back.
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **854 examples, 0 failures** (was 834; twenty added) |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **854 examples, 0 failures** |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **854 examples, 0 failures** |
-| Plugin suite, 7.0-stable + **MariaDB 10.11** (mysql2 adapter) | **854 examples, 0 failures** — built this session because the change writes raw SQL (`IN (…)`, `TIMESTAMP '…'`, `EXISTS`), and no PostgreSQL host can see what the six MySQL-family cells see |
-| Red on the old code | **measured, not assumed.** F01: with the listener's body replaced by `nil`, **3 of the 13** new examples fail (the other ten are the copier's own cases and the controls, which cannot fail against code with no copier). F02: with the old `base_scope` back in `PermissionQuery` alone the conventions example fails naming `permission_query.rb:26`; with the blank-project guard back in `WorkflowPopulations` the two new nil-project examples fail and nothing else does. F03: with the two counts back to `.size`, **2 of the 3** new examples fail (the third is the negative case and correctly stays green) |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **861 examples, 0 failures** (was 834; twenty-seven added) |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **861 examples, 0 failures** |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **861 examples, 0 failures** |
+| Plugin suite, 7.0-stable + **MariaDB 10.11** (mysql2 adapter) | **861 examples, 0 failures** — built this session because the change writes raw SQL (`IN (…)`, `TIMESTAMP '…'`, `EXISTS`), and no PostgreSQL host can see what the six MySQL-family cells see |
+| Red on the old code | **measured, not assumed.** F01, the copy: with the listener's body replaced by `nil`, **6 of the 16** copy examples fail. F01, the checkbox: with `copy_project_workflow?` forced to `true` and the view listener not loaded — the state between Jan's question and its answer — **5 of the 20** examples across the two files fail, three of them on the rendered copy form. F02: with the old `base_scope` back in `PermissionQuery` alone the conventions example fails naming `permission_query.rb:26`; with the blank-project guard back in `WorkflowPopulations` the two new nil-project examples fail and nothing else does. F03: with the two counts back to `.size`, **2 of the 3** new examples fail (the third is the negative case and correctly stays green) |
 | Migrations up → 0 → up | **clean on 5.1, 6.1 and 7.0**, run BEFORE the suite touched any of them: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`. Nothing this session touches a migration |
-| RuboCop | **118 files, no offences**, through `.github/lint/Gemfile`, with **no** `.rubocop.yml` or `.rubocop_todo.yml` change. Two `Rails/WhereExists` offences were fixed rather than excluded; one `Rails/SkipsModelValidations` carries the same inline disable and the same stated argument as `ScopeCopier`'s |
+| RuboCop | **120 files, no offences**, through `.github/lint/Gemfile`, with **no** `.rubocop.yml` or `.rubocop_todo.yml` change. Two `Rails/WhereExists` offences were fixed rather than excluded; one `Rails/SkipsModelValidations` carries the same inline disable and the same stated argument as `ScopeCopier`'s |
 | `zeitwerk:check` on 7.0 | **"All is good!"** — run because this session adds a directory (`lib/redmine_project_workflows/hooks/`) |
 | JavaScript gate | **34 checks pass** (`node dev/check-bulk-js.mjs`) |
-| Locale files | **all eight at 118 keys, exact parity**, one new key each (`text_project_workflow_graph_aria_fallback`). `en` and `nl` by hand; the other six translated, and `fr` and `pl` reworded after drafting to use the same words for *fallback* and *issue* their own legend sentence already uses |
-| INV-9 | **untouched** — still fifteen overrides in twelve files. Nothing here adds a Deface anchor, deliberately: a checkbox on core's copy form would be a sixteenth |
+| Locale files | **all eight at 119 keys, exact parity**, two new keys each (`text_project_workflow_graph_aria_fallback` and `label_project_workflow_copy_item`). `en` and `nl` by hand; the other six translated, and `fr` and `pl` reworded after drafting to use the same words for *fallback* and *issue* their own legend sentence already uses |
+| INV-9 | **untouched** — still fifteen overrides in twelve files. The copy-form checkbox reaches the page through core's own `view_projects_copy_only_items` hook, not through Deface, and `spec/controllers/projects_copy_form_spec.rb` guards that seam the way INV-9's spec guards the overrides |
+| Core-drift digest | **nineteen** methods now, `Project#copy` added as a *delegate*. Measured on all three minors and checked in: 6.1 and 7.0 identical, 5.1 differing by one character (`send "copy_#{name}"` against `send :"copy_#{name}"`) |
 | Live probe on default data | on a 7.0 host with `redmine:load_default_data` loaded in and rolled back: 6 statuses, 7 drawn nodes, 31 drawn edges, 30 stored transitions, fallback present, `dense?: true`, and the label reading *"6 statuses and 30 transitions … One further arrow is Redmine's own fallback"*. Before the fix the same host read *7 statuses and 31 transitions* |
 | CI | run **133** on `33c0698`, the head: **green on all eleven jobs** — the nine-cell matrix, RuboCop and the JavaScript gate. Read from the Actions API, not assumed. Each matrix cell also ran its own migration-reversibility, scope-backfill and `zeitwerk:check` steps green |
 
@@ -151,22 +175,21 @@ because neither is a defect:
    the possible moves) are a judgement about readability rather than a fact.
    Logged as a Class B decision; one constant each if the folding ever fires on
    a workflow somebody did want a picture of.
-2. **The project copy is silent.** It writes the workflow and says nothing on the
-   screen, because the plugin does not own core's copy form and adding a line to
-   it means a sixteenth Deface anchor (INV-9). The README says what happens. If
-   an operator ever asks "did the workflow come along?", the answer is a line on
-   that form and it is a deliberate cost rather than an oversight.
+2. **The copy form's *Project workflows (N)* count is scopes, not rules.** Three
+   ticked combinations read as *(3)* whether they hold three rules or three
+   hundred. That is the same unit the settings tab and the inventory use, so it
+   is consistent rather than arbitrary — but it is a judgement, and one line in
+   `app/views/redmine_project_workflows/_copy_project_workflow.html.erb` to
+   change.
 
 ## Open choices
 
-**Two**, one of them new:
+**One.** The copy question filed a few hours earlier was answered by Jan the same
+day and is closed:
 
-- **F01 of `2026-08-28-claude-second` — should copying a project copy its
-  workflow?** **A)** copy it — **implemented**, a hook listener and
-  `ProjectWorkflowCopier`, reversible from the copy's own Workflow tab. **B)**
-  leave the behaviour and document it instead. **Recommendation: A**, because a
-  project is usually made stricter than the generic workflow, so B ships a copy
-  that is more permissive than its original. **Not urgent.**
+- ~~**F01 of `2026-08-28-claude-second` — should copying a project copy its
+  workflow?**~~ **Answered by Jan on 2026-08-28: yes, and with a checkbox on the
+  copy form.** Built the same day. Nothing outstanding.
 - **F01 of `2026-08-27-bundled` — what should the refused-values count count?**
   **A)** the values in the request — **implemented**, one line in
   `MatrixSaveResult#+`. **B)** keep the total and reword the sentence in eight
@@ -289,6 +312,34 @@ prerequisites and the MySQL variant.
 Everything below cost time at least once. The first group is new this session;
 the rest is carried forward.
 
+- **A cost asserted from memory can kill a good idea.** The first answer to F01
+  ruled out a checkbox on core's copy form because it would mean a sixteenth
+  Deface override (INV-9). It would not: `app/views/projects/copy.html.erb`
+  renders `call_hook :view_projects_copy_only_items, project:, f:` inside that
+  fieldset on 5.1, 6.1 and 7.0. The plugin reaches most of Redmine's screens
+  through Deface, so "another screen, therefore another anchor" felt like
+  knowledge; it was a generalisation, and the view was never opened. **Before
+  costing a change to a core screen, read that screen's ERB and grep it for
+  `call_hook`** — core has dozens of them and they cost nothing.
+- **`Redmine::Hook::Listener` is not in `lib/redmine/hook.rb`.** That file holds
+  the registry and the `call_hook` helper only; `Listener` and `ViewListener`
+  are `lib/redmine/hook/listener.rb` and `lib/redmine/hook/view_listener.rb`.
+  Reading hook.rb alone suggests the base class is gone. `Listener` includes
+  `Singleton` and registers on `inherited`, and `add_listener` **raises** for a
+  class that does not include it, so subclassing is the only supported route.
+- **A view hook wants `ViewListener.render_on`, not a string built in Ruby.**
+  `render_on` renders a partial through `context[:hook_caller]` — the view — so
+  the partial has `l`, `check_box_tag` and the hook's context as locals, and the
+  plugin writes no HTML in Ruby. The context's `project` on the copy form is the
+  **source** project, because core passes `project: @source_project` explicitly
+  over `call_hook`'s default `@project`.
+- **Adding any method that shadows a core method moves the core-drift gate to
+  red, delegates included.** `Project#copy` calls `super` and does nothing else
+  of substance, and the digest table still gained an entry per minor — correctly,
+  because the gate reports "the copies **and** the delegates". Measure the digest
+  on each host (`CoreMethodDigest.digests["Project#copy"]` in a `rails runner`)
+  and add all three in the same commit; `dev/sync.sh` the host first or the
+  runner reads the previous copy of the plugin and prints nil.
 - **A window of lines is not a statement, and a grep that uses one can clear the
   very shape it exists to reject.** The first version of
   `plugin_conventions_spec.rb`'s INV-4 example asked whether `project_id`

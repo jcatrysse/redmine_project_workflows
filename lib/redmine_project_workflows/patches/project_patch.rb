@@ -30,6 +30,37 @@ module RedmineProjectWorkflows
       #   Project**, not a core one with a body replaced. Public because the
       #   query service is the caller; there is no core method of that name to
       #   collide with on any supported version.
+      # Core's Project#copy, remembering one thing and otherwise untouched.
+      #
+      # The workflow is copied by Hooks::ProjectCopyHook, from the
+      # `model_project_copy_before_save` hook core calls inside this method --
+      # which is the right place for it (inside core's own transaction, at the
+      # point core chose) and which core hands **no options**. So the answer to
+      # "was the workflow checkbox ticked" has to be carried the one step from
+      # here to there.
+      #
+      # It is carried on the destination project itself rather than in
+      # RedmineProjectWorkflows::Current or any other process-wide store: the
+      # object is the one thing both halves already have, it cannot outlive the
+      # copy, and two copies running on two threads cannot see each other's
+      # answer. There is nothing to reset and nothing to leak.
+      #
+      # The rule is core's own, applied to one more name: no `:only` at all
+      # means everything (a console or API `project.copy(source)`), and an
+      # explicit list means exactly what it names.
+      def copy(project, options = {})
+        @copy_project_workflow = copy_project_workflow_requested?(options[:only])
+        super
+      end
+
+      # Whether #copy was asked for the workflow. True when nothing asked --
+      # a destination the hook reaches without #copy having run is not something
+      # core can produce, and "no instruction means everything" is the same
+      # default core applies to its own eight items.
+      def copy_project_workflow?
+        @copy_project_workflow.nil? || @copy_project_workflow
+      end
+
       def rolled_up_statuses
         @rolled_up_statuses ||= begin
           status_ids = RedmineProjectWorkflows::Services::StatusListQuery.status_ids_for_pairs(
@@ -45,6 +76,20 @@ module RedmineProjectWorkflows
       #
       # +sorted+ has to go: it orders by a column that DISTINCT does not
       # select, which PostgreSQL rejects outright.
+      # Array.wrap rather than Array(), because Array() on a Hash yields its
+      # pairs; and to_s on each entry, because a hand-built request can put a
+      # number or a nested hash there. Anything that is not our key answers
+      # false, so a malformed +only+ narrows the copy rather than widening it --
+      # which is the same thing it does to core's own eight items.
+      def copy_project_workflow_requested?(only)
+        return true if only.nil?
+
+        Array.wrap(only).map(&:to_s).include?(
+          RedmineProjectWorkflows::Services::ProjectWorkflowCopier::COPY_ONLY_KEY
+        )
+      end
+      private :copy_project_workflow_requested?
+
       def rolled_up_project_tracker_ids
         rolled_up_trackers_base_scope
           .where("#{Project.table_name}.lft >= ? AND #{Project.table_name}.rgt <= ?", lft, rgt)

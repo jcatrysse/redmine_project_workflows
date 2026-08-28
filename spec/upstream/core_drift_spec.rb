@@ -11,6 +11,12 @@ require_relative '../spec_helper'
 # under it is silent: the plugin's own specs assert the plugin's expected
 # answers, not core's, so they stay green while the copy drifts.
 #
+# A nineteenth, Project#copy, is a **delegate** rather than a copy -- it
+# remembers one thing and calls super. It is covered here all the same, and the
+# table's header says why: if core changes how it reads `options[:only]`, or
+# moves the `model_project_copy_before_save` hook out of that method, the copy
+# form's workflow checkbox stops being honoured with nothing else to notice.
+#
 # It has already happened twice to Issue#new_statuses_allowed_to, both times
 # semantically. 5.0 -> 5.1 replaced
 # `user.admin ? Role.all.to_a : user.roles_for_project(project)` with

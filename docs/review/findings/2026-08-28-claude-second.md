@@ -157,14 +157,43 @@ earlier in the same transaction and no other request has seen its id. The count
 moved from four to five in the same commit, because that document already records
 how a counted claim with a path missing produced finding F01 of 2026-08-27.
 
-Red on the old code, measured rather than assumed: with the listener's body
-replaced by `nil` and nothing else changed, **3 of the 11** new examples fail —
-the scope and rules case, the own-empty case, and the one that compares the
-effective status list of the copy against the source's (`[1, 3]` expected,
-`[1, 2]` returned, the copy having fallen back to the generic workflow). The
-remaining eight are the copier's own cases and the controls, which cannot fail
-against code that has no copier. Documented in `README.md`, `CHANGELOG.md` (an
-`### Added` bullet of its own) and `docs/design.md`'s table of Redmine's seams.
+**Answered again by Jan the same day**, and the answer changed the shape:
+*"in Redmine when copying a project there is a checkbox to copy issues, wiki, and
+so on… should we not add a checkbox for project specific workflows?"* Yes — and
+the reason this resolution first gave for not having one was **wrong on a fact**.
+It costed a checkbox as a sixteenth Deface anchor (INV-9). It is not one:
+`app/views/projects/copy.html.erb` renders
+`call_hook :view_projects_copy_only_items, project: @source_project, f: f`
+*inside* the copy form's own fieldset, on 5.1, 6.1 and 7.0 identically — an
+extension point core added for exactly this. **INV-9 stays at fifteen.**
+
+The item is *Project workflows (N)*, ticked like core's own eight, so the copy
+still carries the workflow by default and the parameter can only ever *narrow*
+what is copied. Core hands the model hook no options, so a four-line
+`Project#copy` delegate remembers the answer on the destination project itself —
+no process-wide store, nothing to reset, and two concurrent copies cannot see
+each other's answer. That delegate is the nineteenth entry in the core-drift
+digest table, deliberately: if core changed how it reads `options[:only]`, or
+moved the hook out of `#copy`, the checkbox would stop being honoured in silence.
+`spec/controllers/projects_copy_form_spec.rb` asserts the item reaches the real
+rendered page on every supported version — INV-9's discipline applied to a seam
+that is not a Deface anchor, because an extension point can be withdrawn as
+quietly as a selector can stop matching.
+
+Red on the old code, measured rather than assumed, in two parts. With the
+listener's body replaced by `nil` and nothing else changed, **6 of the 16**
+copy examples fail: the scope and rules case, the own-empty case, the audit
+columns, the ticked box, the "nothing named at all" case, and the one comparing
+the effective status list of the copy against the source's (`[1, 3]` expected,
+`[1, 2]` returned, the copy having fallen back to the generic workflow). With
+the listener restored but `copy_project_workflow?` forced to `true` and the view
+listener not loaded — the state between the two answers — **5 of the 20**
+examples across the two files fail: the three that assert the item is on the
+rendered page with its count, the unticked box (which copied anyway), and the
+malformed-`only` case.
+
+Documented in `README.md`, `CHANGELOG.md` (an `### Added` bullet of its own) and
+`docs/design.md`'s table of Redmine's seams.
 
 ---
 

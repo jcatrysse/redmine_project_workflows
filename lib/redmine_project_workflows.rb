@@ -41,6 +41,7 @@ require_relative 'redmine_project_workflows/patches/tracker_patch'
 # body is read, and `require` is a no-op the second time -- so a reload cannot
 # register it twice. The same reasoning as the Deface overrides in init.rb.
 require_relative 'redmine_project_workflows/hooks/project_copy_hook'
+require_relative 'redmine_project_workflows/hooks/project_copy_form_hook'
 
 module RedmineProjectWorkflows
   def self.load_deface_overrides!

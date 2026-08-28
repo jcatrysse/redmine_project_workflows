@@ -86,6 +86,14 @@ The workflow as a drawing.
   0.1.0; this is the same promise for a project. A copy into a project that
   already runs a workflow of its own changes nothing there.
 
+  **And the copy form asks.** *Copy project* lists what it is about to bring
+  across — *Members*, *Issues*, *Wiki* and the rest, each with a count and each
+  ticked. The workflow is now one of them: **Project workflows (N)**, ticked like
+  the others, so the default is the same and unticking it starts the copy from
+  the generic workflow. It sits in core's own list through an extension point
+  Redmine provides for exactly this, so it looks and behaves like the items
+  beside it and the plugin overrides nothing to put it there.
+
 ### Fixed
 
 - **The workflow panel on the issue form no longer contradicts the status list

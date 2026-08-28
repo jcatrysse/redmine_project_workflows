@@ -98,21 +98,63 @@ describe 'Copying a project' do
       expect(copy.id).not_to eq(source.id)
     end
 
-    # Core calls the hook whatever `only:` names, and that is the right place for
-    # it to sit: Project.copy_from already brings the trackers, the modules and
-    # the custom fields across regardless of the checkboxes, and the workflow is
-    # configuration of the same kind rather than content the operator picks.
-    it 'carries the workflow even when the copy form asked for nothing else' do
-      give_own_workflow(source, tracker, role)
-      transition(project_id: source.id)
+    # The checkbox on core's copy form (Jan, 2026-08-28). The first answer to
+    # F01 copied the workflow unconditionally; the form has a checkbox for every
+    # other kind of content, and core renders a hook inside that very fieldset
+    # for a plugin to add one more.
+    #
+    # Red on the old code: before the checkbox, `only:` had no effect on the
+    # workflow at all, so the first two of these three fail -- the unticked case
+    # copied anyway, and the "named but not ours" case did too.
+    describe 'the copy form checkbox' do
+      let(:key) { RedmineProjectWorkflows::Services::ProjectWorkflowCopier::COPY_ONLY_KEY }
 
-      copy = Project.copy_from(source)
-      copy.name = 'Copy of nothing'
-      copy.identifier = 'wf-copy-only'
-      expect(copy.copy(source, only: [])).to be_truthy
+      before do
+        give_own_workflow(source, tracker, role)
+        transition(project_id: source.id)
+      end
 
-      expect(own_workflow?(copy, tracker, role)).to be(true)
-      expect(WorkflowTransition.where(project_id: copy.id).count).to eq(1)
+      def copy_with(only, identifier)
+        copy = Project.copy_from(source)
+        copy.name = "Copy #{identifier}"
+        copy.identifier = identifier
+        raise 'the copy did not save' unless copy.copy(source, only: only)
+
+        copy
+      end
+
+      # What core's form submits when the box is unticked: the other items, plus
+      # the empty string core's own hidden field always sends.
+      it 'copies no workflow when the box is unticked' do
+        copy = copy_with(%w[members issues], 'wf-copy-unticked')
+
+        expect(ProjectWorkflowScope.where(project_id: copy.id).count).to eq(0)
+        expect(WorkflowTransition.where(project_id: copy.id).count).to eq(0)
+      end
+
+      it 'copies the workflow when the box is ticked' do
+        copy = copy_with(['members', '', key], 'wf-copy-ticked')
+
+        expect(own_workflow?(copy, tracker, role)).to be(true)
+        expect(WorkflowTransition.where(project_id: copy.id).count).to eq(1)
+      end
+
+      # A console or API caller that passes no :only at all means everything,
+      # which is core's own rule for its eight items.
+      it 'copies the workflow when nothing was named at all' do
+        copy = copy_of(source, identifier: 'wf-copy-unnamed')
+
+        expect(own_workflow?(copy, tracker, role)).to be(true)
+      end
+
+      # A hand-built request can put anything there. Anything that is not the
+      # key narrows the copy rather than raising or widening it -- the same thing
+      # it does to core's own eight items.
+      it 'copies no workflow for an only list that is not a list of strings' do
+        copy = copy_with({ 'x' => 'y' }, 'wf-copy-malformed')
+
+        expect(ProjectWorkflowScope.where(project_id: copy.id).count).to eq(0)
+      end
     end
 
     # "Who took this decision, and when" is what the project's Workflow tab and

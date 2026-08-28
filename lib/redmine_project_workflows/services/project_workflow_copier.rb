@@ -26,6 +26,17 @@ module RedmineProjectWorkflows
     # copied along with its parent is copied in its own right, by its own call
     # to Project#copy (INV-6).
     class ProjectWorkflowCopier
+      # The value of the checkbox this item gets in Redmine's *Copy project*
+      # form, and therefore the string Project#copy looks for in +options[:only]+.
+      #
+      # Not one of core's own eight (`members`, `wiki`, `versions`,
+      # `issue_categories`, `issues`, `queries`, `boards`, `documents`): core
+      # intersects its list with what was submitted, so an entry it does not know
+      # is ignored rather than dispatched to a `copy_<name>` method that does not
+      # exist. A collision would need core to add per-project workflows of its
+      # own, at which point this plugin has a larger question than a form value.
+      COPY_ONLY_KEY = 'project_workflows'
+
       # Returns [scopes copied, rules copied].
       #
       # +tracker_ids+ is the target's own tracker list, not the source's. They
