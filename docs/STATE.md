@@ -6,194 +6,149 @@
 
 ## Current position
 
-- **Work package:** WP0 through **WP8** are done and have been for seven
-  sessions. **WP9 — the workflow as a drawing, per role — now exists as a plan
-  and has not been started:** `docs/implementation-plan.md` runs WP0..WP9, every
-  row up to WP8 reads *done* and WP9 reads *planned*. Its route is written out in
-  full, and `docs/DECISIONS.md` (2026-08-28) carries Jan's three answers that
-  shape it — the drawing lives on the project screen, behind
-  `view_project_workflow`, with a role selector. Beside it runs the **review
-  loop** in `docs/review/`.
-- **This session was the fixer** on `docs/review/findings/2026-08-27-bundled-followup.md`
-  — a review of what the *previous* fixing session did with the twenty findings
-  of `2026-08-27-bundled.md`. Four findings, no blocker and no major: two minor,
-  two nits.
-- **All four are answered: three `fixed`, one `invalid`.** No findings file
-  anywhere has an open finding — `grep -rn '^- \*\*Status:\*\* open'
-  docs/review/findings/` matches only `TEMPLATE.md`.
-- **The `invalid` one is worth knowing about before reading anything else.**
-  F03 said F10 of the previous run had silently dropped one of its own
-  sub-items. It had not: F10's `Resolution:` carries a paragraph declining that
-  sub-item explicitly, it was present at `9ce1921` (the commit the review
-  examined), and `git log -S` names the commit that added it. So the previous
-  run's findings file was **not** edited, and what survives of F03 is a habit
-  rather than a repair — see the traps.
-- **Two of the three fixes repaired defects the previous round introduced**,
-  which is what that review existed to find: F01 (a refused-value count
-  multiplied by the size of the selection) came from the fix for F06, and F04
-  (a log line reading the raw parameter) from the fix for F19. F02, the guard
-  that raised on an array payload, was pre-existing and had been moved unchanged
-  into a new file.
-- **What exists:** the plugin at **0.1.5**, still unreleased — `main` carries
-  0.0.3 and there is no tag. This session **did not bump the version**: the four
-  fixes went into 0.1.5's existing `CHANGELOG.md` entry, which now covers both
-  rounds, so `init.rb` and the newest changelog heading still agree (there is a
-  spec that asserts they do). A version whose only difference from another one
-  nobody has run is not worth minting.
-- **Branch:** `claude/dev`, pinned in `CLAUDE.md`. This session started there
-  already in sync (`--is-ancestor` clean), which is the first time no branch
-  rescue was needed. Four commits, each pushed and verified with
+- **Work package: WP9 is done, and so the plan is finished.** `docs/implementation-plan.md`
+  runs WP0..WP9 and every row now reads *done*. WP9 is "the workflow as a
+  drawing, per role": a project's whole transitions workflow for one tracker,
+  drawn as boxes and arrows on the project screen, with a role selector.
+- **This session built it, from a plan the previous session had written and not
+  started.** Five commits, each pushed and verified with
   `git ls-remote --heads origin`.
+- **The plugin is at 0.1.6**, still unreleased — `main` carries 0.0.3 and there
+  is no tag. The version *was* bumped this time, unlike last session: a whole
+  feature earns a `CHANGELOG.md` heading a reader can find, where four small
+  fixes to an unrun version did not. `spec/plugin_conventions_spec.rb` asserts
+  `init.rb` and the newest changelog heading agree, and both moved together.
+- **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
+  `claude/docs-review-f58si2`, which happened to point at the same commit as the
+  real remote head; `git checkout -B claude/dev origin/claude/dev` was the whole
+  rescue, and nothing was lost.
 - **`main`:** untouched. Jan asks for the merge himself, and the two histories
   are still **unrelated** — no merge base, so a merge needs
   `--allow-unrelated-histories`. `main` also still carries the old two-cell CI.
-- **Open choices for Jan:** **one**, filed this session and not urgent — what
-  the refused-values count should mean (F01). The safest reversible default is
-  implemented; the alternative costs eight locale files. See *Open choices*.
+- **Open choices for Jan:** still just the one from last session (F01's wording),
+  and it is not urgent. Nothing new was filed.
+- **One thing to check first:** CI on the head, `7bc8934`. See *Exact next step*.
 
 ## What this session produced
 
-Four commits: one per minor finding, then the two nits together, then the
-memory files.
+WP9, in five commits: the data half, the screen, the documentation, a QA pass,
+and one cross-database repair.
 
-### F01 — one refused value reported itself once per project (minor)
+### What the plugin can do now that it could not
 
-`MatrixSaveResult` carries three counts, and the two administration actions write
-one **population** per selected project (`Generic`, then each project) and sum the
-results. `written` and `skipped` count *combinations*, so summing is right.
-`rejected` counts *submitted values* — and there is one submission however many
-populations it reaches, so summing it multiplied one bad value by the size of the
-selection. One unacceptable value with "all projects" selected on a
-five-hundred-project installation told the operator that five hundred values were
-refused and five hundred rules left unchanged. **That is the defect class F06 was
-filed for, inside the sentence F06 added.**
+Open **Workflow diagram** on a project — from the Workflow tab, from the top of
+either matrix, or from the panel on the issue form — and see the whole of that
+project's status transitions for one tracker as a picture: a box per status, an
+arrow per permitted change, and Redmine's *New issue* starting point on the left.
 
-`#+` now sums two members and takes the **maximum** of the third. Not the two
-shapes the finding sketched: counting outside the per-population loop duplicates
-the whitelist outside the writer (the "one rule in two places" mistake this
-repository has had four findings about), and dividing by the number of
-populations needs a denominator `#+` does not have and would round. The maximum
-is exact for the shape that exists — both whitelists are built from
-installation-wide lists, so every population refuses the same leaves — and it
-degrades to "the most any one population refused" rather than to a product if
-that ever changes.
+The part that is better than Jira's, and the reason the package existed: Jira
+draws one diagram per issue type and hides *who may make a move* in a dialogue
+behind the arrow, so its picture shows the transitions somebody may make rather
+than the ones you may. Redmine decides its workflow per tracker **and per role**,
+so the screen has a **Roles shown** selector and starts on the roles the reader
+holds. Underneath, in words: the statuses **no permitted move can reach**, the
+ones **nothing leads out of**, and the ones **the selected roles' rules never
+mention**. The first two are real defects in a workflow and nothing else in
+Redmine reports either.
 
-**Two existing assertions were wrong and were corrected.** Saying that out loud
-is required by `docs/review/README.md` rule 2, because a diff stat cannot tell a
-correction from a weakening. Both demanded `count: 2` for a request carrying one
-bad value, and one of them *explained* the 2 in its own comment as "one rejected
-leaf per project of the selection" — the defect written down as the
-specification. A third assertion elsewhere in the same file was already correct
-at `count: 1` and is untouched; it is what made the other two look plausible.
+### The five objects behind it
 
-### F02 — the guard against a 500 raised a 500 (minor)
+| Object | What it is |
+| --- | --- |
+| `Services::WorkflowPopulations` | the two populations one project's roles resolve to, as **finished** relations. Extracted from WP8's `TransitionMapQuery`, which now uses it. It exists because INV-4 written twice is INV-4 with two places to get it wrong |
+| `Services::WorkflowGraphQuery` | nodes, edges and the per-role INV-3 state for one (project, tracker, role ids) |
+| `Services::WorkflowGraphRanking` | reachability, cycle break, layers, ordering — the graph's shape, with no coordinate in it |
+| `Services::WorkflowGraphLayout` | coordinates, routing, and the extent the `viewBox` comes from |
+| `Services::WorkflowGraphText` | a status name fitted into a fixed box. SVG does not wrap |
 
-Both `to_plain_hash` copies asked `respond_to?(:to_h)`. `Array` answers yes and
-then raises — `['x'].to_h` is `TypeError: wrong element type String at 0` — so
-`?transitions[]=x` produced a 500 from inside the method whose entire purpose is
-to turn a malformed matrix into a polite rejection, on all four save entry
-points. Both now ask what the value **is**, which is the question the loops one
-level down already ask. Two edits rather than one shared method, because the
-divergence F14 recorded is still real.
+Plus `ProjectWorkflowGraphsHelper`, two views, one route, `graph` added to the
+action list of **both** permissions in `init.rb`, and fifteen locale keys in all
+eight files.
 
-The finding also asked for a decision about a Hash whose **keys are not
-Strings**, the other shape Rails can produce. Decided: the writers accept any key
-answering `to_s` and `to_i` and normalise what survives the whitelist to Strings;
-the controller guards do not coerce keys, because the path that can carry
-non-String keys — core's own `replace_transitions`, routed through the writer for
-INV-1 — never passes through them. Symbol keys were not merely untested but a
-**live 500**: they passed the whitelist (`:"1".to_s` is `"1"`) and then reached
-`Symbol#to_i`, which does not exist.
+### Three things the roles found that the implementer had not
 
-### F04 — one log line, one word (nit)
+- **The review role found a real defect in the first draft.** The view told two
+  different facts with one sentence: it keyed "this project has its own workflow
+  here and it holds no rule at all" on `edges.empty?`, which is *also* true of a
+  project that merely **inherits** a generic workflow nobody has filled in. So
+  the screen asserted a configuration the project had never made. That is INV-3's
+  defect in miniature — the state comes from the scope table, never from the
+  absence of rules — and it is now two sentences keyed on the state. Two
+  regression examples, both confirmed red against the previous commit.
+- **The QA role found a 404 that was the wrong answer.** A project nobody is a
+  member of offers no role at all, and the screen answered 404 — a missing page,
+  which it is not. It now renders, with the sentence the settings tab already
+  uses for the same state (already translated, so nothing new to write). 404
+  stays for what it is for: a tracker the project has not enabled, or a role it
+  does not offer.
+- **CI found a spec that only matched PostgreSQL.** See the traps.
 
-`params[:rule_type]` → `@rule_type`. Nothing behaved differently: the
-`before_action` renders 404 for anything else, which is exactly why **no test was
-added** — an example asserting the log names `transitions` passes identically
-before and after, and one reaching the log with a third value cannot exist. The
-`Resolution:` says so rather than inventing a test that restates the guard.
+### The two layout details that were measured rather than guessed
 
-## What the work found that the findings had not
-
-- **F03's premise was false, and only `git show` on the reviewed commit could
-  establish that** rather than a fixer's memory of his own previous session. The
-  paragraph the finding says is missing is the sixth of seven in a long
-  `Resolution:`.
-- **Symbol keys were a live 500, not a hypothetical.** The finding raised
-  non-String keys as "worth thinking about at the same time"; thinking about it
-  turned up a path where the whitelist *accepts* a payload and the writer then
-  raises on it two methods later. Integer keys, which look like the same case,
-  already worked — every comparison downstream is `.to_s` or `.to_i`.
-- **The array payload is only dangerous at the top level.** `?permissions[1][]=x`
-  was already safe, because every nested level tests `is_a?(Hash)` or
-  `respond_to?(:each)`. So the fix is one line in each guard and not a recursive
-  sweep — established by running all five shapes rather than by reading.
-- **`Array#to_h` is the trap, not `Array#respond_to?(:to_h)`.** A guard written
-  as a capability check reads as careful and is not: `respond_to?` is true of the
-  exact class that breaks it. This is the third finding in three runs whose whole
-  content is a check that asks the wrong question about a value.
+- **Only forward edges may pull during straightening.** A returning arc points at
+  a node far to the right; letting it tug drags the main path into a staircase.
+- **An edge spanning more than one layer is routed through its dummy cells**, not
+  drawn as one curve from end to end. The first implementation did the latter and
+  the curve passed straight through the box of the node in the layer between —
+  which is what the dummies had been inserted into the ordering to prevent. It
+  carries a spec.
 
 ## Evidence
 
 | Check | Result |
 | --- | --- |
-| Plugin suite, 7.0-stable + PostgreSQL 16 | **735 examples, 0 failures** (was 722; thirteen added) |
-| Plugin suite, 5.1-stable + PostgreSQL 16 | **735 examples, 0 failures** |
-| Plugin suite, 6.1-stable + PostgreSQL 16 | **735 examples, 0 failures**, on a host built after the four commits had landed — **three** of the nine cells were exercised locally, and 6.1 is where a `Symbol#to_i` or an `Array#to_h` would behave differently only if Ruby did |
-| Red on the old code | **eleven of the thirteen**, run per commit against the code as it stood. F01: six (two corrected assertions, one new four-population controller example that reported **4**, three struct examples where the five-hundred-population case reported **500**). F02: five (four array-payload examples failing with the `TypeError` itself, and the symbol-key example with `NoMethodError: undefined method 'to_i' for an instance of Symbol`). The other two — integer keys, and the leaf count of a non-String-keyed payload — passed before and exist so the decision is stated in both directions |
-| Reproduced before fixing | F02's five payload shapes re-run against both guards in plain Ruby: the finding's table reproduces exactly. F01's multiplication read off the summation and then demonstrated by the failing examples above |
-| Migrations up → 0 → up | **clean on all three hosts** — on 5.1 and 7.0 run BEFORE the suite touched either, on 6.1 on a host built afterwards — after `VERSION=0`: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`; after the re-migrate: both back |
-| RuboCop | **105 files, no offences**, through `.github/lint/Gemfile`, and **no** `.rubocop.yml` or `.rubocop_todo.yml` change — one new spec file absorbed without relaxing a cop. No `Metrics` limit was crossed, so nothing needed extracting this time |
+| Plugin suite, 7.0-stable + PostgreSQL 16 | **808 examples, 0 failures** (was 735; seventy-three added) |
+| Plugin suite, 5.1-stable + PostgreSQL 16 | **808 examples, 0 failures** |
+| Plugin suite, 7.0-stable + **MariaDB 10.11** (mysql2 adapter) | **808 examples, 0 failures** — a **fourth** cell run locally, and the first time a MySQL-family cell has been. MariaDB was installed in the container; the recipe is in *Development environment* below |
+| Red on the old code | the layout's clipping gate was **broken on purpose and watched to fail**: sizing the `viewBox` from the node positions alone turns two examples red with `y 111 outside the viewBox for M 710 58 C 710 111 290 111 290 58`. Every example in `spec/controllers/project_workflows_graph_spec.rb` is red before the route exists. Two of the three empty-workflow regressions are red against the commit before them, and the third is documented as passing either way rather than claimed as a third. The CI repair's old pattern was re-installed on the MariaDB host and reproduced CI's message exactly |
+| Migrations up → 0 → up | **clean on 5.1 and 7.0**, run BEFORE the suite touched either: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`; after the re-migrate, both back. Nothing in WP9 touches a migration |
+| RuboCop | **114 files, no offences**, through `.github/lint/Gemfile`, and **no** `.rubocop.yml` or `.rubocop_todo.yml` change. `Metrics/ClassLength` was crossed once, at 356/200, and answered by extracting `WorkflowGraphRanking` and `WorkflowGraphText` — the seventh time this repository has taken that signal, and again a genuine improvement rather than placation |
 | JavaScript gate | **34 checks pass** (`node dev/check-bulk-js.mjs`) |
-| Locale files | **untouched.** F01's option A was chosen partly so that they would be |
-| Version gate | `init.rb` 0.1.5 = the newest `CHANGELOG.md` heading, which now covers both rounds |
-| MySQL, MariaDB | **not run locally** — no server in this container. CI covers six of the nine cells |
-| CI | run **115** on `efc799d`, this session's head: **green on all eleven jobs** — nine matrix cells, RuboCop, the bulk-action JavaScript gate. Run **111** was green on the F01 commit; runs 112, 113 and 114 read `cancelled`, which is the concurrency group superseding them rather than a failure. Run 109 was the green on `9ce1921`, the commit this review examined |
+| Locale files | **all eight**, fifteen new keys each, parity green. `en` and `nl` by hand; `de`, `es`, `fr`, `it`, `pl` and `pt` translated |
+| Version gate | `init.rb` 0.1.6 = the newest `CHANGELOG.md` heading |
+| INV-9 | **untouched** — still fifteen overrides in twelve files. WP9 adds no Deface anchor; everything is in the plugin's own views |
+| CI | runs **118** and **119** were **red on six of nine cells** (every MySQL and MariaDB cell) on the PostgreSQL-only spec pattern, which is what this session's last commit repairs. **Run 121 was still in flight when this file was written** — read it |
 
 ## Exact next step
 
-1. **Read CI for the head.** Nothing in this session is adapter-sensitive — no
-   migration changed, no SQL changed, the only shipped-code changes are two
-   guards, one struct method and one variable — but the rule is to read it
-   rather than to reason about it.
-2. **Then it is Jan's turn.** Every finding in every findings file is closed or
-   decided. The readable account for a user is `CHANGELOG.md`'s 0.1.5 entry,
-   which now covers both rounds; the readable account for a maintainer is the two
-   findings files.
-3. **One choice is waiting** and it is not blocking: F01's wording (below).
-4. **If a next session is asked to keep going anyway**: a fresh review run is the
-   only honest option, and it would be the third on the same code. Do **not**
-   invent a WP9, and do **not** re-open the previous run's "Checked and not
-   filed" table — 24 claims, thirteen rejected or already decided, four of them
-   by Jan on 2026-08-27 with an explicit instruction not to re-open them.
+1. **Read CI for the head, `7bc8934`, and act on it.** This is not a formality
+   this time: two runs this session were red, on cells no PostgreSQL host can
+   see, and the repair has been verified locally on MariaDB but not yet by CI.
+   Runs 118 and 119 are the red ones; 120 and 121 were queued behind the fix and
+   their results are the ones that matter.
+2. **Then it is Jan's turn.** WP0..WP9 are done, every findings file is closed,
+   and the readable account for a user is `CHANGELOG.md`'s 0.1.6 entry and the
+   README's *The workflow as a diagram* section.
+3. **If more work is wanted rather than needed**, a **review run** against the
+   current head is the honest option, and this time it has something new to
+   review: WP9 is about 1,400 lines of new code and specs that no reviewer has
+   seen. That is a better use of a review than a third pass over the same
+   pre-WP9 code.
 
 ## Open choices
 
-**One**, filed 2026-08-27 by this session. Full options in `docs/DECISIONS.md`
-under *Open — for Jan*; the short form:
+**One**, filed 2026-08-27 and unchanged:
 
 - **F01 — what should the refused-values count count?** **A)** the values in the
   request, whatever the selection was resolved into — **implemented**, one line
   in `MatrixSaveResult#+`, and no locale file changes. **B)** keep the total and
   reword the sentence to name refusals across the selection — nothing changes in
-  code, and it needs a new phrasing in **eight** locale files, six of which would
-  be unreviewed translation presented as translation; it also asks the operator
-  to care how many populations a selection resolved into. **Recommendation: A**,
-  which is in place. **Not urgent** — reachable only through a hand-built request
-  or an API client either way.
+  code, and it needs a new phrasing in **eight** locale files. **Recommendation:
+  A**, which is in place. **Not urgent.**
 
 And still standing from before, because a later session must not undo them:
 
 - **G02 — a bulk tracker change spanning many projects asks twice per project.**
   **Answered by Jan on 2026-08-27: `A for now, B if it becomes an issue later`.**
-  Left as it is; when it is ever felt, the fix is **B** (resolve the whole
-  `edited_issues` set in one call, which means patching `IssuesController`), and
-  **not** the half measure C. Status `wont-fix for now`.
+  Left as it is; when it is ever felt, the fix is **B**, and **not** the half
+  measure C. Status `wont-fix for now`.
 - **F21 — no event log for scope changes. Answered `A` by Jan on 2026-08-27.**
   `created_by` and `updated_by` are the whole audit story. **A later session must
   not add an event-log table on the grounds that the audit trail is thin: it is
-  thin on purpose.** F19's per-write log line is an *operational* record, not an
-  audit trail.
+  thin on purpose.**
+- **The three WP9 answers of 2026-08-28** are now built rather than pending: the
+  drawing lives on the project screen (A), behind `view_project_workflow` (A),
+  with a selector over every role the project screen lists (B).
 
 ## Development environment (rebuild from scratch in a fresh session)
 
@@ -206,12 +161,26 @@ pg_ctlcluster 16 main start
 su postgres -c "psql -c \"CREATE ROLE redmine LOGIN CREATEDB PASSWORD 'redmine';\""
 
 # a Redmine host with the plugin in it (about two minutes each; run them in the
-# background in parallel). Two are enough for ordinary work; build the third
-# when a change touches a method in F03's digest table, which is measured per
-# Redmine minor.
+# background in parallel). Two are enough for ordinary work.
 dev/setup.sh 5.1-stable postgresql 3.2.6
 dev/setup.sh 7.0-stable postgresql 3.3.6
 dev/setup.sh 6.1-stable postgresql 3.3.6
+
+# A MySQL-family cell, which this session used and which is worth the four
+# minutes whenever a spec touches SQL text -- six of the nine CI cells are
+# MySQL or MariaDB and no PostgreSQL host can see what they see.
+apt-get install -y mariadb-server libmariadb-dev
+mkdir -p /run/mysqld && chown mysql:mysql /run/mysqld
+nohup mariadbd --user=mysql --datadir=/var/lib/mysql \
+  --socket=/run/mysqld/mysqld.sock > /tmp/mariadbd.log 2>&1 &
+sleep 8 && mariadb --socket=/run/mysqld/mysqld.sock -e "SELECT VERSION()"
+mariadb --socket=/run/mysqld/mysqld.sock -e "
+  CREATE USER IF NOT EXISTS 'redmine'@'%' IDENTIFIED BY 'redmine';
+  CREATE USER IF NOT EXISTS 'redmine'@'localhost' IDENTIFIED BY 'redmine';
+  GRANT ALL ON *.* TO 'redmine'@'%'; GRANT ALL ON *.* TO 'redmine'@'localhost';
+  FLUSH PRIVILEGES;"
+dev/setup.sh 7.0-stable mysql 3.3.6
+RUBY_VERSION=3.3.6 dev/run.sh .redmine/7.0-stable-mysql
 
 # the migration gates, BEFORE the suite, per host. RAILS_ENV=test has to be in
 # the same invocation. If the suite has already run on that host, the database
@@ -232,17 +201,13 @@ RUBY_VERSION=3.2.6 dev/run.sh .redmine/5.1-stable-postgresql
 dev/sync.sh .redmine/7.0-stable-postgresql
 (cd .redmine/7.0-stable-postgresql && RAILS_ENV=test RBENV_VERSION=3.3.6 \
   PATH="/opt/rbenv/shims:$PATH" bundle exec rspec \
-  plugins/redmine_project_workflows/spec/services/matrix_save_result_spec.rb)
+  plugins/redmine_project_workflows/spec/services/workflow_graph_layout_spec.rb)
 
-# what a guard or a service actually does to a value, without Rails in the way:
-# plain ruby against a reproduction of the method is how F02 was established
-/opt/rbenv/versions/3.3.6/bin/ruby -e '...'
-
-# regenerate F03's digest table for one host (do this ONLY after deciding the
-# plugin's copy must follow core's change -- never before)
+# what a layout actually produces, without a browser: a rails runner building a
+# WorkflowGraphQuery::Result by hand and printing the coordinates and the paths
+# is how WP9's drawing was checked to be tidy rather than merely green.
 (cd .redmine/7.0-stable-postgresql && RAILS_ENV=test RBENV_VERSION=3.3.6 \
-  PATH="/opt/rbenv/shims:$PATH" bundle exec rails runner \
-  'RedmineProjectWorkflows::Services::CoreMethodDigest.digests.sort.each { |k, v| puts "  %s: %p" % [k.inspect, v] }')
+  PATH="/opt/rbenv/shims:$PATH" bundle exec rails runner '...')
 
 # the JavaScript gate (also a CI job)
 node dev/check-bulk-js.mjs
@@ -262,39 +227,61 @@ prerequisites and the MySQL variant.
 Everything below cost time at least once. The first group is new this session;
 the rest is carried forward.
 
-- **`respond_to?` is the wrong question to ask a value whose type is the
-  problem.** `Array` responds to `to_h` and raises when you call it. A guard
-  written as a capability check reads as careful and is not: ask `is_a?(Hash)`.
-  The same shape has now produced three findings in three runs — a check that
+- **A regexp that spells a quote character is a PostgreSQL-only assertion.**
+  PostgreSQL writes `FROM "workflows"`; MySQL and MariaDB write
+  `` FROM `workflows` ``. A pattern with `"?` in it matched nothing on six of the
+  nine CI cells, and this session shipped it twice before CI said so. Write
+  `["`]?` or match the bare name. **The lucky half of it:** the assertion was
+  `not_to be_empty`, so an empty list *failed*; the identical mistake under
+  `to all(...)` goes **green** over an empty list and proves nothing at all for
+  as long as it stands. Grep the specs for that shape before trusting one.
+- **"Green on two PostgreSQL hosts" is two of nine, and the other seven include
+  every MySQL cell.** Installing MariaDB in this container takes about four
+  minutes end to end and the recipe is above. Do it whenever a change touches
+  SQL *text* — a spec that reads a statement, a hand-written fragment, an
+  assertion about a query plan.
+- **`empty?` on a derived collection is rarely the question you mean.** The graph
+  screen keyed "this project has its own empty workflow" on `edges.empty?`, which
+  is equally true of a project inheriting a generic workflow nobody filled in.
+  Whenever a sentence explains *why* a collection is empty, key it on the thing
+  that decides the why — here the scope table (INV-3) — never on the emptiness.
+  This is the fourth finding in four runs whose whole content is a check that
   asks something adjacent to what it needs to know.
-- **A sub-item's answer should open with the sub-item's subject.** F10's
-  declination of its own last sub-item is written down in full, and a careful
-  reviewer still filed a finding saying it was missing — because it is the sixth
-  paragraph of seven and opens with "The one thing I did not do". Findable by
-  reading to the end is not findable by grep. (And before believing such a
-  finding: `git show <reviewed-commit>:<file>`, because the fixer's memory of his
-  own previous session is the least trustworthy source in the room.)
-- **A count that is summed across populations has to be a count *of* something
-  per population.** `written` and `skipped` count combinations and add;
-  `rejected` counts submitted values and must not. Whenever a struct is combined
-  with `sum`, ask that question of every member — the multiplication is invisible
-  in a diff and a spec had encoded it as though it were the requirement.
-- **A spec comment that explains a number is where a wrong number hides.** The
-  assertion that locked F01 in came with a comment deriving the multiplied count
-  from the selection — so the suite documented the defect as the specification,
-  and reading the comment was more misleading than reading the assertion alone.
-- **A `cd` into a host checkout turns the next `git push` into a push at
-  *Redmine*.** The working directory persists between tool calls, and a
-  `git add -A && git commit && git push` typed after one committed a copy of the
-  plugin into `.redmine/6.1-stable-postgresql` and then tried to push it to
-  `github.com/redmine/redmine`, which refused it — the only reason nothing was
-  lost. This trap was already in the list twice, in its milder forms; this is
-  what it looks like at full strength. Prefix every command that writes anything
-  with `cd /home/user/redmine_project_workflows &&`, or use `git -C <path>`.
-- **`Symbol#to_i` does not exist.** A payload whose keys are Symbols passes a
-  whitelist built on `.to_s` and then dies in code built on `.to_i`. If two
-  methods normalise a key differently, one of them is a 500 waiting for a caller
-  that is not a web request.
+- **404 is for "you named something that is not on offer", not for "there is
+  nothing to offer".** A project nobody is a member of has no role to draw a
+  workflow for, and answering 404 calls that a missing page. Render, and say what
+  the state is — and note that the only reader who can *reach* such a project is
+  an administrator, because emptying the membership takes away the permission a
+  member would have read it with. A spec for that case has to log in as admin.
+- **A `<title>` inside an `<svg>` is not the only `<path>` on a Redmine page.**
+  An assertion that "the drawing has no arrow" written as
+  `expect(response.body).not_to include('<path d="M ')` fails on core's own icon
+  sprite, and then on the plugin's own arrowhead `<marker>`, which lives in
+  `<defs>` whether anything uses it or not. Scope to the plugin's `<svg>`, and
+  then to what makes a path an *arrow*: its `marker-end`.
+- **SVG neither wraps nor measures text**, so anything drawn as `<text>` whose
+  width the layout cannot know can run outside the `viewBox` and be clipped with
+  no error anywhere. That is why WP9's band of unreachable statuses is separated
+  by a dotted rule inside the drawing and captioned in HTML *below* it.
+- **A `viewBox` built from node positions clips every curve that bows outside
+  them**, silently. Measure the extent over the boxes **and** every point of every
+  path; a cubic Bezier lies inside the hull of its four points, so control points
+  are a sound bound. The gate for this was broken on purpose and watched to fail.
+- **Dummy nodes are for the ordering pass *and* the routing pass.** Inserting a
+  dummy in each layer a long edge crosses makes the ordering keep room for it —
+  and then drawing that edge as one curve from end to end throws the room away
+  and the curve passes through the box of the node in between. Route through the
+  dummies.
+- **Interpolating a number as `count:` in an I18n key turns it into a
+  pluralisation.** `I18n.t(:some_key, count: 3)` makes I18n look for `one`/`other`
+  subkeys under that key, and a plain string then answers "translation missing"
+  in every language. Name the variable anything else.
+- **The working directory persisted into a host checkout and stayed there for
+  four tool calls**, so a `grep` of `.rubocop.yml` read *Redmine's* config —
+  which has `Metrics: Enabled: false` and no `.github/lint/` at all — and very
+  nearly produced a session that believed the size cops were off. The list has
+  warned about this trap in three forms already; this is the fourth. `pwd` is
+  cheap. Prefix every command with `cd /home/user/redmine_project_workflows &&`.
 
 Everything from here down is carried forward from earlier sessions.
 
@@ -872,21 +859,18 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-There is no WP9 and the plan is finished, so "carry on" means the review loop —
-and the loop is **empty of work** again. In order:
+WP0..WP9 are done and the plan is finished, so "carry on" means, in order:
 
-1. **Read CI for the head** and act on it if it is red. Nothing this session
-   touched is adapter-sensitive, but reading beats reasoning.
-2. **Nothing else is waiting.** Twenty-four findings across the two 2026-08-27
-   files are closed, decided, or `invalid`, each with a `Resolution:` line. One
-   choice is with Jan (F01's wording) and its default is implemented.
-3. **If more work is wanted rather than needed**, a fresh **review run** against
-   the current head is the only honest option — and it would be the third review
-   of the same code, so expect its yield to be low and its false-positive rate to
-   be higher: this run filed four findings and one of the four was wrong about a
-   file it had read. A reviewer should check a "this was not answered" claim
-   against the reviewed commit before filing it.
+1. **Read CI for the head `7bc8934` and act on it if it is red.** Two runs this
+   session were red on the six MySQL and MariaDB cells; the repair is verified on
+   a local MariaDB but CI is the authority.
+2. **Nothing else is waiting.** Every finding in every findings file is closed or
+   decided. One choice is with Jan (F01's wording) and its default is
+   implemented.
+3. **If more work is wanted rather than needed**, a **review run** against the
+   current head — and unlike the last two, it has something genuinely new to
+   look at: WP9 is about 1,400 lines nobody has reviewed.
 
-Do not invent a work package, and do not re-open the previous run's "Checked and
-not filed" table: 24 claims, thirteen rejected or already decided, four of them
-by Jan on 2026-08-27 with an explicit instruction not to re-open them.
+Do not invent a work package on top of WP9, and do not re-open the 2026-08-27
+run's "Checked and not filed" table: 24 claims, thirteen rejected or already
+decided, four of them by Jan with an explicit instruction not to re-open them.
