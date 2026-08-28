@@ -121,6 +121,32 @@ The workflow as a drawing.
 
 ### Fixed
 
+- **The workflow administration screens no longer break when a neighbouring
+  plugin customises the same helper.** The plugin's cell helpers were added to
+  Redmine's `WorkflowsHelper` with a `prepend`. Many Redmine plugins still take
+  a core helper over with the older `alias_method` idiom, and one loading after
+  this plugin — plugins load alphabetically — would copy *this plugin's* method
+  into its own alias, leaving the copy with nothing to call. **Administration →
+  Workflow** then raised an error for both plugins. The helpers are now attached
+  to the two controllers that render those screens instead, which is what the
+  project settings tab has done since 0.1.0 for exactly this reason. No
+  neighbour on a 45-plugin test installation triggered it, so nobody had seen it
+  yet.
+
+- **Installing the plugin on a SQLite installation no longer fails half-way.**
+  Three statements built a timestamp with the SQL `TIMESTAMP '…'` keyword, which
+  PostgreSQL, MySQL and MariaDB accept and SQLite does not. On SQLite the fourth
+  migration stopped with `no such column: TIMESTAMP` **after** the first three
+  had already been applied, leaving the installation with a half-changed
+  `workflows` table and an error on every issue page. Redmine ships SQLite
+  support, so this now works there too; the whole test suite passes on it.
+
+- **A workflow diagram asked for one role that exists and one that does not now
+  says so.** It drew the one it recognised, under a heading naming both — so a
+  bookmark made before a role was deleted looked as though it still worked. It
+  answers *404 Not Found*, which is what the screen already did when *every*
+  role in the request was unknown.
+
 - **On Redmine 5.1, the workflow summary page marks an empty combination the way
   Redmine 5.1 does again.** The plugin decided whether the host draws its icons
   as SVG sprites — Redmine 6.0 and later — by asking whether a `sprite_icon`
@@ -148,6 +174,18 @@ The workflow as a drawing.
 
 ### Internal
 
+- The two rule writers reject a payload that is not a matrix instead of raising
+  on it. Not reachable from either screen — both controllers convert first — but
+  the plugin now owns Redmine's own `replace_transitions` and
+  `replace_permissions`, so a neighbouring plugin, a rake task or a console can
+  reach them.
+- `CoreMethodDigest`, which watches for changes in the Redmine methods this
+  plugin reimplements, understands both ways a patch can be attached. Without
+  that, three of the nineteen methods it watches would have dropped out of the
+  gate silently when the helper patch stopped being a `prepend`.
+- The workflow diagram's role selection moved into
+  `RedmineProjectWorkflows::GraphSelection`, the third extraction from
+  `ProjectWorkflowsController` for the same reason as the first two.
 - The two hottest queries in the plugin — which statuses an issue may move to,
   and which fields it may change — built their database query in two halves and
   gave each half its project before running it. Every half was given one, so no

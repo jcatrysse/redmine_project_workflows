@@ -38,6 +38,50 @@ describe RedmineProjectWorkflows::Services::TransitionWriter do
   # they passed the whitelist (`:"1".to_s` is `"1"`) and then reached
   # `submitted_pairs`, where `Symbol#to_i` does not exist -- a 500 from a payload
   # the whitelist had accepted.
+
+  # Finding F04 of 2026-08-28-claude-audit. `MatrixParams#to_plain_hash` and
+  # `WorkflowsControllerPatch#to_plain_hash` were both corrected to ask what a
+  # payload **is** rather than what it answers to, because `Array` answers
+  # `respond_to?(:to_h)` yes and then raises `TypeError`. These two writers were
+  # the copies that did not move.
+  #
+  # Not reachable from either screen -- both controllers convert first -- but
+  # INV-1 routes core's own `replace_transitions` through here, so a neighbouring
+  # plugin, a rake task or a console reaches it. A validator that raises has not
+  # rejected.
+  describe 'a payload that is not a matrix at all' do
+    # Red on the old code: TypeError, "wrong element type String at 0
+    # (expected array)".
+    it 'rejects an array rather than raising' do
+      result = nil
+      expect { result = described_class.replace_transitions(project, [tracker], [role], ['x']) }.not_to raise_error
+      expect(result.written).to eq(0)
+      expect(result.skipped).to eq(0)
+      expect(result.rejected).to eq(0)
+    end
+
+    # Red on the old code in a different way: a String answered `respond_to?(:to_h)`
+    # false and fell through untouched, so the whitelist raised NoMethodError on
+    # it one method later.
+    it 'rejects a string rather than raising' do
+      result = nil
+      expect { result = described_class.replace_transitions(project, [tracker], [role], 'x') }.not_to raise_error
+      expect(result.written).to eq(0)
+    end
+
+    it 'rejects a scalar rather than raising' do
+      result = nil
+      expect { result = described_class.replace_transitions(project, [tracker], [role], 7) }.not_to raise_error
+      expect(result.written).to eq(0)
+    end
+
+    it 'writes nothing for any of them' do
+      described_class.replace_transitions(project, [tracker], [role], ['x'])
+      described_class.replace_transitions(project, [tracker], [role], 'x')
+      expect(WorkflowTransition.count).to eq(0)
+    end
+  end
+
   describe 'a payload whose keys are not strings' do
     def rows_for(project_id = project.id)
       WorkflowTransition.where(project_id: project_id)

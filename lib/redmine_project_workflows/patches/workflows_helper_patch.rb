@@ -2,11 +2,60 @@
 
 module RedmineProjectWorkflows
   module Patches
+    # The workflow matrices' cell helpers, and the project selector above them.
+    #
+    # Attached to the **controllers'** helper chains, never to `WorkflowsHelper`
+    # itself. This is the same rule `ProjectsHelperPatch` follows and the same
+    # measurement stands behind it; see {apply!}.
     module WorkflowsHelperPatch
       include RedmineProjectWorkflows::VersionHelper
       include RedmineProjectWorkflows::BulkActionsHelper
 
       GlobalWorkflowProject = Struct.new(:id, :name)
+
+      class << self
+        # `WorkflowsHelper.prepend(self)` is the construct `CLAUDE.md`'s
+        # forbidden-constructs table bans, and this module was the copy that
+        # had not moved (finding F01 of 2026-08-28-claude-audit).
+        #
+        # Plugins load alphabetically and many still take a core helper over
+        # with a 2013-era alias chain -- `alias_method :x_without_y, :x`, then
+        # `alias_method :x, :x_with_y`. `alias_method` resolves the name through
+        # `WorkflowsHelper.ancestors`, which with a prepend in place *starts* at
+        # the prepended module: the neighbour copies **our** method into its
+        # `_without_` alias, and that copy's `super` looks above `WorkflowsHelper`,
+        # where core's own method is not. `#options_for_workflow_select` calls
+        # `super`, so the administration workflow screens become
+        # `NoMethodError` for both plugins, in either load order. Reproduced on a
+        # running Redmine 5.1:
+        #
+        #   call FAILED: NoMethodError: super: no superclass method
+        #                `options_for_workflow_select'
+        #
+        # The sibling shape is quieter and just as wrong: `#transition_tag` and
+        # `#field_permission_tag` replace core outright, so a neighbour that
+        # alias-chains *those* has its redefinition land on `WorkflowsHelper`
+        # itself -- below the prepended module -- and never runs at all.
+        #
+        # `controller.helper` avoids both by construction: the module lands in
+        # the controller's own `_helpers`, above `WorkflowsHelper` but not inside
+        # it, so no alias chain can copy it and `super` always reaches whatever
+        # `WorkflowsHelper` holds -- core's method, or a neighbour's aliased
+        # version.
+        #
+        # **Two controllers, because two render these views.** `WorkflowsController`
+        # owns the administration screens; `ProjectWorkflowsController` renders
+        # core's own `workflows/_form` partial for the project matrices, and the
+        # bulk row and column actions are injected into that partial. Naming one
+        # would leave the other's cells unrendered.
+        #
+        # Including a module twice is a no-op, so a code reload is harmless.
+        def apply!
+          WorkflowsController.helper(self)
+          ProjectWorkflowsController.helper(self)
+          self
+        end
+      end
 
       def options_for_workflow_select(name, objects, selected, options = {})
         objects = normalize_workflow_objects(name, objects)

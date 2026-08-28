@@ -88,11 +88,13 @@ module RedmineProjectWorkflows
         # and MariaDB -- six of the nine supported cells -- the server returned
         # its own local time and Rails read it back as if it were UTC.
         #
-        # connection.quoted_date is the existing tool, and TIMESTAMP '...' is the
-        # standard type-keyword form, accepted by all three. The bare literal
-        # measured fine on PostgreSQL, but only the explicit form makes the intent
-        # readable.
-        now = "TIMESTAMP #{connection.quote(connection.quoted_date(Time.now.utc))}"
+        # connection.quoted_date is the existing tool, and the literal is written
+        # plain rather than as the standard `TIMESTAMP '...'` type keyword: that
+        # form is accepted by the three supported adapters and **not** by SQLite,
+        # which Redmine itself ships support for, and where it fails with
+        # `no such column: TIMESTAMP` (finding F02 of 2026-08-28-claude-audit).
+        # The bare literal is coerced to the target timestamp column on all four.
+        now = connection.quote(connection.quoted_date(Time.now.utc))
 
         "INSERT INTO #{table} " \
           '(project_id, tracker_id, role_id, rule_type, ' \

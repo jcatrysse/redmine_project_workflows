@@ -26,8 +26,8 @@
 | WP8 | Status help and the transition map on the issue form | done |
 | WP9 | The workflow as a drawing, per role | **done** |
 | — | *WP0..WP9 delivered the plugin. WP10..WP16 are the hardening track that makes it releasable.* | |
-| WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **in progress** — the collision and the version probe are done; the convention spec and the four defects are not |
-| WP11 | Compatibility as an object (ADR-002) | planned |
+| WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **done** |
+| WP11 | Compatibility as an object (ADR-002) | **next** |
 | WP12 | Owned administration screens (ADR-003) | planned |
 | WP13 | One write-coordination service, and bounded bulk writes | planned |
 | WP14 | The remaining defect backlog | planned |
@@ -720,6 +720,21 @@ worth nothing until that is true again.
 marker on 5.1 with the RedmineUP shims present, the suite is green on SQLite as
 well as on the nine cells, and `spec/plugin_conventions_spec.rb` fails if a new
 unprefixed global is registered.
+
+**Done**, in two commits. `580a8d3` answered the whole-stack run: both
+permissions renamed with a migration that refuses to guess where a neighbour may
+own the legacy grant, the version probe replaced by
+`Redmine::VERSION::MAJOR`, and the permission-ownership convention example added.
+The four defects of `2026-08-28-claude-audit` followed: `WorkflowsHelperPatch`
+onto the two controllers' helper chains, the three `TIMESTAMP '...'` literals
+made portable, `is_a?(Hash)` in both writers, and a graph request naming one
+offered role and one that names nothing answering 404. Two things came out of it
+that were not in the plan: `CoreMethodDigest` had to learn both attachment
+styles, or three digests would have vanished from the gate the moment the patch
+stopped being a prepend; and the graph selection moved into
+`RedmineProjectWorkflows::GraphSelection`, because the addition took
+Metrics/ClassLength past its limit and this repository extracts rather than
+raises it.
 
 ### Progress, 2026-08-28
 

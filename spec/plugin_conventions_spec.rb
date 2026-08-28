@@ -28,7 +28,6 @@ describe RedmineProjectWorkflows do
   it 'is patched into the host that booted this suite' do
     expect(Issue.ancestors).to include(RedmineProjectWorkflows::Patches::IssuePatch)
     expect(WorkflowsController.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowsControllerPatch)
-    expect(WorkflowsHelper.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
     expect(Project.ancestors).to include(RedmineProjectWorkflows::Patches::ProjectPatch)
     expect(WorkflowTransition.singleton_class.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowTransitionPatch)
     expect(WorkflowPermission.singleton_class.ancestors).to include(RedmineProjectWorkflows::Patches::WorkflowPermissionPatch)
@@ -41,6 +40,18 @@ describe RedmineProjectWorkflows do
       .to include(RedmineProjectWorkflows::Patches::ProjectsHelperPatch)
     expect(ProjectsHelper.ancestors)
       .not_to include(RedmineProjectWorkflows::Patches::ProjectsHelperPatch)
+    # And the second of the two, for the same reason and since the same finding
+    # (F01 of 2026-08-28-claude-audit). Two controllers carry it, because two
+    # render the matrices: WorkflowsController owns the administration screens
+    # and ProjectWorkflowsController renders core's `workflows/_form` for the
+    # project ones. spec/controllers/workflows_helper_attachment_spec.rb is
+    # where the alias-chain examples live.
+    [WorkflowsController, ProjectWorkflowsController].each do |controller|
+      expect(controller._helpers.ancestors)
+        .to include(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
+    end
+    expect(WorkflowsHelper.ancestors)
+      .not_to include(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
   end
 
   # A prepended patch that reimplements a core method inherits none of core's
@@ -195,6 +206,32 @@ describe RedmineProjectWorkflows do
   # skipping form of the statement -- a scope somebody else had just created
   # was dropped without a word and reported as created anyway. A grep is the
   # cheapest thing that keeps it from coming back.
+  # Finding F02 of 2026-08-28-claude-audit. Three raw-SQL sites built their
+  # timestamp as the standard `TIMESTAMP '<literal>'` type-keyword form, which
+  # says what it means in a dialect SQLite does not have: there the statement
+  # fails with `no such column: TIMESTAMP`, migration 004 aborts with 001..003
+  # already committed, and the installation is left carrying
+  # `workflows.project_id` with no scope table under it -- a 500 on every issue
+  # page. Redmine ships SQLite support in its own Gemfile and
+  # `config/database.yml.example`.
+  #
+  # A grep rather than a portability test, because the honest portability test is
+  # running the suite on the adapter, and this suite runs inside whichever host
+  # built it. What can be checked in every cell is that nobody reintroduces the
+  # construct. Red on the old code in all nine.
+  it 'builds no SQL literal with a type keyword the supported adapters do not share' do
+    root = File.expand_path('..', __dir__)
+    offenders = Dir.glob("#{root}/{app,lib,db}/**/*.rb").select do |file|
+      File.read(file).lines.any? do |line|
+        next false if line.strip.start_with?('#')
+
+        line.match?(/\bTIMESTAMP\s+(?:'|\#\{)/i)
+      end
+    end
+
+    expect(offenders.map { |file| file.sub("#{root}/", '') }).to be_empty
+  end
+
   it 'writes with insert_all only in the two rule writers' do
     root = File.expand_path('..', __dir__)
     callers = Dir.glob("#{root}/{app,lib,db}/**/*.rb").select do |file|

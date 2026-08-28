@@ -2,6 +2,17 @@
 
 require_relative '../spec_helper'
 
+# The plugin's own cell helpers, which live in
+# `Patches::WorkflowsHelperPatch` and are attached to the helper chains of
+# `WorkflowsController` and `ProjectWorkflowsController` -- never to
+# `WorkflowsHelper` itself, for the reason that patch's `apply!` gives at length
+# (finding F01 of 2026-08-28-claude-audit).
+#
+# A helper spec has no controller, so the layering is reproduced on the helper
+# object: the patch ahead of `WorkflowsHelper`, which is exactly the position
+# `controller.helper` produces and what lets `#options_for_workflow_select`
+# reach core's method through `super`. Before that finding this file needed no
+# such line, because the patch was inside `WorkflowsHelper`.
 describe WorkflowsHelper, type: :helper do
   fixtures :projects, :roles, :trackers, :issue_statuses
 
@@ -14,6 +25,7 @@ describe WorkflowsHelper, type: :helper do
   let(:new_status) { issue_statuses(:issue_statuses_002) }
 
   before do
+    helper.singleton_class.prepend(RedmineProjectWorkflows::Patches::WorkflowsHelperPatch)
     helper.instance_variable_set(:@roles, [role])
     helper.instance_variable_set(:@trackers, [tracker])
     helper.instance_variable_set(:@projects_for_update, [project, other_project])

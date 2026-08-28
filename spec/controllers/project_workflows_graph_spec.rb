@@ -157,6 +157,35 @@ describe ProjectWorkflowsController, type: :controller do
       expect(response).to have_http_status(:not_found)
     end
 
+    # Finding F05 of 2026-08-28-claude-audit, found by the ChatGPT review Jan
+    # commissioned. The 404 above used to fire only on an *empty* selection, so
+    # a request naming one offered role and one that names nothing rendered the
+    # offered one -- under a heading claiming both. The comment on
+    # #find_tracker_and_roles had promised the opposite since WP9: "silently
+    # narrowing a selection to what happens to be allowed would draw one
+    # workflow under the heading of another."
+    it 'is 404 when one of several role ids names nothing' do
+      get :graph, params: graph_params(role_id: [role.id.to_s, '999999'])
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'is 404 when one of several role ids names a role the project does not offer' do
+      get :graph, params: graph_params(role_id: [role.id.to_s, unused_role.id.to_s])
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    # The other side of the same rule: an id repeated in a selection is one
+    # selection, not a missing record -- the same de-duplication the copy
+    # screen's #unresolved_target_ids applies.
+    it 'draws the role when the same id is named twice' do
+      get :graph, params: graph_params(role_id: [role.id.to_s, role.id.to_s])
+
+      expect(response).to have_http_status(:ok)
+      expect(assigns(:roles).map(&:id)).to eq([role.id])
+    end
+
     it 'says so rather than answering 404 when the project offers no role at all' do
       # Nobody is a member and no scope brought a role in. That is a project
       # nobody has joined, not a missing page -- and it is the same state the

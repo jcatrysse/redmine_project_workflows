@@ -72,8 +72,17 @@ class CreateProjectWorkflowScopes < ActiveRecord::Migration[6.1]
   # It also said PostgreSQL "does not cast a text literal to a timestamp inside a
   # SELECT list". Measured on PostgreSQL 16: a bare quoted literal in the SELECT
   # list of an INSERT ... SELECT is coerced to the target timestamp column with no
-  # cast at all. The standard `TIMESTAMP '...'` type-keyword form used below is
-  # accepted by all three and says what it means.
+  # cast at all, which is why the plain literal below is what is written.
+  #
+  # It used to be the standard `TIMESTAMP '...'` type-keyword form, on the
+  # argument that it "says what it means" -- true, and it says it in a dialect
+  # SQLite does not have. There the whole statement fails with
+  # `no such column: TIMESTAMP`, migrations 001..003 have already committed, and
+  # the installation is left carrying `workflows.project_id` with no scope table
+  # under it, which makes every issue page a 500. Redmine ships SQLite support in
+  # its own Gemfile and `config/database.yml.example`, and nothing here declares
+  # it unsupported (finding F02 of 2026-08-28-claude-audit). The plain literal is
+  # accepted by all four, and the whole suite passes on SQLite with it.
   #
   # Changing a shipped migration is a judgement call, and this is the reasoning:
   # an installation that has already run 004 keeps whatever it wrote, and this
@@ -85,7 +94,7 @@ class CreateProjectWorkflowScopes < ActiveRecord::Migration[6.1]
   # the live path and knowingly ships the defect.
   def backfill
     workflows = WorkflowRule.table_name
-    now = "TIMESTAMP #{connection.quote(connection.quoted_date(Time.now.utc))}"
+    now = connection.quote(connection.quoted_date(Time.now.utc))
 
     { 'WorkflowTransition' => 'transitions', 'WorkflowPermission' => 'permissions' }.each do |sti_type, rule_type|
       say_with_time "Backfilling #{rule_type} scopes" do

@@ -89,7 +89,7 @@ module RedmineProjectWorkflows
         table = ProjectWorkflowScope.table_name
         author = ProjectWorkflowScope.author_id_for(user)
         author_value = author ? connection.quote(author) : 'NULL'
-        now = "TIMESTAMP #{connection.quote(connection.quoted_date(Time.now.utc))}"
+        now = connection.quote(connection.quoted_date(Time.now.utc))
         target = ProjectWorkflowScope.where(project_id: target_project_id)
         before = target.count
 

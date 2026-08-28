@@ -74,7 +74,7 @@ about six real things rather than about whether the code means what it says.
 
 ### F01 — Prepending `WorkflowsHelper` breaks, and is broken by, a neighbour's alias chain — the plugin's own forbidden construct
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** major
 - **Confidence:** confirmed
 - **Category:** portability
@@ -137,13 +137,45 @@ finding entirely — `options_for_workflow_select` stops being overridden at all
 so the fixing session should decide whether to do the small move now as a stopgap
 or fold it into that work.
 
-**Resolution:**
+**Resolution:** fixed. `Patches::WorkflowsHelperPatch.apply!` puts the module
+into the helper chains of **both** controllers that render the matrices --
+`WorkflowsController` for the administration screens and
+`ProjectWorkflowsController`, which renders core's own `workflows/_form` for the
+project ones -- and `apply_patches` no longer prepends it to `WorkflowsHelper`.
+The reasoning is written into `apply!`, beside the one `ProjectsHelperPatch`
+already carries.
+
+Two consequences that were not obvious and are worth the next reader's time.
+`CoreMethodDigest` reached core's body through `super_method`, which answers nil
+once the patch is no longer in the owner's ancestors, so the three
+`WorkflowsHelper#*` digests would have silently vanished from the gate; it now
+asks which of the two attachment styles is in use and takes the method itself
+where the patch is not prepended. And `spec/helpers/workflows_helper_spec.rb`
+had no need to arrange anything, because the patch was *inside* the helper; it
+now prepends it to the helper object, which is the position `controller.helper`
+produces.
+
+Red on the old code, measured rather than reasoned -- and the first version of
+the spec was **wrong**: it copied `WorkflowsHelper`'s own definition by walking
+`super_method` down to it, which models a neighbour loading *before* this plugin,
+the safe order. With the prepend restored, exactly one of five examples failed.
+Rewritten to use a plain `alias_method`, which is what a neighbour loading after
+us does, the prepend gives:
+
+```
+ActionView::Template::Error:
+  super: no superclass method `options_for_workflow_select' for #<ActionView::Base>
+  .../patches/workflows_helper_patch.rb:64:in `options_for_workflow_select'
+```
+
+three of five red, including both behavioural examples. That near-miss is
+recorded in the spec's own comment.
 
 ---
 
 ### F02 — Three raw-SQL sites use `TIMESTAMP 'literal'`, which aborts installation half-way on SQLite
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** portability
@@ -193,7 +225,19 @@ gains a database, or decide SQLite is out of scope and refuse it in migration 00
 *before* any DDL runs, with a message that says so. What should not survive is a
 half-applied schema as the failure mode.
 
-**Resolution:**
+**Resolution:** fixed. All three sites build the literal plain --
+`connection.quote(connection.quoted_date(Time.now.utc))` -- and the comments that
+argued for the type-keyword form now say why it went. `spec/plugin_conventions_spec.rb`
+greps for the construct so it cannot come back; that example is red on the old
+code, naming `db/migrate/004_create_project_workflow_scopes.rb`.
+
+Evidence beyond the grep, on SQLite, which is the adapter the finding is about:
+migrations from an empty database run clean, `VERSION=0` leaves `leftover
+columns: []`, `plugin tables: []`, `plugin schema_migrations rows: []`, and up
+again is clean (INV-8). `dev/check-backfill.sh` passes, and it is the check that
+matters most here because it asserts the timestamps are **UTC** — the property
+the type-keyword form existed to make explicit, preserved by the plain literal.
+The whole suite then runs on SQLite: 890 examples, 0 failures.
 
 ---
 
@@ -260,7 +304,7 @@ apart — but the fixing session owns the design.
 
 ### F04 — The `respond_to?(:to_h)` defect fixed in both `to_plain_hash` methods still stands in both writers
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** correctness
@@ -303,13 +347,22 @@ Ask `is_a?(Hash)` in both and return `MatrixSaveResult.none` for anything else,
 mirroring the two methods that were already fixed. The four copies of one rule
 are themselves worth looking at.
 
-**Resolution:**
+**Resolution:** fixed. Both writers ask `is_a?(Hash)`, mirroring the two
+`to_plain_hash` methods that were corrected first, and a payload that is not a
+matrix returns `MatrixSaveResult.none` instead of raising. Eight new examples
+across the two writer specs cover an Array, a String and a scalar, and assert
+that nothing was written; all eight are red on the old code with
+`TypeError: wrong element type String at 0 (expected array)`.
+
+The String case failed differently and is worth naming: `String#sum` exists, so
+`leaf_count` answered with a byte checksum and the whitelist raised
+`NoMethodError` on `each_with_object` one method later.
 
 ---
 
 ### F05 — A graph request naming one valid and one invalid role renders the valid one, against its own stated contract
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** spec-conformance
@@ -349,7 +402,22 @@ is what the comment already promises. The same question applies to
 `ProjectWorkflowScopesController#resolve_ids`, which already takes that stricter
 shape — the two should agree.
 
-**Resolution:**
+**Resolution:** fixed. `#unresolved_role_ids` answers with the ids the
+request named that no offered role matched, de-duplicated the way the copy
+screen's `#unresolved_target_ids` already de-duplicates, and
+`#find_tracker_and_roles` answers 404 when it is not empty. The empty-result
+branch stays, because a project that offers no role at all is not a missing page.
+
+Three examples, two of them red on the old code: one valid id beside one that
+names nothing, and one valid id beside a role the project does not offer. The
+third pins the other side of the rule -- the same id twice is one selection, not
+a missing record -- and passes either way by design.
+
+The four methods moved into `RedmineProjectWorkflows::GraphSelection`, because
+the addition took `Metrics/ClassLength` to 204/200 and that controller's own
+comment says what to do about it: "crossing it is a signal to extract, not a cop
+to placate." Every method there is private, for the reason `MatrixParams` and
+`MatrixReporting` give.
 
 ---
 

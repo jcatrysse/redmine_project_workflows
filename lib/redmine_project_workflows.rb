@@ -66,7 +66,6 @@ module RedmineProjectWorkflows
     prepend_once(WorkflowTransition.singleton_class, Patches::WorkflowTransitionPatch)
     prepend_once(WorkflowPermission.singleton_class, Patches::WorkflowPermissionPatch)
     prepend_once(WorkflowRule.singleton_class, Patches::WorkflowRulePatch)
-    prepend_once(WorkflowsHelper, Patches::WorkflowsHelperPatch)
     prepend_once(Project, Patches::ProjectPatch)
     # Deliberately not a prepend on ProjectsHelper -- see the patch: a
     # neighbouring plugin's alias chain would copy the prepended method and lose
@@ -76,6 +75,10 @@ module RedmineProjectWorkflows
     # controller's helper chain, which Rails' include_all_helpers does not do
     # for a plugin's app/helpers. See the patch.
     Patches::IssuesControllerPatch.apply!
+    # Nor a prepend, and for the reason ProjectsHelperPatch gives above: a
+    # neighbour's alias chain on WorkflowsHelper would copy our
+    # options_for_workflow_select and lose its super. See the patch.
+    Patches::WorkflowsHelperPatch.apply!
     prepend_once(Role, Patches::RolePatch)
     prepend_once(Tracker, Patches::TrackerPatch)
   end

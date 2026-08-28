@@ -70,7 +70,7 @@ module RedmineProjectWorkflows
           next unless owner && patch
 
           shadowed_methods(patch).each do |method_name|
-            digest = digest_for(owner, method_name)
+            digest = digest_for(owner, patch, method_name)
             memo["#{owner_name}##{method_name}"] = digest if digest
           end
         end
@@ -87,15 +87,27 @@ module RedmineProjectWorkflows
       # Core's body for one shadowed method, normalised and hashed. nil when the
       # plugin only adds the method, when core's definition is not in a file this
       # process can read, or when the AST is unavailable.
-      def self.digest_for(owner, method_name)
-        source = core_source(owner, method_name)
+      def self.digest_for(owner, patch, method_name)
+        source = core_source(owner, patch, method_name)
         source && Digest::SHA256.hexdigest(normalize(source))
       end
 
       # The text of core's definition, from the host's own checkout.
-      def self.core_source(owner, method_name)
-        core = owner.instance_method(method_name).super_method
+      #
+      # **Two attachment styles, one question.** Where the patch is prepended,
+      # core's version is one step up the chain and `super_method` is how to
+      # reach it. Where it is attached to a controller's helper chain instead --
+      # `WorkflowsHelperPatch` since finding F01 of 2026-08-28-claude-audit, for
+      # the reason that patch's `apply!` gives at length -- the patch is *not* in
+      # the owner's ancestors at all, so `instance_method` already answers with
+      # core's own definition and `super_method` would answer nil. Asking which
+      # of the two it is keeps the gate on both, and keeps it from silently
+      # covering three fewer methods the day a patch changes how it attaches.
+      def self.core_source(owner, patch, method_name)
+        held = owner.instance_method(method_name)
+        core = owner.ancestors.include?(patch) ? held.super_method : held
         return nil unless core
+        return nil if core.owner == patch
 
         file, = core.source_location
         return nil unless file && File.readable?(file)

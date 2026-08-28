@@ -156,16 +156,26 @@ module RedmineProjectWorkflows
       end
       private_class_method :valid_status_ids
 
+      # A matrix is a Hash or it is nothing, and the question is what the value
+      # **is** rather than what it answers to.
+      #
+      # `respond_to?(:to_h)` was the question until finding F04 of
+      # 2026-08-28-claude-audit, and `Array` answers it yes and then raises:
+      # `['x'].to_h` is `TypeError: wrong element type String at 0`. So the
+      # method whose whole purpose is to turn a malformed matrix into a rejection
+      # raised inside itself, before any whitelist ran. `MatrixParams#to_plain_hash`
+      # and `WorkflowsControllerPatch#to_plain_hash` were both corrected for
+      # exactly this and carry the same reasoning; these two were the copies that
+      # did not move.
+      #
+      # Not reachable from either screen -- both controllers convert first -- but
+      # INV-1 routes core's own `replace_transitions` and `replace_permissions`
+      # through here, so a neighbouring plugin, a rake task or a console reaches
+      # it. A validator that raises has not rejected.
       def self.to_hash(transitions)
-        return {} if transitions.nil?
+        return transitions.to_unsafe_h if transitions.respond_to?(:to_unsafe_h)
 
-        if transitions.respond_to?(:to_unsafe_h)
-          transitions.to_unsafe_h
-        elsif transitions.respond_to?(:to_h)
-          transitions.to_h
-        else
-          transitions
-        end
+        transitions.is_a?(Hash) ? transitions : {}
       end
       private_class_method :to_hash
 

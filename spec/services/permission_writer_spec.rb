@@ -176,6 +176,50 @@ describe RedmineProjectWorkflows::Services::PermissionWriter do
   # to accept whatever the request contained, because insert_all runs no
   # validations and the plugin routes core's own generic write path through
   # this writer as well. INV-2: the whitelist is the validation.
+
+  # Finding F04 of 2026-08-28-claude-audit. `MatrixParams#to_plain_hash` and
+  # `WorkflowsControllerPatch#to_plain_hash` were both corrected to ask what a
+  # payload **is** rather than what it answers to, because `Array` answers
+  # `respond_to?(:to_h)` yes and then raises `TypeError`. These two writers were
+  # the copies that did not move.
+  #
+  # Not reachable from either screen -- both controllers convert first -- but
+  # INV-1 routes core's own `replace_permissions` through here, so a neighbouring
+  # plugin, a rake task or a console reaches it. A validator that raises has not
+  # rejected.
+  describe 'a payload that is not a matrix at all' do
+    # Red on the old code: TypeError, "wrong element type String at 0
+    # (expected array)".
+    it 'rejects an array rather than raising' do
+      result = nil
+      expect { result = described_class.replace_permissions(project, [tracker], [role], ['x']) }.not_to raise_error
+      expect(result.written).to eq(0)
+      expect(result.skipped).to eq(0)
+      expect(result.rejected).to eq(0)
+    end
+
+    # Red on the old code in a different way: a String answered `respond_to?(:to_h)`
+    # false and fell through untouched, so the whitelist raised NoMethodError on
+    # it one method later.
+    it 'rejects a string rather than raising' do
+      result = nil
+      expect { result = described_class.replace_permissions(project, [tracker], [role], 'x') }.not_to raise_error
+      expect(result.written).to eq(0)
+    end
+
+    it 'rejects a scalar rather than raising' do
+      result = nil
+      expect { result = described_class.replace_permissions(project, [tracker], [role], 7) }.not_to raise_error
+      expect(result.written).to eq(0)
+    end
+
+    it 'writes nothing for any of them' do
+      described_class.replace_permissions(project, [tracker], [role], ['x'])
+      described_class.replace_permissions(project, [tracker], [role], 'x')
+      expect(WorkflowPermission.count).to eq(0)
+    end
+  end
+
   describe 'server-side validation' do
     let(:custom_field) do
       IssueCustomField.create!(name: 'Workflow writer spec field', field_format: 'string')
