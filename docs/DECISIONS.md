@@ -176,6 +176,29 @@
 
 ## Open — for Jan
 
+- **Choice (WP12, 2026-08-28):** Redmine's own *Administration → Workflow* save
+  answers **HTTP 500** to a malformed matrix. `params[:transitions]` arriving as
+  anything but a nested hash — `?transitions[]=x`, or `transitions=x` — reaches
+  core's own `each_value` and raises `NoMethodError`. Measured on a 7.0 host, in
+  both actions and for both a String and an Array. This is stock Redmine on a
+  stock Redmine and nothing reaches the database (INV-2 holds), but until WP12
+  the plugin's patch guarded that screen, so it is a change relative to the last
+  release even though it is not a change relative to Redmine. No form produces
+  such a request; an administrator hand-building a POST does.
+  - **A — leave it.** ADR-003's decision is that Redmine's screens do exactly
+    what Redmine does, and this is what Redmine does. The plugin's own screens
+    still reject the same payload with a message, because that is a screen the
+    plugin owns. **Implemented, as the position ADR-003 already took.**
+  - **B — keep a two-line guard** in `WorkflowsControllerPatch` rejecting a
+    non-Hash payload before core's loop. Costs about six lines and re-opens the
+    principle: a defect of core's, fixed on core's controller, by this plugin,
+    on a screen this plugin is meant to have stopped editing. Every such line is
+    one an upgrade of Redmine can break.
+  - **Recommendation:** A. It is not a security or data question — nothing is
+    written either way — and the whole point of WP12 was to stop carrying core's
+    behaviour on core's screens. If Jan wants B it is six lines and one example.
+  - **Urgent?** no — we continued with A; it blocks nothing.
+
 - **Choice (finding F01, 2026-08-27-bundled-followup):** when a matrix save
   refuses some of the values it was sent, the screen says *"N submitted values
   were not accepted and the rules they name were left unchanged."* On the

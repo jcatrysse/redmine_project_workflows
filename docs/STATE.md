@@ -6,119 +6,152 @@
 
 ## Current position
 
-- **WP12 is half done, and the half that landed is the additive one.** The
-  plugin now has an administration area of its own —
-  **Administration → Project workflows**, at `/project_workflow_rules` — with
-  the summary, both matrices and the copy form on it. Everything about
-  *projects* is there. What has **not** happened yet is the subtraction: core's
-  own workflow screens still carry all eleven Deface overrides and the 468-line
-  `WorkflowsControllerPatch`, and both routes work. Steps 4-8 of the work
-  package are what take them away.
-- **Why it was split.** Steps 1-3 add; steps 4-8 remove. Adding first keeps the
-  branch green at every commit and keeps the old screens' 1,956-line spec
-  untouched and passing while the new area is built beside it. Landing both
-  halves at once would have meant a diff nobody can review with the old spec
-  deleted in the middle of it.
-- **Nothing a user can do has changed.** Both entry points work and behave the
-  same. The README now points at the plugin's screen and says so in a
-  parenthesis, and Redmine's own workflow screen carries a link across to it —
-  **step 5's cross-link, answered A by Jan and implemented ahead of the rest of
-  the second half**, because it is one override and it is useful now rather than
-  only after the removal.
+- **WP12 is done, both halves.** The plugin has an administration area of its
+  own — **Administration → Project workflows**, at `/project_workflow_rules` —
+  carrying the summary, both matrices and the copy form. **Redmine's own
+  Administration → Workflow screens are back to stock**: no project selector, no
+  hidden project fields, no scope panel, no project selectors on the copy form.
+  They carry one link across to the plugin's area and nothing else of the
+  plugin's markup.
+- **What that cost, measured rather than claimed.** Deface overrides: **15 in 12
+  files → 5 in 3**. `workflows_controller_patch.rb`: **468 lines → about 40 of
+  code**, four narrowed queries. Core helper prepends: 0. Those were the parts of
+  the plugin an upgrade of Redmine could break *silently*, which is why ADR-003
+  wanted them gone before anybody is running this.
+- **The diagnostics page now asks whether each of the five anchors is still
+  there**, on the Redmine an administrator is actually running. ADR-002's drift
+  check compares core method *bodies*; an override hangs on core's *markup*, and
+  nothing had ever compared that outside the nine CI cells.
+- **Nothing a user can do has changed**, with one deliberate exception and one
+  accepted consequence, both below.
 - **Nothing has been released.** 0.1.6, unreleased; `main` carries 0.0.3 and
   there is no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
-  `claude/docs-review-9hq366`, which already pointed at the remote head;
+  `claude/docs-review-soeob6`, which already pointed at the remote head;
   `git checkout -B claude/dev origin/claude/dev` was the whole rescue. The local
-  `claude/dev` was again the unrelated five-commit lineage — `git merge-base`
-  printed nothing — and resetting it discarded no work.
-- **`main`:** untouched.
+  `claude/dev` ref was again the unrelated five-commit lineage — always reset it
+  from `origin/claude/dev` rather than trusting the local ref.
 
 ## What this session produced
 
-One commit, `56f41fc`, and it is all of WP12 steps 1-3.
+Three commits, in this order, each green on all three hosts before the next.
 
-### The area itself
+### 1. `WP12 (2/2)` — core's screens back to stock
 
-`ProjectWorkflowRulesController` (`app/controllers/`), four views under
-`app/views/project_workflow_rules/`, seven routes under
-`/project_workflow_rules`, and an `admin_menu` entry — the second of the two
-ADR-003 accepts, beside WP11's diagnostics page. The two entries carry core's
-own pair of icon options (`icon:` for 6.0+, `html: { class: }` for 5.1) and no
-`plugin:` key; `workflows` and `summary` are both in core's sprite sheet on 6.1
-and 7.0 and both `.icon-` classes are in 5.1's stylesheet, checked rather than
-assumed.
+**What is left on `WorkflowsControllerPatch`:** `index`, `edit`, `permissions`
+and the private `find_statuses`, each with a `project_id: nil` predicate. That
+is the one thing core genuinely gets wrong once the `workflows` table has a
+project dimension: its queries carry no predicate, so they read a project's
+rules as the installation's (INV-4).
 
-The actions are core's, by name: `index`, `edit`, `update`, `permissions`,
-`update_permissions`, `copy`, `duplicate`. `workflows/_form` is rendered
-unchanged, as `ProjectWorkflowsController` has rendered it since WP4. The
-field-permissions table is copied instead, because core writes that one inline
-in its own view rather than in a partial.
+**Not `update` and `update_permissions`, which ADR-003's decision 3 and the
+implementation plan both named.** Their writes go through
+`WorkflowTransition.replace_transitions` and
+`WorkflowPermission.replace_permissions`, which the plugin's *singleton* patches
+already route to its writers with `project_id` fixed at `nil` (INV-1) — so
+core's own bodies already write generic rows and only generic rows. What both
+lists missed instead is `find_statuses`: the "only display statuses that are
+used by this tracker" checkbox runs a `workflows` query like any other. ADR-003
+carries a dated **Measured result** section saying so; it was not edited.
 
-`require_admin` is declared **before** the finders, where core has it after —
-which is the whole reason these screens are worth having. On core's controller
-`/workflows/edit` answers an anonymous visitor 404 for a project id that does
-not exist and a login redirect for one that does (finding G01), and the plugin
-could only work around it with a guard clause inside the finder, because a
-scoped `prepend_before_action` would *delete* core's unconditional
-registration. Here the order is simply right, and an example asserts the two
-answers are indistinguishable.
+**`WorkflowsHelperPatch` is deleted**, which dissolves finding F01 of the
+2026-08-28 audit rather than fixing it — nothing of the plugin's is mixed into
+`WorkflowsHelper` under any name, and an example asserts exactly that by
+scanning `WorkflowsHelper.ancestors` for anything named after the plugin.
 
-### What moved, and why none of it was just a rename
+**Its replacement is `Patches::WorkflowsControllerHelperPatch`**, shaped exactly
+like `IssuesControllerPatch`: a module under `Patches` whose `apply!` puts
+`ProjectWorkflowMatrixHelper` into `WorkflowsController`'s helper chain and
+carries no method of its own, with the fourth `ATTACHMENTS` element naming the
+helper to look for. **It is load-bearing, not tidiness:** core's own
+`workflows/_form` renders the row and column actions of WP5, which call
+`project_workflow_bulk_actions`, and Rails' `include_all_helpers` never reaches
+a plugin's `app/helpers`. Deleting the call turns core's workflow screen into
+eleven red examples. A bare `WorkflowsController.helper(...)` in `apply_patches`
+would have worked and been invisible to the diagnostics page, whose discovery
+guard asserts `ATTACHMENTS`'s rows are exactly `Patches.constants`.
 
-- **`WorkflowsHelperPatch` keeps `options_for_workflow_select` alone.** The four
-  matrix cells and labels are now `ProjectWorkflowMatrixHelper` under
-  `app/helpers/`, named with `helper` in each of the three controllers that
-  render a matrix. It stays out of `WorkflowsHelper` for the reason finding F01
-  gave: a neighbour's `alias_method` chain there copies a prepended method and
-  loses its `super`.
-- **`WorkflowsControllerProjectSelection` → `RedmineProjectWorkflows::WorkflowSelection`**
-  and **`WorkflowsControllerCopy` → `::CopyScopes`**, out of `Patches`. They are
-  the plugin's own controller code and are now shared with the plugin's own
-  controller; they only ever sat under `Patches` because the actions did.
-  `Diagnostics::ATTACHMENTS` lost their two `:included` rows, and the discovery
-  guard is over `Patches.constants`, so it followed by itself.
-- **`Metrics/ClassLength` crossed at 249/200**, which that file says is a real
-  signal rather than a cop to placate. Out came
-  `RedmineProjectWorkflows::AdminMatrix` (everything between "the operator
-  pressed Save" and the redirect) and `::CopySelection` (whether the copy
-  screen's six selectors named anything real).
+**INV-9: fifteen in twelve files → five in three.** Ten overrides in nine files
+deleted; the eleventh, on `workflows/_action_menu`, kept and narrowed to the
+cross-link alone and renamed to what it now is. The five are: the cross-link,
+the two row/column actions on `workflows/_form`, and the two on
+`issues/_attributes`.
 
-### Three defects the change surfaced, all fixed in the same commit
+**The document-count gate had to change shape.** While the counts were fifteen
+and twelve, `include('fifteen')` was a real assertion: no document says
+"fifteen" about anything else. Five and three are ordinary English words that
+appear in `CLAUDE.md` and `docs/design.md` for a dozen unrelated reasons, so the
+word alone would have gone on passing over *any* count. It matches the phrase
+now — `five view overrides` / `five deface overrides`, and `in three files` —
+verified by editing `CLAUDE.md` to a wrong count and watching it fail.
 
-- **A copy that leaves `Patches` would have left the drift gate with it.**
-  `CoreMethodDigest` discovers what it watches from the module holding it, so
-  `transition_tag` and `field_permission_tag` would have stopped being measured
-  the moment they moved — silently, which is the exact failure the gate exists
-  for. `TARGETS` now takes non-patch modules and carries two new rows:
-  `ProjectWorkflowMatrixHelper` against `WorkflowsHelper`, and
-  `ProjectWorkflowRulesController` against `WorkflowsController`. The second
-  adds three watched core bodies — `find_roles`, `find_trackers`,
-  `find_sources_and_targets` — measured on all three minors and identical
-  across them.
-- **`core_source` digested the plugin's own body as core's.** It asked "is this
-  module in the owner's ancestors?" and stepped once, which answers a prepended
-  patch and a helper-chain module and gets the third case wrong: the new
-  controller holds copies of `WorkflowsController` bodies that
-  `WorkflowsControllerPatch` still prepends, so one step landed on the plugin's
-  own `index`. It now walks down while the definition is ours, which answers all
-  three and stops being an assumption about attachment.
-- **`layout 'admin'` defines `_layout`,** on core's controller and the plugin's
-  alike, so the gate reported `WorkflowsController#_layout` as a copied core
-  body with "core's" definition pointing into the actionview gem. Framework
-  names are skipped by their leading underscore. Only reachable at all because
-  ADR-003 put a *class* in `TARGETS` where every previous entry was a module: a
-  class carries the framework's machinery, a patch module carries only what
-  somebody typed.
+**The specs moved with the screens.** `workflows_controller_spec.rb` was 1,956
+lines describing what is now the plugin's controller; it drove the controller by
+action name, so the move was the class, five path helpers and the comments that
+named core's callback order. Merged with the 21 examples
+`project_workflow_rules_controller_spec.rb` already had. The Deface spec's
+rendering groups — selector, hidden fields, scope panel, matrix note, undo,
+summary cells, copy labels — went to a new
+`spec/views/project_workflow_rules/screens_spec.rb`, and
+`spec/views/workflows/copy.html.erb_spec.rb` was folded into it (a `type: :view`
+spec has no controller, so the plugin's own action-bar helpers were missing). A
+small `workflows_controller_spec.rb` remains and asserts the one property core's
+screens now have.
 
-### One behaviour difference, deliberate and logged
+### 2. `WP12 step 6` — the runtime anchor check
 
-A copy whose request names **no target project at all** is refused on the
-plugin's screen and unchanged on core's. Core treats a missing target as the
-generic workflow; the plugin's form always renders that selector with the
-generic workflow preselected and its blank option disabled, so such a request is
-a deliberate deselection or a hand-built POST — and every write on that screen
-first *deletes* what the target pair had. Reversible in one branch.
+For each of the five overrides the diagnostics page now reports whether its
+selector still finds its anchor in the template *this host* ships. Two details
+decide whether the answer is worth anything:
+
+- **The template is read from disk**, by the path Rails' own resolver gives, and
+  never from `ActionView::Template#source`. Deface's `encode!` rewrites that
+  string in place once a page has been rendered, so a source read there would
+  sometimes already carry the override and the question would answer itself.
+- **The match is decided by `Deface::Parser.convert` plus `override.matcher`**,
+  which is the pair the applicator uses at render time. Any other way would be a
+  second opinion about a selector rather than the answer.
+
+**Three states, not a tick.** `:unmeasured` — a template this process cannot
+read, or a Deface whose shape has moved — is neither good news nor bad, gets no
+tick, and is excluded from `ok?`. That is WP11's rule applied to a second
+measurement. Five new keys in all eight locale files, translated.
+
+### 3. The review pass — three links pointing at a screen that no longer reads a project
+
+Found by reviewing the delta, not by the suite — **and the suite did assert
+where those links go**, which is what made it a one-line fix in three places
+rather than a discovery. The inventory's count cells, its heading, its "open the
+matrices" link and the "open the matrix" link on the issue form's workflow panel
+all built `edit_workflows_path(project_id: [...])`. Right while core's screens
+honoured the parameter; since WP12 they read no project at all, so the reader
+would have landed on the **generic** matrix believing they were looking at the
+project's — with the project named in the link's own label. All four now go to
+the plugin's own matrices. Nothing in `app/` or `lib/` links to core's workflow
+routes any more except the one deliberate cross-link, which is grep-checkable.
+
+Also in that commit: `Diagnostics#anchor_checks` memoised (the view asks once and
+`ok?` asks again, and each answer is a file read plus a Nokogiri parse per
+override), and `docs/design.md`'s "Integration points in Redmine core" table
+caught up — `#update`, `#update_permissions`, `#copy` and `#duplicate` are
+**left alone** on core's controller now, and `ProjectWorkflowRulesController` has
+a row of its own because that is where the copies live.
+
+### One behaviour difference and one accepted consequence
+
+- **Deliberate, and older than this session.** A copy whose request names *no
+  target project at all* is refused on the plugin's screen and unchanged on
+  core's. Core treats a missing target as the generic workflow; the plugin's
+  form always renders that selector with the generic workflow preselected and
+  its blank option disabled.
+- **Accepted, and logged as an open choice.** Redmine's own workflow save
+  answers **HTTP 500** to a malformed matrix — `?transitions[]=x` or
+  `transitions=x` reaches core's own `each_value` and raises `NoMethodError`.
+  Measured on a 7.0 host, in both actions, for both a String and an Array. This
+  is stock Redmine on a stock Redmine and nothing reaches the database (INV-2
+  holds), but the plugin's patch used to guard that screen, so it is a change
+  relative to the last release. No form produces such a request. See
+  `docs/DECISIONS.md`, "Open — for Jan".
 
 ## Evidence
 
@@ -126,106 +159,54 @@ Everything below was executed in this container.
 
 | Gate | Result |
 | --- | --- |
-| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6), PostgreSQL 16 | **963 examples, 0 failures** on each. Was 941. |
-| RuboCop through `.github/lint/Gemfile` | **137 files, no offences** |
-| `rake zeitwerk:check` | All is good! — five new files under `app/` and `lib/` |
+| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6), PostgreSQL 16 | **977 examples, 0 failures** on each. Was 963. |
+| RuboCop through `.github/lint/Gemfile` | **128 files, no offences** |
+| `rake zeitwerk:check` | All is good! |
 | `node dev/check-bulk-js.mjs` | all checks pass |
 | Locale parity | all eight files, 0 missing and 0 extra keys (in the suite) |
-| The four screens | rendered on 7.0 and read as text: the action bar, the tabs, the selector with **Generic** in it, core's own grid, the scope panel and its three actions, the summary counts linking into the matrix |
-| Migrations | untouched this session, so INV-8 was not re-run |
-| CI | run **153** on `56e23c5`, the head: **success on all eleven jobs** — the full 3 x 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Runs 151 and 152 were green on the two commits before it. (Run 150 reads as **cancelled** with nine of eleven already green: pushing the next commit superseded it. The workflow cancels an in-flight run on a new push to the same branch, so a multi-commit session always leaves the earlier runs cancelled and that is not a failure — read the *latest* run.) |
+| The diagnostics page | rendered on 7.0 and read as text: five rows, each naming the override, the screen and **Found** |
+| Migrations | untouched this session, so INV-8 was not re-run locally; CI runs it on every cell |
+| CI | run **155** on `596b303`, the WP12 (2/2) commit: **success on all eleven jobs**. Runs on the two commits after it were still finishing when this file was written — read the *latest* run, and remember that pushing a new commit **cancels** the in-flight one, so a multi-commit session always leaves earlier runs cancelled and that is not a failure. |
 
 **Red on the old code, observed rather than assumed:**
 
 | Change | What went red |
 | --- | --- |
-| the three new digests removed from the manifest | the drift spec and `compatibility_spec.rb`, on all three hosts |
-| `ProjectWorkflowMatrixHelper` attached to nothing | the helper spec, `NoMethodError` on core's `field_required?` |
-
-Two of the three defects above were **found by the suite going red rather than
-by reading**, which is the gate working: `_layout` and the one-step
-`core_source` both surfaced as drift failures on the first full run.
+| the eight "what core's screens no longer carry" examples | red on every commit before this session, by construction |
+| `Patches::WorkflowsControllerHelperPatch.apply!` commented out | eleven examples, `NoMethodError` on core's own workflow screen |
+| `CLAUDE.md` edited to "six view overrides — in four files" | the INV-9 document gate |
+| one override's selector pointed at `td.no-such-anchor` | the runtime anchor check: `:unmatched`, `ok?` false — run by hand on a 7.0 host *and* pinned as an example |
+| the three project-carrying links | the three assertions naming the old paths had to change with the code |
 
 **Not covered:** only PostgreSQL was run locally. Six of the nine CI cells are
 MySQL or MariaDB; nothing in this session writes SQL text.
 
 ## Exact next step
 
-**WP12 steps 4-8 — take core's screens back to stock.** In this order, one
-commit:
+**WP13 — one write-coordination service, and bounded bulk writes.** See
+`docs/implementation-plan.md`. Two findings, one mechanism:
 
-1. **`WorkflowsControllerPatch` down to the `project_id: nil` predicate** on
-   `index`, `edit`, `permissions`, `update` and `update_permissions`. Everything
-   else in that file — project selection, scope panels, bulk reporting, copy
-   validation — now exists on the plugin's controller and is deleted here, not
-   moved. `copy` and `duplicate` go entirely: core's are correct once no project
-   parameter reaches them.
-2. **Delete `WorkflowsHelperPatch`** and its row in `Diagnostics::ATTACHMENTS`,
-   its `TARGETS` row, its `apply!` call in `lib/redmine_project_workflows.rb`,
-   and `WorkflowsHelper#options_for_workflow_select` from the manifest's digests
-   in all three minors. `spec/controllers/workflows_helper_attachment_spec.rb`'s
-   alias-chain examples about `options_for_workflow_select` go with it; the ones
-   about the *cells* stay and point at `ProjectWorkflowMatrixHelper`.
-3. **Delete the eleven overrides** in ten files under `overrides/`, their
-   assertions in `spec/integration/deface_overrides_spec.rb`, and the partials
-   only they used (`redmine_project_workflows/_project_selector`,
-   `_summary_selector`). `_scope_panel`, `_matrix_note`, `_bulk_undo` and
-   `_copy_project_selector` are rendered by the **new** screens and stay — move
-   them under `app/views/project_workflow_rules/` in the same commit.
-   **INV-9 goes from fifteen to five, in twelve files to three.** Ten overrides
-   in nine files are deleted; `workflows_action_menu_links.rb` is **kept** and
-   narrowed to the cross-link alone. Five rather than the four ADR-003's table
-   predicted, because that table counted the bulk actions and the issue form and
-   forgot to count the cross-link its own Consequences section asks for. Change
-   the count in `CLAUDE.md`, `docs/design.md` (two places — the prose above the
-   table and the sentence below it) and `INV9_COUNTS` in the spec.
-4. **Move the behavioural spec.** `spec/controllers/workflows_controller_spec.rb`
-   is 1,956 lines and describes what is now the plugin's controller. It carries
-   only **five** path references (`edit_workflows_path` ×2,
-   `copy_workflows_path` ×2, `permissions_workflows_path` ×1) — it drives the
-   controller by action name — so the move is mostly `describe
-   ProjectWorkflowRulesController`. Merge it with the 21 examples
-   `spec/controllers/project_workflow_rules_controller_spec.rb` already has, and
-   leave a small `workflows_controller_spec.rb` asserting the one thing core's
-   screens must now do: read and write the generic workflow only, with a
-   `project_id` parameter ignored rather than honoured.
-5. **Cross-links both ways — done.** The plugin's action bar links to core's
-   screen (`label_project_workflow_generic_screens`), and core's
-   `workflows/_action_menu` override now carries a link back
-   (`label_project_workflow_rules`). What is left for step 3 above is only to
-   *narrow* that override: drop its inventory link, which is a question about
-   projects and is already on the plugin's own action bar, and rename it to what
-   it then is. The override itself is **kept**, which is why the count lands at
-   five and not four.
-6. **The runtime anchor check on the diagnostics page.** With four anchors this
-   is a line rather than a suite, and it closes the one gap ADR-002's drift
-   check explicitly does not cover: a *registered* override is not a *matching*
-   one.
+- **Concurrency** (audit F07). Project writes lock their scope rows; a generic
+  write has no scope row and takes nothing, so two administrators saving at once
+  can leave duplicate rows. The calibration is in the finding and matters: **core
+  has the identical race and the plugin inherited it** — core's own
+  `replace_transitions` reads outside a lock and carries an opportunistic
+  duplicate-repair line to prove it knows. The plugin is now the write path for
+  both populations and can fix it once.
+- **Bounded bulk writes.** A save over "all projects" is one transaction over
+  every project on the installation.
 
-**One decision already worked out, so it does not have to be re-derived.**
-`workflows/_form` is rendered by core's screen **and** by both plugin matrices,
-and the two bulk-action overrides on it call
-`project_workflow_bulk_actions`. If `ProjectWorkflowMatrixHelper` is not in
-`WorkflowsController`'s helper chain, **core's own workflow screen raises
-NoMethodError**. It has to stay attached, and that is right on the merits: with
-no project parameter `project_workflow_selection_size` is `trackers × roles`,
-exactly core's own count, so core's screen behaves identically — and the row and
-column actions are a real fix on it too, because core's own toggle selects on
-`input[type=checkbox]` and cannot reach the `<select>` a mixed cell renders as
-(claude F06). The open question is only *where the attachment is declared* once
-`WorkflowsHelperPatch` is gone: `Diagnostics::ATTACHMENTS`'s discovery guard
-asserts its rows are exactly `Patches.constants`, so a bare
-`WorkflowsController.helper(...)` in `apply_patches` would be an attachment the
-diagnostics page cannot report. The shape that fits is
-`IssuesControllerPatch`'s: a small module under `Patches` whose `apply!` puts a
-helper into a controller's chain and nothing of its own, with the fourth
-`ATTACHMENTS` element naming the helper to look for.
+Before starting, read `docs/implementation-plan.md`'s WP13 section and the
+finding it cites. Nothing in WP12 is left unfinished; all eight steps are
+marked **Done** in the plan.
 
 ## Open choices
 
-Nothing is blocking and nothing is waiting on Jan. The one question this work
-package raised — whether Redmine's own workflow screen should link across to the
-plugin's — he answered **A** on 2026-08-28, and it is implemented and tested.
+One, and it blocks nothing — the HTTP 500 on Redmine's own workflow save for a
+malformed matrix, described above and written up in full in `docs/DECISIONS.md`
+under "Open — for Jan". We continued with option A (leave it, which is what
+ADR-003 decided for core's screens). Option B is six lines and one example if
+Jan wants it.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -382,6 +363,48 @@ prerequisites and the MySQL variant.
 
 Everything below cost time at least once. **This session's are first**, then the
 run that stood up a 45-plugin host, then everything carried forward.
+
+- **A gate that greps a document for a word stops being a gate when the word
+  becomes a common one.** INV-9's count assertion read
+  `expect(document.downcase).to include('fifteen')`, which was strong: no
+  document in this repository says "fifteen" about anything else. ADR-003 took
+  the count to *five in three files*, and both of those words appear in
+  `CLAUDE.md` and `docs/design.md` for a dozen unrelated reasons — so the gate
+  would have gone on passing over any count whatsoever, silently, from the
+  moment it was changed. Assert the **sentence** a reader actually reads
+  (`five view overrides`, `in three files`), and check it by editing the
+  document to a wrong count and watching it fail. A gate can be weakened by a
+  change to the *thing it measures* rather than to itself.
+- **`ActionView::Template#source` is not the file on disk once a page has been
+  rendered.** Deface's `encode!` calls `source.replace(new_source)` — it mutates
+  the string in place with the overrides applied. A check asking "does this
+  override's selector still match its view?" against that string would sometimes
+  be asking about a view that already carries the override, i.e. answering its
+  own question. Read the file at `template.identifier` instead; the resolver is
+  still the right way to *find* it, because a plugin can ship its own copy of a
+  core view and a glob over `view_paths` would pick the wrong one.
+- **A `type: :view` spec has no controller, so a plugin's `helper` declarations
+  do not apply to it.** `spec/views/workflows/copy.html.erb_spec.rb` moved to
+  the plugin's own copy view and immediately raised
+  `undefined method 'project_workflows_icon_link'` — the plugin's screens name
+  their helpers in the *controller's* class body, and rspec's view specs build a
+  view context from `ApplicationController`'s helpers. Drive such a screen
+  through its controller with `render_views` instead, which also gives it the
+  instance variables the screen actually needs.
+- **A partial rendered from two controllers cannot move into one controller's
+  view directory.** When the Deface overrides went, three of the four partials
+  they rendered became exclusive to `project_workflow_rules/` and moved there.
+  `_bulk_undo` did not: the project matrices render it too, and `_bulk_script` is
+  reached from a helper called out of *core's* `workflows/_form`. Those stay in
+  the neutral `app/views/redmine_project_workflows/` namespace, which is what
+  that directory is for — a path that is not controller-scoped.
+- **Moving a screen means grepping for every link into it, including the ones a
+  spec already covers.** Four links still built `edit_workflows_path(project_id:
+  [...])` after core's screens stopped reading a project. Three of them *had*
+  assertions naming the old path, and those assertions went on passing because
+  the code went on producing the old path — the specs were right about the code
+  and both were wrong about the product. `grep -rn 'workflows_path' app/ lib/`
+  found all four in one line; nothing else would have.
 
 - **An INV-9 assertion can be satisfied by the *layout* rather than by the
   override.** The first version of the cross-link's example asserted
@@ -1269,18 +1292,23 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-WP0..WP11 are done. "Carry on" means, in order:
+WP0..WP12 are done. "Carry on" means, in order:
 
 1. **Read CI for the head and act on it if it is red.** Only PostgreSQL was run
-   locally; six of the nine cells are MySQL or MariaDB. Runs 145 to 148 are
-   green on all eleven jobs, and 148 is the head's code — the run after it
-   covers this file and nothing else.
-2. **WP12** — ADR-003, the owned administration screens. *Exact next step* has
-   the build order and the two small things WP11 leaves for it.
+   locally; six of the nine cells are MySQL or MariaDB. Run 155 is green on all
+   eleven jobs and is the WP12 (2/2) commit; the runs after it cover the anchor
+   check, the review pass and this file. Pushing a commit **cancels** the
+   in-flight run for the previous one, so read the latest run and treat a
+   cancelled earlier one as superseded rather than failed.
+2. **WP13** — one write-coordination service, and bounded bulk writes. *Exact
+   next step* says what the two findings are and why core has the same race.
 3. **Before any release, repeat the 45-plugin run.** It is still the only
    environment in which the permission-ownership gate can fail, and the
    diagnostics page is now where that gate reports — so the run is also the way
-   to see that page say something other than "in order".
+   to see that page say something other than "in order". Since WP12 that page
+   also checks the five Deface anchors against the host's own views, which on a
+   45-plugin 5.1 is the first environment where a neighbour could plausibly have
+   replaced one of them.
 
 Do not invent a work package on top of WP16. Do not re-open the 2026-08-27 run's
 "Checked and not filed" table: 24 claims, thirteen rejected or already decided,
