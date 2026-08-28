@@ -222,6 +222,15 @@ are done struck through:
    is the same shape as the compat run's F03: a core helper a neighbour
    alias-chains. All eleven audit findings are still `open`.
 
+   One measurement worth having before that work, taken on the 45-plugin host
+   and **not** written into the audit's F01 because this session did not act on
+   it: **none of Jan's 44 other plugins touches `WorkflowsHelper` today.** The
+   chain there is the plugin's prepend straight onto core, for all three
+   methods. So audit F01 is a **latent** risk on his current set rather than a
+   live break — which is the difference between the two helpers, since
+   `ProjectsHelper` has six neighbours alias-chaining it. It is still worth
+   fixing, and it is still the forbidden construct; it is not on fire.
+
 Each with a test that is red on the old code, and the commit message says how
 that was known.
 
