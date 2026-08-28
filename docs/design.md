@@ -274,26 +274,43 @@ not (finding F03):
 `spec/upstream/core_drift_spec.rb` is the gate for the first two. It reads core's
 own body for **every** method the plugin shadows on the host under test — via
 `UnboundMethod#super_method` and `RubyVM::AbstractSyntaxTree.of`, so the set is
-discovered rather than listed and a twentieth copy cannot be added without
-appearing — normalises and digests it, and compares against
-`spec/upstream/core_method_digests.yml`, measured per Redmine minor. **Nineteen**
-methods, two of which are private in core, and one of which — `Project#copy` —
-is a delegate rather than a copy: it remembers whether the copy form's workflow
+discovered rather than listed and a twenty-third copy cannot be added without
+appearing — normalises and digests it, and compares against the digests in
+`lib/redmine_project_workflows/compatibility.yml`, measured per Redmine minor.
+**Twenty-three** entries: twenty-one copies (two of them private in core), one
+delegate and one declared dependency.
+
+The delegate is `Project#copy`: it remembers whether the copy form's workflow
 checkbox was ticked and calls `super`. The gate covers the delegates too, and
 here that matters: core hands the `model_project_copy_before_save` hook no
 options, so if core changed how it reads `options[:only]` the checkbox would
-stop being honoured with nothing else to notice. It also calls core's implementation as
-an **oracle**, asserting that the plugin agrees with it wherever no project has
-taken a workflow over, and stops agreeing once one has. No gem, no network, no CI
-change: the suite runs inside the host checkout, so core's source is already on
-disk in all nine cells.
+stop being honoured with nothing else to notice.
 
-Measured, not assumed: within the supported window 6.1 and 7.0 are **identical**
-on all nineteen, and 5.1 differs in exactly four — `WorkflowsController#update`,
-`#permissions`, `#update_permissions` and `Project#copy`, the last by one
-character (`send "copy_#{name}"` against `send :"copy_#{name}"`). Outside it, `Issue#new_statuses_allowed_to`
-changed twice between 4.2 and 7.0 and both changes were semantic, which is why
-this gate exists rather than a note asking people to be careful.
+The dependency is `Issue#roles_for_workflow` — a private core method the plugin
+*calls* rather than shadows, from three query services and from its own copy of
+`Issue#new_statuses_allowed_to`. It has no `super_method` to digest, so ADR-002
+gives the manifest a list of such methods and the gate an entry per name. Where
+a changed digest says core answers differently, a missing one says core no
+longer has the method at all — the failure that raises rather than the one that
+lies, and the drift report distinguishes them.
+
+The gate also calls core's implementation as an **oracle**, asserting that the
+plugin agrees with it wherever no project has taken a workflow over, and stops
+agreeing once one has. No gem, no network, no CI change: the suite runs inside
+the host checkout, so core's source is already on disk in all nine cells.
+
+Measured, not assumed: within the supported window 5.1 differs from 6.1 in
+exactly four — `WorkflowsController#update`, `#permissions`,
+`#update_permissions` and `Project#copy`, the last by one character
+(`send "copy_#{name}"` against `send :"copy_#{name}"`) — and 6.1 differs from
+7.0 in exactly one, `WorkflowTransition.replace_transitions`, which 7.0 rewrote
+to index the existing rows instead of scanning them. That one was invisible
+until the gate learned about class methods on 2026-08-28; reading it against
+6.1's body shows the same rules with a hash in front of them, and the plugin
+replaces the method outright rather than copying it, so nothing had to follow.
+Outside the window, `Issue#new_statuses_allowed_to` changed twice between 4.2
+and 7.0 and both changes were semantic, which is why this gate exists rather
+than a note asking people to be careful.
 
 `requires_redmine` is deliberately **not** narrowed to a range. Core supports
 one, but `lib/redmine/plugin.rb` raises `PluginRequirementError` and

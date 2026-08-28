@@ -13,6 +13,11 @@ module RedmineProjectWorkflows
     # stopped carrying a picture. 5.1 answers false and draws its icons from
     # those classes.
     #
+    # The version itself lives in the compatibility manifest, with the verified
+    # minors and the core digests, because it is the same kind of fact and
+    # ADR-002 gives all of them one home. This method stays where the views
+    # reach for it.
+    #
     # **The series, deliberately, and not +respond_to?(:sprite_icon)+.** That is
     # what this asked until 2026-08-28, and on Redmine 5.1 it answers *true*:
     # the +redmineup+ gem back-ports a +sprite_icon+ onto +ApplicationHelper+
@@ -26,7 +31,7 @@ module RedmineProjectWorkflows
     #
     # A method name is not owned by Redmine; a version number is. Ask the fact.
     def self.core_sprite_icons?
-      ::Redmine::VERSION::MAJOR >= 6
+      Compatibility.core_sprite_icons?
     end
 
     # The instance-side wrapper the views and the specs both go through, so that

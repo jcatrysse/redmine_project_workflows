@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
 require_relative 'redmine_project_workflows/current'
+# Before everything: the compatibility manifest owns every version fact, and
+# VersionHelper is the first thing that asks it one (ADR-002).
+require_relative 'redmine_project_workflows/compatibility'
 require_relative 'redmine_project_workflows/version_helper'
+require_relative 'redmine_project_workflows/services/core_method_digest'
 require_relative 'redmine_project_workflows/bulk_actions_helper'
 require_relative 'redmine_project_workflows/services/matrix_scope'
 require_relative 'redmine_project_workflows/services/resolver'

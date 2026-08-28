@@ -508,9 +508,40 @@ dev/run.sh .redmine/5.1-stable-postgresql
 
 ## Compatibility
 
+Every fact in this section lives in
+[`lib/redmine_project_workflows/compatibility.yml`](lib/redmine_project_workflows/compatibility.yml),
+and a spec fails if the two disagree.
+
 - **Redmine 5.1, 6.1 and 7.0.** All three are in CI, on every push, against all
   three databases. 5.1 is the declared minimum as of 0.1.0; it used to be 5.0,
   which nothing ever tested.
 - **PostgreSQL, MySQL and MariaDB.** Nine combinations, all of them green before
   a change lands.
 - Ruby 3.2 for Redmine 5.1, Ruby 3.3 for 6.1 and 7.0 — the versions CI uses.
+
+### On a Redmine that is not one of those three
+
+The plugin installs and runs — it declares a minimum version and no maximum,
+because a version range would turn an upgrade into a Redmine that refuses to
+boot until an administrator deletes the plugin directory. What it does instead
+is **measure**. The plugin reimplements twenty-one of Redmine's own methods
+(there is no `super` to call: core's workflow queries carry no project column),
+so it records a fingerprint of each of them for every Redmine it has been tested
+on, and on an unknown one it compares.
+
+That gives three answers, in the log at startup and on
+**Administration → Project workflows**:
+
+- **Verified** — this Redmine is one the plugin is tested against. Nothing is
+  measured and nothing is said.
+- **Not verified, no differences found** — nobody has tested this Redmine, but
+  every method the plugin copied is identical to the newest one that was tested.
+- **Not verified, differences found** — one or more of those methods has
+  changed. The page names them and says where Redmine defines them, so the
+  difference can be read.
+
+The third is a warning, not a refusal: the plugin keeps working, and the screens
+an administrator would use to put it right keep working with it. What the check
+proves is precise and worth stating plainly — that the *bodies* the plugin
+copied are unchanged. It does not prove that Redmine still calls them the same
+way. It is evidence, not a guarantee.

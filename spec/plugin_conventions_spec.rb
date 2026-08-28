@@ -405,6 +405,14 @@ describe RedmineProjectWorkflows do
     expect(callers.map { |file| file.sub("#{root}/", '') }).to contain_exactly(
       # The Deface loader's rescue, which reports a file it could not load.
       'lib/redmine_project_workflows.rb',
+      # ADR-002's boot line: which Redmine this is, and whether anything the
+      # plugin copied from core has changed. Named here rather than routed
+      # through WriteLog because it is not a write -- it runs once per process,
+      # before any request, and the only values in it are a version number and
+      # the names of core's own methods. WriteLog holds the rule about what a
+      # *write* may say, and this path has no workflow data to say anything
+      # about.
+      'lib/redmine_project_workflows/compatibility.rb',
       'lib/redmine_project_workflows/services/write_log.rb'
     )
   end
@@ -487,6 +495,28 @@ describe RedmineProjectWorkflows::VersionHelper do
     offenders = Dir.glob("#{root}/{app,lib}/**/*.{rb,erb}").select do |file|
       File.read(file).lines.any? do |line|
         line.include?('respond_to?(:sprite_icon)') && !line.strip.start_with?('#')
+      end
+    end
+
+    expect(offenders.map { |file| file.sub("#{root}/", '') }).to be_empty
+  end
+
+  # ADR-002, decision 1: one manifest owns every version fact. The predicate
+  # above is only the version question that has already been got wrong once --
+  # this is the general property, and it is what keeps the next one from being
+  # answered in a view.
+  #
+  # Deliberately about the CONSTANT rather than about `respond_to?`: a probe can
+  # be spelled a dozen ways, and forbidding the twelve is a game. Reading
+  # `Redmine::VERSION` anywhere but the manifest is the shape that matters,
+  # because a second reader is a second answer that can drift from the first.
+  it 'reads the running Redmine version in the compatibility manifest only' do
+    root = File.expand_path('..', __dir__)
+    offenders = Dir.glob("#{root}/{app,lib}/**/*.{rb,erb}").select do |file|
+      next false if file.end_with?('lib/redmine_project_workflows/compatibility.rb')
+
+      File.read(file).lines.any? do |line|
+        line.include?('Redmine::VERSION') && !line.strip.start_with?('#')
       end
     end
 

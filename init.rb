@@ -96,6 +96,16 @@ require_relative 'lib/redmine_project_workflows'
 # reload.
 RedmineProjectWorkflows.apply_patches
 
+# ADR-002's three states, resolved once per process and only ever spoken about
+# in the log. A verified Redmine says nothing and measures nothing; an
+# unverified one measures what the plugin copied from core and says whether any
+# of it has changed.
+#
+# After apply_patches deliberately: every class the measurement reads is one the
+# patches have just referenced, so this triggers no autoload of its own -- and on
+# a verified host it does not measure at all.
+RedmineProjectWorkflows::Compatibility.announce!
+
 # Deface registers its overrides with Deface rather than on a host class, and
 # `require` is a no-op the second time, so these are loaded once.
 RedmineProjectWorkflows.load_deface_overrides!

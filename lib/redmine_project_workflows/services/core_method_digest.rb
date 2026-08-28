@@ -39,17 +39,33 @@ module RedmineProjectWorkflows
     # prepend and `RubyVM::AbstractSyntaxTree.of` gives its line range. No gem,
     # no network, no CI change.
     class CoreMethodDigest
-      # The prepended modules whose methods shadow a core method, and the class
-      # or module each is prepended to. Discovered from the plugin rather than
-      # listed, so a twelfth copy cannot be added without appearing here -- which
-      # is the property a hand-kept list of eleven would lose on its first edit.
+      # The plugin's patch modules, and the class or module each attaches to.
+      # The methods themselves are *discovered* from the patch rather than
+      # listed, so a new copy cannot be added without appearing here -- which is
+      # the property a hand-kept list would lose on its first edit.
+      #
+      # The third element says where to look for the methods:
+      #
+      #   :instance   -- the patch carries instance methods of the named class.
+      #   :singleton  -- the patch carries CLASS methods, and is prepended to the
+      #                  singleton class. Missing until 2026-08-28 (F06 of
+      #                  docs/review/findings/2026-08-28-claude-audit.md), and the
+      #                  three it left out include
+      #                  WorkflowTransition.replace_transitions and
+      #                  WorkflowPermission.replace_permissions -- the two methods
+      #                  INV-1's write isolation is routed through. The gate
+      #                  covered nineteen methods and none of the three that
+      #                  matter most.
       TARGETS = [
-        ['Issue', 'RedmineProjectWorkflows::Patches::IssuePatch'],
-        ['Project', 'RedmineProjectWorkflows::Patches::ProjectPatch'],
-        ['WorkflowsHelper', 'RedmineProjectWorkflows::Patches::WorkflowsHelperPatch'],
-        ['WorkflowsController', 'RedmineProjectWorkflows::Patches::WorkflowsControllerPatch'],
-        ['Role', 'RedmineProjectWorkflows::Patches::RolePatch'],
-        ['Tracker', 'RedmineProjectWorkflows::Patches::TrackerPatch']
+        ['Issue', 'RedmineProjectWorkflows::Patches::IssuePatch', :instance],
+        ['Project', 'RedmineProjectWorkflows::Patches::ProjectPatch', :instance],
+        ['WorkflowsHelper', 'RedmineProjectWorkflows::Patches::WorkflowsHelperPatch', :instance],
+        ['WorkflowsController', 'RedmineProjectWorkflows::Patches::WorkflowsControllerPatch', :instance],
+        ['Role', 'RedmineProjectWorkflows::Patches::RolePatch', :instance],
+        ['Tracker', 'RedmineProjectWorkflows::Patches::TrackerPatch', :instance],
+        ['WorkflowTransition', 'RedmineProjectWorkflows::Patches::WorkflowTransitionPatch', :singleton],
+        ['WorkflowPermission', 'RedmineProjectWorkflows::Patches::WorkflowPermissionPatch', :singleton],
+        ['WorkflowRule', 'RedmineProjectWorkflows::Patches::WorkflowRulePatch', :singleton]
       ].freeze
 
       # Whether this Ruby can answer at all. CRuby only -- every supported
@@ -58,23 +74,92 @@ module RedmineProjectWorkflows
         defined?(RubyVM::AbstractSyntaxTree) && RubyVM::AbstractSyntaxTree.respond_to?(:of)
       end
 
-      # "<class>#<method>" => digest of core's body, for every method the plugin
-      # shadows on this host. A method the plugin adds rather than replaces has
-      # no `super_method` and is absent, which is the distinction the finding
-      # asked for: this reports the **copies and the delegates**, and nothing the
-      # plugin merely adds.
+      # Everything this plugin's correctness rests on in core, digested:
+      #
+      #   * the methods it SHADOWS -- "Issue#new_statuses_allowed_to" for an
+      #     instance method, "WorkflowTransition.replace_transitions" for a class
+      #     one. A method the plugin merely adds has no core definition under it
+      #     and is absent, which is the distinction finding F03 asked for: this
+      #     reports the **copies and the delegates**, and nothing else.
+      #   * the methods it CALLS but does not shadow -- the declared dependencies
+      #     of the compatibility manifest. `Issue#roles_for_workflow` is called
+      #     through `send` by three query services and is private in core, so it
+      #     has no `super_method` and no visibility of its own to protect it. It
+      #     was invisible to this gate until 2026-08-28 (ADR-002).
+      #
+      # One hash, because drift is drift: what an administrator needs to know is
+      # that a body the plugin depends on is not the body it was tested against,
+      # and which of the two reasons it is does not change what they do next.
+      # +dependencies+ and +missing_dependencies+ separate them where the
+      # distinction matters.
       def self.digests
-        TARGETS.each_with_object({}) do |(owner_name, patch_name), memo|
-          owner = safe_constant(owner_name)
+        shadow_digests.merge(dependency_digests)
+      end
+
+      # The shadows alone: every method a patch module replaces.
+      def self.shadow_digests
+        TARGETS.each_with_object({}) do |(owner_name, patch_name, kind), memo|
+          owner = patched_owner(owner_name, kind)
           patch = safe_constant(patch_name)
           next unless owner && patch
 
           shadowed_methods(patch).each do |method_name|
             digest = digest_for(owner, patch, method_name)
-            memo["#{owner_name}##{method_name}"] = digest if digest
+            memo[qualified_name(owner_name, method_name, kind)] = digest if digest
           end
         end
       end
+
+      # The declared dependencies alone: core methods the plugin calls without
+      # replacing. There is no patch in the chain, so the method the host holds
+      # *is* core's own and no `super_method` step is wanted.
+      def self.dependency_digests(names = Compatibility.dependencies.keys)
+        names.each_with_object({}) do |name, memo|
+          owner, method_name, kind = parse_qualified_name(name)
+          owner = patched_owner(owner, kind)
+          next unless owner
+
+          digest = digest_for(owner, nil, method_name)
+          memo[name] = digest if digest
+        end
+      end
+
+      # The declared dependencies this host does not define at all. A harder
+      # failure than drift and a different sentence to an administrator: a
+      # changed body may still do what the plugin needs, while a method that has
+      # gone raises NoMethodError on the first issue save.
+      def self.missing_dependencies(names = Compatibility.dependencies.keys)
+        names.reject do |name|
+          owner_name, method_name, kind = parse_qualified_name(name)
+          owner = patched_owner(owner_name, kind)
+          owner && (owner.method_defined?(method_name) || owner.private_method_defined?(method_name))
+        end
+      end
+
+      # The class the methods live on: the class itself for instance methods, its
+      # singleton class for class methods -- which is where a patch carrying
+      # class methods is prepended, and where core's own definition of
+      # +replace_transitions+ is found.
+      def self.patched_owner(owner_name, kind)
+        owner = owner_name.is_a?(Module) ? owner_name : safe_constant(owner_name)
+        return nil unless owner
+
+        kind == :singleton ? owner.singleton_class : owner
+      end
+      private_class_method :patched_owner
+
+      # Ruby's own notation, so that a name in the manifest reads the way it is
+      # written everywhere else: Class#instance_method, Class.class_method.
+      def self.qualified_name(owner_name, method_name, kind)
+        "#{owner_name}#{kind == :singleton ? '.' : '#'}#{method_name}"
+      end
+      private_class_method :qualified_name
+
+      def self.parse_qualified_name(name)
+        owner, separator, method_name = name.rpartition(/[#.]/)
+        [owner, method_name, separator == '.' ? :singleton : :instance]
+      end
+      private_class_method :parse_qualified_name
 
       # Public *and* private, because two of the copies are private in core --
       # Issue#workflow_rule_by_attribute among them, which is the method that
@@ -103,9 +188,11 @@ module RedmineProjectWorkflows
       # core's own definition and `super_method` would answer nil. Asking which
       # of the two it is keeps the gate on both, and keeps it from silently
       # covering three fewer methods the day a patch changes how it attaches.
+      # A nil +patch+ is a declared dependency: nothing of the plugin's is in the
+      # chain, so the method the owner holds is already core's own.
       def self.core_source(owner, patch, method_name)
         held = owner.instance_method(method_name)
-        core = owner.ancestors.include?(patch) ? held.super_method : held
+        core = patch && owner.ancestors.include?(patch) ? held.super_method : held
         return nil unless core
         return nil if core.owner == patch
 

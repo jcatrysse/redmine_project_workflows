@@ -4,18 +4,23 @@ require_relative '../spec_helper'
 
 # F03. Would anything notice if Redmine changed a method this plugin has copied?
 #
-# Until this file, no. The plugin reimplements eighteen of core's methods --
+# Until this file, no. The plugin reimplements twenty-one of core's methods --
 # there is no `super` to fall through to, because core's queries carry no
 # project_id predicate and running one would breach INV-4 whatever was done with
 # the answer. That is the right design, and its standing cost is that a change
 # under it is silent: the plugin's own specs assert the plugin's expected
 # answers, not core's, so they stay green while the copy drifts.
 #
-# A nineteenth, Project#copy, is a **delegate** rather than a copy -- it
+# A twenty-second, Project#copy, is a **delegate** rather than a copy -- it
 # remembers one thing and calls super. It is covered here all the same, and the
-# table's header says why: if core changes how it reads `options[:only]`, or
+# manifest's header says why: if core changes how it reads `options[:only]`, or
 # moves the `model_project_copy_before_save` hook out of that method, the copy
 # form's workflow checkbox stops being honoured with nothing else to notice.
+#
+# A twenty-third, Issue#roles_for_workflow, is neither: the plugin CALLS it and
+# does not shadow it, so it has no `super_method` and was invisible to this file
+# until ADR-002 gave the manifest a list of declared dependencies. It is private
+# in core, and the plugin reaches it with `send` from three query services.
 #
 # It has already happened twice to Issue#new_statuses_allowed_to, both times
 # semantically. 5.0 -> 5.1 replaced
@@ -43,29 +48,52 @@ describe 'Redmine core under the plugin' do
            :member_roles, :enumerations, :projects_trackers
 
   let(:digest_service) { RedmineProjectWorkflows::Services::CoreMethodDigest }
-  let(:host_version) { "#{Redmine::VERSION::MAJOR}.#{Redmine::VERSION::MINOR}" }
-  let(:table) { YAML.load_file(File.expand_path('core_method_digests.yml', __dir__)) }
+  let(:manifest) { RedmineProjectWorkflows::Compatibility }
+  let(:host_version) { manifest.host_minor }
+  let(:table) { manifest.digests_for(host_version) }
 
   before { skip('this Ruby cannot read core\'s AST') unless digest_service.available? }
 
   describe 'the bodies the plugin has copied' do
-    # An unknown minor is REPORTED, not failed. Failing there would mean the
-    # plugin could not be tried on a new Redmine at all, which is exactly what
-    # narrowing requires_redmine would have done -- and F03 rejected that,
-    # because lib/redmine/plugin.rb raises PluginRequirementError with no rescue
-    # around run_initializer, so an out-of-range Redmine stops the whole
-    # application from booting until an administrator deletes the plugin
-    # directory. An uncertain divergence is the better trade.
-    it 'is a Redmine this table has measured' do
-      skip("Redmine #{host_version} is not in the table -- see the file header") unless table.key?(host_version)
-
-      expect(table.fetch(host_version)).not_to be_empty
+    # CI FAILS WHERE RUNTIME WARNS (ADR-002, decision 5). This example used to
+    # `skip` on a minor the table had never measured, and that is how "we test
+    # three minors" and "we boot on all of them" drifted apart: the matrix could
+    # be pointed at a new Redmine and report success while measuring nothing.
+    #
+    # Runtime is deliberately the *lenient* half of the pair -- an unverified
+    # host boots, works and says so, because refusing would brick an
+    # installation on an upgrade the administrator may have had no choice about,
+    # and would disable the screens where they would put it right. A test run is
+    # the opposite: somebody chose this host on purpose, so an unmeasured one is
+    # a hole in the manifest, and this is where it is named.
+    #
+    # When it is red: read the drift the examples below report, then add the
+    # minor with dev/measure_compatibility.rb -- in that order.
+    it 'is a Redmine the compatibility manifest has measured' do
+      expect(manifest.verified?).to be(true),
+                                    "Redmine #{host_version} has no entry in " \
+                                    'lib/redmine_project_workflows/compatibility.yml, so this run measures ' \
+                                    'nothing. Add it with dev/measure_compatibility.rb, after reading what ' \
+                                    'the drift report says changed.'
+      expect(table).not_to be_empty
     end
 
     it 'still holds every method the plugin shadows' do
-      skip("Redmine #{host_version} is not in the table") unless table.key?(host_version)
+      skip("Redmine #{host_version} is not in the manifest") unless manifest.verified?
 
-      expect(digest_service.digests.keys.sort).to eq(table.fetch(host_version).keys.sort)
+      expect(digest_service.digests.keys.sort).to eq(table.keys.sort)
+    end
+
+    # The declared private-API dependencies (ADR-002, decision 6). A method the
+    # plugin CALLS rather than shadows has no `super_method` to digest and no
+    # visibility of its own to protect it: Issue#roles_for_workflow is private in
+    # core and reached with `send` from three query services. A digest says it
+    # changed; this says it is gone, which is the failure that raises
+    # NoMethodError on the next issue save rather than answering differently.
+    it 'still has every core method the plugin calls without shadowing' do
+      expect(digest_service.missing_dependencies).to be_empty,
+                                                     'the compatibility manifest declares a dependency on a ' \
+                                                     "core method Redmine #{host_version} does not define"
     end
 
     # One example per method rather than one comparing two hashes, so a red
@@ -73,9 +101,9 @@ describe 'Redmine core under the plugin' do
     # hex. The message says what to do, because the wrong reaction here -- bump
     # the digest, move on -- is the one that makes this file worse than no file.
     it 'matches the digest measured for this Redmine, method by method' do
-      skip("Redmine #{host_version} is not in the table") unless table.key?(host_version)
+      skip("Redmine #{host_version} is not in the manifest") unless manifest.verified?
 
-      expected = table.fetch(host_version)
+      expected = table
       drifted = digest_service.digests.filter_map do |method_name, digest|
         next if expected[method_name] == digest
 
@@ -89,14 +117,20 @@ describe 'Redmine core under the plugin' do
           drifted.join("\n  ") +
           "\n\nRead core's new version against the plugin's copy and decide whether the copy must " \
           'follow. Change the copy first, with a test; update ' \
-          'spec/upstream/core_method_digests.yml in the same commit. Updating the digest first is ' \
-          'the one thing that makes this gate useless.'
+          'lib/redmine_project_workflows/compatibility.yml in the same commit. Updating the digest ' \
+          'first is the one thing that makes this gate useless.'
       }
     end
 
+    # "Class#instance_method" and "Class.class_method" both, and a declared
+    # dependency has no plugin method over it at all -- so `super_method` may
+    # legitimately be nil and the method the owner holds is already core's.
     def core_source_location(method_name)
-      owner, name = method_name.split('#')
-      owner.constantize.instance_method(name).super_method.source_location.join(':')
+      owner, separator, name = method_name.rpartition(/[#.]/)
+      owner = owner.constantize
+      owner = owner.singleton_class if separator == '.'
+      held = owner.instance_method(name)
+      (held.super_method || held).source_location.join(':')
     rescue StandardError
       'unknown'
     end
