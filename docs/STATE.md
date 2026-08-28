@@ -30,6 +30,8 @@
   `--allow-unrelated-histories`. Jan asks for the merge himself.
 - **Nothing is open.** `grep -rn '^- \*\*Status:\*\* open' docs/review/findings/`
   matches only `TEMPLATE.md`.
+- **CI is green on the head.** Run **133** on `33c0698` passed **all eleven
+  jobs**: the nine-cell matrix, RuboCop and the bulk-action JavaScript gate.
 
 ## What this session produced
 
@@ -118,22 +120,25 @@ so the next session does not swing it back.
 | --- | --- |
 | Plugin suite, 7.0-stable + PostgreSQL 16 | **854 examples, 0 failures** (was 834; twenty added) |
 | Plugin suite, 5.1-stable + PostgreSQL 16 | **854 examples, 0 failures** |
+| Plugin suite, 6.1-stable + PostgreSQL 16 | **854 examples, 0 failures** |
 | Plugin suite, 7.0-stable + **MariaDB 10.11** (mysql2 adapter) | **854 examples, 0 failures** — built this session because the change writes raw SQL (`IN (…)`, `TIMESTAMP '…'`, `EXISTS`), and no PostgreSQL host can see what the six MySQL-family cells see |
 | Red on the old code | **measured, not assumed.** F01: with the listener's body replaced by `nil`, **3 of the 13** new examples fail (the other ten are the copier's own cases and the controls, which cannot fail against code with no copier). F02: with the old `base_scope` back in `PermissionQuery` alone the conventions example fails naming `permission_query.rb:26`; with the blank-project guard back in `WorkflowPopulations` the two new nil-project examples fail and nothing else does. F03: with the two counts back to `.size`, **2 of the 3** new examples fail (the third is the negative case and correctly stays green) |
-| Migrations up → 0 → up | **clean on 5.1 and 7.0**, run BEFORE the suite touched either: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`. Nothing this session touches a migration |
+| Migrations up → 0 → up | **clean on 5.1, 6.1 and 7.0**, run BEFORE the suite touched any of them: leftover columns `[]`, plugin tables `[]`, plugin rows in `schema_migrations` `[]`. Nothing this session touches a migration |
 | RuboCop | **118 files, no offences**, through `.github/lint/Gemfile`, with **no** `.rubocop.yml` or `.rubocop_todo.yml` change. Two `Rails/WhereExists` offences were fixed rather than excluded; one `Rails/SkipsModelValidations` carries the same inline disable and the same stated argument as `ScopeCopier`'s |
 | `zeitwerk:check` on 7.0 | **"All is good!"** — run because this session adds a directory (`lib/redmine_project_workflows/hooks/`) |
 | JavaScript gate | **34 checks pass** (`node dev/check-bulk-js.mjs`) |
-| Locale files | **all eight**, one new key each (`text_project_workflow_graph_aria_fallback`), parity green. `en` and `nl` by hand; the other six translated, and `fr` and `pl` reworded after drafting to use the same words for *fallback* and *issue* their own legend sentence already uses |
+| Locale files | **all eight at 118 keys, exact parity**, one new key each (`text_project_workflow_graph_aria_fallback`). `en` and `nl` by hand; the other six translated, and `fr` and `pl` reworded after drafting to use the same words for *fallback* and *issue* their own legend sentence already uses |
 | INV-9 | **untouched** — still fifteen overrides in twelve files. Nothing here adds a Deface anchor, deliberately: a checkbox on core's copy form would be a sixteenth |
 | Live probe on default data | on a 7.0 host with `redmine:load_default_data` loaded in and rolled back: 6 statuses, 7 drawn nodes, 31 drawn edges, 30 stored transitions, fallback present, `dense?: true`, and the label reading *"6 statuses and 30 transitions … One further arrow is Redmine's own fallback"*. Before the fix the same host read *7 statuses and 31 transitions* |
-| CI | **not yet read for this commit** — the next session must confirm it, per *Exact next step* |
+| CI | run **133** on `33c0698`, the head: **green on all eleven jobs** — the nine-cell matrix, RuboCop and the JavaScript gate. Read from the Actions API, not assumed. Each matrix cell also ran its own migration-reversibility, scope-backfill and `zeitwerk:check` steps green |
 
 ## Exact next step
 
-**Confirm CI is green on the head, and then it is Jan's turn or a fresh review
-run** (`docs/review/PROMPT.md`). No finding is open and no work package is left.
-Do not trust this file for CI:
+**Nothing is queued.** CI run 133 on the head is green on all eleven jobs and no
+finding is open, so the next session is **Jan's turn or a fresh review run**
+(`docs/review/PROMPT.md`), whichever he asks for. Confirm CI is still green on
+the head before starting either — it was when this was written, but a review that
+trusts `docs/STATE.md` for that is a review that has not checked:
 
 ```
 mcp__github__actions_list  list_workflow_runs  jcatrysse/redmine_project_workflows  branch: claude/dev
@@ -989,13 +994,11 @@ Read CLAUDE.md and docs/STATE.md. Carry on.
 WP0..WP9 are done, the plan is finished, and **no finding is open**, so "carry
 on" means, in order:
 
-1. **Read CI for the head and act on it if it is red.** This session's commit
-   has **not** been checked against CI — the run had not finished when the
-   session ended, so the head carries no CI evidence at all and reading it is
-   the first thing to do. Three of the nine cells were run locally: 7.0 and 5.1
-   on PostgreSQL and 7.0 on MariaDB, all **854 examples, 0 failures**. That is
-   three of nine, and three runs of the WP9 building session were red on cells
-   no PostgreSQL host can see.
+1. **Read CI for the head `33c0698` and act on it if it is red.** It was green
+   on all eleven jobs when this was written (run **133**), and four cells were
+   also run locally — 7.0, 6.1 and 5.1 on PostgreSQL, 7.0 on MariaDB, all
+   **854 examples, 0 failures**. Read rather than assume anyway: three runs of
+   the WP9 building session were red on cells no PostgreSQL host can see.
 2. **Then there is nothing queued.** Either Jan asks for something, or the next
    session is a **fresh review run** — `docs/review/PROMPT.md` — against this
    head. One choice is with Jan (the refused-values wording of
