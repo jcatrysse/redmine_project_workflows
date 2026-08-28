@@ -16,6 +16,16 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
   fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members,
            :member_roles, :enabled_modules, :enumerations, :projects_trackers
 
+  # PostgreSQL writes FROM "workflows" and MySQL and MariaDB write FROM
+  # `workflows`, so a pattern that spells one of the two quote characters matches
+  # nothing on six of the nine CI cells -- and the assertion it feeds is
+  # `not_to be_empty`, which then fails rather than passing vacuously. That is
+  # the lucky half of this trap; the same pattern under a `to all(...)` would
+  # have gone green over an empty list and proved nothing at all.
+  def workflows_table
+    /FROM\s+["`]?workflows["`]?/i
+  end
+
   let(:project) { projects(:projects_001) }
   # projects_003 is a child of projects_001 in Redmine's own fixtures, which is
   # what makes the "no inheritance" example about a real parent and child.
@@ -94,7 +104,7 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
       transition(new_status, assigned, project_id: project.id)
 
       statements = statements_during { graph_for }
-      workflow_statements = statements.grep(/FROM\s+"?workflows"?/i)
+      workflow_statements = statements.grep(workflows_table)
 
       expect(workflow_statements).not_to be_empty
       expect(workflow_statements).to all(match(/project_id/i))
