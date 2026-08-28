@@ -26,13 +26,24 @@ module RedmineProjectWorkflows
     # Cost (G6), all of it behind a link so no other screen pays any of it: the
     # scope lookup the Resolver caches, one query for which of the overridden
     # roles hold a rule, one edge query, the cached effective status list for the
-    # tracker, and one status query. None of them grows with the size of the
+    # tracker, one status query, and -- only where no rule leaves the entry node
+    # -- the tracker's default status. None of them grows with the size of the
     # workflow, and nothing is per node or per edge.
     class WorkflowGraphQuery
       # Core's "new issue" pseudo-status, stored as old_status_id 0. It is not an
       # IssueStatus and never will be; it is where the status list on the
       # new-issue form reads from, and it is the entry point of the drawing.
       ENTRY_STATUS_ID = 0
+
+      # What counts as "there is no progression here to draw" (finding F03). Four
+      # statuses is where a complete graph first has more moves than boxes, and
+      # nine tenths rather than all of them so that one missing move in an
+      # otherwise complete workflow does not put the reader back in front of the
+      # spaghetti. Both are a judgement about readability rather than a fact, and
+      # both are one number to change.
+      DENSE_MINIMUM_STATUSES = 4
+      DENSE_NUMERATOR = 9
+      DENSE_DENOMINATOR = 10
 
       # One status in the drawing. +status+ is nil for the entry node and for a
       # row naming a status that no longer exists -- told apart by the id, never
@@ -51,8 +62,18 @@ module RedmineProjectWorkflows
       # One transition, collapsed over the roles and the condition grids that
       # permit it: the reader wants the move once, with what it requires and
       # which of the selected roles grant it.
+      #
+      # +fallback+ is the one edge that is not a stored rule: core's own fallback
+      # from the entry node to the tracker's default status. It is a member
+      # rather than a subclass so that every reader that already handles an Edge
+      # keeps working, and so that the two can never be told apart by anything
+      # softer than a flag.
       Edge = Struct.new(:old_status_id, :old_status, :new_status_id, :new_status,
-                        :conditions, :roles, keyword_init: true)
+                        :conditions, :roles, :fallback, keyword_init: true) do
+        def fallback?
+          fallback ? true : false
+        end
+      end
 
       # One selected role and the state of this project's transitions workflow
       # for it. Per role because resolution is per role (INV-5): one role can be
@@ -76,11 +97,43 @@ module RedmineProjectWorkflows
           role_states.map(&:role)
         end
 
+        # The transitions somebody configured. Core's fallback arrow is not one
+        # of them: it is what Redmine does in the *absence* of a rule, so a
+        # reader that counted it would report a workflow as non-empty because
+        # Redmine has a default.
+        def stored_edges
+          edges.reject(&:fallback)
+        end
+
+        def fallback_edge
+          edges.detect(&:fallback)
+        end
+
         # Nothing at all to draw but the entry node: the selected roles run their
         # own workflow here and it is deliberately empty (INV-3). Distinct from
         # "no role takes part in a workflow", which is role_states being empty.
         def empty_workflow?
-          edges.empty?
+          stored_edges.empty?
+        end
+
+        # Whether this workflow is so permissive that its drawing has no shape to
+        # show: nearly every status may become nearly every other, so the picture
+        # is a line between almost every pair of boxes and where the boxes sit
+        # says nothing. Redmine's own default data is exactly this -- every status
+        # to every other -- so it is the shipped shape rather than a curiosity,
+        # and it is reached at six statuses (finding F03).
+        #
+        # Measured in integers, like everything else the drawing depends on: a
+        # threshold in floating point is a number that can differ in its last
+        # digit between platforms, and this one decides what a screen renders.
+        def dense?
+          moves = stored_edges.reject { |edge| edge.old_status_id == ENTRY_STATUS_ID }
+                              .map { |edge| [edge.old_status_id, edge.new_status_id] }.uniq
+          ends = moves.flatten.uniq
+          return false if ends.size < DENSE_MINIMUM_STATUSES
+
+          possible = ends.size * (ends.size - 1)
+          moves.size * DENSE_DENOMINATOR >= possible * DENSE_NUMERATOR
         end
 
         # A status with no way out. The entry node is never one -- it is not a
@@ -116,12 +169,13 @@ module RedmineProjectWorkflows
         return empty_result if role_states.empty?
 
         rows = edge_rows(role_states.map { |role_state| role_state.role.id })
-        statuses = statuses_for(rows)
+        fallback = fallback_status(rows)
+        statuses = statuses_for(rows, fallback)
         roles_by_id = role_states.index_by { |role_state| role_state.role.id }
 
         Result.new(
-          nodes: build_nodes(rows, statuses),
-          edges: build_edges(rows, statuses, roles_by_id),
+          nodes: build_nodes(rows, statuses, fallback),
+          edges: with_fallback(build_edges(rows, statuses, roles_by_id), fallback, role_states),
           role_states: role_states
         )
       end
@@ -181,6 +235,50 @@ module RedmineProjectWorkflows
                           .distinct.pluck(:role_id)
       end
 
+      # --- core's own fallback ---------------------------------------------------
+
+      # The tracker's default status, when and only when no rule leaves the entry
+      # node -- otherwise nil, and nothing is added to the drawing.
+      #
+      # Modelled here because core models it. +Issue#new_statuses_allowed_to+
+      # ends with
+      #
+      #   statuses << default_status if include_default || (new_record? && statuses.empty?)
+      #
+      # so a workflow that names no status for a new issue does not refuse to
+      # create one: Redmine starts the issue on the tracker's default status.
+      # Redmine's own +redmine:load_default_data+ seeds no +old_status_id = 0+
+      # row at all, so that is the *shipped* configuration rather than an odd
+      # one, and a drawing that leaves the fallback out reports every status as
+      # unreachable on a freshly installed Redmine (finding F01).
+      #
+      # Deliberately narrow: only a workflow with **no** rule out of the entry
+      # node gets the arrow. Core's own condition is that the list came back
+      # empty *for the reader*, so a workflow whose only entry rules are author-
+      # or assignee-only also falls back for everybody else -- but the drawing has
+      # no reader to judge a condition against (the class comment says why), and
+      # an arrow drawn beside a rule already pointing at the same status would say
+      # one move twice.
+      #
+      # One query, once per render, and not per node or per edge (G6).
+      def fallback_status(rows)
+        return nil if rows.any? { |old_status_id, *| old_status_id == ENTRY_STATUS_ID }
+
+        @tracker.default_status
+      end
+
+      # The fallback as an edge, first in the list -- where the entry node sorts
+      # anyway. Unconditional, because core applies it to everybody, and carrying
+      # every selected role for the same reason.
+      def with_fallback(edges, fallback, role_states)
+        return edges if fallback.nil?
+
+        [Edge.new(old_status_id: ENTRY_STATUS_ID, old_status: nil,
+                  new_status_id: fallback.id, new_status: fallback,
+                  conditions: ['always'], roles: role_states.map(&:role).sort,
+                  fallback: true)] + edges
+      end
+
       # --- the edges -----------------------------------------------------------
 
       # Every stored transition for the selected roles, in the two populations
@@ -215,11 +313,14 @@ module RedmineProjectWorkflows
       #
       # 0 is core's "new issue" node and is not a status, so it is never asked
       # for.
-      def statuses_for(rows)
+      def statuses_for(rows, fallback)
         ids = (mentioned_status_ids(rows) + used_status_ids).uniq.reject(&:zero?)
-        return {} if ids.empty?
-
-        IssueStatus.where(id: ids).index_by(&:id)
+        found = ids.empty? ? {} : IssueStatus.where(id: ids).index_by(&:id)
+        # The fallback's own status need not be in either list: a tracker whose
+        # default status no rule names and the project's effective workflow never
+        # uses is exactly the state finding F01 is about.
+        found[fallback.id] ||= fallback if fallback
+        found
       end
 
       def mentioned_status_ids(rows)
@@ -239,8 +340,13 @@ module RedmineProjectWorkflows
       # and every seed -- the layout is a pure function of this order, so an
       # order that came out of a query would put the drawing at the mercy of the
       # planner.
-      def build_nodes(rows, statuses)
+      def build_nodes(rows, statuses, fallback)
         mentioned = mentioned_status_ids(rows).to_set
+        # The fallback's target counts as mentioned: it is where every new issue
+        # of this tracker starts, so reporting it under "no rule for these roles
+        # mentions it" would file the one status the reader is certain to meet
+        # under the diagnostic for statuses that have nothing to do with them.
+        mentioned << fallback.id if fallback
         ids = (mentioned + statuses.keys + [ENTRY_STATUS_ID]).to_a
 
         nodes = ids.map do |status_id|

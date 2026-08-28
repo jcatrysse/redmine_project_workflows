@@ -24,8 +24,10 @@ module RedmineProjectWorkflows
     # Four phases. The first three are about the graph rather than about the
     # page -- break the cycles, assign layers, order within a layer -- and live
     # in WorkflowGraphRanking; this class is the fourth, which is where anything
-    # first has a coordinate: even spacing, a straightening pass, the routing,
-    # the text, and the extent the viewBox comes from.
+    # first has a coordinate: even spacing, a straightening pass, the routing and
+    # the text. How far the finished drawing runs is WorkflowGraphExtent, which
+    # is measured over the paths as well as the boxes and is a class of its own
+    # because getting that wrong clips arcs with no error anywhere.
     class WorkflowGraphLayout
       # The geometry. A node is a fixed size so that the layout stays a pure
       # function of the graph: letting a long status name widen its box would
@@ -73,7 +75,10 @@ module RedmineProjectWorkflows
       # +back+ is an arc that returns leftwards or joins the band; the renderer
       # draws it the same way and it is here so that a spec can tell the two
       # kinds apart without parsing a path.
-      RoutedEdge = Struct.new(:edge, :d, :points, :back, :conditional, keyword_init: true)
+      # +fallback+ is core's own arrow from the entry node to the tracker's
+      # default status rather than a stored rule (finding F01). The renderer draws
+      # it dotted, and the legend says what it is.
+      RoutedEdge = Struct.new(:edge, :d, :points, :back, :conditional, :fallback, keyword_init: true)
 
       # +view_box+ is the string the <svg> carries, and it comes from the
       # **drawn** extent: the node boxes and every point of every path. Sizing it
@@ -126,9 +131,13 @@ module RedmineProjectWorkflows
       # sentence that explains it (decided autonomously, 2026-08-28; reversible
       # by deleting this branch).
       def drawn_status_nodes
-        return @graph.nodes.select(&:entry?) if @graph.empty_workflow?
+        return @graph.nodes unless @graph.empty_workflow?
 
-        @graph.nodes
+        # ...except whatever an edge still touches, which for an empty workflow is
+        # core's fallback to the tracker's default status and nothing else. Where
+        # there is no fallback either this is the entry node alone, as before.
+        touched = @graph.edges.flat_map { |edge| [edge.old_status_id, edge.new_status_id] }.to_set
+        @graph.nodes.select { |node| node.entry? || touched.include?(node.status_id) }
       end
 
       def empty_result
@@ -139,9 +148,30 @@ module RedmineProjectWorkflows
 
       def place(nodes, edges)
         ranking = WorkflowGraphRanking.new(nodes, edges, order: @order).result
-        placed, waypoints = coordinates(ranking)
-        routed = route(edges, placed, waypoints, ranking)
+        band_ranking = band_ranking_for(ranking, edges)
+        placed, waypoints = coordinates(ranking, band_ranking)
+        routed = route(edges, placed, waypoints, ranking, band_ranking)
         finish(placed.values.sort_by { |node| @order[node.node.status_id] }, routed, ranking.band.any?)
+      end
+
+      # The band gets the same three phases the main graph gets, on the sub-graph
+      # of its own nodes and the edges between them (finding F04). A single row in
+      # query order was right for the one or two statuses the band was designed
+      # for and wrong the moment several of them had edges among each other: every
+      # such edge became a bow under the same row, and a dozen near-identical arcs
+      # is a picture that claims to inform and does not.
+      #
+      # Every band node is a root of that ranking. The band is by definition what
+      # the entry node cannot reach, so it has no single starting point, and
+      # taking them all is also what guarantees no second band appears inside this
+      # one -- which would need a place to go that the drawing does not have.
+      def band_ranking_for(ranking, edges)
+        ids = ranking.band.to_set(&:status_id)
+        return nil if ids.empty?
+
+        inside = edges.select { |edge| ids.include?(edge.old_status_id) && ids.include?(edge.new_status_id) }
+        WorkflowGraphRanking.new(ranking.band, inside, order: @order,
+                                                       roots: ids.sort_by { |id| @order[id] }).result
       end
 
       # Phase 4. Even spacing, then one straightening pass in which **only the
@@ -149,23 +179,31 @@ module RedmineProjectWorkflows
       # right; letting it tug drags the main path into a staircase, and the
       # drawing is visibly worse. Measured on the model, not assumed -- which is
       # why +pull+ is built from the forward chains alone.
-      def coordinates(ranking)
-        y_of = straighten(ranking, even_spacing(ranking.rows))
+      def coordinates(ranking, band_ranking)
         placed = {}
         waypoints = {}
-        ranking.rows.each do |layer, row|
-          row.each { |key| assign(key, layer, y_of[key], placed, waypoints) }
-        end
-        place_band(placed, ranking.band)
+        fill(ranking, 0, placed, waypoints, band: false)
+        # The band is the same grid again, pushed below everything the main graph
+        # occupies. Its layers start at column 0 of their own accord, so the two
+        # blocks share a left edge and the drawing stays as narrow as its widest
+        # half.
+        fill(band_ranking, band_top_for(placed), placed, waypoints, band: true) if band_ranking
         [placed, waypoints]
+      end
+
+      def fill(ranking, top, placed, waypoints, band:)
+        y_of = straighten(ranking, even_spacing(ranking.rows))
+        ranking.rows.each do |layer, row|
+          row.each { |key| assign(key, layer, top + y_of[key], placed, waypoints, band: band) }
+        end
       end
 
       # A status id gets a box; a dummy key gets the centre of the cell a real
       # node would have occupied, which is what a long edge is routed through --
       # the whole reason the dummy was inserted into the ordering.
-      def assign(key, layer, top, placed, waypoints)
+      def assign(key, layer, top, placed, waypoints, band:)
         if key.is_a?(Integer)
-          placed[key] = place_node(@by_id[key], layer, top)
+          placed[key] = place_node(@by_id[key], layer, top, band: band)
         else
           waypoints[key] = [(layer * (NODE_WIDTH + LAYER_GAP)) + (NODE_WIDTH / 2), top + (NODE_HEIGHT / 2)]
         end
@@ -210,28 +248,11 @@ module RedmineProjectWorkflows
         end
       end
 
-      def place_node(node, layer, top)
+      def place_node(node, layer, top, band:)
         lines, truncated = fitted_name(node)
         PlacedNode.new(node: node, x: layer * (NODE_WIDTH + LAYER_GAP), y: top,
                        width: NODE_WIDTH, height: NODE_HEIGHT, lines: lines,
-                       truncated: truncated, band: false, layer: layer)
-      end
-
-      # The band: the statuses the entry node cannot reach, in a row of their own
-      # below everything else. A row rather than a column, because the band is
-      # read as a list and a column would make the drawing twice as tall.
-      def place_band(placed, band)
-        return if band.empty?
-
-        top = band_top_for(placed)
-        band.each_with_index do |node, index|
-          lines, truncated = fitted_name(node)
-          placed[node.status_id] = PlacedNode.new(
-            node: node, x: index * (NODE_WIDTH + LAYER_GAP), y: top,
-            width: NODE_WIDTH, height: NODE_HEIGHT, lines: lines, truncated: truncated,
-            band: true, layer: nil
-          )
-        end
+                       truncated: truncated, band: band, layer: layer)
       end
 
       def band_top_for(placed)
@@ -246,23 +267,41 @@ module RedmineProjectWorkflows
       # everything else -- a returning arc, and any edge touching the band --
       # bows below, one step deeper per layer it spans so that two returns of
       # different lengths stay apart.
-      def route(edges, placed, waypoints, ranking)
+      def route(edges, placed, waypoints, ranking, band_ranking)
+        back_keys = ranking.back_keys | (band_ranking&.back_keys || [])
+        # Disjoint by construction: an edge is wholly inside the band or wholly
+        # outside it, so no pair of status ids is a key of both maps.
+        crossings = ranking.crossings.merge(band_ranking&.crossings || {})
+
         edges.filter_map do |edge|
           from = placed[edge.old_status_id]
           to = placed[edge.new_status_id]
           next if from.nil? || to.nil?
 
-          back = ranking.back_keys.include?(key_of(edge)) || from.band || to.band || from.x >= to.x
-          points = back ? bow_points(from, to) : forward_points(from, to, crossings(edge, waypoints, ranking))
-          RoutedEdge.new(edge: edge, d: path_for(points), points: points, back: back,
-                         conditional: Array(edge.conditions).exclude?('always'))
+          routed_edge(edge, from, to, back?(edge, from, to, back_keys),
+                      crossings_of(edge, waypoints, crossings))
         end
+      end
+
+      # An edge bows below when it closes a cycle in whichever of the two
+      # rankings owns it, when it joins the band to the rest (the two blocks are
+      # stacked, so there is no left-to-right reading of such an edge), or when it
+      # simply points leftwards.
+      def back?(edge, from, to, back_keys)
+        back_keys.include?(key_of(edge)) || from.band != to.band || from.x >= to.x
+      end
+
+      def routed_edge(edge, from, to, back, crossings)
+        points = back ? bow_points(from, to) : forward_points(from, to, crossings)
+        RoutedEdge.new(edge: edge, d: path_for(points), points: points, back: back,
+                       conditional: Array(edge.conditions).exclude?('always'),
+                       fallback: edge.fallback ? true : false)
       end
 
       # The dummy cells this edge passes through, left to right. Empty for an
       # edge between neighbouring layers, which is most of them.
-      def crossings(edge, waypoints, ranking)
-        (ranking.crossings[key_of(edge)] || []).filter_map { |key| waypoints[key] }
+      def crossings_of(edge, waypoints, crossings)
+        (crossings[key_of(edge)] || []).filter_map { |key| waypoints[key] }
       end
 
       # Cubic segments whose control points sit halfway between one waypoint and
@@ -309,47 +348,23 @@ module RedmineProjectWorkflows
         [edge.old_status_id, edge.new_status_id]
       end
 
-      def both_reachable?(edge, reachable)
-        reachable.include?(edge.old_status_id) && reachable.include?(edge.new_status_id)
-      end
-
       # --- the extent -----------------------------------------------------------
 
-      # The viewBox comes from what is drawn: the boxes and every point of every
-      # path. A cubic Bezier lies within the hull of its four points, so the
-      # bowed arcs are contained rather than merely usually contained.
+      # The viewBox comes from what is drawn -- the boxes *and* every point of
+      # every path, which is WorkflowGraphExtent's whole subject and its own
+      # comment says why.
       #
-      # The whole drawing is then translated so that its top left corner is the
-      # origin, which keeps the viewBox a plain "0 0 w h" and means no consumer
-      # has to deal with negative coordinates.
+      # The drawing is then translated so that its top left corner is the origin,
+      # which keeps the viewBox a plain "0 0 w h" and means no consumer has to
+      # deal with negative coordinates.
       def finish(placed, routed, band)
-        min_x, min_y, width, height = extent(placed, routed)
+        min_x, min_y, width, height = WorkflowGraphExtent.of(placed, routed, padding: PADDING)
         nodes = placed.map { |node| shift_node(node, min_x, min_y) }
         edges = routed.map { |edge| shift_edge(edge, min_x, min_y) }
 
         Result.new(nodes: nodes, edges: edges, view_box: "0 0 #{width} #{height}",
                    width: width, height: height,
                    band_top: band ? nodes.select(&:band).map(&:y).min : nil)
-      end
-
-      # Every corner of every box and every point of every path, padded. Both
-      # halves are load-bearing: the paths alone miss a node nothing points at,
-      # and the boxes alone clip the arcs.
-      def extent(placed, routed)
-        corners = placed.flat_map do |node|
-          [[node.x, node.y], [node.x + node.width, node.y + node.height]]
-        end
-        points = corners + routed.flat_map(&:points)
-        min_x, width = span(points.map(&:first))
-        min_y, height = span(points.map(&:last))
-        [min_x, min_y, width, height]
-      end
-
-      # One axis: where the drawing starts, and how far it runs, padded at both
-      # ends. Returned as a pair so that extent stays two lines rather than eight
-      # near-identical ones.
-      def span(values)
-        [values.min - PADDING, (values.max - values.min) + (2 * PADDING)]
       end
 
       def shift_node(node, min_x, min_y)

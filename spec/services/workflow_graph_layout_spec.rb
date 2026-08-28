@@ -121,6 +121,65 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphLayout do
       expect(result.band_nodes).to be_empty
       expect(result.band_top).to be_nil
     end
+
+    # Finding F04. The band used to be one flat row in query order, with every
+    # edge among its members drawn as a bow underneath it -- so a band holding a
+    # chain of four produced three near-identical arcs stacked under one row and
+    # nothing could be told from any of them. It now gets the same three phases
+    # the main graph gets, on its own sub-graph.
+    #
+    # Red against the previous commit: 4, 5, 6 and 7 all sat at y = band_top on
+    # four increasing x values in query order, and every one of these edges came
+    # back with +back+ true.
+    it 'lays a chain inside the band out in columns of its own' do
+      nodes = chain_nodes + [node(4), node(5), node(6)]
+      band_edges = [edge(4, 5), edge(5, 6)]
+      result = layout_for(nodes, chain_edges + band_edges)
+
+      band = result.band_nodes.index_by { |placed| placed.node.status_id }
+      expect(band.values.map(&:layer)).to contain_exactly(0, 1, 2)
+      expect(band[4].x).to be < band[5].x
+      expect(band[5].x).to be < band[6].x
+    end
+
+    it 'draws an edge inside the band as a forward arrow rather than a bow' do
+      nodes = chain_nodes + [node(4), node(5)]
+      result = layout_for(nodes, chain_edges + [edge(4, 5)])
+
+      inside = result.edges.detect { |routed| routed.edge.old_status_id == 4 }
+      expect(inside.back).to be(false)
+    end
+
+    it 'still bows an edge that returns inside the band' do
+      # 4 -> 5 -> 4 is a cycle: one of the two closes it and has to come back
+      # leftwards, which is the one thing a layered drawing cannot do with a
+      # straight arrow.
+      nodes = chain_nodes + [node(4), node(5)]
+      result = layout_for(nodes, chain_edges + [edge(4, 5), edge(5, 4)])
+
+      band_ids = [4, 5]
+      inside = result.edges.select { |routed| band_ids.include?(routed.edge.old_status_id) }
+      expect(inside.map(&:back)).to contain_exactly(false, true)
+      expect(result.band_nodes.map { |placed| placed.node.status_id }).to contain_exactly(4, 5)
+    end
+
+    it 'still bows an edge that leaves the band for the drawing above it' do
+      # The two blocks are stacked, so there is no left-to-right reading of an
+      # edge between them however their columns happen to line up.
+      nodes = chain_nodes + [node(4)]
+      result = layout_for(nodes, chain_edges + [edge(4, 2)])
+
+      expect(result.edges.detect { |routed| routed.edge.old_status_id == 4 }.back).to be(true)
+    end
+
+    it 'keeps the whole band below the drawing once the band has layers of its own' do
+      nodes = chain_nodes + [node(4), node(5), node(6)]
+      result = layout_for(nodes, chain_edges + [edge(4, 5), edge(5, 6)])
+
+      lowest = result.drawn_nodes.map { |placed| placed.y + placed.height }.max
+      expect(result.band_nodes.map(&:y).min).to be > lowest
+      expect(result.band_top).to eq(result.band_nodes.map(&:y).min)
+    end
   end
 
   describe 'an own empty workflow' do
@@ -185,6 +244,26 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphLayout do
 
     it 'starts at the origin whatever the arcs did' do
       expect(bowed.view_box).to start_with('0 0 ')
+    end
+
+    # The band is a grid of its own since finding F04, so it has returning arcs
+    # of its own, below a block that did not exist when the extent was written.
+    it 'contains the band and its own returning arcs' do
+      nodes = chain_nodes + [node(4), node(5), node(6)]
+      banded = layout_for(nodes, chain_edges + [edge(4, 5), edge(5, 6), edge(6, 4)])
+      _, _, width, height = banded.view_box.split.map(&:to_i)
+
+      expect(banded.band_nodes.size).to eq(3)
+      banded.edges.each do |routed|
+        routed.points.each do |x, y|
+          expect(x).to be_between(0, width), "x #{x} outside the viewBox for #{routed.d}"
+          expect(y).to be_between(0, height), "y #{y} outside the viewBox for #{routed.d}"
+        end
+      end
+      banded.nodes.each do |placed|
+        expect(placed.y + placed.height).to be <= height
+        expect(placed.x + placed.width).to be <= width
+      end
     end
   end
 

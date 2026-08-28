@@ -1001,15 +1001,35 @@ visible. Three consequences:
   on "there are no rules" rather than on the scope is precisely the defect the
   scope model exists to fix, and the review of this package's own diff found it
   in the first version of the view.
+- **Core's own fallback is part of the workflow and is drawn** (finding F01,
+  2026-08-28). `Issue#new_statuses_allowed_to` ends with
+  `statuses << default_status if include_default || (new_record? && statuses.empty?)`,
+  so a workflow that names no status for a new issue does not refuse to create
+  one -- Redmine starts the issue on the tracker's default status. Redmine's own
+  `load_default_data` seeds **no** `old_status_id = 0` row, so that is the shipped
+  configuration; a drawing modelling only the rules reported every status as
+  unreachable on a freshly installed Redmine. The fallback is a dotted arrow with
+  a legend sentence naming it, it is `Edge#fallback` rather than a stored rule,
+  and `empty_workflow?` counts `stored_edges` so that Redmine having a default
+  cannot make an own *empty* workflow read as one somebody filled in (INV-3).
+- **A workflow with no progression says so instead of drawing spaghetti**
+  (finding F03, 2026-08-28). Redmine's default workflow is a *complete* graph --
+  every status may become every other -- and a layered drawing of one is a column
+  per status with an arc between every pair; it reaches that at six statuses.
+  `Result#dense?` is the judgement (at least four statuses, at least nine tenths
+  of the possible moves present, entry arrows excluded, integer arithmetic), and
+  the screen then says the workflow permits nearly every move and folds the
+  picture into a `<details>` rather than deleting it.
 
-### The four objects
+### The five objects
 
 | Object | What it is |
 | --- | --- |
 | `Services::WorkflowPopulations` | the two populations one project's roles resolve to, as **finished** relations. Shared with WP8's `TransitionMapQuery`, which is why it exists: **INV-4** written twice is INV-4 with two places to get it wrong. A relation cannot be built there without a `project_id` -- `nil` for the generic rows, an id for a project's own |
 | `Services::WorkflowGraphQuery` | nodes, edges and the per-role INV-3 state for one (project, tracker, role ids). A query object of its own rather than a mode on `TransitionMapQuery`, which reads the tracker, the status and the status list off one issue on purpose and has no issue here |
-| `Services::WorkflowGraphRanking` | reachability, cycle break, layers, ordering -- the graph's shape, with no coordinate anywhere in it |
-| `Services::WorkflowGraphLayout` | coordinates, routing, and the extent the `viewBox` comes from. Plus `WorkflowGraphText`, which fits a status name into a fixed box |
+| `Services::WorkflowGraphRanking` | reachability, cycle break, layers, ordering -- the graph's shape, with no coordinate anywhere in it. Run twice: once from the entry node for the main graph, and once over the band's own sub-graph with every band node a root, so that the statuses no new issue can reach get columns of their own rather than one flat row (finding F04) |
+| `Services::WorkflowGraphLayout` | coordinates, routing and the text. Plus `WorkflowGraphText`, which fits a status name into a fixed box |
+| `Services::WorkflowGraphExtent` | how far the finished drawing runs, measured over the paths as well as the boxes. A class of its own because getting it wrong clips arcs with no error anywhere |
 
 **Availability -- WP8's honesty clause -- has no meaning here.** There is no issue
 and no reader identity to judge an edge against, so no edge carries whether it is
@@ -1057,9 +1077,10 @@ Two layout details measured on a model rather than guessed:
 
 Asking for the drawing costs the Resolver's cached scope lookup, one query for
 which of the overridden roles hold a rule, one edge query, the cached effective
-status list for the tracker, and one status query. None of them grows with the
-size of the workflow, and nothing is per node or per edge. A screen that does not
-ask for the drawing pays none of it.
+status list for the tracker, one status query, and -- only where no rule leaves
+the entry node -- the tracker's default status. None of them grows with the size
+of the workflow, and nothing is per node or per edge. A screen that does not ask
+for the drawing pays none of it.
 
 Out of scope, deliberately: editing the workflow inside the diagram (that is
 Jira's workflow editor, a far larger thing, and Redmine's tick-box matrix is

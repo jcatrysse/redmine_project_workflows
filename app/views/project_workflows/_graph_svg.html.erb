@@ -8,8 +8,8 @@
   * **currentColor everywhere.** Redmine 7.0 ships no dark mode, but third-party
     themes change exactly the colours one would otherwise hard-code, and a
     drawing with a black stroke on a dark theme is invisible. What the drawing
-    distinguishes it distinguishes by line style -- solid against dashed -- and
-    the legend below says which is which in words.
+    distinguishes it distinguishes by line style -- solid, dashed and dotted --
+    and the legend below says which is which in words.
   * **The arrowhead is a <marker>, not `context-stroke`.** That keyword is not
     safe on every browser the supported Redmine versions run on. One marker
     serves every arrow, because every arrow is the same colour; `currentColor`
@@ -47,11 +47,15 @@
     <% end %>
 
     <g class="project-workflow-graph-edges" fill="none" stroke="currentColor" stroke-width="1.5">
+      <%# Three kinds of arrow, three line styles, and the legend below names all
+          three in words. The fallback is dotted rather than dashed so that it
+          cannot be mistaken for a conditional rule: it is not a rule at all, but
+          what Redmine does when no rule says where a new issue starts. %>
       <% layout.edges.each do |routed| %>
         <path d="<%= routed.d %>"
               marker-end="url(#project-workflow-graph-arrow)"
-              <%= routed.conditional ? 'stroke-dasharray="5 3"'.html_safe : ''.html_safe %>
-              class="project-workflow-graph-edge<%= routed.conditional ? ' conditional' : '' %><%= routed.back ? ' returning' : '' %>">
+              <%= project_workflow_graph_dash(routed) %>
+              class="project-workflow-graph-edge<%= routed.conditional ? ' conditional' : '' %><%= routed.fallback ? ' fallback' : '' %><%= routed.back ? ' returning' : '' %>">
           <title><%= project_workflow_graph_edge_title(routed.edge) %></title>
         </path>
       <% end %>

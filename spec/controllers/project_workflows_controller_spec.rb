@@ -28,6 +28,13 @@ describe ProjectWorkflowsController, type: :controller do
     { project_id: project.id, tracker_id: tracker.id, role_id: role.id }.merge(extra)
   end
 
+  # The row of INV-3 actions, cut out of the page: the rest of a Redmine screen
+  # is full of adjacent anchors, so a pattern about "two links side by side" has
+  # to be scoped to the one place that is being asserted about.
+  def scope_actions
+    response.body[%r{<span class="project-workflow-scope-actions">.*?</span>}m]
+  end
+
   def generic_transition(from, to)
     WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: nil,
                                old_status_id: from.id, new_status_id: to.id)
@@ -534,6 +541,28 @@ describe ProjectWorkflowsController, type: :controller do
       expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_clear)))
       expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inherit)))
       expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_enable_copy)))
+    end
+
+    # Finding F05. The two links were rendered with nothing but ERB newline
+    # whitespace between them, so a browser showed "Give own workflow (copy of
+    # the generic one) Give own empty workflow" as one run of text -- and the
+    # second of the pair is the most consequential action either screen offers.
+    # A pipe is Redmine's own idiom for adjacent links in running text.
+    #
+    # Red against the previous commit in both examples: the pattern found the
+    # two anchors adjacent with only whitespace between them.
+    it 'separates the two actions it offers so they do not read as one sentence' do
+      get :transitions, params: transitions_params
+
+      expect(scope_actions).to match(%r{</a>\s*\|\s*<a}m)
+    end
+
+    it 'separates the two undo actions the same way' do
+      give_own_workflow(project, tracker, role)
+
+      get :transitions, params: transitions_params
+
+      expect(scope_actions).to match(%r{</a>\s*\|\s*<a}m)
     end
 
     it 'offers no action at all to somebody who may only view the workflow' do

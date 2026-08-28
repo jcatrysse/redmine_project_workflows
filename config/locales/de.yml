@@ -111,6 +111,7 @@ de:
   text_project_workflow_map_no_incoming: Dieser Workflow erlaubt keinen Statuswechsel zu diesem Status.
   text_project_workflow_map_no_roles: Sie haben in diesem Projekt keine Rolle, die an einem Workflow teilnimmt, daher ist kein Statuswechsel erlaubt.
   text_project_workflow_map_own_empty: Dieses Projekt hat für diesen Tracker und diese Rolle einen eigenen Workflow, und dieser enthält keine einzige Regel, daher ist kein Statuswechsel erlaubt. Das ist eine bewusste Einstellung und kein Fehler.
+  text_project_workflow_map_own_empty_some: 'Mindestens eine Ihrer Rollen hat hier einen eigenen Workflow, der keine einzige Regel enthält, daher erlaubt diese Rolle keinen Statuswechsel. Eine andere Ihrer Rollen kann durchaus welche erlauben. Das ist eine bewusste Einstellung und kein Fehler.'
   text_project_workflow_map_requires_author: Nur der Autor des Tickets darf diese Änderung vornehmen.
   text_project_workflow_map_requires_assignee: Nur der Bearbeiter des Tickets darf diese Änderung vornehmen.
   text_project_workflow_map_requires_author_or_assignee: Nur der Autor oder der Bearbeiter des Tickets darf diese Änderung vornehmen.
@@ -125,11 +126,15 @@ de:
   label_project_workflow_graph_unreachable: Von einem neuen Ticket aus nicht erreichbar
   label_project_workflow_graph_dead_end: Von hier führt nichts weiter
   label_project_workflow_graph_unmentioned: Von den gewählten Rollen nicht verwendet
+  label_project_workflow_graph_fallback: 'Redmines eigener Rückfall'
+  label_project_workflow_graph_show_anyway: 'Diagramm trotzdem anzeigen'
   text_project_workflow_graph_aria: 'Diagramm dieses Workflows: %{statuses} Status und %{transitions} Übergänge. Dieselben Angaben stehen in der Tabelle darunter.'
   text_project_workflow_graph_no_roles: Keine der gewählten Rollen nimmt an einem Workflow teil, es gibt also nichts zu zeichnen.
   text_project_workflow_graph_empty: Mindestens eine der gewählten Rollen hat hier einen eigenen Workflow, der keine einzige Regel enthält; für sie ist deshalb keine Statusänderung erlaubt. Das ist eine bewusste Einstellung und kein Fehler.
-  text_project_workflow_graph_nothing: Der hier geltende Workflow enthält für die gewählten Rollen keinen einzigen Übergang, das Diagramm zeigt deshalb nur den Ausgangspunkt.
+  text_project_workflow_graph_nothing: 'Der hier geltende Workflow enthält für die gewählten Rollen keinen einzigen Übergang, daher kann sich der Status eines bestehenden Tickets nie ändern.'
   text_project_workflow_graph_no_diagnostics: Jeder Status in diesem Workflow ist von einem neuen Ticket aus erreichbar und hat einen Ausgang.
+  text_project_workflow_graph_dense: 'Dieser Workflow erlaubt fast jeden Wechsel: fast jeder Status kann fast jeder andere werden. Es gibt keinen Ablauf, den ein Diagramm zeigen könnte, daher ist die Tabelle unten die lesbare Form davon.'
   text_project_workflow_graph_legend_solid: Ein durchgezogener Pfeil ist eine Änderung, die jeder mit dieser Rolle vornehmen darf.
   text_project_workflow_graph_legend_dashed: Ein gestrichelter Pfeil ist eine Änderung, die nur der Autor oder der Bearbeiter vornehmen darf.
+  text_project_workflow_graph_legend_fallback: 'Ein gepunkteter Pfeil ist Redmines eigener Rückfall und keine Regel: keine Regel sagt, mit welchem Status ein neues Ticket beginnt, daher legt Redmine es mit dem Standardstatus des Trackers an.'
   text_project_workflow_graph_legend_band: Status unterhalb der gepunkteten Linie sind von einem neuen Ticket aus nicht erreichbar.

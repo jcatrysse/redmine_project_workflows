@@ -111,6 +111,7 @@ nl:
   text_project_workflow_map_no_incoming: Deze workflow staat geen enkele statuswijziging naar deze status toe.
   text_project_workflow_map_no_roles: U hebt in dit project geen rol die aan een workflow deelneemt, dus is er geen statuswijziging toegestaan.
   text_project_workflow_map_own_empty: Dit project heeft een eigen workflow voor deze tracker en rol, en die bevat geen enkele regel, dus is er geen statuswijziging toegestaan. Dat is een bewuste keuze en geen fout.
+  text_project_workflow_map_own_empty_some: 'Minstens één van uw rollen heeft hier een eigen workflow die geen enkele regel bevat, dus die rol staat geen enkele statuswijziging toe. Een andere rol van u kan er wel enkele toestaan. Dat is een bewuste keuze en geen fout.'
   text_project_workflow_map_requires_author: Alleen de auteur van het issue mag deze wijziging maken.
   text_project_workflow_map_requires_assignee: Alleen de toegewezen persoon mag deze wijziging maken.
   text_project_workflow_map_requires_author_or_assignee: Alleen de auteur of de toegewezen persoon mag deze wijziging maken.
@@ -125,11 +126,15 @@ nl:
   label_project_workflow_graph_unreachable: Niet bereikbaar vanaf een nieuw issue
   label_project_workflow_graph_dead_end: Hier leidt niets uit weg
   label_project_workflow_graph_unmentioned: Niet gebruikt door de geselecteerde rollen
+  label_project_workflow_graph_fallback: 'Terugval van Redmine zelf'
+  label_project_workflow_graph_show_anyway: 'Toon het diagram toch'
   text_project_workflow_graph_aria: 'Diagram van deze workflow: %{statuses} statussen en %{transitions} overgangen. Dezelfde informatie staat in de tabel hieronder.'
   text_project_workflow_graph_no_roles: Geen van de geselecteerde rollen neemt deel aan een workflow, dus er valt niets te tekenen.
   text_project_workflow_graph_empty: Minstens één van de geselecteerde rollen heeft hier een eigen workflow die geen enkele regel bevat, dus is er voor die rol geen statuswijziging toegestaan. Dat is een bewuste keuze en geen fout.
-  text_project_workflow_graph_nothing: De workflow die hier geldt, bevat voor de geselecteerde rollen geen enkele overgang, dus toont het diagram alleen het startpunt.
+  text_project_workflow_graph_nothing: 'De workflow die hier geldt, bevat voor de geselecteerde rollen geen enkele overgang, dus kan de status van een bestaand issue nooit wijzigen.'
   text_project_workflow_graph_no_diagnostics: Elke status in deze workflow is bereikbaar vanaf een nieuw issue en heeft een uitweg.
+  text_project_workflow_graph_dense: 'Deze workflow staat bijna elke overgang toe: bijna elke status kan bijna elke andere worden. Er is geen verloop dat een diagram kan tonen, dus is de tabel hieronder de leesbare vorm ervan.'
   text_project_workflow_graph_legend_solid: Een doorlopende pijl is een wijziging die iedereen met de rol mag maken.
   text_project_workflow_graph_legend_dashed: Een streepjespijl is een wijziging die alleen de auteur of de toegewezen persoon mag maken.
+  text_project_workflow_graph_legend_fallback: 'Een gestippelde pijl is de terugval van Redmine zelf en geen regel: geen enkele regel zegt met welke status een nieuw issue begint, dus start Redmine het met de standaardstatus van de tracker.'
   text_project_workflow_graph_legend_band: Statussen onder de stippellijn zijn niet bereikbaar vanaf een nieuw issue.

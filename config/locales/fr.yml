@@ -111,6 +111,7 @@ fr:
   text_project_workflow_map_no_incoming: Ce workflow n'autorise aucun changement de statut vers celui-ci.
   text_project_workflow_map_no_roles: Vous n'avez dans ce projet aucun rôle participant à un workflow, donc aucun changement de statut n'est autorisé.
   text_project_workflow_map_own_empty: Ce projet a son propre workflow pour ce tracker et ce rôle, et celui-ci ne contient aucune règle, donc aucun changement de statut n'est autorisé. C'est une configuration voulue et non une anomalie.
+  text_project_workflow_map_own_empty_some: 'Au moins un de vos rôles dispose ici d''un workflow propre qui ne contient aucune règle ; ce rôle n''autorise donc aucun changement de statut. Un autre de vos rôles peut néanmoins en autoriser. C''est une configuration voulue et non une anomalie.'
   text_project_workflow_map_requires_author: Seul l'auteur de la demande peut effectuer ce changement.
   text_project_workflow_map_requires_assignee: Seule la personne assignée peut effectuer ce changement.
   text_project_workflow_map_requires_author_or_assignee: Seul l'auteur ou la personne assignée peut effectuer ce changement.
@@ -125,11 +126,15 @@ fr:
   label_project_workflow_graph_unreachable: Inaccessible depuis une nouvelle demande
   label_project_workflow_graph_dead_end: Rien n'en sort
   label_project_workflow_graph_unmentioned: Non utilisé par les rôles sélectionnés
+  label_project_workflow_graph_fallback: 'Repli propre à Redmine'
+  label_project_workflow_graph_show_anyway: 'Afficher quand même le diagramme'
   text_project_workflow_graph_aria: 'Diagramme de ce flux de travail : %{statuses} statuts et %{transitions} transitions. Les mêmes informations figurent dans le tableau ci-dessous.'
   text_project_workflow_graph_no_roles: Aucun des rôles sélectionnés ne participe à un flux de travail ; il n'y a donc rien à dessiner.
   text_project_workflow_graph_empty: Au moins un des rôles sélectionnés dispose ici d'un flux de travail propre qui ne contient aucune règle ; aucun changement de statut ne lui est donc permis. C'est une configuration délibérée et non une anomalie.
-  text_project_workflow_graph_nothing: Le flux de travail applicable ici ne contient aucune transition pour les rôles sélectionnés ; le diagramme ne montre donc que le point de départ.
+  text_project_workflow_graph_nothing: 'Le flux de travail applicable ici ne contient aucune transition pour les rôles sélectionnés ; le statut d''une demande existante ne peut donc jamais changer.'
   text_project_workflow_graph_no_diagnostics: Chaque statut de ce flux de travail est accessible depuis une nouvelle demande et possède une sortie.
+  text_project_workflow_graph_dense: 'Ce flux de travail autorise presque tous les changements : presque chaque statut peut devenir presque n''importe quel autre. Il n''y a aucune progression qu''un diagramme puisse montrer ; le tableau ci-dessous en est la forme lisible.'
   text_project_workflow_graph_legend_solid: Une flèche continue est un changement que peut faire toute personne ayant le rôle.
   text_project_workflow_graph_legend_dashed: Une flèche en pointillés est un changement que seuls l'auteur ou l'assigné peuvent faire.
+  text_project_workflow_graph_legend_fallback: 'Une flèche pointillée est le repli propre à Redmine et non une règle : aucune règle n''indique avec quel statut une nouvelle demande commence, Redmine la crée donc avec le statut par défaut du tracker.'
   text_project_workflow_graph_legend_band: Les statuts situés sous la ligne pointillée sont inaccessibles depuis une nouvelle demande.

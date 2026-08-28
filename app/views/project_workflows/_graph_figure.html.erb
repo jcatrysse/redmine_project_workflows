@@ -1,0 +1,19 @@
+<%#
+  The drawing and the words that go with it (WP9). One partial rather than two so
+  that a caller can put both behind the same disclosure: on a workflow so
+  permissive that the picture has no shape to show (finding F03), the drawing is
+  collapsed and a legend left behind above it would explain arrows nobody can
+  see.
+
+  Locals: layout.
+%>
+<%= render partial: 'project_workflows/graph_svg', locals: { layout: layout } %>
+
+<%# Only the sentences that are about something on the page. The helper says
+    why. %>
+<% legend = project_workflow_graph_legend(layout) %>
+<% if legend.any? %>
+  <p class="project-workflow-graph-legend">
+    <em><%= legend.join(' ') %></em>
+  </p>
+<% end %>

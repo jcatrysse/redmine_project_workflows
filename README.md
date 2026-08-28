@@ -348,9 +348,24 @@ Under the drawing, in words:
   some *other* role, which is why it is not in the picture.
 
 A solid arrow is a change anyone holding the role may make; a dashed one is a
-change only the author or the assignee may make. Underneath is **the same
-workflow as a table** — that is not an afterthought: it is what a screen reader
-reads, what Ctrl-F finds, and what prints legibly.
+change only the author or the assignee may make; a dotted one is Redmine's own
+fallback rather than a rule. Underneath is **the same workflow as a table** —
+that is not an afterthought: it is what a screen reader reads, what Ctrl-F finds,
+and what prints legibly.
+
+**About that dotted arrow.** A stock Redmine ships a workflow with no rule at all
+in the *New issue* row, and Redmine does not refuse to create issues because of
+it: when no rule says which status a new issue starts in, it starts on the
+tracker's default status. The diagram draws that as a dotted arrow, so the
+statuses it leads to are correctly reported as reachable. It is not a rule
+somebody wrote, and writing one for the *New issue* row makes it disappear.
+
+**When there is no picture worth drawing.** Redmine's own default workflow lets
+every status become every other one. A diagram of that is a line between every
+pair of boxes, which answers nothing, so the screen says the workflow permits
+nearly every move and folds the picture away behind *Show the diagram anyway*
+rather than putting spaghetti in front of you. The table and the three lists
+above stay where they are.
 
 The diagram is behind the **View project workflow** permission, because it shows
 what *other* roles may do, which is project configuration rather than information

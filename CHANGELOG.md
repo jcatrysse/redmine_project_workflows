@@ -44,6 +44,41 @@ The workflow as a drawing.
   with the layout computed in Ruby, so the status names stay real text and a
   theme's colours carry through to it.
 
+  **Redmine's own starting point is drawn too.** A stock Redmine ships a workflow
+  with no rule at all in the *New issue* row, and it does not refuse to create
+  issues because of it: when nothing says which status a new issue starts in,
+  Redmine starts it on the tracker's default status. The diagram draws that as a
+  dotted arrow and says in the legend that it is Redmine's fallback rather than a
+  rule anyone wrote. Without it, a freshly installed Redmine reported *every*
+  status as unreachable from a new issue, which is both wrong and the first thing
+  a new reader would have seen.
+
+  **A workflow with no progression says so rather than drawing spaghetti.**
+  Redmine's default workflow lets every status become every other one, and a
+  layered picture of that is a line between every pair of boxes — unreadable at
+  six statuses, which is where the shipped configuration already is. The screen
+  now says the workflow permits nearly every move and folds the drawing behind
+  *Show the diagram anyway*. The three lists and the table stay where they are.
+
+  **The statuses no new issue can reach** are laid out in columns of their own
+  below the dotted line, instead of one flat row with every arrow between them
+  bowed underneath it.
+
+### Fixed
+
+- **The workflow panel on the issue form no longer contradicts the status list
+  beside it.** A reader holding two roles — one of them with a project workflow
+  of its own that is deliberately empty, the other with rules — was told "no
+  change of status is permitted" while the form offered a full list of statuses.
+  The absolute sentence is now used only when *every* one of the reader's roles
+  is in that state; otherwise the panel says that at least one of them is, which
+  is what the diagram screen already said about the same situation.
+- **The two workflow actions on the project's settings tab no longer read as one
+  sentence.** *Give own workflow (copy of the generic one)* and *Give own empty
+  workflow* sat side by side with no separator between them, and the second is
+  the most consequential thing either screen offers. They are separated now, as
+  are *Empty this workflow* and *Return to the generic workflow*.
+
 ## 0.1.5
 
 The last finding left open from the review of 0.1.3 — the query behind the status

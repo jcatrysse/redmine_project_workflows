@@ -89,10 +89,25 @@
 
     <%# The state that most needs saying. A project with its own *empty*
         workflow permits no transition at all, and an empty status list with no
-        explanation is indistinguishable from a broken plugin. %>
-    <% if @map.role_states.any? { |role_state| role_state.state == :own_empty } %>
+        explanation is indistinguishable from a broken plugin.
+        Two sentences rather than one, because "no change of status is
+        permitted" is only true when *every* one of the reader's roles is in
+        that state. A reader holding two roles, one overridden-and-empty and one
+        with rules, was being told nothing was permitted beside a form offering
+        six statuses (finding F02) -- the panel's whole job is to explain that
+        list, so contradicting it is the one thing it must not do. Keyed on
+        uniform_state, which is the same question the graph screen asks and
+        answers the same way. %>
+    <% own_empty = @map.role_states.select { |role_state| role_state.state == :own_empty } %>
+    <% if own_empty.any? %>
       <p class="project-workflow-map-empty">
-        <em><%= l(:text_project_workflow_map_own_empty) %></em>
+        <em>
+          <% if @map.uniform_state == :own_empty %>
+            <%= l(:text_project_workflow_map_own_empty) %>
+          <% else %>
+            <%= l(:text_project_workflow_map_own_empty_some) %>
+          <% end %>
+        </em>
       </p>
     <% end %>
 

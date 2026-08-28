@@ -22,12 +22,21 @@
     button silently, which is the failure mode an unmatched Deface anchor has
     already taught this plugin about (INV-9). Every caller does pass it. %>
 <% offered = true if !defined?(offered) || offered.nil? %>
+<%# The two links of a pair are separated by a pipe, which is Redmine's own
+    idiom for adjacent contextual links in running text (app/views/projects/show
+    puts one between Summary, Calendar and Gantt) and needs no stylesheet the
+    plugin does not ship. Without it the browser renders "Give own workflow
+    (copy of the generic one) Give own empty workflow" as one sentence and the
+    reader has to find the seam -- and *Give own empty workflow* is the most
+    consequential action either screen offers, since it is the state in which no
+    status change is permitted at all (finding F05). %>
 <span class="project-workflow-scope-actions">
   <% if state != :inherits %>
     <%= link_to l(:button_project_workflow_clear),
                 clear_project_workflow_scope_path(project, selection),
                 method: :post,
                 data: { confirm: l(:text_project_workflow_clear_confirm) } %>
+    |
     <%= link_to l(:button_project_workflow_inherit),
                 project_workflow_scope_path(project, selection),
                 method: :delete,
@@ -37,6 +46,7 @@
                 project_workflow_scope_path(project, selection.merge(source: 'copy')),
                 method: :post,
                 data: { confirm: l(:text_project_workflow_project_enable_copy_confirm) } %>
+    |
     <%= link_to l(:button_project_workflow_enable_empty),
                 project_workflow_scope_path(project, selection.merge(source: 'empty')),
                 method: :post,

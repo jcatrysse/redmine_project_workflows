@@ -24,6 +24,7 @@ describe ProjectWorkflowMapsController, type: :controller do
   let(:new_status) { issue_statuses(:issue_statuses_001) }
   let(:assigned) { issue_statuses(:issue_statuses_002) }
   let(:closed) { issue_statuses(:issue_statuses_005) }
+  let(:second_role) { roles(:roles_002) }
 
   def generic_transition(from, to, role_id: role.id, author: false, assignee: false)
     WorkflowTransition.create!(tracker_id: tracker.id, role_id: role_id, project_id: nil,
@@ -223,6 +224,46 @@ describe ProjectWorkflowMapsController, type: :controller do
       expect(response.body).to include(escaped(:label_project_workflow_state_own_empty))
       expect(response.body).to include(escaped(:text_project_workflow_map_own_empty))
       expect(response.body).to include(escaped(:text_project_workflow_map_no_outgoing))
+    end
+
+    # Finding F02. The sentence was rendered whenever *any* of the reader's roles
+    # was in the own_empty state, and it is absolute -- "no change of status is
+    # permitted". A reader holding two roles, one overridden-and-empty and one
+    # with rules, was told nothing was permitted beside a form offering a full
+    # status list. The panel's whole job is to explain that list.
+    #
+    # Red against the previous commit on the middle two expectations: the
+    # absolute sentence was present and the per-role one did not exist.
+    it 'does not say nothing is permitted when only one of the reader\'s roles is empty' do
+      member = Member.find_by(user_id: 2, project_id: project.id)
+      member.roles << second_role
+      give_own_workflow(project, tracker, role)
+      generic_transition(new_status, assigned, role_id: second_role.id)
+      issue = an_issue
+
+      get :show, params: { issue_id: issue.id }
+
+      expect(assigns(:map).role_states.map(&:state)).to contain_exactly(:own_empty, :inherits)
+      expect(response.body).not_to include(escaped(:text_project_workflow_map_own_empty))
+      expect(response.body).to include(escaped(:text_project_workflow_map_own_empty_some))
+      expect(response.body).to include(assigned.name)
+    end
+
+    # The other direction, so that the fix is pinned both ways: with every role
+    # of the reader's in that state the absolute sentence is the true one and
+    # must not be softened into the per-role hedge.
+    it 'still says nothing is permitted when every one of the reader\'s roles is empty' do
+      member = Member.find_by(user_id: 2, project_id: project.id)
+      member.roles << second_role
+      give_own_workflow(project, tracker, role)
+      give_own_workflow(project, tracker, second_role)
+      issue = an_issue
+
+      get :show, params: { issue_id: issue.id }
+
+      expect(assigns(:map).uniform_state).to eq(:own_empty)
+      expect(response.body).to include(escaped(:text_project_workflow_map_own_empty))
+      expect(response.body).not_to include(escaped(:text_project_workflow_map_own_empty_some))
     end
 
     it 'says why a move the workflow allows is not on offer' do

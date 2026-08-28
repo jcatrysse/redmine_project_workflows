@@ -35,10 +35,17 @@ module RedmineProjectWorkflows
         [:dummy, edge.old_status_id, edge.new_status_id, layer]
       end
 
-      def initialize(nodes, edges, order:)
+      # +roots+ is where reachability starts, and it defaults to core's entry
+      # node because that is what the main graph is ranked from. The band -- the
+      # statuses the entry node cannot reach -- is ranked by the same three
+      # phases on its own sub-graph, and there every node is a root: the band has
+      # by definition no single starting point, and taking them all is what
+      # guarantees no second band can appear inside the first (finding F04).
+      def initialize(nodes, edges, order:, roots: nil)
         @nodes = nodes
         @edges = edges
         @order = order
+        @roots = Array(roots.nil? ? WorkflowGraphQuery::ENTRY_STATUS_ID : roots)
       end
 
       def result
@@ -58,14 +65,16 @@ module RedmineProjectWorkflows
 
       private
 
-      # Phase 0. Which statuses the entry node can get to at all, over every edge
-      # -- returning arcs included, because an issue that can come back to a
-      # status could get there in the first place. What is left over is the first
-      # diagnostic and gets a band of its own rather than a layer.
+      # Phase 0. Which statuses the roots can get to at all, over every edge --
+      # returning arcs included, because an issue that can come back to a status
+      # could get there in the first place. What is left over is the first
+      # diagnostic and gets a band of its own rather than a layer. (With every
+      # node a root -- how the band itself is ranked -- nothing is left over,
+      # which is the point.)
       def reachable_status_ids
         out = adjacency(@edges)
-        seen = Set.new([WorkflowGraphQuery::ENTRY_STATUS_ID])
-        queue = [WorkflowGraphQuery::ENTRY_STATUS_ID]
+        seen = Set.new(@roots)
+        queue = @roots.dup
         out.fetch(queue.shift, []).each { |target| queue << target if seen.add?(target) } until queue.empty?
         seen
       end

@@ -114,6 +114,7 @@ pl:
   text_project_workflow_map_no_incoming: Ten przepływ pracy nie pozwala na żadną zmianę statusu na ten status.
   text_project_workflow_map_no_roles: Nie masz w tym projekcie żadnej roli biorącej udział w przepływie pracy, więc żadna zmiana statusu nie jest dozwolona.
   text_project_workflow_map_own_empty: Ten projekt ma własny przepływ pracy dla tego typu zagadnienia i tej roli, i nie zawiera on żadnej reguły, więc żadna zmiana statusu nie jest dozwolona. Jest to świadoma konfiguracja, a nie błąd.
+  text_project_workflow_map_own_empty_some: 'Co najmniej jedna z Twoich ról ma tutaj własny przepływ pracy, który nie zawiera żadnej reguły, więc ta rola nie dopuszcza żadnej zmiany statusu. Inna z Twoich ról może jednak dopuszczać niektóre. Jest to świadoma konfiguracja, a nie błąd.'
   text_project_workflow_map_requires_author: Tylko autor zagadnienia może dokonać tej zmiany.
   text_project_workflow_map_requires_assignee: Tylko osoba przypisana może dokonać tej zmiany.
   text_project_workflow_map_requires_author_or_assignee: Tylko autor lub osoba przypisana może dokonać tej zmiany.
@@ -128,11 +129,15 @@ pl:
   label_project_workflow_graph_unreachable: Nieosiągalne z nowego zagadnienia
   label_project_workflow_graph_dead_end: Stąd nic nie prowadzi dalej
   label_project_workflow_graph_unmentioned: Nieużywane przez wybrane role
+  label_project_workflow_graph_fallback: 'Własne działanie awaryjne Redmine'
+  label_project_workflow_graph_show_anyway: 'Pokaż diagram mimo to'
   text_project_workflow_graph_aria: 'Diagram tego przepływu pracy: %{statuses} statusów i %{transitions} przejść. Te same informacje znajdują się w tabeli poniżej.'
   text_project_workflow_graph_no_roles: Żadna z wybranych ról nie bierze udziału w przepływie pracy, więc nie ma czego narysować.
   text_project_workflow_graph_empty: Co najmniej jedna z wybranych ról ma tutaj własny przepływ pracy, który nie zawiera żadnej reguły, więc nie jest dla niej dozwolona żadna zmiana statusu. Jest to celowa konfiguracja, a nie błąd.
-  text_project_workflow_graph_nothing: Przepływ pracy obowiązujący w tym miejscu nie zawiera dla wybranych ról żadnego przejścia, więc diagram pokazuje wyłącznie punkt początkowy.
+  text_project_workflow_graph_nothing: 'Przepływ pracy obowiązujący w tym miejscu nie zawiera dla wybranych ról żadnego przejścia, więc status istniejącego zagadnienia nigdy nie może się zmienić.'
   text_project_workflow_graph_no_diagnostics: Każdy status w tym przepływie pracy jest osiągalny z nowego zagadnienia i ma wyjście.
+  text_project_workflow_graph_dense: 'Ten przepływ pracy dopuszcza niemal każdą zmianę: niemal każdy status może stać się niemal każdym innym. Nie ma tu żadnego przebiegu, który diagram mógłby pokazać, więc czytelną postacią jest tabela poniżej.'
   text_project_workflow_graph_legend_solid: Ciągła strzałka oznacza zmianę, której może dokonać każdy, kto ma tę rolę.
   text_project_workflow_graph_legend_dashed: Przerywana strzałka oznacza zmianę, której może dokonać tylko autor lub osoba przypisana.
+  text_project_workflow_graph_legend_fallback: 'Kropkowana strzałka to własne działanie awaryjne Redmine, a nie reguła: żadna reguła nie mówi, od jakiego statusu zaczyna się nowe zagadnienie, więc Redmine zakłada je ze statusem domyślnym typu zagadnienia.'
   text_project_workflow_graph_legend_band: Statusy poniżej linii kropkowanej są nieosiągalne z nowego zagadnienia.

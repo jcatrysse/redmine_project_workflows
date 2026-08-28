@@ -74,6 +74,36 @@ module ProjectWorkflowGraphsHelper
     l(:text_project_workflow_graph_aria, statuses: layout.nodes.size, transitions: layout.edges.size)
   end
 
+  # The stroke pattern for one arrow, as an attribute or as nothing at all.
+  # Built here rather than inline in the partial so that the only +html_safe+ in
+  # the drawing stays a literal constant -- the document is assembled from
+  # user-supplied status names, and a template that reaches for +html_safe+ per
+  # branch is where that stops being obviously true.
+  #
+  # Dotted for core's fallback, dashed for a rule only the author or the assignee
+  # may use, nothing for a move anyone holding the role may make.
+  def project_workflow_graph_dash(routed)
+    return 'stroke-dasharray="2 3"'.html_safe if routed.fallback
+    return 'stroke-dasharray="5 3"'.html_safe if routed.conditional
+
+    ''.html_safe
+  end
+
+  # The legend, as the sentences that are actually about something on the page.
+  # A line explaining a dashed arrow above a drawing that has none is
+  # instructions for a thing that is not there, and the third kind -- core's own
+  # fallback (finding F01) -- has to be explained wherever it appears, including
+  # on a workflow that holds no rule at all and therefore skips the diagnostics.
+  def project_workflow_graph_legend(layout)
+    [
+      [layout.edges.any? { |routed| !routed.conditional && !routed.fallback },
+       :text_project_workflow_graph_legend_solid],
+      [layout.edges.any?(&:conditional), :text_project_workflow_graph_legend_dashed],
+      [layout.edges.any?(&:fallback), :text_project_workflow_graph_legend_fallback],
+      [!layout.band_top.nil?, :text_project_workflow_graph_legend_band]
+    ].filter_map { |applies, key| l(key) if applies }
+  end
+
   # The three diagnostics, each as [label, nodes], and only the ones that have
   # anything in them. Computed from the graph and the layout already in hand, so
   # they cost no query.

@@ -107,20 +107,29 @@
     </p>
   <% end %>
 
-  <%= render partial: 'project_workflows/graph_svg', locals: { layout: layout } %>
-
-  <%# Only where there is an arrow to read: a legend explaining two kinds of
-      arrow over a drawing with none is instructions for something that is not
-      there. %>
-  <% unless @graph.empty_workflow? %>
-    <p class="project-workflow-graph-legend">
-      <em>
-        <%= l(:text_project_workflow_graph_legend_solid) %>
-        <%= l(:text_project_workflow_graph_legend_dashed) %>
-        <% if layout.band_top %><%= l(:text_project_workflow_graph_legend_band) %><% end %>
-      </em>
+  <%# A workflow in which nearly every status may become nearly every other has
+      no progression for a drawing to show, and the layered picture of one is the
+      spaghetti this package was written to beat -- Redmine's own default data
+      reaches it at six statuses (finding F03). Say so, and put the picture
+      behind a disclosure rather than deleting it: the reader who wants to look
+      at it anyway is one click away, and <details> needs no JavaScript and no
+      stylesheet the plugin does not ship. %>
+  <% if @graph.dense? %>
+    <p class="project-workflow-graph-dense">
+      <em><%= l(:text_project_workflow_graph_dense) %></em>
     </p>
+    <details class="project-workflow-graph-disclosure">
+      <summary><%= l(:label_project_workflow_graph_show_anyway) %></summary>
+      <%= render partial: 'project_workflows/graph_figure', locals: { layout: layout } %>
+    </details>
+  <% else %>
+    <%= render partial: 'project_workflows/graph_figure', locals: { layout: layout } %>
+  <% end %>
 
+  <%# The diagnostics are the part a workflow administrator uses, so they stay
+      out of the disclosure above whatever shape the workflow has. A workflow
+      with no rule at all reports none of them -- the helper says why. %>
+  <% unless @graph.empty_workflow? %>
     <h3><%= l(:label_project_workflow_graph_diagnostics) %></h3>
     <% diagnostics = project_workflow_graph_diagnostics(@graph, layout) %>
     <% if diagnostics.empty? %>
@@ -157,7 +166,16 @@
               <td class="name">
                 <%= project_workflow_status_label(edge.new_status, edge.new_status_id) %>
               </td>
-              <td><%= project_workflow_map_conditions_label(edge.conditions) %></td>
+              <%# The fallback is not a rule and has no condition grid behind it,
+                  so the cell names it instead of saying "anyone", which would
+                  read as a rule somebody wrote (finding F01). %>
+              <td>
+                <% if edge.fallback %>
+                  <%= l(:label_project_workflow_graph_fallback) %>
+                <% else %>
+                  <%= project_workflow_map_conditions_label(edge.conditions) %>
+                <% end %>
+              </td>
               <% if multiple_roles %>
                 <td><%= project_workflow_map_roles_label(edge.roles) %></td>
               <% end %>

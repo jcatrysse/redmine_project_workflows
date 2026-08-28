@@ -111,6 +111,7 @@ it:
   text_project_workflow_map_no_incoming: Questo workflow non consente alcun cambio di stato verso questo.
   text_project_workflow_map_no_roles: In questo progetto non hai alcun ruolo che partecipa a un workflow, quindi non è consentito alcun cambio di stato.
   text_project_workflow_map_own_empty: Questo progetto ha un workflow proprio per questo tracker e questo ruolo, e non contiene alcuna regola, quindi non è consentito alcun cambio di stato. È una configurazione voluta e non un errore.
+  text_project_workflow_map_own_empty_some: 'Almeno uno dei tuoi ruoli ha qui un workflow proprio che non contiene alcuna regola, quindi quel ruolo non consente alcun cambio di stato. Un altro dei tuoi ruoli può comunque consentirne alcuni. È una configurazione voluta e non un errore.'
   text_project_workflow_map_requires_author: Solo l'autore della segnalazione può fare questa modifica.
   text_project_workflow_map_requires_assignee: Solo la persona assegnata può fare questa modifica.
   text_project_workflow_map_requires_author_or_assignee: Solo l'autore o la persona assegnata può fare questa modifica.
@@ -125,11 +126,15 @@ it:
   label_project_workflow_graph_unreachable: Non raggiungibile da una nuova segnalazione
   label_project_workflow_graph_dead_end: Da qui non si esce
   label_project_workflow_graph_unmentioned: Non usato dai ruoli selezionati
+  label_project_workflow_graph_fallback: 'Ripiego di Redmine stesso'
+  label_project_workflow_graph_show_anyway: 'Mostra comunque il diagramma'
   text_project_workflow_graph_aria: 'Diagramma di questo flusso di lavoro: %{statuses} stati e %{transitions} transizioni. Le stesse informazioni si trovano nella tabella qui sotto.'
   text_project_workflow_graph_no_roles: Nessuno dei ruoli selezionati partecipa a un flusso di lavoro, quindi non c'è nulla da disegnare.
   text_project_workflow_graph_empty: Almeno uno dei ruoli selezionati ha qui un flusso di lavoro proprio che non contiene alcuna regola, quindi per esso non è consentito alcun cambio di stato. È una configurazione voluta e non un errore.
-  text_project_workflow_graph_nothing: Il flusso di lavoro che si applica qui non contiene alcuna transizione per i ruoli selezionati, quindi il diagramma mostra solo il punto di partenza.
+  text_project_workflow_graph_nothing: 'Il flusso di lavoro che si applica qui non contiene alcuna transizione per i ruoli selezionati, quindi lo stato di una segnalazione esistente non può mai cambiare.'
   text_project_workflow_graph_no_diagnostics: Ogni stato di questo flusso di lavoro è raggiungibile da una nuova segnalazione e ha una via d'uscita.
+  text_project_workflow_graph_dense: 'Questo flusso di lavoro consente quasi ogni cambiamento: quasi ogni stato può diventare quasi ogni altro. Non c''è alcuna progressione che un diagramma possa mostrare, quindi la tabella qui sotto ne è la forma leggibile.'
   text_project_workflow_graph_legend_solid: Una freccia continua è un cambiamento che può fare chiunque abbia il ruolo.
   text_project_workflow_graph_legend_dashed: Una freccia tratteggiata è un cambiamento che possono fare solo l'autore o l'assegnatario.
+  text_project_workflow_graph_legend_fallback: 'Una freccia punteggiata è il ripiego di Redmine stesso e non una regola: nessuna regola indica con quale stato inizia una nuova segnalazione, quindi Redmine la crea con lo stato predefinito del tracker.'
   text_project_workflow_graph_legend_band: Gli stati sotto la linea punteggiata non sono raggiungibili da una nuova segnalazione.

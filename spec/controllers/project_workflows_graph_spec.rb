@@ -239,12 +239,62 @@ describe ProjectWorkflowsController, type: :controller do
   describe 'what it draws' do
     before { log_in(2, :view_project_workflow) }
 
+    # Finding F03. Redmine's own default data seeds a *complete* workflow --
+    # every status may become every other -- and the layered drawing of one is a
+    # column per status with an arc between every pair, which is the spaghetti
+    # this package was written to beat. Say so, and put the picture behind a
+    # disclosure rather than in front of the reader.
+    #
+    # Red against the previous commit: neither the sentence nor the <details>
+    # existed, and the <svg> was rendered unconditionally.
+    it 'says a near-complete workflow has no shape, and folds the drawing away' do
+      [new_status, assigned, closed, issue_statuses(:issue_statuses_003)]
+        .permutation(2) { |from, to| transition(from, to) }
+
+      get :graph, params: graph_params
+
+      expect(assigns(:graph)).to be_dense
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_dense)))
+      expect(response.body).to include('<details class="project-workflow-graph-disclosure">')
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_graph_show_anyway)))
+      # Folded away, not deleted: the reader who wants it is one click from it.
+      expect(graph_svg).not_to be_nil
+    end
+
+    it 'draws a staged workflow without folding it away' do
+      transition(0, new_status)
+      transition(new_status, assigned)
+      transition(assigned, closed)
+
+      get :graph, params: graph_params
+
+      expect(assigns(:graph)).not_to be_dense
+      expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_dense)))
+      expect(response.body).not_to include('<details class="project-workflow-graph-disclosure">')
+      expect(graph_svg).not_to be_nil
+    end
+
+    # The legend used to name a dashed arrow whether or not the drawing held
+    # one. It is instructions for a thing that is not there, and the third kind
+    # of arrow -- core's fallback -- made it worth keying each sentence on
+    # whether that kind is on the page.
+    it 'names only the kinds of arrow the drawing actually holds' do
+      transition(0, new_status)
+      transition(new_status, assigned)
+
+      get :graph, params: graph_params
+
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_legend_solid)))
+      expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_legend_dashed)))
+      expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_legend_fallback)))
+    end
+
     it 'draws the generic workflow for a combination the project inherits' do
       transition(new_status, assigned)
 
       get :graph, params: graph_params
 
-      expect(assigns(:graph).edges.map { |edge| [edge.old_status_id, edge.new_status_id] })
+      expect(assigns(:graph).stored_edges.map { |edge| [edge.old_status_id, edge.new_status_id] })
         .to eq([[new_status.id, assigned.id]])
       expect(assigns(:graph).uniform_state).to eq(:inherits)
       expect(response.body).to include(ERB::Util.html_escape(assigned.name))
@@ -257,26 +307,31 @@ describe ProjectWorkflowsController, type: :controller do
 
       get :graph, params: graph_params
 
-      expect(assigns(:graph).edges.map(&:new_status_id)).to eq([assigned.id])
+      expect(assigns(:graph).stored_edges.map(&:new_status_id)).to eq([assigned.id])
     end
 
-    it 'draws an own empty workflow as the starting point alone, and says why' do
+    it 'draws an own empty workflow as the starting point and the fallback, and says why' do
       give_own_workflow(project, tracker, role)
 
       get :graph, params: graph_params
 
       expect(assigns(:graph)).to be_empty_workflow
       expect(response.body).to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_empty)))
-      # One node -- core's "new issue" pseudo-status -- and no arrow at all.
-      # Scoped to the drawing rather than to the page: Redmine's own layout is
-      # full of <path> elements from its icon sprite, so an unscoped assertion
-      # here is about core's chrome and not about the workflow.
-      # Scoped to the drawing, and then to what makes a path an *arrow*: the
-      # <marker> that defines the arrowhead is itself a <path>, and it is in
-      # <defs> whether anything uses it or not.
+      # Two boxes and one arrow: core's "new issue" pseudo-status, the tracker's
+      # default status -- which is where Redmine starts a new issue even where
+      # the workflow permits nothing (finding F01) -- and the dotted fallback
+      # between them. Nothing else: the workflow itself holds no rule.
+      #
+      # Scoped to the drawing rather than to the page, because Redmine's own
+      # layout is full of <path> elements from its icon sprite; and then to
+      # +marker-end+, because the <marker> defining the arrowhead is itself a
+      # <path> and lives in <defs> whether anything uses it or not.
       drawing = graph_svg
-      expect(drawing.scan('<rect ').size).to eq(1)
-      expect(drawing).not_to include('marker-end=')
+      expect(drawing.scan('<rect ').size).to eq(2)
+      expect(drawing.scan('marker-end=').size).to eq(1)
+      expect(drawing).to include('stroke-dasharray="2 3"')
+      expect(response.body)
+        .to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_legend_fallback)))
     end
 
     # The defect the review of this package's own diff turned up: a drawing with
@@ -408,7 +463,7 @@ describe ProjectWorkflowsController, type: :controller do
 
       get :graph, params: graph_params(role_id: [role.id, other_role.id])
 
-      expect(assigns(:graph).edges.map(&:new_status_id)).to contain_exactly(assigned.id, closed.id)
+      expect(assigns(:graph).stored_edges.map(&:new_status_id)).to contain_exactly(assigned.id, closed.id)
     end
   end
 end

@@ -58,6 +58,15 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
     graph.edges.map { |edge| [edge.old_status_id, edge.new_status_id] }
   end
 
+  # The rules somebody wrote, without core's own fallback arrow. Which
+  # population a query reads is a question about stored rows, and the fallback
+  # is not one -- it is what Redmine does when there is no row. The fallback has
+  # a describe block of its own further down, where it is asserted rather than
+  # filtered out.
+  def stored_pairs(graph)
+    graph.stored_edges.map { |edge| [edge.old_status_id, edge.new_status_id] }
+  end
+
   describe 'which population is read' do
     it 'draws the generic workflow for a project that inherits' do
       transition(0, new_status)
@@ -77,7 +86,7 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
       graph = graph_for
 
       # INV-5: a scope replaces. The generic new -> closed rule is not merged in.
-      expect(pairs(graph)).to eq([[new_status.id, assigned.id]])
+      expect(stored_pairs(graph)).to eq([[new_status.id, assigned.id]])
     end
 
     it "never reads another project's rows" do
@@ -85,7 +94,7 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
       transition(new_status, closed, project_id: other_project.id)
       transition(new_status, assigned)
 
-      expect(pairs(graph_for)).to eq([[new_status.id, assigned.id]])
+      expect(stored_pairs(graph_for)).to eq([[new_status.id, assigned.id]])
     end
 
     it 'does not inherit a parent project\'s scope (INV-6)' do
@@ -95,7 +104,7 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
 
       # The child has no scope of its own, so it reads the generic rows -- not
       # its parent's, however close the two are in the tree.
-      expect(pairs(graph_for(in_project: child))).to eq([[new_status.id, closed.id]])
+      expect(stored_pairs(graph_for(in_project: child))).to eq([[new_status.id, closed.id]])
       expect(graph_for(in_project: child).role_states.map(&:state)).to eq([:inherits])
     end
 
@@ -117,7 +126,7 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
 
       graph = graph_for(role_ids: [role.id, second_role.id])
 
-      expect(pairs(graph)).to contain_exactly([new_status.id, assigned.id], [new_status.id, closed.id])
+      expect(stored_pairs(graph)).to contain_exactly([new_status.id, assigned.id], [new_status.id, closed.id])
       expect(graph.role_states.map { |state| [state.role, state.state] })
         .to eq([[role, :own], [second_role, :inherits]])
     end
@@ -132,7 +141,7 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
       graph = graph_for
 
       expect(graph.role_states.map(&:state)).to eq([:own_empty])
-      expect(graph.edges).to be_empty
+      expect(graph.stored_edges).to be_empty
       expect(graph).to be_empty_workflow
     end
 
@@ -202,7 +211,7 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
       transition(new_status, new_status)
       transition(new_status, assigned)
 
-      expect(pairs(graph_for)).to eq([[new_status.id, assigned.id]])
+      expect(stored_pairs(graph_for)).to eq([[new_status.id, assigned.id]])
     end
 
     it 'collapses several rows for one move into one edge, naming every role' do
@@ -211,8 +220,8 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
 
       graph = graph_for(role_ids: [role.id, second_role.id])
 
-      expect(graph.edges.size).to eq(1)
-      expect(graph.edges.first.roles).to eq([role, second_role])
+      expect(graph.stored_edges.size).to eq(1)
+      expect(graph.stored_edges.first.roles).to eq([role, second_role])
     end
 
     it 'collapses the author and assignee grids, and lets the unconditional one win' do
@@ -259,6 +268,163 @@ describe RedmineProjectWorkflows::Services::WorkflowGraphQuery do
 
       expect(graph.dead_end_nodes.map(&:status_id)).to eq([new_status.id])
       expect(graph.unmentioned_nodes.map(&:status_id)).to include(resolved.id)
+    end
+  end
+
+  # Finding F01. Redmine's own redmine:load_default_data seeds no
+  # old_status_id = 0 row, so on a freshly installed Redmine the workflow names
+  # no status for a new issue -- and core then starts the issue on the tracker's
+  # default status rather than refusing to create one (Issue#new_statuses_allowed_to,
+  # app/models/issue.rb). Before this the drawing modelled only the rules, so on
+  # the shipped configuration every status was reported unreachable.
+  describe "core's own fallback for a new issue" do
+    let(:default_status) { tracker.default_status }
+
+    it 'adds an arrow from the entry node to the tracker default when no rule leaves it' do
+      transition(new_status, assigned)
+
+      graph = graph_for
+      fallback = graph.fallback_edge
+
+      expect(pairs(graph)).to include([0, tracker.default_status_id])
+      expect(fallback).not_to be_nil
+      expect(fallback.old_status_id).to eq(0)
+      expect(fallback.new_status_id).to eq(default_status.id)
+      expect(fallback).to be_fallback
+      expect(fallback.conditions).to eq(['always'])
+      expect(fallback.roles).to eq([role])
+    end
+
+    it 'adds nothing when a rule already leaves the entry node' do
+      transition(0, assigned)
+      transition(new_status, assigned)
+
+      expect(graph_for.fallback_edge).to be_nil
+      expect(graph_for.edges).to eq(graph_for.stored_edges)
+    end
+
+    it 'adds nothing when one of several selected roles has an entry rule' do
+      # Core resolves a new issue's status over the reader's roles *together*
+      # (Issue#roles_for_workflow), so one role naming a status for a new issue
+      # is enough for the fallback not to apply.
+      transition(0, assigned, role_id: second_role.id)
+      transition(new_status, closed)
+
+      expect(graph_for(role_ids: [role.id, second_role.id]).fallback_edge).to be_nil
+    end
+
+    it 'adds nothing when the tracker has no default status to fall back to' do
+      # Tracker validates the presence of a default status, so this is reachable
+      # only through a status deleted underneath one -- but the drawing must not
+      # raise on it.
+      transition(new_status, assigned)
+      allow(tracker).to receive(:default_status).and_return(nil)
+
+      expect(described_class.new(project: project, tracker: tracker, role_ids: [role.id])
+                            .result.fallback_edge).to be_nil
+    end
+
+    it 'is not a stored rule, so the workflow is still reported as empty' do
+      # INV-3 in its user-visible half: an own *empty* workflow is a
+      # configuration, and Redmine having a default must not make it read as a
+      # workflow somebody filled in.
+      give_own_workflow(project, tracker, role)
+
+      graph = graph_for
+
+      expect(graph.stored_edges).to be_empty
+      expect(graph).to be_empty_workflow
+      expect(graph.fallback_edge).not_to be_nil
+    end
+
+    it 'makes every status reachable again on a workflow with no entry rule' do
+      # The shipped shape, in miniature: rules between statuses and none out of
+      # the entry node. Without the fallback nothing is reachable from a new
+      # issue, so *every* status lands in the band below the dotted line and the
+      # one diagnostic this screen exists for fires on all of them (finding F01).
+      # new_status is trackers_001's default_status, which is what rescues the
+      # rest of the chain with it.
+      transition(new_status, assigned)
+      transition(assigned, closed)
+
+      layout = RedmineProjectWorkflows::Services::WorkflowGraphLayout.new(graph_for).result
+
+      expect(layout.band_nodes).to be_empty
+      expect(graph_for.dead_end_nodes.map(&:status_id)).to eq([closed.id])
+    end
+
+    it 'leaves a status the fallback cannot reach in the band' do
+      # The fallback rescues what the tracker's default status leads to and
+      # nothing else: an island of statuses is still a real defect in a workflow
+      # and still has to be reported as one.
+      transition(new_status, assigned)
+      transition(resolved, closed)
+
+      layout = RedmineProjectWorkflows::Services::WorkflowGraphLayout.new(graph_for).result
+
+      expect(layout.band_nodes.map { |placed| placed.node.status_id })
+        .to contain_exactly(resolved.id, closed.id)
+    end
+
+    it 'counts the fallback target as mentioned, so it is not filed under "not used"' do
+      transition(resolved, closed)
+
+      graph = graph_for
+
+      expect(graph.unmentioned_nodes.map(&:status_id)).not_to include(default_status.id)
+      expect(graph.nodes.detect { |node| node.status_id == default_status.id }.mentioned).to be(true)
+    end
+
+    it 'reports the fallback target as a dead end when nothing leads out of it' do
+      # The one diagnostic that only makes sense once the fallback is modelled:
+      # a new issue starts here and can never leave.
+      give_own_workflow(project, tracker, role)
+      transition(resolved, closed, project_id: project.id)
+
+      expect(graph_for.dead_end_nodes.map(&:status_id)).to include(default_status.id)
+    end
+  end
+
+  # Finding F03. Redmine's own default workflow is complete -- every status may
+  # become every other -- and a layered drawing of a complete graph is one
+  # column per status with an arc between every pair.
+  describe 'a workflow with no progression to draw' do
+    def complete_workflow(statuses)
+      statuses.permutation(2) { |from, to| transition(from, to) }
+    end
+
+    it 'reports a complete workflow over four statuses as dense' do
+      complete_workflow([new_status, assigned, resolved, closed])
+
+      expect(graph_for).to be_dense
+    end
+
+    it 'does not report a staged workflow as dense' do
+      transition(0, new_status)
+      transition(new_status, assigned)
+      transition(assigned, resolved)
+      transition(resolved, closed)
+
+      expect(graph_for).not_to be_dense
+    end
+
+    it 'does not report a complete workflow over three statuses as dense' do
+      # Three boxes and six arrows is still a picture somebody can read, and a
+      # screen that refused to draw it would be hiding the easy case.
+      complete_workflow([new_status, assigned, resolved])
+
+      expect(graph_for).not_to be_dense
+    end
+
+    it 'does not count the entry arrow towards the density' do
+      # The entry node is not a status any move can return to, so counting it
+      # would put a fifth "status" into a four-status workflow and drop a
+      # complete graph back under the threshold -- twelve moves out of twenty
+      # rather than twelve out of twelve.
+      complete_workflow([new_status, assigned, resolved, closed])
+      transition(0, new_status)
+
+      expect(graph_for).to be_dense
     end
   end
 end
