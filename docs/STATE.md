@@ -163,7 +163,7 @@ Everything below was executed in this container.
 | Locale parity | all eight files, 162 keys each, 0 missing and 0 extra. **Eleven** new values, translated. |
 | Drift gate | `spec/upstream/` green on 5.1 and 7.0 with the two new declared dependencies; digests measured per host with `dev/measure_compatibility.rb` |
 | Red-on-old-code | verified for every fix by reverting the change and re-running: two controller examples for F03, the Gemfile example for F10, the copy-form count, four graph examples, and the dependency sweep |
-| CI | runs **169**, **170**, **171** and **173** green on all eleven jobs. **173 is the head** (`7df2a4a`) and covers every code change of this session, including all six MySQL and MariaDB cells. Run 172 shows as *cancelled*: pushing the documentation commit superseded it, which is the documented behaviour, not a failure. |
+| CI | runs **169**, **170**, **171**, **173**, **175** and **176** green on all eleven jobs. **176 is the head** (`4b0cbdb`, ADR-004) and covers every code change of this session, including all six MySQL and MariaDB cells. Run 172 shows as *cancelled*: pushing a documentation commit superseded it, which is the documented behaviour, not a failure. |
 
 **A MariaDB host was built for ADR-004 and is worth keeping in the recipe**
 (`dev/setup.sh 7.0-stable mysql 3.3.6`): both defects that work uncovered are
@@ -1433,12 +1433,13 @@ WP0..WP14 are done. "Carry on" means, in order:
    lock taken in another class, plus a retry that exists for one database
    family's isolation level. The two MySQL defects it uncovered are the kind that
    pass every PostgreSQL cell.
-1. **CI is green on the head.** Run **173** on `7df2a4a` passed all eleven jobs,
-   the six MySQL and MariaDB cells included, so there is nothing to chase before
-   starting WP15. Runs 169-171 are green too; run **172** shows as *cancelled*
-   because the documentation push superseded it — pushing a commit cancels the
-   in-flight run for the previous one, so read the latest run and treat a
-   cancelled earlier one as superseded rather than failed.
+1. **CI is green on the head.** Run **176** on `4b0cbdb` (ADR-004) passed all
+   eleven jobs, the six MySQL and MariaDB cells included, so there is nothing to
+   chase before starting WP15. Runs 169-171, 173 and 175 are green too; run
+   **172** shows as *cancelled* because a documentation push superseded it —
+   pushing a commit cancels the in-flight run for the previous one, so read the
+   latest run and treat a cancelled earlier one as superseded rather than
+   failed.
 2. **WP15** — the test debt three reviews named. *Exact next step* lists the six
    items in priority order, and the two things WP13 and WP14 turned up and
    deliberately did not do (the copy screen has no write ceiling; *give own
