@@ -21,6 +21,12 @@ class ProjectWorkflowScopesController < ApplicationController
   before_action :find_rule_type
   before_action :find_scope_selection
 
+  # Bounded since ADR-004, by the same setting the matrix save uses and in the
+  # same unit: above `bulk_write_ceiling` the writer raises before anything is
+  # written, and the transaction it raises inside is abandoned with nothing in
+  # it. Only the *copy* variant can reach it -- an own empty workflow copies no
+  # rule and is therefore never refused, which is deliberate: it is the bulk
+  # action that stays available at any size.
   def create
     copy_generic = params[:source].to_s != 'empty'
     touched = RedmineProjectWorkflows::Services::ScopeWriter.enable(
@@ -28,6 +34,8 @@ class ProjectWorkflowScopesController < ApplicationController
       rule_type: @rule_type, copy_generic: copy_generic, user: User.current
     )
     report(touched, copy_generic ? :notice_project_workflow_enabled_copy : :notice_project_workflow_enabled_empty)
+  rescue RedmineProjectWorkflows::Services::WriteBudget::TooLarge => e
+    refuse_oversized_enable(e)
   end
 
   def destroy
@@ -86,6 +94,21 @@ class ProjectWorkflowScopesController < ApplicationController
     return nil unless ids.size == values.size
 
     ids
+  end
+
+  # The refusal says the number, the limit and the three ways out -- fewer
+  # projects, the empty variant, or a larger limit -- and records the same line
+  # in the log that the matrix save's refusal does.
+  def refuse_oversized_enable(error)
+    flash[:error] = l(:error_project_workflow_enable_too_large,
+                      count: error.projected, ceiling: error.ceiling)
+    RedmineProjectWorkflows::Services::WriteLog.record(
+      'admin_scope_enable_refused',
+      rule_type: @rule_type, actor: User.current.id,
+      projects: @project_ids, trackers: @tracker_ids, roles: @role_ids,
+      projected: error.projected, ceiling: error.ceiling
+    )
+    redirect_to matrix_path
   end
 
   def report(touched, notice_key)

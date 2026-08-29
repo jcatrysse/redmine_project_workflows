@@ -556,14 +556,53 @@ The contrast that matters, measured on the same 1,620 rules: the writer takes
 5.03 s**. That is 216× the statements and 23× the time, and it is the reason the
 writers are set-based rather than row-by-row.
 
-**`give own workflow` is the one action still measured per combination**, and
-deliberately: `ScopeWriter.create_scopes` is one validated `save!` per row and
-`WorkflowRule.copy_generic_to_project` is one `INSERT … SELECT` per combination,
-both decided by Jan on 2026-08-27 with an explicit instruction not to batch them
-back. At 5 ms each, 500 projects × 5 trackers × 8 roles is 20,000 combinations
-and about **100 seconds** — which is the "slow case actually met" that decision
-names as an ADR conversation rather than a rewrite. It is **not** covered by the
-ceiling below, which bounds the matrix save only.
+**`give own workflow` was the one action still measured per combination**, and
+deliberately so until the slow case that the 2026-08-27 decision named was
+actually met — in a measurement rather than by a user. **ADR-004** is the
+conversation that decision asked for, and the action is now batched and bounded:
+
+| | before | after |
+|---|---|---|
+| 20,000 combinations, 600,000 rules, PostgreSQL 16 | 110 s (294 s in a second sample), 60,042 statements | **18 s, 151 statements** |
+| the same on MariaDB 10.11 | 99 s, 60,048 statements | **14 s, 157 statements** |
+| own *empty* workflow, same size | 60 s / 47 s | **3.9 s / 3.4 s** |
+
+Three pieces, and none of them works without the others:
+
+- **The lock comes first.** `WriteCoordinator.lock_generic` takes the
+  coordination rows for the (tracker, role) pairs — trackers × roles rows, never
+  per project — as the first statement of the transaction. That is what replaces
+  the per-row `save!` as the answer to *which scopes did this request create*,
+  and it holds the generic workflow still while it is being copied, which
+  nothing did before.
+- **The two writes are set operations.** `ScopeBulkWriter.create_scopes!`
+  (`insert_all!`, the raising form, permitted by ADR-004 and by nothing else) and
+  `WorkflowRule.copy_generic_to_projects`, one `INSERT … SELECT` per (tracker,
+  role) per 1,000 projects. **Per pair, not one cross-product statement:** a
+  cross product would re-copy the generic rules into a combination that already
+  had a scope of its own.
+- **The ceiling is the matrix save's.** Above `bulk_write_ceiling` the copy is
+  refused before anything is written. The *empty* variant copies no rule, so it
+  is never refused — and at 3.9 s for 20,000 combinations it need not be.
+
+**The MySQL lesson in it, which cost two red cells to find.** MySQL and MariaDB
+run REPEATABLE READ, so every plain read in a transaction answers from the
+snapshot taken at the first one. Two consequences, both fixed here and both
+invisible on PostgreSQL, which re-reads per statement:
+
+- `WriteCoordinator.lock_keys` re-read the coordination row it had just failed to
+  insert, from a snapshot predating the other transaction's commit, found
+  nothing, and returned **having locked nothing at all** — on the *first* use of
+  a (rule type, tracker, role), which is why nothing had caught it since WP13.
+  It takes a locking read, which is a *current* read, when the plain one comes
+  back short.
+- The read that decides what is missing is stale for the same reason, and no
+  lock can fix that. So `enable` retries **once, in a new transaction**, which
+  takes a new snapshot. Considered and rejected: a locking read of the existing
+  scope rows (it would deadlock against a matrix save, which locks those rows
+  first and takes the coordination rows second) and
+  `transaction(isolation: :read_committed)` (Rails refuses it inside another
+  transaction, so every example of the suite would raise).
 
 #### Bounding a bulk save
 
@@ -576,7 +615,7 @@ they read as one scale:
 |---|---|---|
 | `bulk_confirm_threshold` | 50 | above this, a **row or column action** asks first |
 | `bulk_save_confirm_threshold` | 5,000 | above this, the **Save** button asks first |
-| `bulk_write_ceiling` | 200,000 | above this, the save is **refused** before its transaction opens. 0 means no ceiling |
+| `bulk_write_ceiling` | 200,000 | above this, the save is **refused** before its transaction opens. 0 means no ceiling. Since ADR-004 it bounds *give own workflow* as well, in the same unit and to about the same wall clock — an equivalence that is only true because that action is batched |
 
 **Why Save has a threshold of its own.** It shared the first one until the write
 path was measured, and at 50 rules the dialog fired on essentially every

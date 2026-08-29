@@ -95,7 +95,7 @@ module RedmineProjectWorkflows
         return if keys.empty?
 
         create_missing(rule_type, keys)
-        ids = rows_for(rule_type, keys).order(:id).pluck(:id)
+        ids = visible_ids(rule_type, keys)
         return if ids.empty?
 
         # By primary key in a second statement, in id order: the same shape as
@@ -106,6 +106,36 @@ module RedmineProjectWorkflows
         ProjectWorkflowWriteLock.where(id: ids).order(:id).lock.pluck(:id)
       end
       private_class_method :lock_keys
+
+      # The ids of this key set's rows, and the reason it is two reads rather
+      # than one is a defect measured on MariaDB on 2026-08-29, while building
+      # ADR-004 -- **the lock could cover nothing at all on six of the nine
+      # supported cells.**
+      #
+      # MySQL and MariaDB run REPEATABLE READ, so a plain SELECT answers from the
+      # snapshot this transaction took at its first read -- which is the read
+      # inside #create_missing, *before* it waited on another transaction's
+      # uncommitted row. When that transaction commits, our INSERT fails with
+      # RecordNotUnique (rescued: the row now exists, which is all we wanted) and
+      # the row is still invisible to a snapshot read. `ids` came back empty, the
+      # method returned, and the caller went on to write with no lock held. It is
+      # the *first* write of a (rule type, tracker, role) that is exposed, which
+      # is why nothing had caught it: after that the rows are simply there.
+      # PostgreSQL runs READ COMMITTED and re-reads per statement, so it was
+      # green there.
+      #
+      # A **locking** read is a *current* read on both engines: it sees the
+      # latest committed row and blocks where another transaction holds it. It is
+      # taken only when the plain read came back short, so the ordinary path --
+      # rows present and visible -- still costs one plain SELECT and then the
+      # by-primary-key lock below.
+      def self.visible_ids(rule_type, keys)
+        ids = rows_for(rule_type, keys).order(:id).pluck(:id)
+        return ids unless ids.size < keys.size
+
+        rows_for(rule_type, keys).order(:id).lock.pluck(:id)
+      end
+      private_class_method :visible_ids
 
       # One validated record per missing key, never insert_all: the
       # forbidden-constructs table confines that to the two rule writers (INV-2),

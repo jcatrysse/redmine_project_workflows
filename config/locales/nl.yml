@@ -188,3 +188,5 @@ nl:
   label_project_workflow_graph_edge_ceiling: 'Teken geen workflow met meer dan'
   text_project_workflow_graph_edge_ceiling: 'Aantal pijlen, want dat is wat het bepalen van hun plaats kost: een workflow met 400 statussen en 800 pijlen wordt in ongeveer 50 ms uitgetekend, een met 60 statussen waarin bijna elke overgang is toegestaan duurt ongeveer 1,5 s. Daarboven wordt de workflow als tabel getoond in plaats van getekend. 0 betekent geen limiet.'
   text_project_workflow_graph_too_large: 'Deze workflow bevat %{count} statuswijziging(en), meer dan de %{ceiling} die deze installatie tekent, dus wordt hij niet getekend en worden zijn bevindingen niet opgesomd. De tabel hieronder is de volledige workflow. Een beheerder kan de limiet aanpassen in de plug-in-instellingen.'
+  # ADR-004: the same ceiling as the matrix save, on *give own workflow*.
+  error_project_workflow_enable_too_large: 'Deze projecten een eigen workflow geven zou %{count} workflowregel(s) kopiëren, meer dan de limiet van %{ceiling}. Er is niets gewijzigd. Selecteer minder projecten, trackers of rollen, geef een eigen lege workflow, of verhoog de limiet in de plug-in-instellingen.'

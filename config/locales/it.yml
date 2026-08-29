@@ -188,3 +188,5 @@ it:
   label_project_workflow_graph_edge_ceiling: 'Non disegnare un workflow con più di'
   text_project_workflow_graph_edge_ceiling: 'Numero di frecce, perché è il loro posizionamento a costare: un workflow di 400 stati e 800 frecce viene disegnato in circa 50 ms, uno di 60 stati in cui quasi ogni passaggio è consentito richiede circa 1,5 s. Oltre questo valore il workflow viene mostrato come tabella anziché disegnato. 0 significa nessun limite.'
   text_project_workflow_graph_too_large: 'Questo workflow ha %{count} cambi di stato, più dei %{ceiling} che questa installazione disegna, quindi non viene disegnato e le sue indicazioni non vengono elencate. La tabella qui sotto è il workflow completo. Un amministratore può alzare il limite nelle impostazioni del plugin.'
+  # ADR-004: the same ceiling as the matrix save, on *give own workflow*.
+  error_project_workflow_enable_too_large: 'Dare a questi progetti un workflow proprio copierebbe %{count} regole di workflow, più del limite di %{ceiling}. Non è stato modificato nulla. Seleziona meno progetti, tracker o ruoli, assegna invece un workflow proprio vuoto, oppure alza il limite nelle impostazioni del plugin.'

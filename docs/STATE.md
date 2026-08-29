@@ -32,6 +32,12 @@
   - *The drift gate watches the core helpers the plugin calls* (the WP12 note's
     F01), and the structural sweep written for it found a second undeclared
     dependency on its first run.
+- **And then, on Jan's answer, ADR-004: *give own workflow* is batched and
+  bounded.** It was the open choice this session carried; it was measured, and
+  the answer was **B and C together** — a ceiling *and* the rewrite. 20,000
+  combinations went from 110 s to 18 s on PostgreSQL and 99 s to 14 s on
+  MariaDB, in 151 statements rather than 60,042. Two MySQL-only defects older
+  than the change came out with it (see *Open choices*).
 - **Nothing a user can do has been taken away**, and nothing has been released:
   0.1.6, unreleased; `main` carries 0.0.3 and there is no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
@@ -150,8 +156,8 @@ Everything below was executed in this container.
 
 | Gate | Result |
 | --- | --- |
-| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6) on PostgreSQL 16 | **1,075 examples, 0 failures** on each. Was 1,026. |
-| RuboCop through `.github/lint/Gemfile` | **140 files, no offences** |
+| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6) on PostgreSQL 16, **and 7.0 on MariaDB 10.11** | **1,098 examples, 0 failures** on each of the four. Was 1,026 at the start of the session. |
+| RuboCop through `.github/lint/Gemfile` | **142 files, no offences** |
 | `rake zeitwerk:check` | All is good! |
 | `node dev/check-bulk-js.mjs` | all checks pass |
 | Locale parity | all eight files, 162 keys each, 0 missing and 0 extra. **Eleven** new values, translated. |
@@ -159,10 +165,9 @@ Everything below was executed in this container.
 | Red-on-old-code | verified for every fix by reverting the change and re-running: two controller examples for F03, the Gemfile example for F10, the copy-form count, four graph examples, and the dependency sweep |
 | CI | runs **169**, **170**, **171** and **173** green on all eleven jobs. **173 is the head** (`7df2a4a`) and covers every code change of this session, including all six MySQL and MariaDB cells. Run 172 shows as *cancelled*: pushing the documentation commit superseded it, which is the documented behaviour, not a failure. |
 
-**MySQL and MariaDB were not run locally this session** — PostgreSQL 16 only. The
-one piece of new SQL text, `StatusDeletionImpact`'s `SUM(CASE WHEN … THEN 1 ELSE
-0 END)` in a `HAVING`, is the spelling all three adapters read, and **CI run 173
-confirms it on all six MySQL-family cells.**
+**A MariaDB host was built for ADR-004 and is worth keeping in the recipe**
+(`dev/setup.sh 7.0-stable mysql 3.3.6`): both defects that work uncovered are
+invisible on PostgreSQL, and the suite is green on all four hosts.
 
 ## Exact next step
 
@@ -192,36 +197,35 @@ WP13 and still true:
 
 ## Open choices
 
-**One, and it is not urgent** — but it has now been **measured**, on 2026-08-29,
-after Jan asked whether option C could be made safe with optimistic locking. The
-full table, the options and the recommendation are in `docs/DECISIONS.md` under
-*Open — for Jan (2026-08-29)*; the short version:
+**None.** The one that stood here — *give own workflow* measured per combination
+and covered by no ceiling — was answered by Jan on 2026-08-29 (**B and C: guard
+and rewrite**) and is built. It is in `docs/DECISIONS.md` under *Decided (Jan) —
+2026-08-29, give own workflow in bulk*, with **ADR-004** carrying the argument.
 
-- *Give own workflow* over 500 projects × 5 trackers × 8 roles (20,000
-  combinations, 600,000 rules copied) takes **110 s and 294 s in two samples** on
-  PostgreSQL 16 and **99 s** on MariaDB 10.11, in 60,000 statements.
-- A batched prototype — `insert_all!` for the decisions, one `INSERT … SELECT`
-  per 1,000 projects joining the shared rules to the scope rows just created,
-  under the coordination rows WP13 already built — produces **identical** counts
-  on both adapters in **105 statements**: **28 s** (PG) and **23 s** (MariaDB).
-- **Batching does not remove the need for a ceiling.** 28 s is still past a
-  proxy's patience, and what is left is the data: 600,000 rows at ~21,000 a
-  second, the same throughput the matrix writer measures.
-- **It does make the *own empty* variant free**: 3.4 s for 20,000 combinations,
-  from 60 s. There the cost was entirely round trips.
-- **The per-row path is not linear**: 5.5 ms per combination at 2,400, 14.7 ms at
-  20,000 in one sample and 5.5 ms in another. The batched path is flat at ~1.4 ms
-  in every run, which is what lets a ceiling mean something.
-- **Recommendation: C with B** — batch it *and* give it a ceiling, the ceiling
-  counted in workflow rules so it can share `bulk_write_ceiling` with the matrix
-  save. If only one lands, land B.
-- **A suspicion raised while measuring is retracted in the same entry:** the
-  OR-of-500-triples delete is **not** slow on MariaDB (0.05 ms per combination on
-  both adapters). The 4.2 s first seen was the probe's own 700,000-row open
-  transaction. That also answers part of WP15's item 4.
+What that session added, after the four WP14 commits:
 
-Nothing was implemented for any of this: B and C are both Jan's call, and C is
-the ADR he named on 2026-08-27.
+- **The action is batched and bounded.** 20,000 combinations and 600,000 rules:
+  **110 s → 18 s** on PostgreSQL (a second sample of the old path took 294 s) and
+  **99 s → 14 s** on MariaDB, in **151 statements** rather than 60,042. The own
+  *empty* variant went from 60 s to 3.9 s. Above `bulk_write_ceiling` — the
+  setting the matrix save already used — the copy is refused before anything is
+  written; the empty variant copies no rule and is never refused.
+- **The lock is what makes bulk correct**, not optimistic locking, which was the
+  shape first suggested: `lock_version` protects one row from two *updates*, and
+  this race is two *inserts*, already arbitrated by the unique index. What the
+  per-row write actually provided was attribution, and the coordination rows WP13
+  built provide it instead — trackers × roles rows, never per project.
+- **Two MySQL-only defects fell out of building it**, both older than the change
+  and both invisible on PostgreSQL, which re-reads per statement:
+  - `WriteCoordinator.lock_keys` re-read the coordination row it had just failed
+    to insert from a stale snapshot, found nothing, and returned **having locked
+    nothing** — on the first use of a (rule type, tracker, role). It takes a
+    locking (current) read when the plain one comes back short.
+  - The read that decides what is missing is stale for the same reason, and no
+    lock fixes that; `enable` retries **once in a new transaction**. A locking
+    read of the scope rows was rejected: a matrix save locks those first and
+    takes the coordination rows second, so the two would deadlock rather than
+    queue.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -1350,6 +1354,27 @@ Everything from here down is carried forward from earlier sessions.
   `WorkflowTransition.replace_transitions` and
   `WorkflowPermission.replace_permissions` are the two INV-1 rests on.
 
+### Traps from building ADR-004
+
+- **MySQL and MariaDB run REPEATABLE READ; PostgreSQL runs READ COMMITTED.** Any
+  "wait for the other transaction, then look again" pattern is broken on the
+  MySQL family unless the second look is a **locking** read (a *current* read) or
+  a new transaction. Two defects here came from exactly that, both green on
+  PostgreSQL for months. When a concurrency example passes on PostgreSQL, run it
+  on MariaDB before believing it.
+- **An EXISTS in front of a delete is a check-then-act.** It is safe only where
+  the caller can prove nothing else is writing. Folded into `delete_rules` it
+  broke *return to the generic workflow*, which deletes rules a matrix save may
+  be writing at that moment — caught on MariaDB, where the interleaving happens.
+- **A concurrency example that passes with the lock disabled is not a test.** The
+  first draft here paused *inside* the read it meant to protect, so both paths
+  gave the same answer. The pause belongs **after** the read and before the
+  write. Disable the lock and watch it go red before trusting it.
+- **`Metrics/ClassLength` is a signal, not a cop to placate** — the seventh
+  extraction in this repository (`ScopeBulkWriter`) and, like the six before it,
+  a genuine improvement: it is now the one place a write to these tables is
+  expressed as a set operation.
+
 ### Traps from the 2026-08-29 measurement of *give own workflow*
 
 - **One scenario per process, or the numbers are fiction.** A probe that ran
@@ -1403,6 +1428,11 @@ Read CLAUDE.md and docs/STATE.md. Carry on.
 
 WP0..WP14 are done. "Carry on" means, in order:
 
+0. **Read ADR-004 before touching `ScopeWriter.enable`.** It is the newest and
+   least-settled piece of the plugin: a bulk write whose correctness rests on a
+   lock taken in another class, plus a retry that exists for one database
+   family's isolation level. The two MySQL defects it uncovered are the kind that
+   pass every PostgreSQL cell.
 1. **CI is green on the head.** Run **173** on `7df2a4a` passed all eleven jobs,
    the six MySQL and MariaDB cells included, so there is nothing to chase before
    starting WP15. Runs 169-171 are green too; run **172** shows as *cancelled*

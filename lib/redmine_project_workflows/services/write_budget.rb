@@ -51,6 +51,28 @@ module RedmineProjectWorkflows
     # workflows one cell stands for. The surprise is smaller and the threshold
     # should be too.
     class WriteBudget
+      # Raised instead of writing, when an action would go over the ceiling.
+      #
+      # An exception rather than a return value because the two callers that can
+      # hit it -- the administration scope action and the project screen's -- do
+      # not share a return shape with the matrix save, and because the refusal
+      # has to abandon a transaction that is already open: ScopeWriter.enable
+      # cannot know what it would write until it has read which combinations are
+      # missing, and that read belongs inside the transaction that then writes
+      # them (ADR-004).
+      #
+      # It carries the two numbers the message needs, so no caller recomputes
+      # them.
+      class TooLarge < StandardError
+        attr_reader :projected, :ceiling
+
+        def initialize(projected:, ceiling:)
+          @projected = projected
+          @ceiling = ceiling
+          super("this action would write #{projected} workflow rules, above the ceiling of #{ceiling}")
+        end
+      end
+
       # Measured on 2026-08-29 (Redmine 7.0, PostgreSQL 16, in this container):
       # about 27,000 workflow rules a second, flat from 4,860 to 172,800 rules
       # and independent of how the selection is shaped. So the ceiling is roughly
@@ -74,6 +96,40 @@ module RedmineProjectWorkflows
       # generic workflow is one more population to rewrite.
       def self.projected_rules(scopes:, trackers:, roles:, cells:)
         scopes * trackers * roles * cells
+      end
+
+      # What *give own workflow* would copy: for each (tracker, role) pair, the
+      # number of generic rules of that type times the number of combinations of
+      # that pair the action would create (ADR-004).
+      #
+      # Exact rather than estimated, like the matrix save's projection: both
+      # halves are in hand before anything is written -- +combinations+ is what
+      # ScopeWriter.enable has just decided is missing, and the counts come from
+      # the generic population itself.
+      #
+      # One grouped statement, and it names its population (INV-4):
+      # +project_id: nil+ is the generic workflow, which is the only thing a copy
+      # reads from.
+      #
+      # Answers 0 for the *empty* variant, which copies nothing -- so that action
+      # is never refused, and at the rate ADR-004 measured it does not need to be.
+      def self.projected_enable_rules(combinations:, rule_type:)
+        return 0 if combinations.empty?
+
+        sti_type = ProjectWorkflowScope.rule_model_for(rule_type).name
+        per_pair = WorkflowRule.where(project_id: nil, type: sti_type,
+                                      tracker_id: combinations.map { |_p, tracker_id, _r| tracker_id }.uniq,
+                                      role_id: combinations.map { |_p, _t, role_id| role_id }.uniq)
+                               .group(:tracker_id, :role_id).count
+        combinations.sum { |_project_id, tracker_id, role_id| per_pair[[tracker_id, role_id]].to_i }
+      end
+
+      # Raises rather than answering, for the caller that is inside its own
+      # transaction and wants the refusal to abandon it.
+      def self.refuse_above_ceiling!(projected)
+        raise TooLarge.new(projected: projected, ceiling: ceiling) if over_ceiling?(projected)
+
+        projected
       end
 
       def self.ceiling

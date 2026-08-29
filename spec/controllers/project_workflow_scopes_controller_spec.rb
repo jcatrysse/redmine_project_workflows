@@ -119,6 +119,49 @@ describe ProjectWorkflowScopesController, type: :controller do
       expect(WorkflowTransition.where(project_id: project.id).count).to eq(1)
     end
 
+    # ADR-004. The same setting and the same unit as the matrix save's refusal,
+    # on the action that until now had no ceiling at all. Red on the old code,
+    # which wrote the whole selection whatever its size.
+    describe 'the write ceiling' do
+      after { Setting.clear_cache }
+
+      # A second generic rule, so the projection is two and a ceiling of one is
+      # below it rather than equal to it.
+      before do
+        WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: nil,
+                                   old_status_id: s2.id, new_status_id: s1.id)
+        Setting.plugin_redmine_project_workflows = { 'bulk_write_ceiling' => '1' }
+      end
+
+      it 'refuses a copy that would write more rules than the ceiling' do
+        post :create, params: base_params(source: 'copy')
+
+        expect(ProjectWorkflowScope.count).to eq(0)
+        expect(WorkflowTransition.where.not(project_id: nil)).to be_empty
+        expect(flash[:error]).to eq(I18n.t(:error_project_workflow_enable_too_large, count: 2, ceiling: 1))
+        expect(response).to redirect_to(%r{project_workflow_rules/edit})
+      end
+
+      # The way out that is always open: the empty variant copies nothing, so it
+      # is never refused, whatever the ceiling. The message names it.
+      it 'still gives an own empty workflow under the same ceiling' do
+        post :create, params: base_params(source: 'empty')
+
+        expect(own_workflow?(project, tracker, role)).to be(true)
+        expect(WorkflowTransition.where(project_id: project.id)).to be_empty
+        expect(flash[:error]).to be_nil
+      end
+
+      it 'writes as usual below the ceiling' do
+        Setting.plugin_redmine_project_workflows = { 'bulk_write_ceiling' => '10' }
+
+        post :create, params: base_params(source: 'copy')
+
+        expect(own_workflow?(project, tracker, role)).to be(true)
+        expect(flash[:error]).to be_nil
+      end
+    end
+
     it 'returns a project to inheritance' do
       post :create, params: base_params(source: 'copy')
 

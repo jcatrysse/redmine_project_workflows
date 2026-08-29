@@ -20,9 +20,6 @@ module RedmineProjectWorkflows
     # Every method here works on (project_id, tracker_id, role_id) triples for
     # one rule type, and every delete names its project ids (INV-1, INV-4).
     class ScopeWriter
-      # Rows per statement when a delete is expressed as an OR of triples.
-      DELETE_BATCH_SIZE = 500
-
       # Records that somebody changed the rules of the scopes in this selection.
       # Only existing scopes are touched -- a combination that inherits has no
       # row to stamp, and creating one here would collapse "save" into "enable"
@@ -139,7 +136,7 @@ module RedmineProjectWorkflows
         return [] if combinations.empty?
 
         ids = []
-        each_batch_predicate(combinations, ProjectWorkflowScope.arel_table) do |predicate|
+        ScopeBulkWriter.each_batch_predicate(combinations, ProjectWorkflowScope.arel_table) do |predicate|
           ids.concat(ProjectWorkflowScope.where(predicate).pluck(:id))
         end
         return [] if ids.empty?
@@ -168,7 +165,7 @@ module RedmineProjectWorkflows
 
         stamp = { updated_by_id: author_id_for(user), updated_at: Time.now.utc }
         touched = 0
-        each_batch_predicate(combinations, ProjectWorkflowScope.arel_table) do |predicate|
+        ScopeBulkWriter.each_batch_predicate(combinations, ProjectWorkflowScope.arel_table) do |predicate|
           touched += ProjectWorkflowScope.where(rule_type: rule_type).where(predicate)
                                          .update_all(stamp) # rubocop:disable Rails/SkipsModelValidations
         end
@@ -183,40 +180,94 @@ module RedmineProjectWorkflows
       # generic rules, or nothing at all. It defaults to the copy because a
       # scope replaces (INV-5) -- an empty one permits no transition, and
       # arriving there by accident would freeze every issue in the project.
+      #
+      # **Bulk since ADR-004, and the lock is what makes bulk correct.** The
+      # coordination rows for the (tracker, role) pairs are taken first --
+      # trackers x roles rows, never per project -- so no other write path of the
+      # plugin can create a competing scope while this one runs. The combinations
+      # that were missing when this request looked are therefore exactly the ones
+      # it creates, which is the attribution the per-row `save!` used to provide:
+      # everything below acts on what this call created, never on a scope a
+      # second administrator got to first, whose rules must not be cleared and
+      # rewritten by this request.
+      #
+      # The lock also covers the *generic* workflow being copied for the duration.
+      # Before it, an administrator saving that workflow half way through gave the
+      # projects copied early the old rules and the ones copied late the new ones,
+      # in one action, silently.
+      #
+      # Above `bulk_write_ceiling` the action raises rather than writing -- the
+      # same setting and the same unit as the matrix save, which is only
+      # meaningful because the batched write runs at about the same rate
+      # (ADR-004). The projection is exact and costs one grouped count.
+      # Retried once, and only for the one thing the lock cannot cover:
+      # **MySQL and MariaDB run REPEATABLE READ**, so every plain read in this
+      # transaction answers from the snapshot taken at its first one. A second
+      # administrator who committed while this request was waiting on the
+      # coordination rows is therefore invisible to the read that decides what is
+      # missing -- the lock is held correctly, and the answer under it is stale.
+      # The insert then hits the unique index.
+      #
+      # A new transaction takes a new snapshot, so one retry sees the truth and
+      # creates what is left. It cannot loop: the coordination rows serialise
+      # every other *enable*, so the second attempt races nothing.
+      #
+      # Considered and rejected: a locking read of the existing scope rows, which
+      # would be a current read on both engines but locks rows a matrix save
+      # locks by primary key -- and that save takes the coordination rows
+      # afterwards, so the two would form a deadlock cycle rather than a queue.
+      # Also rejected: `transaction(isolation: :read_committed)`, which Rails
+      # refuses inside another transaction and would therefore raise in every
+      # example of a suite that wraps each one.
       def self.enable(project_ids:, tracker_ids:, role_ids:, rule_type:, copy_generic: true, user: User.current)
+        attempts = 0
+        begin
+          attempts += 1
+          enable_once(project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids,
+                      rule_type: rule_type, copy_generic: copy_generic, user: user)
+        rescue ActiveRecord::RecordNotUnique
+          raise if attempts > 1
+
+          retry
+        end
+      end
+
+      def self.enable_once(project_ids:, tracker_ids:, role_ids:, rule_type:, copy_generic:, user:)
         sti_type = ProjectWorkflowScope.rule_model_for(rule_type).name
         touched = 0
 
         ProjectWorkflowScope.transaction do
+          project_ids, tracker_ids, role_ids = normalize(project_ids, tracker_ids, role_ids)
+          next if project_ids.empty? || tracker_ids.empty? || role_ids.empty?
+
+          # First statement in the transaction, before the read it protects.
+          WriteCoordinator.lock_generic(rule_type: rule_type, pairs: tracker_ids.product(role_ids))
+
           combinations = missing_combinations(
             project_ids: project_ids, tracker_ids: tracker_ids, role_ids: role_ids, rule_type: rule_type
           )
           next if combinations.empty?
 
-          # Everything below acts on the combinations this call actually
-          # created, not on the ones it set out to create. The two differ when
-          # a second administrator pressed the same button first: that scope is
-          # theirs, its rules are the ones they just copied, and clearing and
-          # re-copying them here would undo a decision this request never made.
-          created = create_scopes(combinations, rule_type, user)
-          next if created.empty?
+          WriteBudget.refuse_above_ceiling!(
+            copy_generic ? WriteBudget.projected_enable_rules(combinations: combinations, rule_type: rule_type) : 0
+          )
 
-          # Defensive: a combination that inherits should carry no rules of its
-          # own, but a database that predates the scope table may. Clearing
-          # first makes the result of "enable" the same either way.
-          delete_rules(created, rule_type)
-          if copy_generic
-            created.each do |project_id, tracker_id, role_id|
-              WorkflowRule.copy_generic_to_project(project_id, tracker_id, role_id, sti_type)
-            end
-          end
-          touched = created.size
+          ScopeBulkWriter.create_scopes!(combinations, rule_type, user)
+          # Defensive, and safe to skip *here* only: these combinations were
+          # inheriting a moment ago and this transaction holds the coordination
+          # rows, so nothing is writing rules under them. A database that
+          # predates the scope table can still carry orphan rows, and clearing
+          # them is what makes the result of *enable* the same either way.
+          ScopeBulkWriter.delete_rules(combinations, rule_type) if ScopeBulkWriter.orphan_rules?(combinations,
+                                                                                                 rule_type)
+          ScopeBulkWriter.copy_generic_rules(combinations, sti_type) if copy_generic
+          touched = combinations.size
         end
-        # create_scopes already resets, but only when it created something, and
-        # this action deletes and re-copies rules either way.
         Resolver.reset_cache! if touched.positive?
         touched
       end
+
+      private_class_method :enable_once
 
       # Action two: return these projects to the generic workflow. The scope and
       # the rules both go; nothing about the project is left in the tables.
@@ -239,8 +290,8 @@ module RedmineProjectWorkflows
           )
           next if combinations.empty?
 
-          delete_rules(combinations, rule_type)
-          delete_scopes(combinations, rule_type)
+          ScopeBulkWriter.delete_rules(combinations, rule_type)
+          ScopeBulkWriter.delete_scopes(combinations, rule_type)
           touched = combinations.size
         end
         Resolver.reset_cache! if touched.positive?
@@ -268,7 +319,7 @@ module RedmineProjectWorkflows
           )
           next if combinations.empty?
 
-          delete_rules(combinations, rule_type)
+          ScopeBulkWriter.delete_rules(combinations, rule_type)
           # Emptying a matrix is a change to the rules like any other, so it is
           # the same stamp the writers leave. The relation covers exactly the
           # combinations found above, because those are the scopes this selection
@@ -435,40 +486,6 @@ module RedmineProjectWorkflows
         false
       end
       private_class_method :create_scope
-
-      # One statement per DELETE_BATCH_SIZE triples rather than one per triple.
-      # The predicate is an OR of exact triples, not the cross product of the
-      # three id lists, so a combination the caller did not name is never hit.
-      def self.each_batch_predicate(combinations, table)
-        combinations.each_slice(DELETE_BATCH_SIZE) do |slice|
-          conditions = slice.map do |project_id, tracker_id, role_id|
-            table[:project_id].eq(project_id)
-                              .and(table[:tracker_id].eq(tracker_id))
-                              .and(table[:role_id].eq(role_id))
-          end
-          yield conditions.reduce { |memo, condition| memo.or(condition) }
-        end
-      end
-      private_class_method :each_batch_predicate
-
-      def self.delete_rules(combinations, rule_type)
-        return if combinations.empty?
-
-        model = ProjectWorkflowScope.rule_model_for(rule_type)
-        each_batch_predicate(combinations, model.arel_table) do |predicate|
-          model.where(predicate).delete_all
-        end
-      end
-      private_class_method :delete_rules
-
-      def self.delete_scopes(combinations, rule_type)
-        return if combinations.empty?
-
-        each_batch_predicate(combinations, ProjectWorkflowScope.arel_table) do |predicate|
-          ProjectWorkflowScope.where(rule_type: rule_type).where(predicate).delete_all
-        end
-      end
-      private_class_method :delete_scopes
 
       def self.author_id_for(user)
         ProjectWorkflowScope.author_id_for(user)

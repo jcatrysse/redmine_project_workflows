@@ -978,6 +978,19 @@ in `docs/review/findings/` is resolved**. What each became:
   Off, no link is rendered anywhere and the action answers 404; above the
   ceiling the layout is not computed and the table stands in for the picture.
 
+**Addendum, 2026-08-29, decided by Jan after the package closed.** *Give own
+workflow* — the one bulk action still written a row at a time, and the open
+choice this package carried forward — was measured, then batched and bounded
+under **ADR-004**. Recorded here rather than as a new work package, because it
+answers a question WP14 raised: 20,000 combinations went from 110 s (294 s in a
+second sample) to 18 s on PostgreSQL and from 99 s to 14 s on MariaDB, in 151
+statements rather than 60,042, with `bulk_write_ceiling` now bounding the copy
+and the *empty* variant deliberately unbounded. Two MySQL-only defects fell out
+of building it, both older than the change and both fixed with it: the
+coordination row's first use locked nothing at all under REPEATABLE READ, and the
+read that decides what is missing is stale for the same reason and needed a
+retry in a fresh transaction rather than a wider lock.
+
 Two open findings that belonged here went with it: the WP12 note's **F01**
 (`WorkflowsHelper#field_required?` called and undeclared — now declared, with a
 structural sweep that immediately found `options_for_workflow_select` as well),

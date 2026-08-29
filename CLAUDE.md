@@ -102,7 +102,7 @@ task description seems to ask for it.
 | Forbidden | Why | Instead |
 |---|---|---|
 | a `workflows` query with no `project_id` predicate | INV-4 | the query services in `lib/redmine_project_workflows/services/` |
-| `insert_all` outside the two writers | INV-2 — it skips validation | extend the writer |
+| `insert_all` outside the two writers **and `ScopeWriter`** | INV-2 — it skips validation | extend the writer. **One exception, ADR-004:** `ScopeWriter.enable` creates its scope rows with `insert_all!` — the *raising* form — while holding the coordination rows for the (tracker, role) pairs, which is what makes a conflict impossible and therefore a defect rather than a row skipped in silence. `create_scopes` in the same file keeps its per-row `save!` for the copy screen, which holds no such lock. `plugin_conventions_spec.rb` pins the file list, the raising form and the lock's place in the method |
 | request parameters copied into a row hash | INV-2 | whitelist against server-built lists first |
 | `Thread.current[...]` as a cache | a threaded server reuses threads across requests | `RedmineProjectWorkflows::Current` — Redmine 7.0 no longer bundles `request_store`, so `RequestStore` is not available on every supported version |
 | `Rails.application.config.to_prepare` in `init.rb` | it appends to an array the `:add_to_prepare_blocks` initializer has already consumed, so the block never runs and the plugin silently does nothing | call `apply_patches` in the body of `init.rb`: Redmine already loads it from inside a `to_prepare` block, once per reload |

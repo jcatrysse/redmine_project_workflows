@@ -300,16 +300,68 @@ describe RedmineProjectWorkflows do
     expect(offenders).to be_empty
   end
 
-  it 'writes with insert_all only in the two rule writers' do
+  # ADR-004 adds the third, and only the third: ScopeBulkWriter creates the scope
+  # rows of *give own workflow* with `insert_all!` -- the **raising** form --
+  # while its one caller holds the coordination rows for the (tracker, role)
+  # pairs, so there is nothing to conflict with and a conflict is a defect rather
+  # than a row skipped in silence. ScopeWriter.create_scopes keeps its per-row
+  # `save!` for the copy screen, which holds no such lock.
+  it 'writes with insert_all only in the two rule writers and, since ADR-004, ScopeBulkWriter' do
     root = File.expand_path('..', __dir__)
     callers = Dir.glob("#{root}/{app,lib,db}/**/*.rb").select do |file|
-      File.read(file).match?(/\.insert_all\b/)
+      File.read(file).match?(/\.insert_all\b!?/)
     end
 
     expect(callers.map { |file| file.sub("#{root}/", '') }).to contain_exactly(
       'lib/redmine_project_workflows/services/transition_writer.rb',
-      'lib/redmine_project_workflows/services/permission_writer.rb'
+      'lib/redmine_project_workflows/services/permission_writer.rb',
+      'lib/redmine_project_workflows/services/scope_bulk_writer.rb'
     )
+  end
+
+  # And the shape there is the raising one. The skipping form is what 0.1.1
+  # shipped and what made a scope somebody else had just created be reported as
+  # created here too; ADR-004 permits the statement only because the lock makes
+  # a conflict impossible, which is a claim that is only true of `insert_all!`.
+  it 'uses the raising form of insert_all in ScopeBulkWriter, never the skipping one' do
+    body = File.read(File.expand_path('../lib/redmine_project_workflows/services/scope_bulk_writer.rb', __dir__))
+               .gsub(/^\s*#(?!\{).*$/, '')
+
+    expect(body).to include('insert_all!')
+    expect(body).not_to match(/\.insert_all\b(?!!)/)
+  end
+
+  # ADR-004's other half: the bulk create is only correct while the coordination
+  # rows are held, so the two have to stay in the same method. A grep, because
+  # the alternative is a comment nobody re-reads.
+  it 'takes the coordination rows before it reads or writes in bulk' do
+    body = File.read(File.expand_path('../lib/redmine_project_workflows/services/scope_writer.rb', __dir__))
+    enable = body[/def self\.enable_once\b.*?\n      end\n/m]
+
+    expect(enable).to be_present
+    expect(enable).to include('WriteCoordinator.lock_generic')
+    expect(enable).to include('ScopeBulkWriter.create_scopes!')
+    expect(enable.index('WriteCoordinator.lock_generic')).to be < enable.index('missing_combinations')
+    expect(enable.index('missing_combinations')).to be < enable.index('ScopeBulkWriter.create_scopes!')
+  end
+
+  # The other half of ADR-004's answer to MySQL's REPEATABLE READ: the lock is
+  # held correctly and the read under it can still be stale, so the action is
+  # retried once in a **new transaction**, which takes a new snapshot. Asserted
+  # as behaviour rather than as text, and it is the only retry in the plugin.
+  it 'retries give own workflow once, and only once, on a duplicate' do
+    calls = 0
+    allow(RedmineProjectWorkflows::Services::ScopeWriter).to receive(:enable_once) do
+      calls += 1
+      raise ActiveRecord::RecordNotUnique, 'duplicate key value violates unique constraint'
+    end
+
+    expect do
+      RedmineProjectWorkflows::Services::ScopeWriter.enable(
+        project_ids: [1], tracker_ids: [1], role_ids: [1], rule_type: ProjectWorkflowScope::TRANSITIONS
+      )
+    end.to raise_error(ActiveRecord::RecordNotUnique)
+    expect(calls).to eq(2)
   end
 
   # F18. INV-4 says *any* query against `workflows` carries an explicit

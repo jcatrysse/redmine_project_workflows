@@ -37,6 +37,25 @@ The workflow as a drawing.
   and 5.03 s written one at a time. The README's *Settings* section has the
   numbers, including the one action that is still measured per combination.
 
+- **Giving many projects their own workflow is between six and sixteen times
+  faster, and is bounded.** It was the one bulk action still written one row at a
+  time. Giving 500 projects × 5 trackers × 8 roles a copy of a 30-rule shared
+  workflow — 600,000 rules — took 110 seconds on PostgreSQL (294 in a second
+  sample) and 99 on MariaDB, in 60,000 database round trips; it now takes 18 and
+  14 seconds in about 150. *Give own **empty** workflow* at that size went from a
+  minute to under four seconds. Above *Refuse a matrix save that would rewrite
+  more than* — the setting that already bounded the Save button — the copy is now
+  refused before anything is written, with a message saying how many rules it
+  would have been; the empty variant copies nothing and is never refused.
+
+  Two administrators pressing the button at the same moment are still handled,
+  and better than before: the action takes a small lock on the workflow it is
+  copying — one row per tracker and role, never one per project — so the second
+  one waits and then sees what the first did. That also closes a hole nobody had
+  reported: the shared workflow was read with no lock at all, so editing it while
+  a large copy was running gave the projects copied early the old rules and the
+  ones copied late the new ones, in one action, silently.
+
 - **Deleting an issue status no longer freezes a project's issues silently.**
   Redmine deletes every workflow rule naming a status you delete, in the shared
   workflow and in every project's. A project whose rules for a tracker and a role

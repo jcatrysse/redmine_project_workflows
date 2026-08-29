@@ -195,6 +195,70 @@ module RedmineProjectWorkflows
         RedmineProjectWorkflows::Services::Resolver.reset_cache!
       end
 
+      # The same copy for many projects at once: one INSERT ... SELECT per
+      # (tracker, role) per chunk of projects, instead of one per combination
+      # (ADR-004).
+      #
+      # **One pair per statement, deliberately.** The obvious shape -- join the
+      # generic rows to the scope table with `tracker_id IN (...) AND role_id IN
+      # (...) AND project_id IN (...)` -- spans the whole cross product, so a
+      # combination inside those lists that already had a scope of its own would
+      # have the generic rules copied into it a second time, duplicating its
+      # rules. The first prototype had exactly that shape and only passed because
+      # every combination in it was new. spec/services/scope_writer_bulk_spec.rb
+      # pins the case.
+      #
+      # The join is against the scope rows rather than against a list of ids so
+      # that the statement cannot write a rule under a combination that has no
+      # scope: a rule row the resolver would ignore is rubbish that nothing ever
+      # cleans up (INV-3). ScopeWriter.enable holds the generic coordination rows
+      # while this runs, so the scopes it joins to are the ones it has just
+      # created.
+      #
+      # Written as raw SQL for the reason #copy_generic_to_project gives: every
+      # column value is a column of a row already in the table or an id resolved
+      # from the database, and the STI class name is checked against a
+      # server-built list (INV-2). Both statements name their populations --
+      # `generic.project_id IS NULL` on the one side and the scope rows' own
+      # project ids on the other (INV-4).
+      def copy_generic_to_projects(project_ids, tracker_id, role_id, sti_type, chunk_size: 1_000)
+        raise ArgumentError, "unknown workflow rule type #{sti_type.inspect}" unless COPYABLE_TYPES.include?(sti_type)
+
+        tracker_id = Integer(tracker_id)
+        role_id = Integer(role_id)
+        rule_type = ProjectWorkflowScope.rule_type_for(sti_type)
+        project_ids = Array(project_ids).map { |id| Integer(id) }
+        return 0 if project_ids.empty?
+
+        project_ids.each_slice(chunk_size) do |slice|
+          connection.insert(copy_generic_to_projects_sql(slice, tracker_id, role_id, sti_type, rule_type))
+        end
+        RedmineProjectWorkflows::Services::Resolver.reset_cache!
+        project_ids.size
+      end
+
+      def copy_generic_to_projects_sql(project_ids, tracker_id, role_id, sti_type, rule_type)
+        rules = WorkflowRule.table_name
+        scopes = ProjectWorkflowScope.table_name
+        rule_column = connection.quote_column_name('rule')
+
+        "INSERT INTO #{rules} " \
+          '(tracker_id, role_id, old_status_id, new_status_id, ' \
+          "author, assignee, field_name, #{rule_column}, type, project_id) " \
+          'SELECT generic.tracker_id, generic.role_id, generic.old_status_id, generic.new_status_id, ' \
+          "generic.author, generic.assignee, generic.field_name, generic.#{rule_column}, generic.type, " \
+          'scope.project_id ' \
+          "FROM #{rules} generic " \
+          "JOIN #{scopes} scope ON scope.tracker_id = generic.tracker_id AND scope.role_id = generic.role_id " \
+          'WHERE generic.project_id IS NULL ' \
+          "AND generic.tracker_id = #{connection.quote(tracker_id)} " \
+          "AND generic.role_id = #{connection.quote(role_id)} " \
+          "AND generic.type = #{connection.quote(sti_type)} " \
+          "AND scope.rule_type = #{connection.quote(rule_type)} " \
+          "AND scope.project_id IN (#{project_ids.map { |id| connection.quote(id) }.join(', ')})"
+      end
+      private :copy_generic_to_projects_sql
+
       # Core's WorkflowRule.copy, extended to the projects.
       #
       # Deliberately *not* folded into .copy_one. The administration copy screen

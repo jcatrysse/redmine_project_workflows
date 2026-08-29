@@ -195,12 +195,19 @@ class ProjectWorkflowsController < ApplicationController
   # The three actions of INV-3, for this project and this one combination. They
   # go through ScopeWriter like the administration screens do; the only
   # difference is that the selection cannot be anything but this project.
+  # One combination, so the ceiling of ADR-004 is not what this screen is about
+  # -- but it is the same writer, and a limit set below the size of one generic
+  # workflow would otherwise raise out of the action. It is reported here the way
+  # the administration screen reports it.
   def enable
     copy_generic = params[:source].to_s != 'empty'
     touched = RedmineProjectWorkflows::Services::ScopeWriter.enable(
       **writer_selection, copy_generic: copy_generic, user: User.current
     )
     report(touched, copy_generic ? :notice_project_workflow_enabled_copy : :notice_project_workflow_enabled_empty)
+  rescue RedmineProjectWorkflows::Services::WriteBudget::TooLarge => e
+    flash[:error] = l(:error_project_workflow_enable_too_large, count: e.projected, ceiling: e.ceiling)
+    redirect_to matrix_path
   end
 
   def inherit

@@ -81,12 +81,20 @@ describe 'Concurrent scope decisions' do
       expect(index_of_scope_lock(statements)).to be < index_of_first_rule_write(statements)
     end
 
+    # The combination is given a rule of its own first, so that there is a rule
+    # write to order the lock against at all. Without one the example compares
+    # the lock's position against nothing -- which is what it did until ADR-004's
+    # first draft put an EXISTS in front of every delete and made the absence
+    # visible.
     it 'is taken on the scope rows before a return to the generic workflow deletes one' do
       give_own_workflow(project, tracker, role)
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
+                                 old_status_id: from_status.id, new_status_id: to_status.id)
 
       statements = statements_during { return_to_generic }
 
       expect(index_of_scope_lock(statements)).not_to be_nil
+      expect(index_of_first_rule_write(statements)).not_to be_nil
       expect(index_of_scope_lock(statements)).to be < index_of_first_rule_write(statements)
     end
 
@@ -247,7 +255,8 @@ describe 'Concurrent scope decisions' do
       # This time the return to the generic workflow holds the lock, and it is
       # the save that has to wait -- and then find the combination inheriting
       # and refuse it, rather than writing rules into a scope that is gone.
-      allow(scope_writer).to receive(:delete_rules).and_wrap_original do |original, *args|
+      bulk = RedmineProjectWorkflows::Services::ScopeBulkWriter
+      allow(bulk).to receive(:delete_rules).and_wrap_original do |original, *args|
         if Thread.current == main
           started << true
           wait_for_the_other(finished)
@@ -295,6 +304,104 @@ describe 'Concurrent scope decisions' do
       join!(other)
 
       expect(generic_rules.count).to eq(1)
+    end
+
+    # ADR-004, and the example that replaces the simulated stale read
+    # spec/services/scope_writer_spec.rb used to carry.
+    #
+    # Two administrators give the same project its own workflow at the same
+    # moment. Both read the combination as missing before either writes, which is
+    # exactly the race the per-row `save!` used to absorb one row at a time. The
+    # coordination rows now stop the second one before its read, so it looks
+    # after the first has committed, finds nothing missing, creates nothing and
+    # -- the part that damages data -- does not clear and re-copy the rules the
+    # first one has just written.
+    #
+    # **The pause is AFTER the read and before the write**, which is the only
+    # placement that arranges the race at all. Pausing inside the read proves
+    # nothing: the second connection commits while the first is still reading,
+    # so the first reads the truth and creates nothing whether or not a lock
+    # exists -- the first draft of this example did that and passed with the lock
+    # disabled.
+    #
+    # Held here, the first connection has a list of missing combinations and has
+    # not yet written them. Without the lock the second connection reads the same
+    # list, writes it, commits, and the first then inserts a duplicate:
+    # `ActiveRecord::RecordNotUnique`. Verified red exactly that way, by
+    # returning early from WriteCoordinator.lock_generic. With the lock the
+    # second connection never gets as far as its read.
+    it 'creates one own workflow, not two, when two administrators enable the same one' do
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: nil,
+                                 old_status_id: from_status.id, new_status_id: to_status.id)
+      main = Thread.current
+      started = Queue.new
+      finished = Queue.new
+      counts = Queue.new
+
+      allow(scope_writer).to receive(:missing_combinations).and_wrap_original do |original, *args, **options|
+        combinations = original.call(*args, **options)
+        if Thread.current == main
+          started << true
+          wait_for_the_other(finished)
+        end
+        combinations
+      end
+      other = in_parallel(started, finished) { counts << give_own_workflow_through_the_writer }
+
+      counts << give_own_workflow_through_the_writer
+      join!(other)
+
+      expect(ProjectWorkflowScope.where(project_id: project.id, tracker_id: tracker.id,
+                                        role_id: role.id, rule_type: transitions).count).to eq(1)
+      expect(project_rules.count).to eq(1)
+      # One of the two created it and says so; the other created nothing and says
+      # that. What must never happen is both reporting a creation.
+      expect([counts.pop, counts.pop].sort).to eq([0, 1])
+    end
+
+    # The MySQL half of the same lock, and a defect of WP13's that only ADR-004's
+    # example exposed: the coordination row's **first** use.
+    #
+    # MySQL and MariaDB run REPEATABLE READ, so the plain re-read inside
+    # WriteCoordinator.lock_keys answered from a snapshot taken before it waited
+    # on the other transaction's uncommitted row -- came back empty, and the
+    # method returned having locked nothing. PostgreSQL re-reads per statement
+    # and was green throughout. Asserted here as an outcome rather than as a
+    # statement shape, because the shape was right and the visibility was not.
+    #
+    # The row is deleted first on purpose: after its first use it is simply
+    # there, and the bug is unreachable.
+    it 'locks a coordination row it had to create, even where the row was invisible' do
+      ProjectWorkflowWriteLock.delete_all
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: nil,
+                                 old_status_id: from_status.id, new_status_id: to_status.id)
+      main = Thread.current
+      started = Queue.new
+      finished = Queue.new
+      counts = Queue.new
+
+      allow(scope_writer).to receive(:missing_combinations).and_wrap_original do |original, *args, **options|
+        combinations = original.call(*args, **options)
+        if Thread.current == main
+          started << true
+          wait_for_the_other(finished)
+        end
+        combinations
+      end
+      other = in_parallel(started, finished) { counts << give_own_workflow_through_the_writer }
+
+      counts << give_own_workflow_through_the_writer
+      join!(other)
+
+      expect(ProjectWorkflowScope.count).to eq(1)
+      expect([counts.pop, counts.pop].sort).to eq([0, 1])
+    end
+
+    def give_own_workflow_through_the_writer
+      scope_writer.enable(
+        project_ids: [project.id], tracker_ids: [tracker.id], role_ids: [role.id],
+        rule_type: transitions, copy_generic: true
+      )
     end
   end
 end

@@ -234,21 +234,27 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       end.to raise_error(ArgumentError)
     end
 
-    # F01, and the reason the whole method was rewritten. A second
-    # administrator pressed the same button first: by the time this call gets
-    # to the INSERT, the combination is scoped and the winner's rules are in
-    # the table. The loser must create nothing, count nothing, and -- the part
-    # that actually damages data -- must not clear the winner's rules and copy
-    # the generic ones over them.
+    # F01, and **rewritten for ADR-004** rather than weakened. The danger is
+    # unchanged: a second administrator pressed the same button first, so this
+    # call must create nothing, count nothing, and -- the part that actually
+    # damages data -- must not clear the winner's rules and copy the generic ones
+    # over them.
     #
-    # The race is arranged by making .missing_combinations answer as it did
-    # before the winner committed, which is exactly the stale answer the real
-    # race produces. With insert_all the row was silently dropped (it is
-    # INSERT ... ON CONFLICT DO NOTHING) and the combination reported created
-    # regardless.
-    it 'creates nothing for a scope that appeared after the check' do
-      allow(described_class).to receive(:missing_combinations)
-        .and_return([[project.id, tracker.id, role.id]])
+    # What changed is which mechanism prevents it. Until ADR-004 the stale read
+    # was tolerated: one validated `save!` per row asked the database whether
+    # each row was really new. Now the stale read cannot happen, because
+    # `enable` takes the coordination rows for the (tracker, role) pairs before
+    # it reads, so a second caller's read runs after the first has committed.
+    # Simulating a stale answer therefore no longer simulates anything real --
+    # it simulates a caller that skipped its own lock -- and the honest test of
+    # the same danger is the two-connection one in
+    # spec/services/workflow_concurrency_spec.rb, "two administrators giving the
+    # same projects their own workflow".
+    #
+    # What is asserted here is the half that is still this method's own: a
+    # combination that already has a scope is never in the set at all, so its
+    # rules are untouched whatever else the selection contains.
+    it 'creates nothing, and touches nothing, for a combination that is already scoped' do
       give_own_workflow(project, tracker, role)
       project_transition(project, s2, s1)
       generic_transition(s1, s2)
@@ -260,46 +266,48 @@ describe RedmineProjectWorkflows::Services::ScopeWriter do
       expect(ProjectWorkflowScope.count).to eq(1)
     end
 
-    # The narrower half of the same race: the winner commits between the
-    # uniqueness validation's SELECT and this INSERT, so the unique index is
-    # what stops the duplicate and the failure arrives as RecordNotUnique. On
-    # PostgreSQL a failed statement makes every later statement of the same
-    # transaction fail too, which is why the row is written inside a savepoint
-    # -- without it the rest of the selection would go down with the one lost
-    # race. The callback stands in for the second connection; insert_all ran no
-    # callbacks at all, so this could not even be asked of the old code.
-    it 'goes on to the rest of the selection when one row loses the race' do
-      raced = false
-      race = lambda do |record|
-        next if raced || record.role_id != role.id
+    # **Inverted by ADR-004, deliberately, and this is the decision it records.**
+    # The old behaviour was per-row: a row that lost its race was skipped inside
+    # a savepoint and the rest of the selection went on. Under the lock no other
+    # *enable* can produce that conflict, and the two paths that still can --
+    # duplicating a tracker or role, and copying a project -- act only on records
+    # that have just been created, so a conflict is a rarity and, when it
+    # happens, is a defect rather than a race to absorb.
+    #
+    # So the whole action rolls back and the administrator presses the button
+    # again. Raise rather than skip was the choice, because a rollback that says
+    # so beats the silent miscount 0.1.1 shipped: nothing is half-written, and
+    # the count reported is never larger than the work done.
+    it 'writes nothing at all when a scope appears under it mid-insert' do
+      allow(described_class).to receive(:missing_combinations)
+        .and_return([[project.id, tracker.id, role.id], [project.id, tracker.id, second_role.id]])
+      give_own_workflow(project, tracker, role)
+      generic_transition(s1, s2)
 
-        raced = true
-        raise ActiveRecord::RecordNotUnique, 'duplicate key value violates unique constraint'
-      end
-      ProjectWorkflowScope.set_callback(:create, :before, race)
-
-      begin
-        created = described_class.enable(
+      expect do
+        described_class.enable(
           project_ids: [project.id], tracker_ids: [tracker.id],
           role_ids: [role.id, second_role.id], rule_type: transitions, copy_generic: false
         )
-      ensure
-        ProjectWorkflowScope.skip_callback(:create, :before, race, raise: false)
-      end
+      end.to raise_error(ActiveRecord::RecordNotUnique)
 
-      expect(created).to eq(1)
-      expect(ProjectWorkflowScope.pluck(:role_id)).to eq([second_role.id])
+      expect(ProjectWorkflowScope.pluck(:role_id)).to eq([role.id])
+      expect(WorkflowTransition.where.not(project_id: nil)).to be_empty
     end
 
-    # A duplicate is the *only* validation failure that counts as "somebody
-    # else got here first". Anything else is a bug, and swallowing it would
-    # turn a rejected row into a silently skipped one -- which is how a save
-    # comes to report success over a table it never wrote to.
-    it 'raises rather than skipping a row the model rejects' do
+    # A row that cannot be stored is never silently skipped -- which is how a
+    # save comes to report success over a table it never wrote to. The *class*
+    # of the error moved with ADR-004 and the guarantee did not: the model's
+    # presence validation used to answer (RecordInvalid), and now the column's
+    # own NOT NULL does (a StatementInvalid). Both abort the transaction with
+    # nothing written, which is the property this example is about. The
+    # validations that are no longer run are the ones the table enforces anyway;
+    # the ADR lists them one by one.
+    it 'raises rather than skipping a row the database rejects' do
       allow(described_class).to receive(:missing_combinations)
         .and_return([[project.id, nil, role.id]])
 
-      expect { call(:enable) }.to raise_error(ActiveRecord::RecordInvalid)
+      expect { call(:enable) }.to raise_error(ActiveRecord::StatementInvalid)
       expect(ProjectWorkflowScope.count).to eq(0)
     end
 

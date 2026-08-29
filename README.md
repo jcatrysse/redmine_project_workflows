@@ -451,6 +451,14 @@ for each workflow the selection covers — and they read as one scale:
   selecting every project, every tracker and every role at once. `0` means no
   limit.
 
+  Since 0.1.6 the same number also bounds **Give own workflow**: giving a large
+  selection of projects a copy of the generic workflow writes one rule per rule
+  in that workflow per project, tracker and role, so it is the same kind of write
+  and it is now refused in the same way, with a message that says how many rules
+  it would have copied. *Give own **empty** workflow* copies nothing, so it is
+  never refused whatever the selection — it is the bulk action that stays
+  available at any size.
+
 The last two are about the **workflow diagram**:
 
 - **Offer the workflow diagram** — on. The diagram is a read-only screen reached
@@ -489,12 +497,27 @@ the size of the matrix**; the throughput is roughly 27,000 workflow rules a
 second. The 200,000-rule ceiling above is therefore about seven seconds of
 writing, which is where a front-end proxy starts timing out.
 
-The one exception is **Give own workflow**, which is about 5 ms per (project,
-tracker, role) combination — one validated insert and one copy each, on purpose,
-so that two administrators pressing it at the same moment cannot both be told
-they created the same scope. Enabling own workflows across a very large
-installation at once is therefore the slowest thing the plugin does: 20,000
-combinations is around 100 seconds. It is not covered by the ceiling above.
+**Give own workflow** was the one action still written a row at a time, and since
+0.1.6 it is not. Measured the same way, giving 500 projects × 5 trackers × 8
+roles (20,000 combinations) a copy of a 30-rule generic workflow — 600,000 rules:
+
+| | before | after |
+|---|---|---|
+| PostgreSQL 16 | 110 s (and 294 s in a second sample), 60,042 statements | **18 s, 151 statements** |
+| MariaDB 10.11 | 99 s, 60,048 statements | **14 s, 157 statements** |
+| *Give own empty workflow*, same size | 60 s / 47 s | **3.9 s / 3.4 s** |
+
+What changed, and why it needed changing carefully: the row-at-a-time write was
+deliberate. It was how the plugin knew which scopes *this* request created, so
+that two administrators pressing the button at the same moment could not both be
+told they had created the same one — and so that the second one could not clear
+and rewrite the rules the first had just copied. The batched write keeps that
+guarantee a different way: the action now takes a small lock on the workflow it
+is copying (one row per tracker and role, never one per project) before it looks,
+so the second administrator waits, then sees what the first did. As a bonus that
+closes a hole nobody had noticed: the rules being copied were read under no lock
+at all, so editing the generic workflow while a large copy was running gave the
+projects copied early the old rules and the ones copied late the new ones.
 
 ## Upgrading and uninstalling
 
