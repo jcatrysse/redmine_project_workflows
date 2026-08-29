@@ -977,3 +977,18 @@ All Class A unless it says otherwise.
   0.0.3 → 0.1.6 upgrade is now a measured claim rather than a believed one: the
   same statuses, the same required fields, not one rule row touched, and a scope
   for exactly the combinations that had rules.
+
+## Decided (Jan) — 2026-08-29, the compatibility write policy
+
+| Date | Question | Answer | Notes |
+| --- | --- | --- | --- |
+| 2026-08-29 | A second ChatGPT review asked for workflow **writes to be refused** on a host whose Redmine has drifted or cannot be measured, until an administrator acknowledges the exact version and digest set. ADR-002 had already answered "warn, never refuse" — but the review's proposal is a genuinely different third option rather than a re-run of the argument: Redmine still boots, reads still work, and the diagnostics page stays open, so the objection that a refusal bricks an installation mid-upgrade does not apply to it. | **A — warn and continue** | ADR-002 stands unchanged. What the finding is really about is *where* the warning is: a `:drifted` or `:unmeasured` host announces itself in the application log and on a diagnostics page nobody has to visit, and says nothing on the screens where somebody is about to change workflow rules. WP19 puts a persistent banner there. Reversing this later is a policy change in one place, and option B is written down here so it does not have to be re-derived. |
+
+## Decided (autonomous) — 2026-08-29, the revalidation plan
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-08-29 | How to fix an interrupted restore | **Per-combination transactions, not one transaction around the whole restore** | Both give all-or-nothing. The per-combination shape makes a completed combination genuinely safe to skip, which is what turns the documented retry from a trap into a recovery — and it avoids holding a lock for the length of a restore of every project on the installation. The external review reached the same conclusion independently and it is the shape every other writer in this plugin already uses. |
+| 2026-08-29 | How to close the gap between a backup's export and the migration reversal that destroys what it copied | **A monotonic revision the write coordinator bumps, not a lock over the whole operation** | Locking every workflow for the length of an operator's confirmation prompt is the obvious answer and the wrong one: the prompt is unbounded. A counter carried in the backup and re-checked immediately before the migrations run is cheap, durable, and refuses rather than destroying. It also gives stale-form detection later, for free. |
+| 2026-08-29 | Whether the four SQLite spec failures are a defect | **No — a missing adapter guard** | SQLite is not one of the nine supported cells and `spec/spec_helper.rb` says so. The batching examples build a 500-term OR that SQLite's parser cannot take, and the file's own header says as much without guarding for it, while nine concurrency examples in the same suite already skip on the same kind of question. It costs a developer on a SQLite host four red examples and nothing else. |
+| 2026-08-29 | What the two reviews disagree about, and which is right | **The runtime is sound; the recovery tooling is not** | The external review answered "NOT READY" for the whole plugin. That is too coarse: authorization, INV-1, INV-3, the ceiling and the write lock were all measured correct this run, and they are what every user touches. The defects are in a rake task an administrator starts deliberately. It still blocks a release, because it is the tooling the uninstall procedure rests on — but the distinction is what makes WP17 a four-item package rather than a rewrite. |

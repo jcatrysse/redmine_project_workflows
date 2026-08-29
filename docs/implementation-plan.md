@@ -33,6 +33,11 @@
 | WP14 | The remaining defect backlog | **done** |
 | WP15 | The test debt three reviews named | **done** — all six items |
 | WP16 | Release engineering | **done** — all four items |
+| — | *WP10..WP16 made it releasable on paper. WP17..WP20 answer the review that read it back.* | |
+| WP17 | Recovery you can rely on | **next** |
+| WP18 | One exact selection resolver | planned |
+| WP19 | The compatibility banner, and the small hardening | planned |
+| WP20 | The release gates that are not code | Jan's |
 
 ---
 
@@ -1126,6 +1131,123 @@ procedure, so writing it down meant first making one.
 
 ---
 
+---
+
+# WP17..WP20 — what the 2026-08-29 revalidation found
+
+WP10..WP16 closed every finding that existed when the hardening track was
+written. Then two reviews read the result back: a revalidation run that checked
+each fix by behaviour rather than by its `Resolution:` line, and a second ChatGPT
+review Jan commissioned. Between them they agreed on where the remaining risk is,
+and it is not where either of them expected.
+
+**The runtime is sound.** Authorization measured clean on 21 routes across three
+actors; INV-1 holds through core's now-unpatched save; INV-3 holds on the
+rewritten matrix; the ceiling refuses; the lock covers generic writes. That is
+the part every user touches, and it is done.
+
+**The recovery tooling WP16 added is not.** It is a rake task an administrator
+starts deliberately rather than a path an issue save takes, which is a different
+category of risk — and it is the tooling the uninstall procedure rests on, so it
+is what stands between here and a release.
+
+`docs/review/findings/2026-08-29-claude-revalidation.md` carries all eight
+findings with their evidence.
+
+---
+
+## WP17 — Recovery you can rely on
+
+The only package that blocks a release.
+
+1. **Restore becomes atomic per combination** (F01, blocker). Transaction, lock,
+   scope, rules, audit, commit — one combination at a time. A failed combination
+   rolls back to what it was; a completed one is genuinely safe to skip, which is
+   what makes the default retry correct instead of dangerous. **Not** one
+   transaction around the whole restore: same guarantee, and it holds a lock for
+   the length of a large one.
+
+   Today `prepare` creates or clears **every** scope before the first rule is
+   written, so an interruption leaves the rest as own *empty* workflows — no
+   status change permitted at all — and `select_restorable` then skips exactly
+   those on a retry without `OVERWRITE=1`. Reproduced: three projects in, two
+   left empty, the retry reported `skipped_existing=3` and restored nothing.
+
+2. **The report tells four things apart** where it now says two: restored,
+   skipped because identical, skipped because it exists and differs, failed.
+
+3. **The README sentence is corrected.** *"Running the restore twice is safe"* is
+   true after a success and a trap after an interruption; it has to say which.
+
+4. **The backup is one snapshot** (F02, major). The two queries go inside one
+   transaction with an isolation level that gives a consistent read on each
+   adapter — PostgreSQL has to be asked for `repeatable_read` explicitly, MySQL
+   and MariaDB have it by default.
+
+5. **The gap between export and destruction closes with a revision, not a lock.**
+   One monotonic counter the write coordinator bumps, carried in the backup and
+   re-checked immediately before the migrations run. Locking every workflow for
+   the length of an operator's confirmation prompt is the alternative, and it is
+   worse.
+
+6. **Injected-failure tests on all three databases**: after `prepare`, after the
+   first combination, during permission restoration, during the audit stamp.
+   After each, the default retry must restore everything that is missing. Plus a
+   two-connection test for the backup snapshot.
+
+**Done when:** an interrupted restore is recoverable by running the documented
+command again, a backup cannot hold a state that never existed, and an uninstall
+refuses rather than destroying a workflow that changed after its export.
+
+---
+
+## WP18 — One exact selection resolver
+
+F03, major, and the duplication behind it.
+
+There are four selection resolvers today with four different strictnesses, and
+**the least strict is the one that writes**. The graph refuses an id it cannot
+resolve, the copy screen refuses, the scope routes check the shape as well as the
+record — and the administration matrix does `where(id: ids).to_a` and writes
+whatever survives. Measured: `tracker_id=1e5` writes to tracker 1 and reports
+*Successful update*.
+
+One resolver, used by the matrices, the copy screen, the graph and the scope
+routes: normalise to unique strings, keep `all` explicit, require the id shape,
+resolve, and fail before any write if anything went unresolved. Every existing
+resolver already has a spec; they move with it.
+
+**Done when:** the twelve shapes in the finding's regression list answer the same
+way on every screen, and none of them writes a row.
+
+---
+
+## WP19 — The banner, and the small hardening
+
+- **The compatibility banner** (F05). A `:drifted` or `:unmeasured` host says so
+  on the screens where somebody is about to change workflow rules, not only in
+  the log and on a page nobody has to visit. **Answered A by Jan on 2026-08-29:**
+  warn and continue; the external review's proposal to refuse writes until an
+  administrator acknowledges the digest set is recorded in `docs/DECISIONS.md`
+  as the option that was not taken.
+- **The backup file** (F04): temporary file at mode 0600 in the target directory,
+  write, flush, `fsync`, validate by reading, rename into place, keep the previous
+  file until the new one is durable.
+- **The three nits**: the SQLite skip on the batching examples (F06), the
+  diagnostics page as a link rather than a second administration menu entry
+  (F07), and R1 of `docs/release-criteria.md` brought up to the head (F08).
+
+---
+
+## WP20 — The release gates that are not code
+
+Nothing to build. `docs/release-criteria.md` already names them and how each is
+checked: **R9** the tag, **A1** the 45-plugin compatibility run repeated on the
+release commit, **A3** a stated period on a real installation with real data.
+A3 is the one no repository can answer about itself.
+
+---
+
 ## Sequencing
 
 WP0 is independent. WP1 gates everything after it. WP3 needs WP1's scopes to
@@ -1147,6 +1269,11 @@ WP13's lock service touches the four write paths, and WP12 rewrites where two of
 them live — the other order does the work twice. WP14 and WP15 can run alongside
 each other and after WP12. WP16 is last by definition.
 
+**The revalidation track.** WP17 first and alone: it is the only package that
+blocks a release, and the restore fix touches code WP18 does not. WP18 and WP19
+are independent of each other and of WP17. WP20 waits for a release commit to
+exist, which means WP17..WP19 have to have landed.
+
 ## Definition of done
 
 `spec/characterization/` is empty, the nine-cell CI matrix is green, a project
@@ -1160,3 +1287,10 @@ changed; the Deface surface is two anchors; generic and project writes have one
 concurrency policy; a whole-installation write is bounded before it starts; and
 the alpha warning is gone because the release criteria in WP16 passed, not
 because somebody decided it looked ready.
+
+**For the revalidation track (WP17..WP20):** an interrupted restore is
+recoverable by running the documented command again; a backup cannot hold a state
+that never existed; an uninstall refuses rather than destroying a workflow that
+changed after its export; no screen writes a selection it could not resolve in
+full; and a host whose Redmine has drifted says so where somebody is about to
+write.
