@@ -147,7 +147,7 @@ Everything below was executed in this container.
 | `dev/check-backfill.sh`, `dev/check-upgrade.sh`, `dev/check-uninstall.sh` | green on every host, each from a database rebuilt from **core** migrations first |
 | `dev/check-release-upgrade.sh origin/main` | green on Redmine 7.0 and 5.1 with PostgreSQL 16 and on 7.0 with MariaDB 10.11. It rebuilds the database itself and runs the released plugin's own code, so it needs no such precondition |
 | Red-on-old-code | verified by mutation, one at a time, re-running the two new spec files after each: `copy_generic: false` flipped to `true` in the restore (1 red — the own *empty* workflow comes back with a copied generic rule in it), the audit stamp removed (1), and `confirm!` moved after the backup in the uninstall (1 — a refused run leaves a file behind). All three reverted. |
-| CI | run **184** is the head (`d46d555`) and is green on **all eleven jobs**, with both new steps — *Uninstall and restore rehearsal* and *Upgrade rehearsal from the previous release* — on every one of the nine cells. Runs 182 and 183 are green too |
+| CI | run **186** (`55a62d8`) is green on **all eleven jobs**, with both new steps — *Uninstall and restore rehearsal* and *Upgrade rehearsal from the previous release* — on every one of the nine cells. Runs 182, 183 and 184 are green too; 185 shows as *cancelled* because the next push superseded it, which is the documented behaviour rather than a failure. The commit that recorded this line is the last of the session and changes only this file |
 
 **One weakness this session found in its own gate, and fixed.**
 `dev/check-uninstall.sh`'s first leg asserted only that the uninstall *failed*
