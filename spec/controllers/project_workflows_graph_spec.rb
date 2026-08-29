@@ -403,6 +403,85 @@ describe ProjectWorkflowsController, type: :controller do
       expect(response.body).not_to include(ERB::Util.html_escape(I18n.t(:text_project_workflow_graph_legend_fallback)))
     end
 
+    # Colour, added on Jan's word on 2026-08-29, is a *second* signal: the line
+    # style still distinguishes the three kinds and the legend still names each
+    # of them in words. These examples pin the half that is easy to lose --
+    # that an ordinary arrow is left to inherit the theme's own colour, so a
+    # theme still owns most of the drawing, and that an arrowhead is the colour
+    # of the line it ends.
+    describe 'the accents on the arrows' do
+      let(:helper_module) { ProjectWorkflowGraphsHelper }
+
+      def paths
+        graph_svg.scan(/<path[^>]*class="project-workflow-graph-edge[^"]*"/m)
+      end
+
+      it 'leaves an ordinary arrow to inherit the theme colour' do
+        transition(new_status, assigned)
+
+        get :graph, params: graph_params
+
+        ordinary = paths.reject { |p| p.include?('stroke-dasharray') }
+        expect(ordinary).not_to be_empty
+        expect(ordinary).to all(satisfy { |path| path.exclude?('stroke="#') })
+        expect(graph_svg).to include('stroke="currentColor"')
+      end
+
+      it 'accents an arrow only the author or the assignee may make' do
+        WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: nil,
+                                   old_status_id: new_status.id, new_status_id: assigned.id,
+                                   author: true)
+
+        get :graph, params: graph_params
+
+        dashed = paths.select { |p| p.include?('stroke-dasharray="5 3"') }
+        expect(dashed).not_to be_empty
+        expect(dashed).to all(include(%(stroke="#{helper_module::CONDITIONAL_STROKE}")))
+        expect(dashed).to all(include('project-workflow-graph-arrow-conditional'))
+      end
+
+      it "accents Redmine's own fallback differently again" do
+        transition(new_status, assigned)
+
+        get :graph, params: graph_params
+
+        dotted = paths.select { |p| p.include?('stroke-dasharray="2 3"') }
+        expect(dotted).not_to be_empty
+        expect(dotted).to all(include(%(stroke="#{helper_module::FALLBACK_STROKE}")))
+        expect(dotted).to all(include('project-workflow-graph-arrow-fallback'))
+      end
+
+      # One marker served every arrow while every arrow was the same colour. It
+      # cannot now: an arrowhead that stayed the text colour on a coloured line
+      # is the kind of thing nobody notices until it is in a screenshot.
+      it 'gives each colour an arrowhead of its own' do
+        transition(new_status, assigned)
+
+        get :graph, params: graph_params
+
+        %w[project-workflow-graph-arrow
+           project-workflow-graph-arrow-conditional
+           project-workflow-graph-arrow-fallback].each do |id|
+          expect(graph_svg).to include(%(<marker id="#{id}"))
+        end
+        expect(graph_svg).to include(%(fill="#{helper_module::CONDITIONAL_STROKE}"))
+        expect(graph_svg).to include(%(fill="#{helper_module::FALLBACK_STROKE}"))
+      end
+
+      # The legend gained a picture of each line it describes. It is decorative:
+      # the sentence carries the meaning, and a screen reader reading both would
+      # say the same thing twice.
+      it 'draws a sample beside each legend line, hidden from a screen reader' do
+        transition(new_status, assigned)
+
+        get :graph, params: graph_params
+
+        samples = response.body.scan(/<svg[^>]*project-workflow-graph-legend-sample[^>]*>/)
+        expect(samples.size).to eq(2)
+        expect(samples).to all(include('aria-hidden="true"'))
+      end
+    end
+
     it 'draws the generic workflow for a combination the project inherits' do
       transition(new_status, assigned)
 

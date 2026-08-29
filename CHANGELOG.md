@@ -93,6 +93,15 @@ The workflow as a drawing.
 
 ### Changed
 
+- **The workflow diagram has colour.** A dashed arrow — a change only the author
+  or the assignee may make — is blue, and Redmine's own fallback arrow is amber;
+  ordinary arrows, every box and every label keep the page's own colour. The
+  legend now draws a sample of each line beside its sentence. Colour is a second
+  signal and carries nothing on its own: the line style still distinguishes the
+  three kinds and the legend still names them in words, so the picture reads the
+  same in greyscale. Both accents were measured against a white page, Redmine's
+  alternate row grey and two dark-theme backgrounds.
+
 - **The warning at the top of the README changed from "alpha stage, do not use
   in production" to a notice that says what you are taking on.** The plugin is
   new and has not been through a wide range of production installations, and the

@@ -186,19 +186,26 @@ Under the drawing, in words:
 - **Not used by the selected roles** — a status the tracker's workflow uses under
   some other role.
 
-Three kinds of arrow, and a legend that names the ones actually on the page:
+Three kinds of arrow, and a legend that names the ones actually on the page,
+each with a sample of the line it describes:
 
 | | |
 |---|---|
-| **Solid** | A change anyone holding the role may make. |
-| **Dashed** | A change only the author or the assignee may make. |
-| **Dotted** | Redmine's own fallback rather than a rule — see below. |
+| **Solid**, in the page's own colour | A change anyone holding the role may make. |
+| **Dashed**, blue | A change only the author or the assignee may make. |
+| **Dotted**, amber | Redmine's own fallback rather than a rule — see below. |
 
 A status in a dashed box below the dotted line cannot be reached from a new
-issue. The drawing uses line style rather than colour on purpose: a Redmine theme
-changes exactly the colours a diagram would otherwise hard-code, and a black
-stroke on a dark theme is invisible. Everything the picture distinguishes, the
-legend also says in words.
+issue.
+
+**Colour is the second signal, never the only one.** The line style is what
+distinguishes the three kinds, and the legend says each of them in words, so the
+picture reads the same in greyscale or to somebody who cannot separate the hues.
+Ordinary arrows and every box keep the page's own colour, so a Redmine theme
+still owns most of the drawing; the two accents are fixed, because a plugin that
+ships no stylesheet cannot read the theme to derive one. Both were measured to
+stay legible on a white page, on Redmine's alternate row grey and on two common
+dark-theme backgrounds.
 
 Underneath is the same workflow as a table, which is what a screen reader reads,
 what Ctrl-F finds and what prints legibly.

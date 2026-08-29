@@ -10,14 +10,48 @@
 # Rails' include_all_helpers is built from the host application's helper paths
 # and does not reach a plugin's app/helpers.
 #
-# Everything here that produces a colour produces none. The drawing is
-# +currentColor+ throughout, and the two things it distinguishes -- a move anyone
-# may make against one only the author or the assignee may, and a status inside
-# the flow against one outside it -- are drawn as a solid line against a dashed
-# one, with the legend saying so in words. A theme may recolour the page and the
-# drawing follows it; nothing here needs a stylesheet the plugin does not ship.
+# **Line style first, colour second.** What the drawing distinguishes -- a move
+# anyone may make against one only the author or the assignee may, a rule against
+# Redmine's own fallback, a status inside the flow against one outside it -- it
+# distinguishes by line style, and the legend says each of them in words. Colour
+# is added on top of that so a dashed arrow can be picked out of a crowded
+# drawing without tracing it, and it carries nothing on its own: remove every
+# colour and the picture still says the same things.
+#
+# Ordinary arrows, every box and every label stay +currentColor+, so the bulk of
+# the drawing is the theme's own colour and a theme that recolours the page still
+# owns most of it. The two accents are fixed and have to be -- an accent derived
+# from the theme would mean reading the theme, which a plugin shipping no
+# stylesheet cannot do -- so they were measured rather than chosen by eye. See
+# CONDITIONAL_STROKE.
 module ProjectWorkflowGraphsHelper
   include RedmineProjectWorkflows::VersionHelper
+
+  # The accent for an arrow only the author or the assignee may make, and for
+  # Redmine's own fallback. Both clear WCAG 2.1 SC 1.4.11's 3:1 for non-text
+  # contrast against every ground the drawing can plausibly land on -- a white
+  # page, Redmine's own alternate row grey, and two common dark-theme
+  # backgrounds. Measured rather than assumed:
+  #
+  #                 #ffffff   #f6f6f6   #1e1e1e   #2b2b2b
+  #   #2E86C1          3.97      3.67      4.20      3.57
+  #   #C0651A          4.10      3.80      4.06      3.45
+  #
+  # That is why they are mid-tone. A darker blue reads better on white and
+  # disappears on a dark theme; a brighter one does the reverse. These two are
+  # the compromise, and changing either means measuring again -- the numbers
+  # above are the whole argument for the values.
+  #
+  # Amber for the fallback because it is the hue Redmine already uses for "this
+  # is not quite a rule", and the fallback is exactly that: not a rule at all,
+  # but what Redmine does when none says where a new issue starts.
+  CONDITIONAL_STROKE = '#2E86C1'
+  FALLBACK_STROKE = '#C0651A'
+
+  # One legend line: which of the four things it is about, and the sentence. The
+  # kind is what lets the view draw a sample beside the words; the words are what
+  # carry the meaning.
+  LegendEntry = Struct.new(:kind, :text)
 
   # The action the drawing lives on, for gating a link on the very thing the
   # target authorizes rather than on a permission name -- two permissions reach
@@ -111,6 +145,71 @@ module ProjectWorkflowGraphsHelper
     ''.html_safe
   end
 
+  # The accent for one arrow, and nil for an ordinary one -- which keeps
+  # `currentColor` from the group it is in, so a theme still owns most of the
+  # drawing. See the note at the top of this file for why these two values.
+  def project_workflow_graph_stroke(routed)
+    return FALLBACK_STROKE if routed.fallback
+    return CONDITIONAL_STROKE if routed.conditional
+
+    nil
+  end
+
+  # Each arrow needs an arrowhead of its own colour. One marker served every
+  # arrow while every arrow was the same colour; it cannot now, and
+  # `context-stroke` -- the keyword that would let one marker follow its line --
+  # is not safe on every browser the supported Redmine versions run on.
+  def project_workflow_graph_marker(routed)
+    return 'project-workflow-graph-arrow-fallback' if routed.fallback
+    return 'project-workflow-graph-arrow-conditional' if routed.conditional
+
+    'project-workflow-graph-arrow'
+  end
+
+  # The three arrowhead markers, as [id, fill]. `currentColor` for the ordinary
+  # one, so it follows the theme exactly as its lines do.
+  def project_workflow_graph_markers
+    [%w[project-workflow-graph-arrow currentColor],
+     ['project-workflow-graph-arrow-conditional', CONDITIONAL_STROKE],
+     ['project-workflow-graph-arrow-fallback', FALLBACK_STROKE]]
+  end
+
+  # A small picture of the thing each legend line is about: the same line style,
+  # the same colour, and an arrowhead where the drawing has one.
+  #
+  # Decorative, and marked so: the sentence beside it carries the meaning, and a
+  # screen reader that read this too would say the same thing twice. The one
+  # inline style is `vertical-align`, because the sample sits on the text
+  # baseline otherwise and the plugin ships no stylesheet to say so elsewhere.
+  def project_workflow_graph_legend_sample(kind)
+    return project_workflow_graph_band_sample if kind == :band
+
+    stroke = { dashed: CONDITIONAL_STROKE, fallback: FALLBACK_STROKE }.fetch(kind, 'currentColor')
+    dash = { dashed: '5 3', fallback: '2 3' }[kind]
+    project_workflow_graph_sample_svg do
+      safe_join([tag.line(x1: 1, y1: 6, x2: 23, y2: 6, stroke: stroke, 'stroke-width': 1.5,
+                          'stroke-dasharray': dash),
+                 tag.path(d: 'M 23 2 L 32 6 L 23 10 z', fill: stroke)])
+    end
+  end
+
+  # The band's line rather than a box: what the legend line is about is the
+  # separator, and the statuses under it are dashed because they are outside the
+  # flow rather than because of anything the separator does.
+  def project_workflow_graph_band_sample
+    project_workflow_graph_sample_svg do
+      tag.line(x1: 1, y1: 6, x2: 32, y2: 6, stroke: 'currentColor', 'stroke-width': 1,
+               'stroke-dasharray': '2 4', opacity: 0.5)
+    end
+  end
+  private :project_workflow_graph_band_sample
+
+  def project_workflow_graph_sample_svg(&)
+    tag.svg(width: 34, height: 12, viewBox: '0 0 34 12', 'aria-hidden': true, focusable: false,
+            class: 'project-workflow-graph-legend-sample', style: 'vertical-align: middle', &)
+  end
+  private :project_workflow_graph_sample_svg
+
   # The legend, as the sentences that are actually about something on the page.
   # A line explaining a dashed arrow above a drawing that has none is
   # instructions for a thing that is not there, and the third kind -- core's own
@@ -119,11 +218,11 @@ module ProjectWorkflowGraphsHelper
   def project_workflow_graph_legend(layout)
     [
       [layout.edges.any? { |routed| !routed.conditional && !routed.fallback },
-       :text_project_workflow_graph_legend_solid],
-      [layout.edges.any?(&:conditional), :text_project_workflow_graph_legend_dashed],
-      [layout.edges.any?(&:fallback), :text_project_workflow_graph_legend_fallback],
-      [!layout.band_top.nil?, :text_project_workflow_graph_legend_band]
-    ].filter_map { |applies, key| l(key) if applies }
+       :solid, :text_project_workflow_graph_legend_solid],
+      [layout.edges.any?(&:conditional), :dashed, :text_project_workflow_graph_legend_dashed],
+      [layout.edges.any?(&:fallback), :fallback, :text_project_workflow_graph_legend_fallback],
+      [!layout.band_top.nil?, :band, :text_project_workflow_graph_legend_band]
+    ].filter_map { |applies, kind, key| LegendEntry.new(kind, l(key)) if applies }
   end
 
   # The three diagnostics, each as [label, nodes], and only the ones that have

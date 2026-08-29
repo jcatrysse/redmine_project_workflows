@@ -30,10 +30,17 @@
        aria-label="<%= project_workflow_graph_aria_label(layout) %>"
        class="project-workflow-graph-svg" font-size="12">
     <defs>
-      <marker id="project-workflow-graph-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4"
-              orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-        <path d="M 0 0 L 9 4 L 0 8 z" fill="currentColor" />
-      </marker>
+      <%# One marker per arrow colour. There used to be one for all of them,
+          because every arrow was the same colour; the accents changed that, and
+          `context-stroke` -- the keyword that would let a single marker follow
+          its line -- is not safe on every browser the supported Redmine versions
+          run on. %>
+      <% project_workflow_graph_markers.each do |id, fill| %>
+        <marker id="<%= id %>" markerWidth="9" markerHeight="9" refX="8" refY="4"
+                orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+          <path d="M 0 0 L 9 4 L 0 8 z" fill="<%= fill %>" />
+        </marker>
+      <% end %>
     </defs>
 
     <%# The band of statuses the entry node cannot reach is separated by a rule
@@ -50,10 +57,18 @@
       <%# Three kinds of arrow, three line styles, and the legend below names all
           three in words. The fallback is dotted rather than dashed so that it
           cannot be mistaken for a conditional rule: it is not a rule at all, but
-          what Redmine does when no rule says where a new issue starts. %>
+          what Redmine does when no rule says where a new issue starts.
+
+          The colour is a second signal on top of the line style and carries
+          nothing on its own; an ordinary arrow has no `stroke` here at all and
+          inherits `currentColor` from this group, so a theme still owns most of
+          the picture. See ProjectWorkflowGraphsHelper for the two values and the
+          contrast they were measured at. %>
       <% layout.edges.each do |routed| %>
+        <% stroke = project_workflow_graph_stroke(routed) %>
         <path d="<%= routed.d %>"
-              marker-end="url(#project-workflow-graph-arrow)"
+              marker-end="url(#<%= project_workflow_graph_marker(routed) %>)"
+              <% if stroke %>stroke="<%= stroke %>"<% end %>
               <%= project_workflow_graph_dash(routed) %>
               class="project-workflow-graph-edge<%= routed.conditional ? ' conditional' : '' %><%= routed.fallback ? ' fallback' : '' %><%= routed.back ? ' returning' : '' %>">
           <title><%= project_workflow_graph_edge_title(routed.edge) %></title>

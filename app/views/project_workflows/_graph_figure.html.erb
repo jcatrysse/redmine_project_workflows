@@ -9,11 +9,18 @@
 %>
 <%= render partial: 'project_workflows/graph_svg', locals: { layout: layout } %>
 
-<%# Only the sentences that are about something on the page. The helper says
-    why. %>
+<%# Only the lines that are about something on the page -- the helper says why --
+    each with a small picture of the thing it describes, on a line of its own.
+    The sample is decorative and marked aria-hidden: the sentence beside it is
+    what carries the meaning, and colour is never the only signal. %>
 <% legend = project_workflow_graph_legend(layout) %>
 <% if legend.any? %>
   <p class="project-workflow-graph-legend">
-    <em><%= legend.join(' ') %></em>
+    <%= safe_join(legend.map do |entry|
+          content_tag(:span, class: 'project-workflow-graph-legend-entry') do
+            safe_join([project_workflow_graph_legend_sample(entry.kind), ' ',
+                       content_tag(:em, entry.text)])
+          end
+        end, tag.br) %>
   </p>
 <% end %>
