@@ -1,6 +1,24 @@
 # Redmine plugin: Project Workflows
 
-*WARNING: alpha stage, do not use in production!*
+> **Please read this before you install it.** This plugin is new. Every push is
+> tested against Redmine 5.1, 6.1 and 7.0 on PostgreSQL, MySQL and MariaDB, and
+> the suite is over 1,300 examples — but it has not yet been through a wide range
+> of real production installations, and no amount of CI is the same thing as
+> that. What it changes is **workflow rules, which are authorization**: which
+> status changes your users may make and which fields they may edit. So:
+>
+> - Try it on a copy of your database first, with your own trackers, roles and
+>   statuses, before you put it on the installation people work in.
+> - Take a backup before you upgrade or remove it. The plugin ships a documented
+>   procedure for both — see [Backing up the project
+>   workflows](#backing-up-the-project-workflows) and
+>   [Uninstalling](#uninstalling).
+> - Read [What to know before you install
+>   it](#what-to-know-before-you-install-it). Everything in that list is a
+>   consequence of the design that has actually surprised somebody.
+>
+> If you hit something, an issue with your Redmine version, your database and
+> what you did is worth more than a bug report without them.
 
 This plugin adds project-specific workflows to Redmine by extending the core
 `workflows` table with a nullable `project_id`. Generic rules
@@ -23,8 +41,13 @@ one of them has surprised somebody.
   means its workflow is now the whole answer for that tracker and role.
 - **An empty own workflow permits nothing**, and that is a state you can reach
   deliberately. For transitions it means no issue in that project can change
-  status for that role. This is why *give own workflow* starts from a copy of
-  the generic one by default.
+  status for that role — and what that looks like on the issue form is that the
+  **Status field is not there at all**. That is Redmine's own rendering rather
+  than something this plugin draws: core shows the field only when at least one
+  status is allowed, and it adds the current one to that list only when
+  something else is allowed too. So the field disappears rather than showing a
+  single dead option. This is why *give own workflow* starts from a copy of the
+  generic one by default.
 - **Nothing is inherited between projects.** A subproject does not get its
   parent's workflow; it either has its own or uses the generic one. Use the
   copy screen to apply one workflow to several projects.
@@ -739,8 +762,8 @@ project keeps its memory between sessions. [`docs/design.md`](docs/design.md)
 explains how the plugin decides which workflow applies;
 [`docs/implementation-plan.md`](docs/implementation-plan.md) is the route from
 here; [`docs/release-criteria.md`](docs/release-criteria.md) says what has to be
-true before a version is released and before the alpha warning at the top of
-this file comes off, and where each of those stands today. Reviews run through
+true before a version is released and before the notice at the top of this file
+comes off, and where each of those stands today. Reviews run through
 [`docs/review/`](docs/review/README.md).
 
 ## Testing

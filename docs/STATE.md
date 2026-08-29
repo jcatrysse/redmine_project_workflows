@@ -47,8 +47,18 @@
   its second entry in Redmine's administration menu for a link in the plugin's
   own action bar; and the four SQLite-only spec failures a developer saw on a
   container without the `pg` gem are guarded.
+- **The plugin was driven in a real browser for the first time.** A Redmine 5.1
+  development host with three projects, four users and a generic workflow of 153
+  transitions, and five Playwright scenarios through Chromium: **67 assertions,
+  all passing**. `dev/e2e/` is the harness and `dev/e2e/README.md` says how to
+  stand it up; `docs/review/findings/2026-08-29-claude-browser.md` is what the
+  run found. One nit, no defect.
 - **Nothing has been released.** 0.1.6, unreleased; `main` carries 0.0.3 and
-  there is still no tag. The alpha warning stays.
+  there is still no tag. The README's *alpha — do not use in production* warning
+  became an **installation notice** on 2026-08-29, answered by Jan: it says the
+  plugin is new and has not been through a wide range of production
+  installations, what is and is not tested, and what to do about it. A1..A4 in
+  `docs/release-criteria.md` still govern removing the notice altogether.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
   `claude/redmine-plugin-review-p5brtg`; this session was already on
   `claude/dev` and stayed there. Always reset the local ref from
@@ -111,9 +121,14 @@ Everything below was executed in this container.
 
 ## Exact next step
 
-**The code work this repository can do is finished.** WP0..WP19 are all done,
-`docs/review/findings/` has no open finding, and CI run 194 is green on all
-eleven jobs for the head this sentence was written on.
+**The code work this repository can do is finished**, with one nit outstanding.
+WP0..WP19 are all done and CI run 194 is green on all eleven jobs.
+`docs/review/findings/` has exactly one open finding: **F01 of
+`2026-08-29-claude-browser.md`**, a nit — three pieces of text in one cell of the
+project settings tab run together with no separator, in a plugin that solved the
+identical problem two files away and wrote down why. It is a one-line view change
+and it was deliberately not made in the session that found it, per CLAUDE.md's
+"report, don't fix, out-of-scope findings".
 
 What remains is **WP20, and it is Jan's**:
 
@@ -365,6 +380,20 @@ earlier ones, in the order they were found.
   the call site -- or anonymous forwarding, `def m(&) ... m2(&)`, which is what
   `rubocop -a` produced and what the repo now carries in
   `WorkflowBackup.snapshot`.
+- **`pgrep -f "rails server"` does not find the server.** Puma renames its own
+  process, so the pattern to kill is `puma`. `pgrep -f "rails server"` matches
+  the shell command that contains the string instead, which makes `kill` look
+  like it worked while the old server keeps serving the old code — and a
+  compatibility manifest edited to test the drift banner then appears to have no
+  effect. `ps -eo pid,cmd | grep puma` is the one that answers.
+- **A *listed* Redmine minor is `:verified` whatever its digests say.** Digests
+  are compared only for a minor the manifest does not know, which is the point --
+  a verified host pays nothing. So doctoring a digest to see the drift banner
+  does nothing; **remove the minor** from `minors:` instead, which is the real
+  case anyway ("a Redmine nobody has tested this on").
+- **Do not hardcode `role_id=1` against a fresh Redmine.** Ids 1 and 2 are the
+  built-in Non-member and Anonymous roles, so the first *givable* role is 3. A
+  project route refusing role 1 is INV-7 working, not a defect.
 - **A sprite name that does not exist renders an invisible icon and says
   nothing** -- the same silence INV-9 is about. Before using one, check it: the
   6.1 and 7.0 sheets are `app/assets/images/icons.svg` in each branch (`id="icon--<name>"`),

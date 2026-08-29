@@ -1,17 +1,25 @@
 # Release criteria
 
 > WP16 item 4. This file says what has to be true before a version of this
-> plugin is released, and — separately — before the *alpha* warning at the top of
-> the README comes off. It is written down so that the answer to "is it ready?"
-> is a list somebody can check rather than a feeling somebody has.
+> plugin is released, and — separately — before the **installation notice** at the
+> top of the README comes off. It is written down so that the answer to "is it
+> ready?" is a list somebody can check rather than a feeling somebody has.
+>
+> The notice replaced an *alpha — do not use in production* warning on
+> 2026-08-29, answered by Jan: the honest statement is not that the plugin must
+> not be used, but that somebody installing it should know it is new and has not
+> been through a wide range of production installations, and should try it on a
+> copy first. A1..A4 are unchanged — they are still what has to be true before
+> even that notice comes off.
 
 Two different questions, deliberately kept apart:
 
 * **Can this be released?** — R1..R9 below. They are the gates for cutting any
   version, alpha or not.
-* **Can the alpha warning come off?** — R1..R9 **and** A1..A4. The warning says
-  *do not use in production*, and removing it is a claim about installations
-  nobody in this project can see.
+* **Can the installation notice come off?** — R1..R9 **and** A1..A4. The notice
+  says the plugin is new and has not been through a wide range of production
+  installations, and removing it is a claim about installations nobody in this
+  project can see.
 
 Neither list is a judgement call. Each line says how it is checked, and a line
 that cannot be checked mechanically says who checks it and against what.
@@ -30,7 +38,7 @@ that cannot be checked mechanically says who checks it and against what.
 | **R8** | All eight locale files carry the same keys, and no English string is presented as a translation. | `spec/locales_spec.rb` asserts the parity; the second half is a reading, and `de`, `es`, `fr`, `it`, `pl` and `pt` are unreviewed translation *presented as* translation (see `CLAUDE.md`). |
 | **R9** | The version in `init.rb`, the CHANGELOG's top entry and the tag agree. | Read. A tag is how a release is identified afterwards; R5 does not depend on one, because a ref is enough to check a release out. |
 
-## Additional criteria for removing the alpha warning
+## Additional criteria for removing the installation notice
 
 | | Criterion | How it is checked |
 |---|---|---|
@@ -54,14 +62,22 @@ that cannot be checked mechanically says who checks it and against what.
 | R9 | **not met.** `init.rb` says 0.1.6, the CHANGELOG's top entry is 0.1.6, and there is no tag. Tagging is part of cutting the release rather than a thing to do first. |
 | A1 | **not re-run** on this commit. It was run on 2026-08-28 and found two blockers, both since fixed. |
 | A2 | **met** as of this work package. |
-| A3 | **unanswered.** This is the maintainer's to answer and it is the reason the warning is still there. |
+| A3 | **unanswered.** This is the maintainer's to answer and it is the reason the notice is still there. |
 | A4 | **met.** |
 
-**Verdict: the alpha warning stays.** R9 and A1 are mechanical — a tag is part of
-cutting the release, and the 45-plugin run is a session's work. A3 cannot be met
-by this repository at all: removing the warning is a claim about production
+**Verdict: the installation notice stays.** R9 and A1 are mechanical — a tag is
+part of cutting the release, and the 45-plugin run is a session's work. A3 cannot
+be met by this repository at all: removing the notice is a claim about production
 installations, and the honest position is that no session can make that claim on
 the maintainer's behalf.
+
+What changed on 2026-08-29 is the *wording*, not the verdict. The README used to
+say *alpha stage, do not use in production*; Jan asked for something that tells
+somebody installing it what they are taking on rather than telling them not to.
+The notice now says the plugin is new, says what is and is not tested, and asks
+them to try it on a copy of their database first. That is a weaker claim to have
+to defend than "do not use", and a more useful one — but it is still a notice,
+and A1..A4 still govern taking it away.
 
 ## Cutting a release, once the criteria pass
 

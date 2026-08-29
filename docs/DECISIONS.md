@@ -1019,3 +1019,17 @@ All Class A unless it says otherwise.
 | 2026-08-29 | Whether the banner links to the diagnostics page for everybody | **Administrators only** | The page requires an administrator. A project manager who followed the link would get a 403, which tells them less than the sentence already did. They get the sentence. |
 | 2026-08-29 | Which icon the diagnostics link carries | **`help`** | Verified present in the 6.1 and 7.0 sprite sheets (fetched and grepped) and defined as `.icon-help` in 5.1's stylesheet. A sprite name that does not exist renders an invisible icon and says nothing, which is the same silence INV-9 is about. |
 | 2026-08-29 | Reading the backup file back before the rename rather than after | **Before** | A file that does not parse must never become the backup. The uninstall task's own read-back is then a second opinion rather than the only one. |
+
+## Decided (Jan) — 2026-08-29, the README notice and the review archive
+
+| Date | Question | Answer | Notes |
+| --- | --- | --- | --- |
+| 2026-08-29 | The README opened with *WARNING: alpha stage, do not use in production!* `docs/release-criteria.md` treated removing it as a claim only Jan could make (A3), and every session recommended leaving it. | **Neither A nor B: reword it.** | Jan asked for a notice that makes somebody installing it *aware* that the plugin is fairly new and not yet tested in a wide range of production environments — rather than telling them not to use it. The notice now says what is tested (three Redmines × three databases, every push, 1,300+ examples), what is not (a wide range of real installations), why it matters (workflow rules are authorization), and what to do about it (try it on a copy, take a backup, read the surprises list). A1..A4 are unchanged and still govern removing the notice altogether; only the wording moved. |
+| 2026-08-29 | Whether the two ChatGPT reviews get files of their own | **Yes, as archives — not as findings files** | Jan asked for it. It does not reverse the decision of 2026-08-28 below ("no findings file of its own"): neither `2026-08-28-chatgpt.md` nor `2026-08-29-chatgpt.md` carries a `Status:` line and nothing is acted on from them. They exist for the reason `2026-08-25-external.md` and `2026-08-26-codex.md` do — so a later reader can see what was claimed as well as what was concluded. Each carries a header mapping its items to the findings file that answered them, and naming the places this repository disagreed. |
+
+## Decided (autonomous) — 2026-08-29, the browser run
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-08-29 | Whether the browser scenarios become a CI gate | **No — `dev/e2e/`, run by hand** | They need a running server with seeded data, which CI does not build, and standing that up on nine cells would multiply the matrix's cost for a check that is about what a person *sees*. They belong with `dev/`'s other reproduction tooling: run them when something a person looks at has changed, and put the result in the session report. |
+| 2026-08-29 | The one nit the browser run found | **Reported, not fixed** | `CLAUDE.md`: "a defect you notice outside the work package you are on goes into the session report and, if it is real, into a findings file — not into the diff." It is a one-line view change and the correct form is already documented in the neighbouring partial, so it is cheap whenever somebody wants it — but WP17..WP19 are closed and this is not theirs. |

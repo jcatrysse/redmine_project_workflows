@@ -93,6 +93,14 @@ The workflow as a drawing.
 
 ### Changed
 
+- **The warning at the top of the README changed from "alpha stage, do not use
+  in production" to a notice that says what you are taking on.** The plugin is
+  new and has not been through a wide range of production installations, and the
+  notice says so — along with what *is* tested, that workflow rules are
+  authorization, and that you should try it on a copy of your database first and
+  take a backup before upgrading or removing it. The release criteria that
+  govern removing the notice altogether are unchanged.
+
 - **A Redmine this plugin has not been tested against now says so on the screens
   where a workflow rule is about to change**, not only in the log and on the
   diagnostics page. It stays a warning: nothing is blocked.
