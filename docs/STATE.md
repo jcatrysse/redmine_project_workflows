@@ -122,7 +122,7 @@ Everything below was executed in this container.
 | `node dev/check-bulk-js.mjs` | bulk action script OK |
 | `dev/check-upgrade.sh` | green on all three hosts, each from a database rebuilt from **core** migrations first |
 | Red-on-old-code | verified by reverting and re-running: the settings tab back inside `ProjectsHelper` (1 red), the matrix helper prepended onto `WorkflowsHelper` (1), `authorize` dropped from four actions (**19**), `raw` in the SVG title and `escape_javascript` removed from the panel (3), the delete predicate rewritten as a cross product (1), and the resolver rewritten as a lookup per role (2) |
-| CI | run **178** green on all eleven jobs for steps 1-4; run **179**, the head, covers steps 5-6 and the new upgrade-rehearsal job |
+| CI | run **180** is the head (`8a2e240`) and is green on **all eleven jobs**, including the new *Upgrade rehearsal over populated data* step on every one of the nine cells. Run 178 was green on steps 1-4; run **179** shows as *cancelled* because pushing the documentation commit superseded it — the documented behaviour, not a failure, and 180 covers the same tree |
 
 **Two examples are forward gates and say so in the file.** The reload-guard pair
 cannot be made red on today's code, because `Module#prepend` is itself
