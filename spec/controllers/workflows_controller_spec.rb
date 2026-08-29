@@ -214,6 +214,26 @@ describe WorkflowsController, type: :controller do
       expect(WorkflowTransition.where(project_id: project.id).count).to eq(1)
       expect(ProjectWorkflowScope.where(project_id: project.id, tracker_id: target_tracker.id)).to be_empty
     end
+
+    # WP13, audit finding F07. This screen is the one generic write path that
+    # reaches neither a matrix writer nor the plugin's own copy screen: core's
+    # `WorkflowRule.copy` calls `.copy_one`, which the plugin routes to
+    # `.copy_one_for_project` with no project at either end. Locking only where
+    # the plugin's own screens write would have left it exactly as it was.
+    it 'takes the coordination row for the generic workflow before it writes' do
+      skip('the adapter has no row locking to assert') unless row_locking?
+      transition(nil)
+
+      statements = statements_during do
+        post :duplicate, params: { source_tracker_id: tracker.id, source_role_id: role.id,
+                                   target_tracker_ids: [target_tracker.id], target_role_ids: [role.id] }
+      end
+
+      expect(index_of_write_lock(statements)).not_to be_nil
+      expect(index_of_first_rule_write(statements)).not_to be_nil
+      expect(index_of_write_lock(statements)).to be < index_of_first_rule_write(statements)
+      expect(index_of_scope_lock(statements)).to be_nil
+    end
   end
 
   # The screens stay administrator-only, which is core's own rule and not

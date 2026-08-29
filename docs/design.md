@@ -63,6 +63,20 @@ Transitions and field permissions are scoped separately (`rule_type`), because
 they are edited on separate screens: taking over the transitions of a project
 should not force you to take over its field permissions as well.
 
+The plugin owns one other table, and it carries no meaning at all — only a place
+for a generic write to wait (WP13, migration 007). It is described under
+[Why there is no unique index on `workflows`](#why-there-is-no-unique-index-on-workflows):
+
+```
+project_workflow_write_locks
+  id
+  rule_type       not null   'transitions' | 'permissions'
+  tracker_id      not null   -> trackers   (on delete cascade)
+  role_id         not null   -> roles      (on delete cascade)
+
+  unique index (rule_type, tracker_id, role_id)
+```
+
 ### The three actions
 
 They must never mean the same thing in the database (**INV-3**):
@@ -370,9 +384,50 @@ save (`spec/services/workflow_idempotency_spec.rb` holds them to it, generic and
 project), and `rake redmine_project_workflows:deduplicate_workflow_rules`
 repairs a database that already has some — exact duplicates only, because two
 field-permission rows that disagree are a contradiction for an administrator to
-settle, not a duplicate to delete. Two administrators saving the same matrix at
-the same moment can still produce duplicates; that race is core's as well
-(external F06).
+settle, not a duplicate to delete.
+
+Two administrators saving the same matrix at the same moment used to produce
+duplicates as well, and that race is core's — core's own `replace_transitions`
+reads outside any lock and carries an opportunistic repair line to prove it
+knows (external F06, audit F07). WP13 closed it: every workflow write takes a
+coordination row first, so the two saves queue. The repair task stays, because a
+database can carry duplicates from before this version or from another plugin.
+
+#### The coordination row a write takes
+
+One key, `(rule_type, project-or-generic, tracker, role)`, and two kinds of row
+behind it:
+
+| population | the row that is locked | created by |
+|---|---|---|
+| a project | its own `project_workflow_scopes` row | *give own workflow* |
+| generic | a `project_workflow_write_locks` row (migration 007) | the first write that names the combination |
+
+A project's scope row is already the right thing to lock: it exists exactly when
+the combination is writable, so "may I write this?" and "nobody else may write
+it while I do" are one statement. The generic workflow has no scope row and must
+not be given one — a scope row means *this project decides* (INV-3), and a
+generic one would be a fourth state in a model whose whole point is that there
+are three. So it gets a row of its own, on a table that carries nothing but the
+key.
+
+`Services::WriteCoordinator` is the only thing that touches either for this
+purpose. The order is fixed, which is what makes two callers queue rather than
+deadlock: ascending primary key within a table, and the generic rows after any
+project scope rows — which the callers already do, because
+`WorkflowSelection#selected_project_ids` appends the generic `nil` last.
+
+A plugin-owned table rather than an advisory lock: PostgreSQL, MySQL and MariaDB
+have no advisory-lock call in common, and `SELECT … FOR UPDATE` is what all
+three speak.
+
+The write paths that take one: both rule writers (which is also how Redmine's
+own workflow save reaches it, INV-1), the three scope actions, and both copy
+screens — the plugin's through `WorkflowRule.copy_for_project` and Redmine's own
+through `.copy_one`, which is why the lock is taken in the model beside the
+write rather than in the plugin's controller. The one write that takes nothing
+is `WorkflowRule.copy_one_with_projects`, which duplicates a role or tracker
+that has just been created and that no other request can name.
 
 ### The indexes on `workflows`
 

@@ -29,7 +29,7 @@
 | WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **done** |
 | WP11 | Compatibility as an object (ADR-002) | **done** |
 | WP12 | Owned administration screens (ADR-003) | **in progress** — steps 1-3 done |
-| WP13 | One write-coordination service, and bounded bulk writes | planned |
+| WP13 | One write-coordination service, and bounded bulk writes | in progress — the lock is done; bulk bounds and the selector remain |
 | WP14 | The remaining defect backlog | planned |
 | WP15 | The test debt three reviews named | planned |
 | WP16 | Release engineering | planned |
@@ -885,18 +885,23 @@ screens has changed.
 
 Two findings, one mechanism.
 
-- **Concurrency** (audit F07). Project writes lock their scope rows; a generic
-  write has no scope row and takes nothing, so two administrators can leave
-  duplicate rows. The calibration matters and is in the finding: **core has the
-  identical race and the plugin inherited it** — core's own `replace_transitions`
-  reads outside a lock and carries an opportunistic duplicate-repair line to
-  prove it knows. The plugin is now the write path for both populations and can
-  fix it once. One service, one deterministic key
-  `(rule_type, project-or-generic, tracker, role)`, taken in a fixed order by all
-  four write paths. A plugin-owned lock table, not advisory locks — those have no
-  portable equivalent across PostgreSQL, MySQL and MariaDB. The spec that
-  currently pins the asymmetry is inverted, and saying so in the commit is part
-  of the fix.
+- **Concurrency** (audit F07). **Done, 2026-08-29.** Project writes lock their
+  scope rows; a generic write had no scope row and took nothing, so two
+  administrators could leave duplicate rows. The calibration matters and is in
+  the finding: **core has the identical race and the plugin inherited it** —
+  core's own `replace_transitions` reads outside a lock and carries an
+  opportunistic duplicate-repair line to prove it knows. The plugin is the write
+  path for both populations and fixed it once. `Services::WriteCoordinator` is
+  the one entry point and a caller names one key,
+  `(rule_type, project-or-generic, tracker, role)`; a project's scope row is its
+  coordination row, and the generic population gets a row on a plugin-owned table
+  (`project_workflow_write_locks`, migration 007) rather than advisory locks,
+  which have no portable equivalent across PostgreSQL, MySQL and MariaDB. Taken
+  in a fixed order by every write path: both rule writers, the three scope
+  actions, and **both** copy screens — Redmine's own reaches the generic write
+  through `WorkflowRule.copy_one`, which is why the lock is taken in the model
+  beside the write. The spec that pinned the asymmetry is inverted and says so.
+  See `docs/DECISIONS.md`, 2026-08-29, and the Resolution under F07.
 - **Bulk writes** (audit F08). Measured: 5 projects × 3 trackers × 3 roles × 36
   cells is 1,620 rows and 48 statements — the statement count is constant per
   project, the row count is not. An "all projects" selection on a large

@@ -20,6 +20,13 @@ module RedmineProjectWorkflows
     # The pairs come from the same method copy_for_project uses, so the lock
     # cannot cover a different set from the write. A target of 'global' is nil
     # here and contributes nothing: the generic workflow has no scope.
+    #
+    # It is not unlocked, though, and since WP13 it is not this method's
+    # business either. A copy into the generic workflow takes the plugin's own
+    # coordination row (audit finding F07), and it takes it in
+    # WorkflowRule.copy_for_project -- beside the write, where Redmine's *own*
+    # copy screen reaches it too. Taking it here as well would cover one of the
+    # two screens twice and the other not at all.
     def lock_scopes_for_copy(source_project_id, target_project_ids)
       combinations = target_project_ids.compact.flat_map do |target_project_id|
         copy_pairs, = WorkflowRule.copy_pairs_for_project(

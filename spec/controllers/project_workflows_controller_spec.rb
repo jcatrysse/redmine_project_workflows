@@ -376,13 +376,13 @@ describe ProjectWorkflowsController, type: :controller do
       end
 
       # The scope disappears between the check and the write -- somebody else
-      # pressed "return to the generic workflow" in between. MatrixScope locks
-      # the scope rows, so the writer refuses the pair; what was missing was the
-      # screen saying so instead of "Successful update".
+      # pressed "return to the generic workflow" in between. WriteCoordinator
+      # locks the scope rows, so the writer refuses the pair; what was missing
+      # was the screen saying so instead of "Successful update".
       it 'reports the refusal when the scope went away between the check and the write' do
         give_own_workflow(project, tracker, role)
-        writer = RedmineProjectWorkflows::Services::TransitionWriter
-        allow(writer).to receive(:writable_pairs).and_return([])
+        coordinator = RedmineProjectWorkflows::Services::WriteCoordinator
+        allow(coordinator).to receive(:writable_pairs).and_return([])
 
         patch :update_transitions, params: transitions_params(
           transitions: { new_status.id.to_s => { resolved.id.to_s => { 'always' => '1' } } }

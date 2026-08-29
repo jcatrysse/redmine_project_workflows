@@ -4,6 +4,19 @@
 
 The workflow as a drawing.
 
+### Fixed
+
+- **Two administrators saving the same workflow at the same moment no longer
+  leave duplicate rules behind.** Every workflow write — a project's, the one
+  every project shares, and a copy into either, from Redmine's own screens as
+  well as this plugin's — now takes a lock before it rewrites anything, so the
+  second save queues instead of colliding. A duplicate rule is what makes a
+  matrix cell render as a dropdown instead of a checkbox; the repair task
+  described under *Maintenance* in the README stays, because a database can
+  carry duplicates from before this version. This race is Redmine's own and the
+  plugin inherited it; the plugin is now the write path for both the shared
+  workflow and every project's, so it can hold one policy for them.
+
 ### Added
 
 - **The project side of the workflow has a screen of its own.**

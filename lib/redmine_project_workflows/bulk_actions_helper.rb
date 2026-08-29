@@ -17,10 +17,14 @@ module RedmineProjectWorkflows
   # back to the value the page was opened with -- which is what a mixed cell
   # means and the only way back to it once something has been clicked.
   #
-  # Included into WorkflowsHelper through
-  # RedmineProjectWorkflows::Patches::WorkflowsHelperPatch, so it is available on
-  # the administration matrices and on the project ones, which render core's own
-  # workflows/_form partial.
+  # Included into ProjectWorkflowMatrixHelper, which the plugin's own controllers
+  # name in their class bodies and which
+  # RedmineProjectWorkflows::Patches::WorkflowsControllerHelperPatch puts into
+  # core's WorkflowsController helper chain -- so it is available on the
+  # administration matrices and on the project ones, both of which render core's
+  # own workflows/_form partial. It used to be mixed into WorkflowsHelper itself;
+  # ADR-003 removed that prepend, which is the plugin's own forbidden construct
+  # (audit F01).
   module BulkActionsHelper
     # Above this many workflow rules a single row or column action asks first.
     # The plugin setting overrides it; init.rb registers the same number as the

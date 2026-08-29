@@ -52,7 +52,7 @@ module RedmineProjectWorkflows
 
         result = MatrixSaveResult.none
         WorkflowTransition.transaction do
-          pairs = writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::TRANSITIONS)
+          pairs = WriteCoordinator.writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::TRANSITIONS)
           result = MatrixSaveResult.new(pairs.size, (trackers.size * roles.size) - pairs.size, rejected)
           next if pairs.empty?
 

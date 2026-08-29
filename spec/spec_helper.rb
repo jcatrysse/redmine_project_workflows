@@ -64,6 +64,12 @@ module WorkflowStatementOrderHelpers
     statements.index { |sql| sql.match?(/project_workflow_scopes/i) && sql.match?(/FOR UPDATE/i) }
   end
 
+  # WP13. The generic population's equivalent: it has no scope row, so its
+  # coordination row is one of the plugin's own (audit finding F07).
+  def index_of_write_lock(statements)
+    statements.index { |sql| sql.match?(/project_workflow_write_locks/i) && sql.match?(/FOR UPDATE/i) }
+  end
+
   def index_of_first_rule_write(statements)
     statements.index { |sql| sql.match?(/\A\s*(INSERT INTO|DELETE FROM|UPDATE)\s+\W?workflows\b/i) }
   end

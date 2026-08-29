@@ -514,7 +514,7 @@ entry.
 
 ### F07 — A generic matrix write takes no lock, so two administrators can still leave duplicate rows
 
-- **Status:** open
+- **Status:** fixed 2026-08-29 (WP13 step 1) — see Resolution
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** concurrency
@@ -565,7 +565,43 @@ no portable equivalent across PostgreSQL, MySQL and MariaDB. The existing spec
 that asserts the asymmetry is the one that has to be inverted, and saying so is
 part of the fix.
 
-**Resolution:**
+**Resolution:** Done on 2026-08-29, as the suggested direction with one
+deliberate difference.
+
+`Services::WriteCoordinator` is the single entry point, and a caller names one
+key: `(rule_type, project-or-generic, tracker, role)`. What that key resolves to
+differs by population, and that is the difference from the suggestion. A
+project's **scope row** is its coordination row — it already exists exactly when
+the combination is writable, which is what makes "may I write this?" and "nobody
+else may while I do" one statement, and it is what 0.1.2 built. The generic
+population gets a row on a plugin-owned table, `project_workflow_write_locks`
+(migration 007), which carries nothing but the key. Giving the generic workflow a
+*scope* row instead would have been a fourth state in a model whose whole purpose
+is that there are three (INV-3). A plugin-owned table rather than advisory locks,
+for the portability reason the finding gives.
+
+The order is fixed: ascending primary key within a table, and the generic rows
+after any project scope rows — which the callers already do, because
+`WorkflowSelection#selected_project_ids` appends the generic `nil` last.
+
+The write paths that take one: both rule writers (which is also how Redmine's own
+workflow save reaches it, INV-1), the three scope actions, and **both** copy
+screens. That last one was a gap in the first draft worth recording: the lock was
+taken in the plugin's copy controller, and Redmine's own copy screen writes
+generic rules through core's `WorkflowRule.copy` → the plugin's `.copy_one` →
+`.copy_one_for_project` without going near it. It is taken in the model beside
+the write now, so both screens reach it. The one write that takes nothing is
+`WorkflowRule.copy_one_with_projects`, which duplicates a role or tracker that
+has just been created and that no other request can name.
+
+The spec that pinned the asymmetry — *"is not taken for a generic write"* — is
+inverted and says so in place. Red on the old code, observed rather than assumed:
+with `lock_generic` returning early, two connections saving the same generic cell
+leave **two** rows (`spec/services/workflow_concurrency_spec.rb`, run on
+PostgreSQL 16 and MariaDB 10.11). The pause in that example is between the delete
+and the insert, and has to be: pausing before the delete proves nothing, because
+READ COMMITTED lets the second delete see the first connection's committed row
+and remove it.
 
 ---
 

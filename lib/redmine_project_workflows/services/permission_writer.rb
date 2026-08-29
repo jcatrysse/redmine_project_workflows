@@ -32,7 +32,7 @@ module RedmineProjectWorkflows
 
         result = MatrixSaveResult.none
         WorkflowPermission.transaction do
-          pairs = writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::PERMISSIONS)
+          pairs = WriteCoordinator.writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::PERMISSIONS)
           result = MatrixSaveResult.new(pairs.size, (trackers.size * roles.size) - pairs.size, rejected)
           next if pairs.empty?
 

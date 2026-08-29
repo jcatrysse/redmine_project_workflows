@@ -1828,8 +1828,11 @@ describe ProjectWorkflowRulesController, type: :controller do
 
     # A copy whose only target is the generic workflow has no scope to lock and
     # must not go looking for one: the generic workflow is the one thing that
-    # cannot be inherited (INV-3).
-    it 'is not taken for a copy into the generic workflow' do
+    # cannot be inherited (INV-3). It is not unlocked, though -- since WP13 it
+    # takes the plugin's own coordination row instead (audit finding F07), in
+    # WorkflowRule.copy_for_project, which is also the path **Redmine's own**
+    # copy screen writes generic rules through.
+    it 'is taken on the plugin\'s own row, not a scope row, for a copy into the generic workflow' do
       WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
                                  old_status_id: old_status.id, new_status_id: new_status.id)
       give_own_workflow(project, tracker, role)
@@ -1846,7 +1849,32 @@ describe ProjectWorkflowRulesController, type: :controller do
       end
 
       expect(index_of_scope_lock(statements)).to be_nil
+      expect(index_of_write_lock(statements)).not_to be_nil
       expect(index_of_first_rule_write(statements)).not_to be_nil
+      expect(index_of_write_lock(statements)).to be < index_of_first_rule_write(statements)
+    end
+
+    # Both rule types, because a copy replaces both: it deletes the target
+    # pair's transitions *and* its field permissions before it inserts, so a
+    # coordination row for only one of them would leave the other exactly as
+    # unlocked as it was.
+    it 'covers both rule types for a copy into the generic workflow' do
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
+                                 old_status_id: old_status.id, new_status_id: new_status.id)
+      give_own_workflow(project, tracker, role)
+
+      post :duplicate, params: {
+        source_tracker_id: tracker.id.to_s,
+        source_role_id: role.id.to_s,
+        source_project_id: project.id.to_s,
+        target_tracker_ids: [target_tracker.id.to_s],
+        target_role_ids: [target_role.id.to_s],
+        target_project_ids: ['global']
+      }
+
+      expect(ProjectWorkflowWriteLock.where(tracker_id: target_tracker.id, role_id: target_role.id)
+                                     .pluck(:rule_type).sort)
+        .to eq(ProjectWorkflowScope::RULE_TYPES.sort)
     end
   end
   # F05, and the reason ADR-003 is worth its diff. Core declares

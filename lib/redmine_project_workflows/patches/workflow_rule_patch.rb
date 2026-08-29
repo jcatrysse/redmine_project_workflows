@@ -45,6 +45,20 @@ module RedmineProjectWorkflows
 
         return [] if copy_pairs.empty?
 
+        # WP13, audit finding F07. A copy into the generic workflow has no scope
+        # row to lock -- the generic workflow is what a project inherits, not
+        # something a project decides -- so it takes the plugin's own
+        # coordination row instead. As one batch, and before
+        # #delete_existing_rules_for_project, which is a write: the batch is what
+        # fixes the *order* two concurrent copies take these rows in, and taking
+        # them pair by pair in the loop below would leave that order up to
+        # whatever order the request happened to name its trackers in.
+        #
+        # Both rule types, because a copy replaces both. A copy into a project
+        # takes nothing here: its scope rows are its coordination rows, and the
+        # copy screen locks them before it calls this.
+        lock_generic_copy(copy_pairs) if target_project_id.nil?
+
         delete_existing = copy_pairs.size <= 1
         delete_existing_rules_for_project(target_project_id, copy_pairs, skipped_pairs) unless delete_existing
 
@@ -95,6 +109,14 @@ module RedmineProjectWorkflows
         end
       end
 
+      # The generic population's coordination rows for these pairs, both rule
+      # types, in one call so that Services::WriteCoordinator can sort them.
+      def lock_generic_copy(pairs)
+        ProjectWorkflowScope::RULE_TYPES.each do |rule_type|
+          RedmineProjectWorkflows::Services::WriteCoordinator.lock_generic(rule_type: rule_type, pairs: pairs)
+        end
+      end
+
       def copy_one_for_project(source_project_id, target_project_id, source_tracker, source_role, target_tracker,
                                target_role, delete_existing: true)
         unless source_tracker.is_a?(Tracker) && !source_tracker.new_record? &&
@@ -114,6 +136,14 @@ module RedmineProjectWorkflows
                         source_project_id == target_project_id
 
         transaction do
+          # WP13. Taken here as well as in .copy_for_project, and neither is
+          # redundant: **Redmine's own copy screen** reaches this method through
+          # core's `WorkflowRule.copy` and the plugin's `.copy_one`, and never
+          # goes through .copy_for_project at all -- so without this, the one
+          # generic write path a matrix writer never sees would still be
+          # unlocked. Re-taking a row this transaction already holds costs
+          # nothing.
+          lock_generic_copy([[target_tracker, target_role]]) if target_project_id.nil?
           if delete_existing
             where(tracker_id: target_tracker.id, role_id: target_role.id, project_id: target_project_id).delete_all
           end

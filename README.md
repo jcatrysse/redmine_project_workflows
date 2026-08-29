@@ -475,9 +475,15 @@ the moment the plugin is reinstalled.
 Neither Redmine nor this plugin has a unique constraint on the `workflows`
 table — the key would have to include two nullable columns, and every supported
 database treats NULLs in a unique index as distinct
-(see [`docs/design.md`](docs/design.md)). Two administrators saving the same
-matrix at the same moment can therefore leave duplicate rows behind, which makes
-a matrix cell render as a mixed dropdown instead of a checkbox. To clean them up:
+(see [`docs/design.md`](docs/design.md)). Duplicate rows make a matrix cell
+render as a mixed dropdown instead of a checkbox.
+
+The plugin no longer produces them: every workflow write — a project's, the one
+every project shares, and a copy into either — now takes a lock before it
+rewrites anything, so two administrators saving the same matrix at the same
+moment queue rather than collide. Redmine's own workflow screens have the same
+race and no such lock, and a database can carry duplicates from before this
+version, from Redmine's own screens, or from another plugin. To clean them up:
 
 ```
 bundle exec rake redmine_project_workflows:deduplicate_workflow_rules

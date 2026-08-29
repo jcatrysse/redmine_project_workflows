@@ -11,12 +11,20 @@ require_relative '../spec_helper'
 # follows the generic workflow), so the save reported success over a change
 # that had no effect and left rows behind that nothing would ever read.
 #
-# Two kinds of example here. The first four are single-connection and assert
-# the shape: the lock is taken, on the scope table, before anything is written
-# -- by both writers, and not at all by a generic write. The last two run a
-# real second connection and assert the outcome for both commit orders, because
-# a lock that is taken and does not cover the right rows would satisfy the first
-# four and none of the last two.
+# F07, and the second half of this file. A **generic** write has no scope row --
+# the generic workflow is what a project inherits, not something a project
+# decides -- so until WP13 it locked nothing at all, and two administrators
+# saving the same matrix at the same moment could both find no row to delete and
+# both insert one. Core has the identical race; the plugin is now the write path
+# for both populations and holds one policy for them, with the generic
+# population's coordination row on a table of the plugin's own
+# (Services::WriteCoordinator).
+#
+# Two kinds of example here. The single-connection ones assert the shape: which
+# table the lock is taken on, and that it is taken before anything is written.
+# The ones that run a real second connection assert the outcome, because a lock
+# that is taken and does not cover the right rows would satisfy every example of
+# the first kind and none of the second.
 describe 'Concurrent scope decisions' do
   fixtures :projects, :roles, :trackers, :issue_statuses, :users, :enumerations
 
@@ -40,8 +48,16 @@ describe 'Concurrent scope decisions' do
     )
   end
 
+  def save_generic
+    writer.replace_transitions_for_project_id(nil, [tracker], [role], matrix)
+  end
+
   def project_rules
     WorkflowTransition.where(project_id: project.id)
+  end
+
+  def generic_rules
+    WorkflowTransition.where(project_id: nil)
   end
 
   before do
@@ -91,19 +107,65 @@ describe 'Concurrent scope decisions' do
       expect(index_of_scope_lock(statements)).to be < index_of_first_rule_write(statements)
     end
 
-    # A generic write has no scope to lock and must not go looking for one:
-    # project_id IS NULL is the whole of its predicate (INV-1, INV-4).
-    it 'is not taken for a generic write' do
+    # **Inverted in WP13, and it used to assert the opposite.** The example that
+    # stood here read "is not taken for a generic write", and it pinned audit
+    # finding F07: a generic write has no scope row, so it took nothing, and two
+    # administrators saving the same matrix at the same moment could both find
+    # no row to delete and both insert one. The generic population now has a
+    # coordination row of the plugin's own.
+    #
+    # Both halves matter. The lock is taken -- and it is taken on the plugin's
+    # own table, never on the scope table: a scope row means "this project
+    # decides" (INV-3), and the generic workflow is not a project (INV-1, INV-4).
+    it 'is taken on the plugin\'s own row, and not on a scope row, for a generic write' do
       statements = statements_during do
         writer.replace_transitions_for_project_id(nil, [tracker], [role], matrix)
       end
 
+      expect(index_of_write_lock(statements)).not_to be_nil
       expect(index_of_scope_lock(statements)).to be_nil
       expect(index_of_first_rule_write(statements)).not_to be_nil
+      expect(index_of_write_lock(statements)).to be < index_of_first_rule_write(statements)
+    end
+
+    # The field permissions matrix writes into the same population under the
+    # other rule type, and the coordination row is keyed on the rule type, so it
+    # has to take its own.
+    it 'is taken for a generic field permissions write too' do
+      statements = statements_during do
+        RedmineProjectWorkflows::Services::PermissionWriter.replace_permissions_for_project_id(
+          nil, [tracker], [role], {from_status.id.to_s => {'subject' => 'required'}}
+        )
+      end
+
+      expect(index_of_write_lock(statements)).not_to be_nil
+      expect(index_of_write_lock(statements)).to be < index_of_first_rule_write(statements)
+    end
+
+    # The row is created once and then found. A second write of the same
+    # combination must not insert a second one -- two rows for one key would be
+    # two locks for one workflow, which is no lock at all.
+    it 'creates one coordination row per (rule type, tracker, role), however often it is written' do
+      3.times { writer.replace_transitions_for_project_id(nil, [tracker], [role], matrix) }
+
+      expect(ProjectWorkflowWriteLock.where(tracker_id: tracker.id, role_id: role.id).count).to eq(1)
+    end
+
+    # A selection the writer refuses before it reaches the table takes nothing:
+    # a payload the whitelist empties returns from the writer having written
+    # nothing, and locking a row for a write that will not happen is contention
+    # for nothing.
+    it 'is not taken when the payload has nothing the whitelist accepts' do
+      statements = statements_during do
+        writer.replace_transitions_for_project_id(nil, [tracker], [role], {'0' => {'0' => {'nope' => '1'}}})
+      end
+
+      expect(index_of_write_lock(statements)).to be_nil
+      expect(index_of_first_rule_write(statements)).to be_nil
     end
   end
 
-  describe 'a save and a return to the generic workflow at the same moment' do
+  describe 'two write paths at the same moment' do
     # Two connections that can see each other's committed work, which the
     # suite's usual one-transaction-per-example cannot give: everything this
     # example arranges would be invisible to the second connection.
@@ -116,6 +178,7 @@ describe 'Concurrent scope decisions' do
     after do
       WorkflowRule.delete_all
       ProjectWorkflowScope.delete_all
+      ProjectWorkflowWriteLock.delete_all
     end
 
     # How long the hooked transaction waits for the other one before carrying
@@ -199,6 +262,39 @@ describe 'Concurrent scope decisions' do
       expect(results.pop).to have_attributes(written: 0, skipped: 1)
       expect(own_workflow?(project, tracker, role)).to be(false)
       expect(project_rules).to be_empty
+    end
+
+    # F07 itself, on the population that had no lock at all until WP13.
+    #
+    # Both connections save the same generic cell, which no row yet carries.
+    # The pause is between the delete and the insert, and it has to be: pausing
+    # before the delete would prove nothing, because READ COMMITTED lets the
+    # second delete see the first connection's committed row and remove it.
+    # Held open across the insert, the interleaving is the real one -- each
+    # connection's DELETE finds nothing to take and both INSERT, which is the
+    # duplicate the README documents and the repair rake task exists for.
+    #
+    # Verified red on the old code by returning early from
+    # WriteCoordinator.lock_generic: two rows, no error, both saves reporting
+    # success.
+    it 'leaves one generic rule, not two, when two administrators save the same cell' do
+      main = Thread.current
+      started = Queue.new
+      finished = Queue.new
+
+      allow(writer).to receive(:insert_transition_rows).and_wrap_original do |original, *args|
+        if Thread.current == main
+          started << true
+          wait_for_the_other(finished)
+        end
+        original.call(*args)
+      end
+      other = in_parallel(started, finished) { save_generic }
+
+      save_generic
+      join!(other)
+
+      expect(generic_rules.count).to eq(1)
     end
   end
 end
