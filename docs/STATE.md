@@ -6,158 +6,135 @@
 
 ## Current position
 
-- **WP12 is done, both halves.** The plugin has an administration area of its
-  own — **Administration → Project workflows**, at `/project_workflow_rules` —
-  carrying the summary, both matrices and the copy form. **Redmine's own
-  Administration → Workflow screens are back to stock**: no project selector, no
-  hidden project fields, no scope panel, no project selectors on the copy form.
-  They carry one link across to the plugin's area and nothing else of the
-  plugin's markup.
-- **What that cost, measured rather than claimed.** Deface overrides: **15 in 12
-  files → 5 in 3**. `workflows_controller_patch.rb`: **468 lines → about 40 of
-  code**, four narrowed queries. Core helper prepends: 0. Those were the parts of
-  the plugin an upgrade of Redmine could break *silently*, which is why ADR-003
-  wanted them gone before anybody is running this.
-- **The diagnostics page now asks whether each of the five anchors is still
-  there**, on the Redmine an administrator is actually running. ADR-002's drift
-  check compares core method *bodies*; an override hangs on core's *markup*, and
-  nothing had ever compared that outside the nine CI cells.
-- **Nothing a user can do has changed**, with one deliberate exception and one
-  accepted consequence, both below.
-- **Nothing has been released.** 0.1.6, unreleased; `main` carries 0.0.3 and
-  there is no tag.
+- **WP13 is done, all three bullets.** Every workflow write now takes a lock
+  before it rewrites anything; a very large administration save is confirmed and
+  then, above a ceiling, refused before its transaction opens; and archived
+  projects have left every selector that decides what to write.
+- **What that fixes, in one sentence each.**
+  - *Concurrency (audit F07).* Two administrators saving the workflow every
+    project shares, at the same moment, used to leave **duplicate rules** — a
+    matrix cell that renders as a dropdown instead of a checkbox. A project's
+    save has locked its scope rows since 0.1.2; the shared workflow has no scope
+    row, so it locked nothing. It has a row of its own now.
+  - *Bulk writes (audit F08).* An "all projects × all trackers × all roles" save
+    was one transaction over an unbounded number of rows — roughly 8 million on a
+    realistic large installation, extrapolated from a measured 1,620.
+  - *Archived projects (audit F09).* *Give every project its own workflow* was
+    quietly writing rules for projects nobody can reach.
+- **Nothing else a user can do has changed**, and nothing has been released:
+  0.1.6, unreleased; `main` carries 0.0.3 and there is no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
-  `claude/docs-review-soeob6`, which already pointed at the remote head;
-  `git checkout -B claude/dev origin/claude/dev` was the whole rescue. The local
-  `claude/dev` ref was again the unrelated five-commit lineage — always reset it
-  from `origin/claude/dev` rather than trusting the local ref.
+  `claude/docs-review-meusad`, which already pointed at the remote head;
+  `git checkout -B claude/dev origin/claude/dev` was the whole rescue. **The
+  local `claude/dev` ref was again the unrelated five-commit lineage** — always
+  reset it from `origin/claude/dev` rather than trusting the local ref. This is
+  the third session in a row that has had to.
 
 ## What this session produced
 
-Three commits, in this order, each green on all three hosts before the next.
+Three commits, each green on all four local hosts and in CI before the next.
 
-### 1. `WP12 (2/2)` — core's screens back to stock
+### 1. `WP13 step 1` — one write-coordination service (audit F07)
 
-**What is left on `WorkflowsControllerPatch`:** `index`, `edit`, `permissions`
-and the private `find_statuses`, each with a `project_id: nil` predicate. That
-is the one thing core genuinely gets wrong once the `workflows` table has a
-project dimension: its queries carry no predicate, so they read a project's
-rules as the installation's (INV-4).
+**The defect.** A project write takes `SELECT … FOR UPDATE` on the scope rows of
+the combinations it is about to rewrite, which is what makes "does this project
+run its own workflow here?" and "write its rules" one decision. A **generic**
+write — the workflow every project shares — has no scope row and took nothing.
+Two saves of the same cell could both find no row to delete and both insert one.
 
-**Not `update` and `update_permissions`, which ADR-003's decision 3 and the
-implementation plan both named.** Their writes go through
-`WorkflowTransition.replace_transitions` and
-`WorkflowPermission.replace_permissions`, which the plugin's *singleton* patches
-already route to its writers with `project_id` fixed at `nil` (INV-1) — so
-core's own bodies already write generic rows and only generic rows. What both
-lists missed instead is `find_statuses`: the "only display statuses that are
-used by this tracker" checkbox runs a `workflows` query like any other. ADR-003
-carries a dated **Measured result** section saying so; it was not edited.
+**The calibration, because it decides how much machinery this deserves.** Core
+has the identical race and the plugin inherited it: core's own
+`replace_transitions` reads outside any lock and carries an opportunistic
+`w[1..-1].each(&:destroy)` that repairs duplicates on every save. The plugin is
+now the write path for both populations, so it can hold one policy for them.
 
-**`WorkflowsHelperPatch` is deleted**, which dissolves finding F01 of the
-2026-08-28 audit rather than fixing it — nothing of the plugin's is mixed into
-`WorkflowsHelper` under any name, and an example asserts exactly that by
-scanning `WorkflowsHelper.ancestors` for anything named after the plugin.
+**The shape.** `Services::WriteCoordinator` is the one entry point and a caller
+names one key, `(rule_type, project-or-generic, tracker, role)`. What the key
+resolves to differs by population, deliberately:
 
-**Its replacement is `Patches::WorkflowsControllerHelperPatch`**, shaped exactly
-like `IssuesControllerPatch`: a module under `Patches` whose `apply!` puts
-`ProjectWorkflowMatrixHelper` into `WorkflowsController`'s helper chain and
-carries no method of its own, with the fourth `ATTACHMENTS` element naming the
-helper to look for. **It is load-bearing, not tidiness:** core's own
-`workflows/_form` renders the row and column actions of WP5, which call
-`project_workflow_bulk_actions`, and Rails' `include_all_helpers` never reaches
-a plugin's `app/helpers`. Deleting the call turns core's workflow screen into
-eleven red examples. A bare `WorkflowsController.helper(...)` in `apply_patches`
-would have worked and been invisible to the diagnostics page, whose discovery
-guard asserts `ATTACHMENTS`'s rows are exactly `Patches.constants`.
+- **a project** — its own scope row, which already exists exactly when the
+  combination is writable;
+- **generic** — a row in `project_workflow_write_locks` (migration 007), a
+  plugin-owned table that carries nothing but the key.
 
-**INV-9: fifteen in twelve files → five in three.** Ten overrides in nine files
-deleted; the eleventh, on `workflows/_action_menu`, kept and narrowed to the
-cross-link alone and renamed to what it now is. The five are: the cross-link,
-the two row/column actions on `workflows/_form`, and the two on
-`issues/_attributes`.
+Giving the generic workflow a *scope* row instead is the one thing that must not
+be done: a scope row means *this project decides* (INV-3), and a generic one
+would be a fourth state in a model whose whole purpose is that there are three.
+A table rather than advisory locks, which have no portable equivalent across
+PostgreSQL, MySQL and MariaDB.
 
-**The document-count gate had to change shape.** While the counts were fifteen
-and twelve, `include('fifteen')` was a real assertion: no document says
-"fifteen" about anything else. Five and three are ordinary English words that
-appear in `CLAUDE.md` and `docs/design.md` for a dozen unrelated reasons, so the
-word alone would have gone on passing over *any* count. It matches the phrase
-now — `five view overrides` / `five deface overrides`, and `in three files` —
-verified by editing `CLAUDE.md` to a wrong count and watching it fail.
+**Lock order, which is what makes two callers queue rather than deadlock:**
+ascending primary key within a table, and the generic rows **after** any project
+scope rows — which the callers already do without being told, because
+`WorkflowSelection#selected_project_ids` appends the generic `nil` last.
 
-**The specs moved with the screens.** `workflows_controller_spec.rb` was 1,956
-lines describing what is now the plugin's controller; it drove the controller by
-action name, so the move was the class, five path helpers and the comments that
-named core's callback order. Merged with the 21 examples
-`project_workflow_rules_controller_spec.rb` already had. The Deface spec's
-rendering groups — selector, hidden fields, scope panel, matrix note, undo,
-summary cells, copy labels — went to a new
-`spec/views/project_workflow_rules/screens_spec.rb`, and
-`spec/views/workflows/copy.html.erb_spec.rb` was folded into it (a `type: :view`
-spec has no controller, so the plugin's own action-bar helpers were missing). A
-small `workflows_controller_spec.rb` remains and asserts the one property core's
-screens now have.
+**The gap the first draft had, and it is the interesting part.** The lock was
+taken in the plugin's own copy controller. **Redmine's own copy screen** writes
+generic rules through core's `WorkflowRule.copy` → the plugin's `.copy_one` →
+`.copy_one_for_project`, and never goes near the plugin's controller — so the
+one generic write path a matrix writer never sees would still have been
+unlocked. It is taken in the model beside the write now, in both
+`.copy_for_project` (as one sorted batch, which is what fixes the *order* two
+concurrent copies take the rows in) and `.copy_one_for_project` (which is what
+Redmine's own screen reaches).
 
-### 2. `WP12 step 6` — the runtime anchor check
+**The spec that pinned the asymmetry — "is not taken for a generic write" — is
+inverted and says so in place.**
 
-For each of the five overrides the diagnostics page now reports whether its
-selector still finds its anchor in the template *this host* ships. Two details
-decide whether the answer is worth anything:
+### 2. `WP13 step 2` — bounded bulk writes (audit F08)
 
-- **The template is read from disk**, by the path Rails' own resolver gives, and
-  never from `ActionView::Template#source`. Deface's `encode!` rewrites that
-  string in place once a page has been rendered, so a source read there would
-  sometimes already carry the override and the question would answer itself.
-- **The match is decided by `Deface::Parser.convert` plus `override.matcher`**,
-  which is the pair the applicator uses at render time. Any other way would be a
-  second opinion about a selector rather than the answer.
+The transaction stays; what is bounded is what goes inside it. Two numbers, both
+plugin settings, both counted in **workflow rules** — the unit the row and column
+actions of WP5 already ask about, which is (cells submitted) × (workflows the
+selection covers):
 
-**Three states, not a tick.** `:unmeasured` — a template this process cannot
-read, or a Deface whose shape has moved — is neither good news nor bad, gets no
-tick, and is excluded from `ok?`. That is WP11's rule applied to a second
-measurement. Five new keys in all eight locale files, translated.
+| setting | default | what it does |
+| --- | --- | --- |
+| `bulk_confirm_threshold` | 50 | above this the Save button asks first (this setting already existed; it now covers Save as well as a row or column action) |
+| `bulk_write_ceiling` | 200,000 | above this the save is refused before its transaction opens. `0` means no ceiling |
 
-### 3. The review pass — three links pointing at a screen that no longer reads a project
+`Services::WriteBudget` owns both. The projection is **exact rather than
+estimated**: `SanitizedPayload#submitted_leaf_count` runs on the writer that is
+about to run and counts the same leaves `#sanitize_and_count` does, so the number
+the screen refuses over and the number the writer would act on cannot drift
+apart.
 
-Found by reviewing the delta, not by the suite — **and the suite did assert
-where those links go**, which is what made it a one-line fix in three places
-rather than a discovery. The inventory's count cells, its heading, its "open the
-matrices" link and the "open the matrix" link on the issue form's workflow panel
-all built `edit_workflows_path(project_id: [...])`. Right while core's screens
-honoured the parameter; since WP12 they read no project at all, so the reader
-would have landed on the **generic** matrix believing they were looking at the
-project's — with the project named in the link's own label. All four now go to
-the plugin's own matrices. Nothing in `app/` or `lib/` links to core's workflow
-routes any more except the one deliberate cross-link, which is grep-checkable.
+Two details that took a second pass:
 
-Also in that commit: `Diagnostics#anchor_checks` memoised (the view asks once and
-`ok?` asks again, and each answer is a file read plus a Nokogiri parse per
-override), and `docs/design.md`'s "Integration points in Redmine core" table
-caught up — `#update`, `#update_permissions`, `#copy` and `#duplicate` are
-**left alone** on core's controller now, and `ProjectWorkflowRulesController` has
-a row of its own because that is where the copies live.
+- **The confirmation asks only when the selection covers more than one
+  workflow.** How many cells there are is decided by the status list and is the
+  same on every save of the screen, so a threshold on the cell count alone would
+  have grown a dialog on an ordinary single-workflow save — which is what Redmine
+  has always done.
+- **The bulk script had to move.** It was rendered lazily by whichever row or
+  column header came first, and the **field permissions** matrix has no row or
+  column actions — so on that screen the script was never on the page and the new
+  handler would have called a function that is not there. Both administration
+  views render it above their form now; it is still one `<script>` per page.
 
-### One behaviour difference and one accepted consequence
+### 3. `WP13 step 3` — archived projects leave the write selectors (audit F09)
 
-- **Deliberate, and older than this session.** A copy whose request names *no
-  target project at all* is refused on the plugin's screen and unchanged on
-  core's. Core treats a missing target as the generic workflow; the plugin's
-  form always renders that selector with the generic workflow preselected and
-  its blank option disabled.
-- **Accepted, and answered by Jan the same day.** Redmine's own workflow save
-  answers **HTTP 500** to a malformed matrix — `?transitions[]=x` or
-  `transitions=x` reaches core's own `each_value` and raises `NoMethodError`.
-  Measured on a 7.0 host, in both actions, for both a String and an Array. This
-  is stock Redmine on a stock Redmine and nothing reaches the database (INV-2
-  holds, because the raise is above the writers), but the plugin's patch used to
-  guard that screen, so it is a change relative to the last release. No form
-  produces such a request. **Jan answered A on 2026-08-28: leave it** — a defect
-  of core's, fixed on core's controller by this plugin, on a screen this plugin
-  is meant to have stopped editing, is one more line a Redmine upgrade can
-  break. The plugin's own screens still reject the same payload with a message.
-  The reasoning is in `docs/DECISIONS.md` under "Decided (Jan)" and in the
-  header of `workflows_controller_patch.rb`, so nobody re-adds the guard as an
-  obvious improvement.
+`Project.sorted` carries no status predicate, so every project selector the
+plugin adds offered archived projects and `all` expanded to them.
+`Services::ProjectOptions.selectable` is the one place the rule lives now.
+
+**Only what is offered narrows**, which is the half that would have been silently
+lost: an id in the request is still resolved against the database, so the
+inventory's link into an archived project's matrix goes on working and a workflow
+one of them already has stays removable.
+
+**The inventory keeps archived projects, against the finding's suggested
+direction.** It is a report, not a control that decides what to write, and an
+archived project running its own workflow is exactly the row somebody needs to
+see — before they unarchive it, not after.
+
+**The rest of F09 is accepted rather than fixed**, and argued in the finding's
+Resolution: the remaining cost is one `<option>` per project on four
+administration pages, and the only real fix is not rendering the list at all —
+an autocomplete control, which is a screen redesign plus a controller action plus
+its authorization. Out of proportion to a nit whose own verification reads
+"Read; … not measured at scale". **Reopen it with a measurement, not with a
+redesign.**
 
 ## Evidence
 
@@ -165,56 +142,69 @@ Everything below was executed in this container.
 
 | Gate | Result |
 | --- | --- |
-| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6), PostgreSQL 16 | **977 examples, 0 failures** on each. Was 963. |
-| RuboCop through `.github/lint/Gemfile` | **128 files, no offences** |
+| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6) on PostgreSQL 16 | **1,019 examples, 0 failures** on each. Was 977. |
+| Plugin suite, Redmine 7.0 on MariaDB 10.11 | **1,019 examples, 0 failures** — and this is where the two-connection concurrency examples were also run |
+| RuboCop through `.github/lint/Gemfile` | **134 files, no offences** |
 | `rake zeitwerk:check` | All is good! |
-| `node dev/check-bulk-js.mjs` | all checks pass |
-| Locale parity | all eight files, 0 missing and 0 extra keys (in the suite) |
-| The diagnostics page | rendered on 7.0 and read as text: five rows, each naming the override, the screen and **Found** |
-| Migrations | untouched this session, so INV-8 was not re-run locally; CI runs it on every cell |
-| CI | run **161** on `aaebd50`: **success on all eleven jobs** — the full 3 x 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Runs 155 (the WP12 (2/2) commit), 159 and 160 were green too. Runs 156, 157 and 158 read as **cancelled**: pushing the next commit supersedes the in-flight run, so a multi-commit session always leaves earlier runs cancelled and that is not a failure — read the *latest* run. Every commit carrying code is covered by a completed green run; the only thing after `aaebd50` is this file. |
+| `node dev/check-bulk-js.mjs` | all checks pass — **11 new** for the Save confirmation |
+| Locale parity | all eight files, 0 missing and 0 extra keys (in the suite). Four new keys, translated. |
+| Migrations (INV-8) | up → down (`VERSION=0`) → up on 7.0/PostgreSQL, 5.1/PostgreSQL and 7.0/MariaDB, **before** the suite. No leftover table or column, no dashed `schema_migrations` rows. `dev/check-backfill.sh` green on all three. |
+| CI | runs **163**, **164** and **165** — one per commit — are **success on all eleven jobs**: the full 3 × 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Run 165 is the head. |
 
 **Red on the old code, observed rather than assumed:**
 
 | Change | What went red |
 | --- | --- |
-| the eight "what core's screens no longer carry" examples | red on every commit before this session, by construction |
-| `Patches::WorkflowsControllerHelperPatch.apply!` commented out | eleven examples, `NoMethodError` on core's own workflow screen |
-| `CLAUDE.md` edited to "six view overrides — in four files" | the INV-9 document gate |
-| one override's selector pointed at `td.no-such-anchor` | the runtime anchor check: `:unmatched`, `ok?` false — run by hand on a 7.0 host *and* pinned as an example |
-| the three project-carrying links | the three assertions naming the old paths had to change with the code |
+| `WriteCoordinator.lock_generic` returning early | eight examples, and the two-connection one leaves **two** generic rules for one cell instead of one |
+| `WorkflowRule.lock_generic_copy` returning early | three copy-lock examples, one of them on Redmine's own copy screen |
+| the ceiling guard removed from `AdminMatrix#write_matrix` | the two refusal examples — rows written, no flash |
+| `ProjectOptions.selectable` put back to `Project.sorted` | four examples — the two selectors, the matrix save's `all`, and the scope action's `all` |
 
-**Not covered:** only PostgreSQL was run locally. Six of the nine CI cells are
-MySQL or MariaDB; nothing in this session writes SQL text.
+**Not covered:** MySQL 8 was not run locally (PostgreSQL 16 and MariaDB 10.11
+were); CI covers the remaining cells.
 
 ## Exact next step
 
-**WP13 — one write-coordination service, and bounded bulk writes.** See
-`docs/implementation-plan.md`. Two findings, one mechanism:
+**WP14 — the remaining defect backlog.** See `docs/implementation-plan.md`. In
+the order the plan lists them:
 
-- **Concurrency** (audit F07). Project writes lock their scope rows; a generic
-  write has no scope row and takes nothing, so two administrators saving at once
-  can leave duplicate rows. The calibration is in the finding and matters: **core
-  has the identical race and the plugin inherited it** — core's own
-  `replace_transitions` reads outside a lock and carries an opportunistic
-  duplicate-repair line to prove it knows. The plugin is now the write path for
-  both populations and can fix it once.
-- **Bounded bulk writes.** A save over "all projects" is one transaction over
-  every project on the installation.
+- Deleting an issue status that empties a project scope (audit F03) — **warn**
+  rather than clean up, so that two of INV-3's three meanings are not collapsed
+  on the administrator's behalf.
+- `deface` gets a lower bound and a next-major upper bound (audit F10).
+- The `ScopeCopier` / `ProjectWorkflowCopier` asymmetry is settled — narrowed, or
+  recorded in `docs/DECISIONS.md` as deliberate (audit F11).
+- The copy form's item count is narrowed to the source's enabled trackers.
+- The graph becomes a switchable feature with a size ceiling.
 
-Before starting, read `docs/implementation-plan.md`'s WP13 section and the
-finding it cites. Nothing in WP12 is left unfinished; all eight steps are
-marked **Done** in the plan.
+**One thing WP13 turned up and did not do, worth deciding early in WP14.** The
+**copy screen** is a bulk write too — a copy into many target projects writes the
+source's whole rule set per target — and it has no ceiling. WP13's `WriteBudget`
+bounds only the matrix save, because that is what audit F08 named and measured.
+The projection for a copy is a different shape (it needs the source's rule
+count, which is a query), so this is a decision rather than a five-line
+extension. Not a defect anybody has hit; recorded so it is not re-found.
 
 ## Open choices
 
-**None.** WP12 raised exactly one — the HTTP 500 on Redmine's own workflow save
-for a malformed matrix — and Jan answered **A** (leave it) on 2026-08-28, the
-same day. It is in `docs/DECISIONS.md` under "Decided (Jan)" and in the header
-of `workflows_controller_patch.rb`. Nothing was implemented for it, because A
-was already the position ADR-003 had taken; what changed is that a future
-session now finds a decision there rather than a gap, and should not re-add the
-guard as an obvious improvement.
+**One, and it is not urgent — we continued with the recommendation.**
+
+- **Choice:** What should the default write ceiling be — the number of workflow
+  rules above which an administration matrix save is refused outright?
+- **Options:** **A) 200,000**, which is what is implemented: about eight seconds
+  of writing at the measured rate, roughly where a front-end proxy starts timing
+  out, and far above any selection an ordinary installation produces (50 projects
+  × 3 trackers × 3 roles × 36 cells is 16,200). **B) Lower, say 50,000** —
+  refuses sooner, protects a slower database, and would refuse a deliberate
+  whole-installation save on a mid-sized installation. **C) 0 by default (no
+  ceiling)** — changes nothing for anybody until an administrator asks for it,
+  leaving the confirmation dialog as the only guard.
+- **Recommendation:** A. It is a limit nobody of ordinary size will meet, it is
+  one field to change, and `0` is available to anyone who wants the old behaviour
+  back — while C would ship the finding's defect with a setting beside it.
+- **Urgent?** no. It is one number, in `init.rb`,
+  `Services::WriteBudget::DEFAULT_WRITE_CEILING` and the assertion that holds
+  those two together.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -371,6 +361,57 @@ prerequisites and the MySQL variant.
 
 Everything below cost time at least once. **This session's are first**, then the
 run that stood up a 45-plugin host, then everything carried forward.
+
+- **A concurrency test that pauses in the wrong place proves nothing, and looks
+  like it proves everything.** The example for F07 pauses one connection and lets
+  the other run. Pausing it *before* its DELETE gives **one** row with the lock
+  and one row without it: under READ COMMITTED the second DELETE sees the first
+  connection's committed row and removes it, so the interleaving that produces a
+  duplicate never happens. The duplicate needs both connections to find nothing
+  to delete, so the pause has to be held open **between the delete and the
+  insert**. Written the first way it would have been a green example asserting
+  nothing at all — and it would have gone on being green after somebody removed
+  the lock.
+- **A comment explaining why a gate does not apply can trip the gate.**
+  `plugin_conventions_spec` greps `{app,lib,db}` for the sentence *"INV-4's one
+  deliberate exception"* and asserts exactly one file carries it. A new service
+  whose comment quoted that phrase in order to say *this is not that* became a
+  second hit. A gate that greps for a **sentence** is stronger than one that
+  greps for a word (see the `fifteen`/`five` trap below) and this is its cost:
+  the sentence is now reserved, and a comment must name the thing some other way.
+- **A partial rendered lazily from one screen's markup is simply absent from the
+  other screen.** `_bulk_script` was rendered by whichever row or column header
+  came first, which is fine while only the transitions matrix needs it. The field
+  permissions matrix has no row or column actions, so nothing on it ever rendered
+  the script — and a new `onsubmit` handler added to *both* forms would have
+  called an undefined function on one of them. Ask which screens actually reach
+  the lazy call before adding a second caller to the thing it renders.
+- **`include('value="2"')` over a whole page is not an assertion about a project
+  selector.** A project id is also a tracker id, a role id and a status id, so the
+  first version of "an archived project is not offered" failed against markup that
+  had nothing to do with it. Extract the `<select>` the assertion is about and
+  scan its options. Same family as the INV-9 near-misses below: an assertion
+  scoped to the page rather than to the element.
+- **`I18n.t(key)` leaves `%{count}` alone when no `count:` is given, rather than
+  raising.** `I18n::Backend::Base#translate` only interpolates when the options
+  hash has something in it, so a locale string written for JavaScript to fill in
+  comes back with its placeholder intact. That is what the data attributes on the
+  matrix forms rely on; it reads like a bug waiting to happen and is not one.
+- **`rake db:drop db:create db:migrate` does not give you a stock database if
+  `db/schema.rb` is still there.** On the MariaDB host, `db:migrate` on the empty
+  database **loaded `schema.rb`** — which a previous suite run had dumped *with*
+  the plugin's columns in it — while leaving `schema_migrations` without the
+  plugin's dashed rows. The next `redmine:plugins:migrate` then died with
+  *"Duplicate column name 'project_id'"*, which reads like a broken migration and
+  is a stale dump. The recipe below already says `rm -f db/schema.rb` first;
+  this is what happens when you skip it.
+- **A table whose rows record no event should not have timestamps, and
+  `Rails/CreateTableWithTimestamps` will ask for them anyway.** `created_at` on a
+  lock row would be "the first time anybody saved this combination", which nothing
+  reads or shows, and `updated_at` would never change — two columns that would
+  read as an audit trail beside the real one on `project_workflow_scopes`.
+  Disabled inline with the reason, which is this repository's idiom for a cop
+  that is wrong about a specific row rather than about the rule.
 
 - **A gate that greps a document for a word stops being a gate when the word
   becomes a common one.** INV-9's count assertion read
@@ -1300,16 +1341,18 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-WP0..WP12 are done. "Carry on" means, in order:
+WP0..WP13 are done. "Carry on" means, in order:
 
-1. **Read CI for the head and act on it if it is red.** Only PostgreSQL was run
-   locally; six of the nine cells are MySQL or MariaDB. Run 155 is green on all
-   eleven jobs and is the WP12 (2/2) commit; the runs after it cover the anchor
-   check, the review pass and this file. Pushing a commit **cancels** the
-   in-flight run for the previous one, so read the latest run and treat a
-   cancelled earlier one as superseded rather than failed.
-2. **WP13** — one write-coordination service, and bounded bulk writes. *Exact
-   next step* says what the two findings are and why core has the same race.
+1. **Read CI for the head and act on it if it is red.** MySQL 8 was not run
+   locally (PostgreSQL 16 and MariaDB 10.11 were), and three of the nine cells are
+   MySQL. Runs **163**, **164** and **165** are green on all eleven jobs — one per
+   WP13 commit, and 165 is the head, so the only thing after a green run is this
+   file. Pushing a commit **cancels** the in-flight run for the previous one, so
+   read the latest run and treat a cancelled earlier one as superseded rather
+   than failed.
+2. **WP14** — the remaining defect backlog. *Exact next step* lists the five
+   items and the one thing WP13 turned up and deliberately did not do (the copy
+   screen has no write ceiling).
 3. **Before any release, repeat the 45-plugin run.** It is still the only
    environment in which the permission-ownership gate can fail, and the
    diagnostics page is now where that gate reports — so the run is also the way
