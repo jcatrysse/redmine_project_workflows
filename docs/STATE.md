@@ -6,10 +6,17 @@
 
 ## Current position
 
-- **WP16 is three quarters done.** Items 2, 3 and 4 of the last work package —
-  a downgrade procedure, a scripted backup-aware uninstall, and release criteria
-  written down — landed this session. **Item 1 is what is left**, and it is
-  blocked on something small: see *Exact next step*.
+- **WP16 is done, and so is the plan.** All four items of the last work package
+  landed this session: a downgrade procedure, a scripted backup-aware uninstall,
+  release criteria written down, and an upgrade rehearsal that starts from the
+  previous release and runs *that release's* code.
+- **The 0.0.3 → 0.1.6 upgrade is now a measured claim.** Jan asked whether it was
+  flawless; `dev/check-release-upgrade.sh` answers it rather than reasoning about
+  it. On Redmine 5.1 and 7.0 with PostgreSQL and 7.0 with MariaDB: the same
+  statuses an issue may move to, the same required fields, not one rule row
+  added, removed or changed, a scope for exactly the combinations that had rules
+  and no other, and the permission-rename migration renaming nothing — because
+  0.0.3 registered no permissions at all.
 - **What the plugin can do that it could not.** Uninstalling it no longer means
   losing every project workflow. Reversing the migrations deletes every workflow
   rule that names a project and drops the table that records which projects
@@ -32,10 +39,11 @@
   which is the exact confusion INV-3 exists to prevent.
 - **The alpha warning stays**, and `docs/release-criteria.md` now says why in a
   form somebody can check: nine release criteria, four more for removing the
-  warning, each with how it is checked and where it stands. Three are unmet, and
-  one of them — "has run on a real installation, with real data, for a stated
-  period" — is not something this repository can answer about itself. That one is
-  Jan's.
+  warning, each with how it is checked and where it stands. Two are unmet — a tag
+  (part of cutting the release) and the 45-plugin compatibility run repeated on
+  the release commit — plus "has run on a real installation, with real data, for
+  a stated period", which is not something this repository can answer about
+  itself. That one is Jan's.
 - **Nothing else a user can do has changed**, and nothing has been released:
   0.1.6, unreleased; `main` carries 0.0.3 and there is still no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
@@ -45,7 +53,7 @@
 
 ## What this session produced
 
-One commit, green on two local hosts and one MariaDB host, and lint-clean.
+Two commits, green on two PostgreSQL hosts and one MariaDB host, and lint-clean.
 
 ### `WP16 items 2-4` — the backup, the uninstall, and the criteria
 
@@ -104,6 +112,28 @@ WP15 established and naming the own *empty* workflow as the thing a downgrade
 loses silently. `docs/release-criteria.md` is new. `dev/README.md`'s "three
 checks that must run before the suite" is now four.
 
+### `WP16 item 1` — the rehearsal that runs the previous release's code
+
+`dev/check-release-upgrade.sh [ref] [host] [ruby]`, a CI step on all nine cells.
+It was thought to be blocked on a tag and was not: what a rehearsal needs is a
+ref that does not move, and `main` is a branch no session writes to. The ref is
+the first argument, so pointing it at a tag once one exists is a one-word change.
+
+It is the only check here that runs **another version's code**. The other four
+seed their data with today's models, which is the one thing a real upgrade never
+does. This one rebuilds the host's database from core migrations, installs the
+plugin as it is at the ref (`git archive`), migrates — which at 0.0.3 is
+migrations 001-003 and no scope table — writes project rules through *that
+release's* writers, and records what *that release* answers when a saved issue
+asks which statuses it may move to and which fields are required. Then the
+working tree goes in, `redmine:plugins:migrate` runs 004-007, and the same
+questions are asked again.
+
+**It refuses to be a comparison of nothing.** It fails if the released writers
+wrote no project rules, and it fails if its overriding project and its inheriting
+project answer the *same* thing before the upgrade — because then the comparison
+afterwards would hold whatever the resolver did.
+
 ## Evidence
 
 Everything below was executed in this container.
@@ -115,6 +145,7 @@ Everything below was executed in this container.
 | `rake zeitwerk:check` | All is good! |
 | `node dev/check-bulk-js.mjs` | bulk action script OK |
 | `dev/check-backfill.sh`, `dev/check-upgrade.sh`, `dev/check-uninstall.sh` | green on every host, each from a database rebuilt from **core** migrations first |
+| `dev/check-release-upgrade.sh origin/main` | green on Redmine 7.0 and 5.1 with PostgreSQL 16 and on 7.0 with MariaDB 10.11. It rebuilds the database itself and runs the released plugin's own code, so it needs no such precondition |
 | Red-on-old-code | verified by mutation, one at a time, re-running the two new spec files after each: `copy_generic: false` flipped to `true` in the restore (1 red — the own *empty* workflow comes back with a copied generic rule in it), the audit stamp removed (1), and `confirm!` moved after the backup in the uninstall (1 — a refused run leaves a file behind). All three reverted. |
 | CI | run **182** is the head (`162de21`) and is green on **all eleven jobs**, the new *Uninstall and restore rehearsal* step included on every one of the nine cells |
 
@@ -127,47 +158,48 @@ sentence naming what was at stake.
 
 ## Exact next step
 
-**WP16 item 1 — an upgrade rehearsal from the previous release**, which is the
-last thing in the plan.
+**The plan is complete: WP0..WP16 are all done.** There is no next work package,
+and inventing one is explicitly out of bounds — see *Carrying on*.
 
-`dev/check-upgrade.sh` already rehearses the migration path from `VERSION=3` —
-where an installation on 0.0.3 stands — over populated data, on all nine cells.
-What it cannot do is run the **code** of that release, which is the half that
-would catch a migration file edited after it shipped.
+What is left is a **release**, and it is Jan's to call. `docs/release-criteria.md`
+is the checklist and the procedure. Two criteria are mechanical and a session can
+do them:
 
-**It is blocked on one small thing: the repository has no tags at all.** `main`
-carries 0.0.3. Tagging that commit `v0.0.3` unblocks it, and then the script
-wants a second mode: check the tag out into a scratch directory, install *that*
-plugin into a host, populate it, then swap the working tree in and migrate up.
+1. **A1** — repeat the 45-plugin compatibility run on the release commit. The
+   recipe is below. It is the only environment in which the permission-ownership
+   gate can fail, and since WP12 it is also where the diagnostics page checks the
+   five Deface anchors against a host that has 44 other plugins in it.
+2. **R9** — the tag, which is step 4 of *Cutting a release* in the criteria file
+   and belongs to the release rather than before it.
 
-A tag is a release act rather than a code change, which is why this session did
-not create one — see *Open choices*. If Jan says go ahead, it is one command and
-then the script.
+**A3 — "has run on a real installation, with real data, for a stated period" — is
+Jan's and nothing here can substitute for it.** It is the reason the alpha
+warning is still on the README.
 
-After that, `docs/release-criteria.md` is the checklist for the release itself.
+If a session is opened with nothing more specific than "carry on", the useful
+thing to do is A1, and then report. Do not remove the alpha warning.
 
 ## Open choices
 
-- **Choice:** the repository has **no git tags**, so "upgrade from the previous
-  release" has no previous release to check out — which is release criterion R5,
-  and blocks the last item of the last work package.
-  - **Options:** A) tag the commit on `main` that carries 0.0.3 as `v0.0.3`, and
-    tag every release from now on. B) leave it, and accept that R5 is met only
-    from 0.1.6 onwards, once *that* is tagged.
-  - **Recommendation:** **A.** It costs one command, it is what makes the *next*
-    release's upgrade rehearsal possible at all, and 0.0.3 is what real
-    installations are actually running — so it is the version an upgrade
-    rehearsal most needs to start from.
-  - **Urgent?** no — nothing is blocked but WP16 item 1, and no code depends on
-    it. This session did not do it because pushing a tag is a release act and
-    `main` is Jan's.
+- **Answered by Jan on 2026-08-29 — the tag is not needed.** The previous version
+  of this file said WP16 item 1 was blocked on tagging 0.0.3. Jan asked whether
+  the tag was really necessary, and it was not: a rehearsal needs a ref that does
+  not move, and `main` is a branch **no session writes to**.
+  `dev/check-release-upgrade.sh` takes the ref as an argument and runs against
+  `origin/main` today; point it at a tag once one exists. A tag is still worth
+  creating when a release is cut, as `docs/release-criteria.md` step 4 says — but
+  as part of the release, not as a precondition for testing one.
 
 - **Choice (carried, unchanged):** removing the *alpha* warning. Criterion A3 —
   "has run on a real installation, with real data, for a stated period" — is not
-  something this repository can answer. `docs/release-criteria.md` lists the
-  other twelve and their state.
-  - **Urgent?** no — the warning stays until Jan says otherwise, which is the
-    safe default.
+  something this repository can answer.
+  - **Options:** A) leave the warning until Jan says the plugin has run in
+    production long enough. B) remove it once A1 (the 45-plugin run) is green on
+    the release commit, treating CI plus that run as sufficient.
+  - **Recommendation:** **A**, which is what is in place. Every other criterion
+    is a statement about code; this one is a statement about installations, and
+    only Jan can see those.
+  - **Urgent?** no.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -336,6 +368,25 @@ prerequisites and the MySQL variant.
 Everything below cost time at least once. **This session's are first**, then the
 run that stood up a 45-plugin host, then everything carried forward.
 
+- **`'"'"'` is the escape for a single quote inside a SINGLE-quoted shell string,
+  and it destroys a double-quoted one.** Inside `rails runner "…"` it expands to
+  `'` `"` `'` `"` `'` — the second character ends the argument, and the space in
+  the next word splits it. The result is a `rails runner` that silently runs the
+  first half of the program and exits 0. `dev/check-release-upgrade.sh` lost
+  every project rule to this and then reported, truthfully, that the backfill had
+  produced nothing. Inside double quotes an apostrophe needs no escaping at all;
+  a bare `"` in a comment does the same damage.
+- **A gate has to check its own premise.** The same script now fails if the
+  released writers wrote no rules, and fails if the two projects it sets up
+  answer the same thing *before* the upgrade. Without the first it reported the
+  wrong failure; without the second, "behaviour unchanged" would hold whatever
+  the resolver did.
+- **`Issue.new(...).new_statuses_allowed_to` asks about the wrong workflow.** A
+  new issue transitions out of the *new issue* pseudo status (`old_status_id` 0),
+  not out of the status it is holding, so an unsaved issue answers with the
+  default status and nothing else however rich the workflow is. Save the issue.
+  And a field permission written a moment earlier can then make the save fail —
+  which is the plugin working.
 - **A gate that checks only an exit status passes on a broken host.**
   `dev/check-uninstall.sh`'s refusal leg asserted that
   `rake redmine_project_workflows:uninstall` **failed** without `CONFIRM=yes`. It

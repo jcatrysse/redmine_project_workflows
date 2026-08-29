@@ -82,7 +82,7 @@ somebody remembering. Run it by hand as well when that function changes, because
 it is a second of feedback rather than a push. Keeping the function small enough
 for this to be sufficient is the reason it has no event wiring of its own.
 
-### The four checks that must run before the suite
+### The five checks that must run before the suite
 
 `maintain_test_schema` reloads `db/schema.rb` when the suite starts and wipes the
 plugin's migration bookkeeping, after which a `VERSION=` migration silently does
@@ -110,9 +110,15 @@ dev/check-upgrade.sh .redmine/7.0-stable-postgresql 3.3.6
 #    the plugin's own rake tasks -- the refusal without CONFIRM=yes, the backup,
 #    every migration reversed, the reinstall, and the restore
 dev/check-uninstall.sh .redmine/7.0-stable-postgresql 3.3.6
+
+# 5. the upgrade from the PREVIOUS RELEASE, running that release's own code.
+#    This one rebuilds the database itself (it has to start where the release
+#    stood) and leaves the host holding the working tree, so it does not need the
+#    stock-database step above -- run it first, or on its own.
+dev/check-release-upgrade.sh origin/main .redmine/7.0-stable-postgresql 3.3.6
 ```
 
-All four are CI jobs as well, on every one of the nine cells. The third is the
+All five are CI jobs as well, on every one of the nine cells. The third is the
 one that says out loud what a **downgrade** costs: `VERSION=0` deletes every rule
 that names a project, deliberately — without that, dropping the column would turn
 every project's rules into rules of the workflow every project shares. An own
@@ -125,15 +131,25 @@ The fourth is the answer to the third. It runs
 there — the rules, the own *empty* decisions and the audit trail — so that
 "there is a backup" is a thing that has been checked rather than believed.
 
+The fifth is the only one that runs **another version's code**. The other four
+seed their data with today's models, which is the one thing a real upgrade never
+does; this one installs the plugin as it is at a given ref (`origin/main` by
+default — the last release), writes project rules through *that* release's
+writers, records what it answers when an issue asks which statuses it may move
+to, then swaps the working tree in, migrates, and compares. That is the only
+honest test of the claim migration 004 rests on: that the backfill reconstructs
+0.0.3's implicit model — *this project has rules, therefore it overrides* —
+exactly, for every combination and no other.
+
 ## Continuous integration
 
 `.github/workflows/specs.yml` runs the same scripts across Redmine 5.1 / 6.1 /
 7.0 and PostgreSQL / MySQL / MariaDB on every push and pull request, plus three
 gates per cell:
 
-1. **The four migration checks above** — reversibility (up -> 0 -> up), the
-   backfill, the upgrade rehearsal and the uninstall rehearsal — deliberately
-   *before* the suite: `maintain_test_schema` reloads `db/schema.rb` when the
+1. **The five migration checks above** — the upgrade from the previous release,
+   reversibility (up -> 0 -> up), the backfill, the upgrade rehearsal and the
+   uninstall rehearsal — deliberately *before* the suite: `maintain_test_schema` reloads `db/schema.rb` when the
    suite starts and wipes the plugin's migration bookkeeping, after which
    `VERSION=0` silently does nothing and the checks prove nothing.
 2. **`zeitwerk:check`** — Redmine pushes each plugin's `lib/` into the main

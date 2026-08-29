@@ -941,3 +941,39 @@ All Class A unless it says otherwise.
   installation, with real data, for a stated period" — is not something this
   repository can answer. Removing the warning is a claim about production
   installations and is Jan's to make.
+
+## Decided (autonomous) — 2026-08-29, WP16 item 1: the rehearsal from a real release
+
+- **`origin/main` is the ref, and a tag is not a precondition.** The earlier
+  entry said this item was blocked on tagging 0.0.3. It was not: what a
+  rehearsal needs is a ref it can check out that does not move, and `main` is a
+  branch **no session writes to** — `CLAUDE.md` pins every session to
+  `claude/dev` and `docs/review/README.md` repeats it for findings. A tag is
+  still better, because it cannot move at all, so
+  `dev/check-release-upgrade.sh` takes the ref as its first argument and
+  `docs/release-criteria.md` says to point it at the tag once one exists.
+- **The rehearsal runs the released version's own code, and that is the point.**
+  Every other migration check seeds its data with today's models, which is the
+  one thing a real upgrade never does. This one installs the plugin at the ref,
+  writes project rules through *that release's* writers, and asks *that
+  release's* `Issue#new_statuses_allowed_to` and `#required_attribute_names`
+  what an issue may do — then upgrades and asks again.
+- **It fails if its two projects answer the same thing before the upgrade.**
+  One project overrides and one inherits; if those two answers were equal, the
+  comparison afterwards would hold whatever the resolver did. The first version
+  of the script did exactly that for a different reason (below) and reported a
+  backfill failure instead of a seeding one.
+- **It checks that the released writers wrote anything at all.** The first
+  version lost every project rule to a shell quoting mistake — `'"'"'` is the
+  escape for a single quote inside a *single*-quoted string, and inside the
+  double-quoted `rails runner "…"` argument it ends the string — and then
+  reported, truthfully, that the backfill had produced nothing. A gate whose
+  premise is not checked reports on the wrong thing.
+- **It rebuilds the host's test database itself**, unlike the other four checks,
+  which require a stock database as a precondition. It has to start from one that
+  has never seen migrations 004-007, and there is no way to ask for that as a
+  precondition without every caller doing it.
+- **Nothing in the plugin changed for this item.** The result is that the
+  0.0.3 → 0.1.6 upgrade is now a measured claim rather than a believed one: the
+  same statuses, the same required fields, not one rule row touched, and a scope
+  for exactly the combinations that had rules.

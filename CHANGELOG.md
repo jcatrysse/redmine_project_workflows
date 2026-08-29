@@ -144,8 +144,19 @@ The workflow as a drawing.
 - **Release criteria, written down.** `docs/release-criteria.md` says what has to
   be true before a version is released, and — separately — before the *alpha*
   warning comes off, with how each one is checked and where it stands today. The
-  warning stays: three criteria are unmet, and one of them is not the sort of
-  thing a repository can answer about itself.
+  warning stays: two criteria are unmet, and one of them is not the sort of thing
+  a repository can answer about itself.
+
+- **The upgrade from 0.0.3 is now measured rather than assumed.** A new check
+  installs the plugin as it is at the previous release, writes project rules
+  through *that* release's code, records what it answers when an issue asks which
+  statuses it may move to and which fields are required, then upgrades and asks
+  again. On Redmine 5.1 and 7.0 with PostgreSQL and 7.0 with MariaDB, and on all
+  nine combinations in CI, the answers are identical: not one workflow rule is
+  added, removed or changed, and every project that had its own rules gets a
+  recorded decision saying so — for exactly those combinations and no others.
+  Before this, that was a reasonable belief about migration 004; it is now a
+  test.
 
 - **The project side of the workflow has a screen of its own.**
   *Administration → Project workflows* carries the project selector, the scope

@@ -32,7 +32,7 @@
 | WP13 | One write-coordination service, and bounded bulk writes | done |
 | WP14 | The remaining defect backlog | **done** |
 | WP15 | The test debt three reviews named | **done** — all six items |
-| WP16 | Release engineering | **in progress** — items 2, 3 and 4 done; item 1 waits on a tag |
+| WP16 | Release engineering | **done** — all four items |
 
 ---
 
@@ -1067,8 +1067,8 @@ is itself idempotent. They exist to catch an `apply_patches` that stops being.
 - Release criteria written down, and the alpha warning removed only when they
   pass.
 
-**Items 2, 3 and 4 are done.** They turned out to be one thing rather than
-three: a downgrade procedure that says "there is no way back" is not a
+**All four items are done.** Items 2, 3 and 4 turned out to be one thing rather
+than three: a downgrade procedure that says "there is no way back" is not a
 procedure, so writing it down meant first making one.
 
 - **The backup.** `Services::WorkflowBackup` writes every project decision and
@@ -1098,13 +1098,31 @@ procedure, so writing it down meant first making one.
   "has run on a real installation with real data", is not the sort of thing this
   repository can answer at all.
 
-**Item 1 is what is left, and it is blocked on something small.** The repository
-has **no tags**, so "upgrade from the previous release" has no previous release
-to check out. `dev/check-upgrade.sh` already rehearses the migration path from
-`VERSION=3` — where an installation on 0.0.3 stands — over populated data on all
-nine cells; what it cannot do is run the *code* of that release, which is the
-half that would catch a migration file edited after it shipped. Tagging 0.0.3,
-which is what `main` carries, unblocks it.
+- **Item 1, the upgrade rehearsal from a real release.**
+  `dev/check-release-upgrade.sh`, a CI step on all nine cells. It was thought to
+  be blocked on a tag, and it is not: a tag cannot move and a branch can, but
+  `origin/main` is a branch **no session writes to** — `CLAUDE.md` pins every
+  session to `claude/dev` — so it is a stable enough ref for a rehearsal, and the
+  script takes any ref for when a tag exists.
+
+  It is the only check that runs **another version's code**. The other four seed
+  their data with today's models, which is the one thing a real upgrade never
+  does. This one installs the plugin as it is at the ref, writes project rules
+  through *that release's* writers, saves what the released code answers when an
+  issue asks which statuses it may move to and which fields are required, then
+  swaps the working tree in, migrates, and compares. It also fails if the two
+  projects it sets up answer the *same* thing before the upgrade, because then
+  the comparison afterwards would be a comparison of nothing.
+
+  **What it established for 0.0.3 → 0.1.6**, on Redmine 5.1 and 7.0 with
+  PostgreSQL and on 7.0 with MariaDB: identical answers on both sides; not one
+  rule row added, removed or changed; a scope for exactly the combinations that
+  had rules and no other, attributed to nobody; and the permission-rename
+  migration correctly renaming nothing, because 0.0.3 registered no permissions
+  at all. The two migration files 0.0.3 shipped are byte-identical to today's
+  except for comments and one `execute` that became a counted `connection.delete`
+  — and a migration that has already run does not run again, so even that cannot
+  reach an existing installation.
 
 ---
 

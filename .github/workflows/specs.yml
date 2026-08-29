@@ -161,6 +161,29 @@ jobs:
         working-directory: ${{ env.REDMINE_DIR }}
         run: git rev-parse HEAD && git log -1 --format='%ci %s'
 
+      # WP16 item 1. The only check that runs the PREVIOUS RELEASE's own code:
+      # it installs the plugin as it is at RELEASE_REF, writes project rules
+      # through that release's writers, records what it answers for an issue,
+      # then swaps this commit in, migrates, and compares. That is the only
+      # honest test of "migration 004's backfill reconstructs the implicit model
+      # exactly" -- every other rehearsal seeds its data with today's models,
+      # which is the one thing a real upgrade never does.
+      #
+      # actions/checkout fetches one branch, so origin/main is not in the
+      # checkout unless it is asked for. Depth 1 is enough: only the tree at that
+      # commit is read.
+      #
+      # Deliberately strict: if the previous release cannot be fetched the job
+      # fails rather than skipping, because a release-engineering gate that
+      # silently does not run is the failure it exists to prevent. The one shape
+      # that would trip it is a pull request from a fork, where `origin` is the
+      # fork -- this repository's pull requests are between its own branches.
+      - name: Fetch the previous release
+        run: git fetch --depth=1 origin main:refs/remotes/origin/main
+
+      - name: Upgrade rehearsal from the previous release
+        run: dev/check-release-upgrade.sh origin/main "$REDMINE_DIR"
+
       # Before the suite, deliberately: maintain_test_schema reloads db/schema.rb
       # when the suite starts and wipes the plugin's migration bookkeeping, after
       # which VERSION=0 silently does nothing and this check proves nothing.
