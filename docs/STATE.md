@@ -157,13 +157,12 @@ Everything below was executed in this container.
 | Locale parity | all eight files, 162 keys each, 0 missing and 0 extra. **Eleven** new values, translated. |
 | Drift gate | `spec/upstream/` green on 5.1 and 7.0 with the two new declared dependencies; digests measured per host with `dev/measure_compatibility.rb` |
 | Red-on-old-code | verified for every fix by reverting the change and re-running: two controller examples for F03, the Gemfile example for F10, the copy-form count, four graph examples, and the dependency sweep |
-| CI | runs **169**, **170**, **171** green on all eleven jobs (one per commit). Run **172**, on the head `992ec28`, was still queued when this file was written — **read it first.** |
+| CI | runs **169**, **170**, **171** and **173** green on all eleven jobs. **173 is the head** (`7df2a4a`) and covers every code change of this session, including all six MySQL and MariaDB cells. Run 172 shows as *cancelled*: pushing the documentation commit superseded it, which is the documented behaviour, not a failure. |
 
-**MySQL and MariaDB were not run locally this session.** Nothing in the diff is
-new SQL text except `StatusDeletionImpact`'s `SUM(CASE WHEN … THEN 1 ELSE 0 END)`
-in a `HAVING`, which is the one spelling all three adapters read, and the CI
-matrix covers six MySQL-family cells. If run 172 is red on a MySQL cell, that
-statement is the first place to look.
+**MySQL and MariaDB were not run locally this session** — PostgreSQL 16 only. The
+one piece of new SQL text, `StatusDeletionImpact`'s `SUM(CASE WHEN … THEN 1 ELSE
+0 END)` in a `HAVING`, is the spelling all three adapters read, and **CI run 173
+confirms it on all six MySQL-family cells.**
 
 ## Exact next step
 
@@ -1380,13 +1379,12 @@ Read CLAUDE.md and docs/STATE.md. Carry on.
 
 WP0..WP14 are done. "Carry on" means, in order:
 
-1. **Read CI for the head and act on it if it is red.** No MySQL-family cell was
-   run locally this session (PostgreSQL 16 only), and six of the nine cells are
-   MySQL or MariaDB. Runs **169**, **170** and **171** are green on all eleven
-   jobs; run **172**, on the head `992ec28`, was still queued when this was
-   written. Pushing a commit **cancels** the in-flight run for the previous one,
-   so read the latest run and treat a cancelled earlier one as superseded rather
-   than failed.
+1. **CI is green on the head.** Run **173** on `7df2a4a` passed all eleven jobs,
+   the six MySQL and MariaDB cells included, so there is nothing to chase before
+   starting WP15. Runs 169-171 are green too; run **172** shows as *cancelled*
+   because the documentation push superseded it — pushing a commit cancels the
+   in-flight run for the previous one, so read the latest run and treat a
+   cancelled earlier one as superseded rather than failed.
 2. **WP15** — the test debt three reviews named. *Exact next step* lists the six
    items in priority order, and the two things WP13 and WP14 turned up and
    deliberately did not do (the copy screen has no write ceiling; *give own
