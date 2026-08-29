@@ -199,7 +199,7 @@ Everything below was executed in this container.
 | `node dev/check-bulk-js.mjs` | all checks pass — **11 new** for the Save confirmation |
 | Locale parity | all eight files, 0 missing and 0 extra keys (in the suite). **Six** new keys, translated. |
 | Migrations (INV-8) | up → down (`VERSION=0`) → up on 7.0/PostgreSQL, 5.1/PostgreSQL and 7.0/MariaDB, **before** the suite. No leftover table or column, no dashed `schema_migrations` rows. `dev/check-backfill.sh` green on all three. |
-| CI | runs **163**, **164** and **165** — one per commit — are **success on all eleven jobs**: the full 3 × 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Run 165 is the head. |
+| CI | runs **163**, **164**, **165** and **167** — one per code commit — are **success on all eleven jobs**: the full 3 × 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Run 167 is the head, so the only thing after a green run is this file. |
 
 **Red on the old code, observed rather than assumed:**
 
@@ -1409,11 +1409,10 @@ WP0..WP13 are done. "Carry on" means, in order:
 
 1. **Read CI for the head and act on it if it is red.** MySQL 8 was not run
    locally (PostgreSQL 16 and MariaDB 10.11 were), and three of the nine cells are
-   MySQL. Runs **163**, **164** and **165** are green on all eleven jobs — one per
-   WP13 code commit; the fourth commit (the measurement and the Save threshold)
-   was pushed after and its run should be read first. Pushing a commit
-   **cancels** the in-flight run for the previous one, so read the latest run and
-   treat a cancelled earlier one as superseded rather than failed.
+   MySQL. Runs **163**, **164**, **165** and **167** are green on all eleven jobs
+   — one per code commit, and 167 is the head. Pushing a commit **cancels** the
+   in-flight run for the previous one, so read the latest run and treat a
+   cancelled earlier one as superseded rather than failed.
 2. **WP14** — the remaining defect backlog. *Exact next step* lists the five
    items and the one thing WP13 turned up and deliberately did not do (the copy
    screen has no write ceiling).
