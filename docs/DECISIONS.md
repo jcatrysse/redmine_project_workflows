@@ -777,46 +777,84 @@ than it looks on paper.
 ## Open — for Jan (2026-08-29)
 
 - **Choice:** *Give own workflow* is the one bulk action still measured **per
-  combination** — about 5 ms each, linear, and not covered by the write ceiling.
-  On a large installation (500 projects × 5 trackers × 8 roles = 20,000
-  combinations) that is roughly **100 seconds** in one request. Your own decision
-  of 2026-08-27 made it one validated `save!` per row on purpose, and said that
-  if the slow case were ever actually met it is "the ADR that gets written, not
-  this method that gets rewritten". It has now been met in a measurement rather
-  than by a user. What should happen?
-- **Options:** **A) Nothing yet** — record the number and wait for somebody to
-  actually hit it. Nobody is running this at that size, and the action is a
-  deliberate, once-per-project decision rather than something anybody repeats.
-  **B) Give it the same ceiling** — refuse above a configured number of
-  combinations, so the request cannot run for two minutes. Cheap, reversible, and
-  it does not touch the decided per-row write. **C) Write the ADR and batch it** —
-  the round trips are the cost, and the 2026-08-27 reasoning (a lost race must
-  not be reported as a created scope) can be kept with a different shape.
-- **Recommendation:** B. It closes the "one request runs for two minutes" hazard
-  without re-opening a decision you made deliberately, and it is the same
-  mechanism WP13 already built for the matrix save. C is real work and should
-  wait for somebody who actually has 20,000 combinations.
-- **Urgent?** no — nothing is blocked, and the action is correct today, only
-  slow at a size nobody is running.
+  combination**, and it is not covered by any ceiling. **Measured on 2026-08-29**,
+  after the question was asked, on Redmine 7.0 with PostgreSQL 16 and MariaDB
+  10.11 in this container. Every figure is one scenario per process, in its own
+  transaction, because a first pass that ran them all inside one transaction
+  measured the accumulated undo of the earlier ones rather than the work.
 
-## Decided (autonomous) — 2026-08-29, WP13 step 3: archived projects
+  The shape: 500 projects × 5 trackers × 8 roles = **20,000 combinations**, a
+  shared workflow of 30 transitions per (tracker, role), so **600,000 rule rows**
+  to copy.
 
-| Date | Subject | Decision | Notes |
-| --- | --- | --- | --- |
-| 2026-08-29 | Archived projects on the workflow selectors | **Gone from everything that decides what to write; *all* means the same set** | A workflow written for an archived project governs nothing — nobody but an administrator can reach it and no issue in it can be created or edited — so offering one is noise, and *give every project its own workflow* was quietly writing rules for projects nobody can reach. `Services::ProjectOptions.selectable` is the one place the rule lives. Core's own project pickers scope to visible or active projects; `Project.sorted` carries no status predicate at all. |
-| 2026-08-29 | What "not offered" must not become | **Only the offered list narrows; an id in the request still resolves** | Otherwise an archived project's own workflow would be in the database, visible on the inventory, and removable from nowhere. `WorkflowSelection#resolve_selected_projects` asks the database rather than the offered list, so the inventory's link into the matrix goes on working — asserted, because this is the half that would have been silently lost. |
-| 2026-08-29 | Whether the **inventory** drops archived projects too, as audit F09 suggested | **No — it is a report, not a control** | The inventory answers "which projects deviate", and an archived project running its own workflow is exactly the row somebody needs to see before they unarchive it. Hiding it would mean the one page written to find deviations is the one page that cannot show that one. A deliberate divergence from the finding's suggested direction, recorded here rather than left for a reader to notice. |
-| 2026-08-29 | The rest of F09 — a three-thousand-option `<select>` on four pages | **Accepted, not fixed** | The only real fix is not rendering the list at all, i.e. an autocomplete control: a screen redesign plus a controller action plus its authorization. Out of proportion to a nit whose own verification reads "Read; ... not measured at scale", on pages already measured at 123 projects and 16,205 rules under 260 ms. Reopen it with a measurement rather than with a redesign. |
+  | what | PostgreSQL 16 | MariaDB 10.11 |
+  | --- | --- | --- |
+  | today, copy of the shared workflow | **110 s** and **294 s** in two samples, 60,042 statements | **99 s**, 60,048 statements |
+  | batched prototype, same work | **28 s**, 105 statements | **23 s**, 105 statements |
+  | today, own *empty* workflow (no copy) | **60 s**, 40,042 statements | **47 s**, 40,048 statements |
+  | batched, own *empty* workflow | **3.4 s**, 104 statements | **2.8 s**, 104 statements |
 
-## Decided (autonomous) — 2026-08-29, WP14: the remaining defect backlog
+  At a more ordinary 200 projects × 3 trackers × 4 roles (2,400 combinations,
+  72,000 rules): today 13.2 s (PG) / 9.6 s (MariaDB); batched 3.2 s / 2.2 s.
 
-| Date | Subject | Decision | Notes |
-| --- | --- | --- | --- |
-| 2026-08-29 | A status deletion that empties a project's own workflow (audit F03) | **Warn, in a flash on the deletion itself; never clean up** | The plan named the shape and the reason stands on its own: deleting the emptied scope would move the project from *own empty workflow* to *follows the generic workflow*, which is two of INV-3's three meanings collapsed into one on the administrator's behalf — the exact defect the scope model exists to prevent. Core's deletion is left byte-for-byte as core performs it; the only change is that somebody is told, with a link into the inventory filtered to the projects affected. Reversible by deleting one prepend. |
-| 2026-08-29 | Where the warning appears, given ADR-003 took the plugin off screens it does not own | **A flash on core's `IssueStatusesController#destroy`, not a Deface override on the issue-statuses list** | A per-row warning on the list would need a new anchor on a view the plugin does not own, which is the exposure ADR-003 spent eleven overrides to reduce, and INV-9's count would go from five to six. A flash needs no anchor, cannot silently stop matching, and says the one thing that is worth saying at the one moment it is true. What it cannot do is warn *before* the deletion: Redmine's delete link is a JavaScript `confirm`, not a confirmation page, so there is no server round trip to put a warning in. |
-| 2026-08-29 | Whether the warning counts field-permission scopes as well as transitions | **Yes, both; the sentence names the consequence that is severe** | An emptied *permissions* scope is a real change of state — the project's own field rules are gone — and leaving it uncounted would mean the inventory shows something the deletion did not mention. The message therefore counts every emptied combination and explains the transitions consequence, which is the one that stops work. |
-| 2026-08-29 | The `deface` constraint (audit F10) | **`~> 1.9` — a floor at the tested version and a ceiling at the next major** | The old declaration was unpinned with a stated reason, and half of that reason still holds: the host owns `Gemfile.lock`, so nothing a plugin fragment says protects an installation that already resolved, and an exact pin can import a neighbour's resolver conflict into a host that has none. What it did not cover is a **new** installation, or one running `bundle update`, where Bundler takes whatever release exists that day — and `init.rb` turns a deface that will not load into a `LoadError` that stops Redmine booting. A major-version range is strictly narrower than nothing and still resolves against any neighbour pinning inside the same major. Reversible in one line. |
-| 2026-08-29 | The `ScopeCopier` / `ProjectWorkflowCopier` asymmetry (audit F11) | **Deliberate, and recorded rather than narrowed** | Duplicating a **tracker** or a **role** carries every project's decision, including projects that do not have the new tracker enabled; copying a **project** carries only the decisions for trackers the target has. The decisive fact: the *rules* are copied for every project whatever the scopes do — `WorkflowRule.copy_one_with_projects` carries `project_id` through the select list of one statement, INV-4's one deliberate exception — so narrowing the scopes alone leaves project rule rows with no scope over them, which the resolver ignores and nothing cleans up, and narrowing the rules to match means rewriting the statement that keeps copying a role from being 500 round trips per tracker. The two copiers answer two questions: a project copy is about the target project, a tracker copy is about the tracker. The surprise also points the safer way — a project that enables the new tracker later arrives with the workflow it had for the source, where narrowing would hand it the more permissive generic one with nothing said. |
-| 2026-08-29 | The item count on Redmine's *Copy project* form | **What a tick would actually carry, not what the project holds** | It counted every scope of the source project; a copy takes the source's trackers with it and `ProjectWorkflowCopier` writes a decision only where the target has the tracker, so a scope the source kept for a tracker it has since disabled was counted and not copied. One extra query on a form that is already a page of counts. |
-| 2026-08-29 | The workflow drawing becomes switchable, and what its ceiling counts | **A plugin setting for the feature, and a ceiling counted in *arrows* rather than statuses** | The switch was decided on 2026-08-28 (a feature that can be turned off is one nobody has to defend on an upgrade); WP14 implements it, on by default, with `project_workflow_graph_offered?` as the single gate for every link and a 404 -- not a 403 -- for the action, because with the drawing off there is no such screen and no permission would help. The unit of the ceiling was measured rather than chosen (Redmine 7.0, PostgreSQL 16, this container): 400 statuses and 800 arrows lay out in 49 ms, while 61 statuses with every move permitted (3,600 arrows) take 1.55 s. So the cost follows the edges, and the default of 2,000 is about 0.7 s. Above it the layout is not computed at all -- the table is rendered instead, which is the drawing's readable twin. Distinct from the `<details>` a *dense* workflow already gets: that is about a picture nobody can read, this is about one nobody should wait for. |
-| 2026-08-29 | The undeclared core dependency the WP12 note found (its F01) | **Declare it, and replace the hand sweep with a structural one** | `WorkflowsHelper#field_required?` is called by the plugin's matrix helper and two of its own views, is not shadowed, and so had no `super_method` for ADR-002's drift gate to digest — it was watched by nothing. It is a declared dependency now, with a digest per verified minor. The finding's own second suggestion is what carries it: `spec/plugin_conventions_spec.rb` asserts that **every** method core's `WorkflowsHelper` defines and the plugin's sources mention is watched, as a shadow or as a declaration. That found a second one immediately — `options_for_workflow_select`, called by the plugin's own selection form and unshadowed since ADR-003 deleted the patch. Textual and deliberately crude: a coincidence of naming costs one manifest entry, a miss costs a screen that silently offers the wrong control. |
+  **What the measurement settles, and it is not what the question assumed:**
+
+  1. **Batching is possible and portable.** `insert_all!` for the decisions plus
+     one `INSERT … SELECT` per 1,000 projects, joining the shared rules to the
+     scope rows just created, runs on both adapters and produces **identical**
+     scope and rule counts to the per-row path. Statements fall from ~60,000 to
+     ~105.
+  2. **It does not make the large case fast.** 28 s (PG) / 23 s (MariaDB) is
+     still past what a front-end proxy will wait for. The remaining time is the
+     **data**: 600,000 rows at roughly 21,000 rows a second, which is the same
+     throughput the matrix writer already measures. No amount of batching removes
+     it. **So a ceiling is needed whether or not the write is batched.**
+  3. **It does make the *empty* variant free** — 3.4 s for 20,000 combinations,
+     from 60 s. There the cost was **entirely** round trips.
+  4. **The per-row path is not linear and not stable.** 5.5 ms per combination at
+     2,400 but 14.7 ms at 20,000 in one sample and 5.5 ms in another — a factor of
+     2.7 between two runs of the same thing, because it holds a transaction open
+     for minutes and pays for whatever else the database is doing. The batched
+     path is flat at 1.4 ms (PG) / 1.2 ms (MariaDB) per combination in every run.
+     **Predictability is what makes a ceiling mean anything.**
+  5. **A suspicion raised in passing was wrong and is retracted here.** The OR-of-
+     500-triples delete that `ScopeWriter` uses looked, in the first dirty probe,
+     like a MariaDB pathology (4.2 s for 500 triples). Measured clean it is
+     **0.05 ms per combination on both adapters** — the 4.2 s was the probe's own
+     700,000-row open transaction. This also answers part of WP15's item 4:
+     `DELETE_BATCH_SIZE` at 500 terms is fine on PostgreSQL and MariaDB.
+
+- **Options, restated against the numbers:**
+  **A) Nothing.** A large selection is 1.5–5 minutes and a timeout that rolls
+  everything back. **B) A ceiling only.** Closes the hazard, needs no ADR — but
+  on the per-row path the cost per combination varies threefold with size, so the
+  number has to be conservative (a 10-second budget is roughly 2,000
+  combinations), and it has to be counted in *combinations* rather than in
+  workflow rules, because the *empty* variant writes no rules and still takes 60 s.
+  **C) Batch it, with the ceiling.** Needs the ADR you named. The decisions go in
+  one `insert_all!` per 1,000 rows and the rules in one `INSERT … SELECT` per
+  1,000 projects, under the coordination rows WP13 already built — locked for
+  (rule\_type, tracker, role), which is trackers × roles rows and never per
+  project. Then the cost is linear, the *empty* variant is instant, and the
+  ceiling can be counted in **workflow rules** and share `bulk_write_ceiling`
+  with the matrix save, where 200,000 rules means about the same wall clock on
+  both screens.
+- **Recommendation: C together with B** — because B alone forces an awkward unit
+  and a small, conservative number, while C makes the rules-based ceiling correct
+  and gives the *empty* variant back as the safe bulk action. If only one lands
+  now, land B.
+- **Two things C also fixes, which the question did not ask about:** the 20,000
+  copies currently run **holding no lock on the workflow being copied**, so a
+  concurrent save of the shared workflow gives earlier projects the old rules and
+  later ones the new rules, silently; and 60,000 round trips inside one
+  transaction is what makes the timing unpredictable.
+- **The one loose end C carries:** two other paths create scope rows without that
+  lock — duplicating a tracker or role, and copying a project — and both act only
+  on records that were just created, so a collision is very unlikely but needs a
+  chosen behaviour: raise and let the administrator retry, or have those paths
+  take the same lock. Recommendation: raise, because a rollback that says so
+  beats a silent miscount.
+- **Urgent?** no. Nothing is blocked and the action is correct at every size; it
+  is slow at a size nobody is running. But the number in the earlier version of
+  this entry ("about 5 ms per combination, roughly 100 seconds") was optimistic:
+  a clean run of the same thing took **294 seconds** once.

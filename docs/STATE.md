@@ -192,29 +192,36 @@ WP13 and still true:
 
 ## Open choices
 
-**One, and it is not urgent** — unchanged from the last session, and nothing was
-implemented for it because the decision it would re-open is one Jan made and
-marked as needing an ADR.
+**One, and it is not urgent** — but it has now been **measured**, on 2026-08-29,
+after Jan asked whether option C could be made safe with optimistic locking. The
+full table, the options and the recommendation are in `docs/DECISIONS.md` under
+*Open — for Jan (2026-08-29)*; the short version:
 
-- **Choice:** *Give own workflow* is the one bulk action still measured **per
-  combination** — about 5 ms each, linear, and **not** covered by the write
-  ceiling. On a large installation (500 projects × 5 trackers × 8 roles = 20,000
-  combinations) that is roughly **100 seconds** in one request. Jan's own decision
-  of 2026-08-27 made it one validated `save!` per row on purpose, and said that if
-  the slow case were ever actually met it is *"the ADR that gets written, not this
-  method that gets rewritten"*. It has now been met in a measurement rather than
-  by a user. What should happen?
-- **Options:** **A) Nothing yet** — record the number and wait for somebody to
-  actually hit it. **B) Give it the same ceiling** — refuse above a configured
-  number of combinations, so the request cannot run for two minutes. Cheap,
-  reversible, and it does not touch the decided per-row write. **C) Write the ADR
-  and batch it** — the round trips are the cost, and the 2026-08-27 reasoning can
-  be kept in a different shape.
-- **Recommendation:** B — it closes the "one request runs for two minutes" hazard
-  without re-opening a decision made deliberately, and it is the same mechanism
-  WP13 already built for the matrix save.
-- **Urgent?** no. Nothing is blocked; the action is correct today and only slow at
-  a size nobody is running.
+- *Give own workflow* over 500 projects × 5 trackers × 8 roles (20,000
+  combinations, 600,000 rules copied) takes **110 s and 294 s in two samples** on
+  PostgreSQL 16 and **99 s** on MariaDB 10.11, in 60,000 statements.
+- A batched prototype — `insert_all!` for the decisions, one `INSERT … SELECT`
+  per 1,000 projects joining the shared rules to the scope rows just created,
+  under the coordination rows WP13 already built — produces **identical** counts
+  on both adapters in **105 statements**: **28 s** (PG) and **23 s** (MariaDB).
+- **Batching does not remove the need for a ceiling.** 28 s is still past a
+  proxy's patience, and what is left is the data: 600,000 rows at ~21,000 a
+  second, the same throughput the matrix writer measures.
+- **It does make the *own empty* variant free**: 3.4 s for 20,000 combinations,
+  from 60 s. There the cost was entirely round trips.
+- **The per-row path is not linear**: 5.5 ms per combination at 2,400, 14.7 ms at
+  20,000 in one sample and 5.5 ms in another. The batched path is flat at ~1.4 ms
+  in every run, which is what lets a ceiling mean something.
+- **Recommendation: C with B** — batch it *and* give it a ceiling, the ceiling
+  counted in workflow rules so it can share `bulk_write_ceiling` with the matrix
+  save. If only one lands, land B.
+- **A suspicion raised while measuring is retracted in the same entry:** the
+  OR-of-500-triples delete is **not** slow on MariaDB (0.05 ms per combination on
+  both adapters). The 4.2 s first seen was the probe's own 700,000-row open
+  transaction. That also answers part of WP15's item 4.
+
+Nothing was implemented for any of this: B and C are both Jan's call, and C is
+the ADR he named on 2026-08-27.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -1342,6 +1349,23 @@ Everything from here down is carried forward from earlier sessions.
   gate does *not* cover: the three singleton-class shadows, of which
   `WorkflowTransition.replace_transitions` and
   `WorkflowPermission.replace_permissions` are the two INV-1 rests on.
+
+### Traps from the 2026-08-29 measurement of *give own workflow*
+
+- **One scenario per process, or the numbers are fiction.** A probe that ran
+  every scenario inside one transaction had the later ones measuring the
+  accumulated undo of the earlier ones. On MariaDB that turned a 0.05 ms delete
+  into 4.2 s and pointed at an innocent piece of code. `measure_clean.rb` in the
+  scratchpad takes MODE/COMBOS/RULES from the environment and does exactly one.
+- **`$stdout.sync = true` in any probe that runs for minutes**, or a run killed
+  half way leaves an empty log and no idea how far it got.
+- **Killing a rails runner mid-transaction leaves MariaDB rolling back**, and the
+  next run fails with `Lock wait timeout exceeded` for a minute or two. Wait, or
+  check `information_schema.innodb_trx`, rather than assuming the probe is wrong.
+- **The same measurement can vary 2.7× between runs** on the per-row path (110 s
+  and 294 s for the same 20,000 combinations on PostgreSQL), because it holds a
+  transaction open for minutes. Take two samples of anything that slow before
+  quoting it.
 
 ### Traps from the 2026-08-29 WP14 session
 
