@@ -116,7 +116,7 @@ Everything below was executed in this container.
 | `node dev/check-bulk-js.mjs` | bulk action script OK |
 | `dev/check-backfill.sh`, `dev/check-upgrade.sh`, `dev/check-uninstall.sh` | green on every host, each from a database rebuilt from **core** migrations first |
 | Red-on-old-code | verified by mutation, one at a time, re-running the two new spec files after each: `copy_generic: false` flipped to `true` in the restore (1 red — the own *empty* workflow comes back with a copied generic rule in it), the audit stamp removed (1), and `confirm!` moved after the backup in the uninstall (1 — a refused run leaves a file behind). All three reverted. |
-| CI | to be checked on the head after this session's push; run **180** (`8a2e240`) was the last one CI answered for and was green on all eleven jobs |
+| CI | run **182** is the head (`162de21`) and is green on **all eleven jobs**, the new *Uninstall and restore rehearsal* step included on every one of the nine cells |
 
 **One weakness this session found in its own gate, and fixed.**
 `dev/check-uninstall.sh`'s first leg asserted only that the uninstall *failed*
