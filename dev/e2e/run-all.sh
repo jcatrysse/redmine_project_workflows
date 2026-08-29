@@ -14,6 +14,12 @@ reset() {
     ' >/dev/null 2>&1)
 }
 
+# The installation the scenarios document, so a run does not depend on whatever
+# the previous one -- or a screenshot session -- left behind.
+(cd "$HOST" && RAILS_ENV=development RBENV_VERSION="$RUBY" PATH="/opt/rbenv/shims:$PATH" \
+  bundle exec rails runner plugins/redmine_project_workflows/dev/e2e/seed.rb >/dev/null 2>&1) \
+  || { echo "seed failed"; exit 1; }
+
 fail=0
 for s in admin manager effect guard screens; do
   echo "=============================== $s"

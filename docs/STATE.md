@@ -53,6 +53,13 @@
   all passing**. `dev/e2e/` is the harness and `dev/e2e/README.md` says how to
   stand it up; `docs/review/findings/2026-08-29-claude-browser.md` is what the
   run found. One nit, no defect.
+- **The documentation was rewritten and split.** The README was 858 lines; it is
+  now 165 and links to five documents under `docs/` — `usage.md`, `gotchas.md`,
+  `settings.md`, `operations.md` and `compatibility.md` — with seven screenshots
+  in `docs/images/`, reproducible from `dev/e2e/seed_docs.rb` and
+  `dev/e2e/docshots.mjs`. The version claim now lives in two user-facing places
+  (the README's *Requirements* and `docs/compatibility.md`), and
+  `spec/compatibility_spec.rb` checks both against the manifest.
 - **Nothing has been released.** 0.1.6, unreleased; `main` carries 0.0.3 and
   there is still no tag. The README's *alpha — do not use in production* warning
   became an **installation notice** on 2026-08-29, answered by Jan: it says the

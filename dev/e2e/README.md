@@ -60,6 +60,23 @@ not matter and a failed run leaves nothing behind.
 | `guard.mjs` | Who may reach what (anonymous, a plain user, a viewer, another project), and the twelve bad-selection shapes of F03 |
 | `screens.mjs` | The inventory, the copy screen and its refusal, the comparison screen, the drawing, and the bulk controls |
 
+## Regenerating the screenshots
+
+`docs/images/` is produced from the same host:
+
+```bash
+RAILS_ENV=development bundle exec rails runner \
+  plugins/redmine_project_workflows/dev/e2e/seed.rb
+RAILS_ENV=development bundle exec rails runner \
+  plugins/redmine_project_workflows/dev/e2e/seed_docs.rb   # realistic names, a workflow worth drawing
+node dev/e2e/docshots.mjs
+```
+
+`seed_docs.rb` renames the scenario projects and replaces one workflow with a
+plain path plus two shortcuts, because Redmine's default everything-to-everything
+workflow draws as spaghetti and makes a poor illustration. Run `seed.rb` again
+afterwards if you want to run the scenarios: they expect the scenario names back.
+
 Not in the list, and worth adding when somebody has the time: the bulk row and
 column actions *driven* rather than merely present, a second browser, and a
 mobile viewport.

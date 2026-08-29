@@ -1426,7 +1426,7 @@ Version-conditional code stays behind one helper.
 of ADR-002 — and `RedmineProjectWorkflows::Compatibility` is the only thing that
 reads it. Everything that needs a version fact goes through that module:
 `VersionHelper`, the drift spec, the conventions spec, the diagnostics page and
-the README's Compatibility section, whose numbers a spec compares against the
+the version claims in `README.md` and `docs/compatibility.md`, whose numbers a spec compares against the
 manifest on every run. Nothing else in `app/` or `lib/` may read
 `Redmine::VERSION`, and `spec/plugin_conventions_spec.rb` fails if anything
 does.

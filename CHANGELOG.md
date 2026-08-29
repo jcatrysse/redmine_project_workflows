@@ -60,7 +60,7 @@ The workflow as a drawing.
   however many rules that is, where Redmine's own workflow save writes one
   statement per rule. Measured on Redmine 7.0 and PostgreSQL 16, the same 1,620
   rules take 30 statements and 0.22 s through this plugin and 6,480 statements
-  and 5.03 s written one at a time. The README's *Settings* section has the
+  and 5.03 s written one at a time. `docs/settings.md` has the
   numbers, including the one action that is still measured per combination.
 
 - **Giving many projects their own workflow is between six and sixteen times
@@ -759,7 +759,7 @@ deleted.
 
 **Upgrading:** the migration backfills the new table, so a project that was
 already working keeps working. Read
-[Upgrading and uninstalling](README.md#upgrading-and-uninstalling) first —
+[Installing, upgrading, backing up and removing](docs/operations.md) first —
 especially before uninstalling, which removes every project-specific rule.
 
 **Breaking:** the declared minimum is now Redmine **5.1**. It was 5.0, which

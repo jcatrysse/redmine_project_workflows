@@ -124,6 +124,15 @@ line, the single-link case and the actions block, and
 `spec/controllers/project_workflow_inventories_controller_spec.rb` for the
 inventory. Two of them were verified red against the previous markup.
 
+**A third location, found the same way.** Taking screenshots for the rewritten
+documentation showed the administration matrix's scope panel with *Empty this
+workflow Return to the generic workflow* run together: that screen has its own
+copy of the four state actions, in `_scope_panel.html.erb`, with no separator at
+all — and a mixed selection can offer all four at once. Fixed there too, with an
+example in `spec/views/project_workflow_rules/screens_spec.rb` verified red
+against the previous markup. Three screens had the defect and the finding named
+one; looking at rendered pages is what found each of them.
+
 ---
 
 ## Checked and found sound

@@ -27,28 +27,35 @@
       <strong><%= l(:label_project_workflow_scope) %>:</strong>
       <%= project_workflow_scope_state_tag(state) %>
     </p>
-    <p>
-      <% if state.enable_possible? %>
-        <%= link_to l(:button_project_workflow_enable_copy),
-                    project_workflow_scopes_path(selection.merge(source: 'copy')),
-                    method: :post,
-                    data: { confirm: l(:text_project_workflow_enable_copy_confirm, count: state.inheriting) } %>
-        <%= link_to l(:button_project_workflow_enable_empty),
-                    project_workflow_scopes_path(selection.merge(source: 'empty')),
-                    method: :post,
-                    data: { confirm: l(:text_project_workflow_enable_empty_confirm, count: state.inheriting) } %>
-      <% end %>
-      <% if state.scoped? %>
-        <%= link_to l(:button_project_workflow_clear),
-                    clear_project_workflow_scopes_path(selection),
-                    method: :post,
-                    data: { confirm: l(:text_project_workflow_clear_confirm) } %>
-        <%= link_to l(:button_project_workflow_inherit),
-                    project_workflow_scopes_path(selection),
-                    method: :delete,
-                    data: { confirm: l(:text_project_workflow_inherit_confirm) } %>
-      <% end %>
-    </p>
+    <%# Separated by a pipe, like every other run of adjacent links in this
+        plugin. A mixed selection can offer all four of these at once, and with
+        only a space between them they render as one sentence -- the same defect
+        _scope_actions.html.erb argues about and the settings tab was fixed for
+        (finding F01 of 2026-08-29-claude-browser, found on this screen too). %>
+    <% actions = [] %>
+    <% if state.enable_possible? %>
+      <% actions << link_to(l(:button_project_workflow_enable_copy),
+                            project_workflow_scopes_path(selection.merge(source: 'copy')),
+                            method: :post,
+                            data: { confirm: l(:text_project_workflow_enable_copy_confirm,
+                                               count: state.inheriting) }) %>
+      <% actions << link_to(l(:button_project_workflow_enable_empty),
+                            project_workflow_scopes_path(selection.merge(source: 'empty')),
+                            method: :post,
+                            data: { confirm: l(:text_project_workflow_enable_empty_confirm,
+                                               count: state.inheriting) }) %>
+    <% end %>
+    <% if state.scoped? %>
+      <% actions << link_to(l(:button_project_workflow_clear),
+                            clear_project_workflow_scopes_path(selection),
+                            method: :post,
+                            data: { confirm: l(:text_project_workflow_clear_confirm) }) %>
+      <% actions << link_to(l(:button_project_workflow_inherit),
+                            project_workflow_scopes_path(selection),
+                            method: :delete,
+                            data: { confirm: l(:text_project_workflow_inherit_confirm) }) %>
+    <% end %>
+    <p class="project-workflow-scope-actions"><%= safe_join(actions, ' | ') %></p>
     <%# The grid below shows what the selection *stores*, so a combination that
         inherits renders as an empty matrix -- which looks exactly like "nothing
         is permitted here" and is the opposite of the truth. Saying so is what

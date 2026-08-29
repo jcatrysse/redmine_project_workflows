@@ -208,6 +208,21 @@ describe ProjectWorkflowRulesController, type: :controller do
       expect(response.body).to include(ERB::Util.html_escape(I18n.t(:button_project_workflow_inherit)))
     end
 
+    # Finding F01 of 2026-08-29-claude-browser, third location. This screen has
+    # its own copy of the four state actions, and a mixed selection can offer all
+    # four at once. Without a separator they render as one sentence, which is the
+    # defect the settings tab and the inventory were fixed for.
+    it 'separates the state actions from each other' do
+      give_own_workflow(project, tracker, role)
+
+      get_transitions(project_id: [project.id.to_s])
+
+      panel = response.body[%r{<p class="project-workflow-scope-actions">.*?</p>}m]
+      expect(panel).not_to be_nil
+      expect(panel.scan('<a ').size).to be >= 2
+      expect(panel).to match(%r{</a>\s*\|\s*<a})
+    end
+
     # 'all' has to stay 'all' in the action links: expanding it would put every
     # project id in the URL.
     it 'keeps the whole-selection keyword in its links' do

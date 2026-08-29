@@ -34,7 +34,7 @@ that cannot be checked mechanically says who checks it and against what.
 | **R4** | Every migration is reversible, and the reversal is rehearsed over data that is already there. | Four CI steps, on every cell: the `VERSION=0` round trip, `dev/check-backfill.sh`, `dev/check-upgrade.sh` and `dev/check-uninstall.sh`. |
 | **R5** | An upgrade **from the previous release** is rehearsed, starting from a checkout of that release, running *that release's* code. | `dev/check-release-upgrade.sh`, a CI step on every cell. It installs the plugin at a given ref, writes project rules through that release's writers, records what an issue is allowed to do, then upgrades and compares. The ref is `origin/main` — a branch no session writes to — because there is no tag; a tag would be a better ref and is not a precondition. |
 | **R6** | No finding in `docs/review/findings/` is still `open`. | `grep '\*\*Status:\*\* open' docs/review/findings/*.md` returns only `TEMPLATE.md`. A `wont-fix` counts as settled; an `open` does not. |
-| **R7** | The README describes what the code does. | Read against the code. Where a claim can be pinned it already is: the compatibility section against `compatibility.yml`, the override count against the rendered pages, the settings defaults against their constants. |
+| **R7** | The README and `docs/` describe what the code does. | Read against the code. Where a claim can be pinned it already is: the version claims in `README.md` and `docs/compatibility.md` against `compatibility.yml`, the override count against the rendered pages, the settings defaults against their constants. |
 | **R8** | All eight locale files carry the same keys, and no English string is presented as a translation. | `spec/locales_spec.rb` asserts the parity; the second half is a reading, and `de`, `es`, `fr`, `it`, `pl` and `pt` are unreviewed translation *presented as* translation (see `CLAUDE.md`). |
 | **R9** | The version in `init.rb`, the CHANGELOG's top entry and the tag agree. | Read. A tag is how a release is identified afterwards; R5 does not depend on one, because a ref is enough to check a release out. |
 
@@ -43,9 +43,9 @@ that cannot be checked mechanically says who checks it and against what.
 | | Criterion | How it is checked |
 |---|---|---|
 | **A1** | The plugin's write actions work on a host carrying every other plugin the maintainer runs. | The 45-plugin compatibility run of 2026-08-28, repeated on the release commit. `docs/STATE.md` has the recipe. This is the run that found the permission-name collision, which made every screen answer 403 to everybody with nothing in any log. |
-| **A2** | An installation can be undone. | R4 covers the mechanism; A2 is the documentation of it — a procedure an administrator can follow, including what a downgrade costs. `README.md` § *Upgrading and uninstalling*. |
+| **A2** | An installation can be undone. | R4 covers the mechanism; A2 is the documentation of it — a procedure an administrator can follow, including what a downgrade costs. `docs/operations.md`. |
 | **A3** | The plugin has run on a real installation, with real data, for a stated period. | The maintainer's answer. Nothing in this repository can establish it, and no amount of CI substitutes for it. |
-| **A4** | The behaviours that surprise people are written down where somebody installing it will read them. | `README.md` § *What to know before you install it*. Each entry is a consequence of the design that has actually surprised somebody. |
+| **A4** | The behaviours that surprise people are written down where somebody installing it will read them. | `docs/gotchas.md`, linked from the README's install notice and from its documentation table. Each entry is a consequence of the design that has actually surprised somebody. |
 
 ## Where this stands — 2026-08-29, version 0.1.6, unreleased
 

@@ -63,34 +63,44 @@ describe RedmineProjectWorkflows::Compatibility do
     end
   end
 
-  # ADR-002, decision 1: the README's Compatibility section is one of the seven
-  # places a version fact used to live independently. It stays hand-written --
-  # it is prose, and generating prose from YAML produces neither -- but it may
-  # not disagree with the manifest, and this is what says so.
-  describe 'the README' do
-    let(:readme) { File.read(File.expand_path('../README.md', __dir__)) }
-    let(:section) { readme[/^## Compatibility$.*?(?=^## |\z)/m] }
-    # The one sentence that makes the claim, so that the assertion reads the
-    # claim rather than every number on the page -- "0.1.0" and "Ruby 3.2" are
-    # both `\d+\.\d+` and neither is a supported Redmine.
-    let(:claim) { section[/^- \*\*Redmine [^*]+\*\*/] }
+  # ADR-002, decision 1: the user-facing prose is one of the seven places a
+  # version fact used to live independently. It stays hand-written -- it is
+  # prose, and generating prose from YAML produces neither -- but it may not
+  # disagree with the manifest, and this is what says so.
+  #
+  # **Two files, since the documentation was split in 0.1.6.** The README carries
+  # the claim under *Requirements*, because a reader deciding whether to install
+  # should not have to follow a link to find out whether their Redmine is
+  # supported; `docs/compatibility.md` carries the same claim in full. Both are
+  # checked, because a fact stated twice is a fact that can drift once.
+  {
+    'README.md' => /^## Requirements$.*?(?=^## |\z)/m,
+    'docs/compatibility.md' => /^## Tested combinations$.*?(?=^## |\z)/m
+  }.each do |file, section_pattern|
+    describe file do
+      let(:section) { File.read(File.expand_path("../#{file}", __dir__))[section_pattern] }
+      # The lines that make the claim, so the assertion reads the claim rather
+      # than every number on the page -- "0.1.0" and "Ruby 3.2" are both
+      # `\d+\.\d+` and neither is a supported Redmine.
+      let(:claim) { section[/Redmine.*/] }
 
-    it 'has a Compatibility section that claims a set of Redmine versions' do
-      expect(section).not_to be_nil
-      expect(claim).not_to be_nil
-    end
+      it 'has a section that claims a set of Redmine versions' do
+        expect(section).not_to be_nil
+        expect(claim).not_to be_nil
+      end
 
-    it 'claims exactly the minors the manifest lists' do
-      expect(claim.scan(/\d+\.\d+/).uniq.sort).to eq(described_class.verified_minors.sort)
-    end
+      it 'claims exactly the minors the manifest lists' do
+        expect(claim.scan(/\d+\.\d+/).uniq.sort).to eq(described_class.verified_minors.sort)
+      end
 
-    it 'names every database the manifest lists' do
-      described_class.databases.each { |database| expect(section).to include(database) }
-    end
+      it 'names every database the manifest lists' do
+        described_class.databases.each { |database| expect(section).to include(database) }
+      end
 
-    it 'names every Ruby the manifest records' do
-      described_class.verified_minors.map { |minor| described_class.ruby_for(minor) }.uniq.each do |ruby|
-        expect(section).to include("Ruby #{ruby}")
+      it 'names every Ruby the manifest records' do
+        described_class.verified_minors.map { |minor| described_class.ruby_for(minor) }.uniq.each do |ruby|
+          expect(section).to include("Ruby #{ruby}")
+        end
       end
     end
   end
