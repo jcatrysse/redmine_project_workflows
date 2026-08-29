@@ -172,7 +172,7 @@ Everything below was executed in this container.
 | Locale parity | all eight files, 0 missing and 0 extra keys (in the suite) |
 | The diagnostics page | rendered on 7.0 and read as text: five rows, each naming the override, the screen and **Found** |
 | Migrations | untouched this session, so INV-8 was not re-run locally; CI runs it on every cell |
-| CI | run **159** on `8c35262`: **success on all eleven jobs** — the full 3 x 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Run 155 on the WP12 (2/2) commit was green too. Runs 156, 157 and 158 read as **cancelled**: pushing the next commit supersedes the in-flight run, so a multi-commit session always leaves earlier runs cancelled and that is not a failure — read the *latest* run. The only code not covered by a completed run is the one commit after `8c35262`, which is this file. |
+| CI | run **161** on `aaebd50`: **success on all eleven jobs** — the full 3 x 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Runs 155 (the WP12 (2/2) commit), 159 and 160 were green too. Runs 156, 157 and 158 read as **cancelled**: pushing the next commit supersedes the in-flight run, so a multi-commit session always leaves earlier runs cancelled and that is not a failure — read the *latest* run. Every commit carrying code is covered by a completed green run; the only thing after `aaebd50` is this file. |
 
 **Red on the old code, observed rather than assumed:**
 
