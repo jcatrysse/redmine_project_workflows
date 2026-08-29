@@ -68,7 +68,7 @@ class ProjectWorkflowRulesController < ApplicationController
     @roles = Role.sorted.select(&:consider_workflow?)
     @trackers = Tracker.sorted
     load_project_options
-    return if invalid_project_selection?
+    return if invalid_selection?
 
     @project_workflow_selection = summary_selection_param_values
     @workflow_counts = WorkflowTransition
@@ -78,7 +78,7 @@ class ProjectWorkflowRulesController < ApplicationController
 
   # The status transitions matrix for the selection.
   def edit
-    return if invalid_project_selection?
+    return if invalid_selection?
     return unless @trackers.present? && @roles.present? && @statuses.any?
 
     @project_workflow_scope_state = scope_state_for(ProjectWorkflowScope::TRANSITIONS)
@@ -91,7 +91,7 @@ class ProjectWorkflowRulesController < ApplicationController
   end
 
   def update
-    return if invalid_project_selection?
+    return if invalid_selection?
 
     @rule_type_for_log = ProjectWorkflowScope::TRANSITIONS
     if @roles.present? && @trackers.present? && params[:transitions]
@@ -103,7 +103,7 @@ class ProjectWorkflowRulesController < ApplicationController
 
   # See #edit: the same reason, for the field permissions matrix.
   def permissions
-    return if invalid_project_selection?
+    return if invalid_selection?
     return unless @roles.present? && @trackers.present?
 
     @project_workflow_scope_state = scope_state_for(ProjectWorkflowScope::PERMISSIONS)
@@ -118,7 +118,7 @@ class ProjectWorkflowRulesController < ApplicationController
   end
 
   def update_permissions
-    return if invalid_project_selection?
+    return if invalid_selection?
 
     @rule_type_for_log = ProjectWorkflowScope::PERMISSIONS
     if @roles.present? && @trackers.present? && params[:permissions]
@@ -135,7 +135,7 @@ class ProjectWorkflowRulesController < ApplicationController
 
   def copy
     load_project_options
-    return if invalid_project_selection?
+    return if invalid_selection?
 
     find_sources_and_targets
     @source_project_id = params[:source_project_id].presence
@@ -145,7 +145,7 @@ class ProjectWorkflowRulesController < ApplicationController
   # form's two project selectors are `source_project_id` and
   # `target_project_ids[]`, and it builds the list both are rendered from.
   #
-  # Deliberately no `invalid_project_selection?` after it, unlike #copy: this
+  # Deliberately no `invalid_selection?` after it, unlike #copy: this
   # action never reads params[:project_id], so an id in it names nothing and can
   # widen nothing, and answering 404 for a parameter the action ignores would be
   # reporting a fault that does not exist. The two selectors it does read are
@@ -205,8 +205,18 @@ class ProjectWorkflowRulesController < ApplicationController
     @trackers = Tracker.sorted
     @source_tracker = find_copy_source(Tracker, params[:source_tracker_id])
     @source_role = find_copy_source(Role, params[:source_role_id])
-    @target_trackers = params[:target_tracker_ids].blank? ? nil : Tracker.where(id: params[:target_tracker_ids]).to_a
-    @target_roles = params[:target_role_ids].blank? ? nil : Role.where(id: params[:target_role_ids]).to_a
+    @target_tracker_selection = exact_targets(params[:target_tracker_ids], @trackers.to_a)
+    @target_role_selection = exact_targets(params[:target_role_ids], @roles)
+    @target_trackers = @target_tracker_selection.presence
+    @target_roles = @target_role_selection.presence
+  end
+
+  # WP18. The target selectors resolve against the very lists this form offers,
+  # not against every record of the class -- so a role the form does not list,
+  # because it takes no part in a workflow, is now refused rather than copied to.
+  # Core's own body resolved against the class and reported success.
+  def exact_targets(param, candidates)
+    RedmineProjectWorkflows::Services::ExactSelection.resolve(param, candidates: candidates)
   end
 
   # nil for both "not chosen" and "same as the target", which is core's own
@@ -224,25 +234,38 @@ class ProjectWorkflowRulesController < ApplicationController
     find_roles
     find_trackers
     load_project_options
+    record_unresolved(@role_selection, @tracker_selection)
     find_statuses
   end
 
-  # Core's own bodies. `all` is the keyword core's own selector submits.
+  # Core's own bodies were `klass.where(id: ids).to_a`, and that is finding F03
+  # of 2026-08-29-claude-revalidation: whatever resolved was the selection, a
+  # value naming nothing was dropped, and a value of the wrong shape was *cast*
+  # -- `tracker_id=1e5` wrote rules for tracker 1 and reported *Successful
+  # update*. This screen is the one that writes, and every matrix save deletes
+  # before it inserts, so it is the last place that should be the most forgiving.
+  #
+  # `all` is the keyword core's own selector submits, and it stays a keyword
+  # rather than becoming an id nothing matches.
   def find_roles
-    @roles = find_selection(Role.sorted.select(&:consider_workflow?), Role, params[:role_id])
+    @role_selection = RedmineProjectWorkflows::Services::ExactSelection.resolve(
+      params[:role_id], candidates: Role.sorted.select(&:consider_workflow?), keywords: %w[all]
+    )
+    @roles = selection_records(@role_selection, Role.sorted.select(&:consider_workflow?))
   end
 
   def find_trackers
-    @trackers = find_selection(Tracker.sorted.to_a, Tracker, params[:tracker_id])
+    @tracker_selection = RedmineProjectWorkflows::Services::ExactSelection.resolve(
+      params[:tracker_id], candidates: Tracker.sorted.to_a, keywords: %w[all]
+    )
+    @trackers = selection_records(@tracker_selection, Tracker.sorted.to_a)
   end
 
-  def find_selection(all, klass, ids)
-    ids = Array.wrap(ids)
-    selection = if ids == ['all']
-                  all
-                elsif ids.present?
-                  klass.where(id: ids).to_a
-                end
+  # nil for "nothing was selected", which is the state both matrices render the
+  # selector for; the whole list for `all`.
+  def selection_records(selection, all)
+    return all.presence if selection.keyword?('all')
+
     selection.presence
   end
 

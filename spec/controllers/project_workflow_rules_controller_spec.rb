@@ -437,6 +437,74 @@ describe ProjectWorkflowRulesController, type: :controller do
     expect(response).to have_http_status(:ok)
   end
 
+  # WP18, finding F03 of 2026-08-29-claude-revalidation. Core's own finder was
+  # `klass.where(id: ids).to_a` and whatever resolved was the selection: an id
+  # naming nothing was dropped, and an id of the wrong shape was **cast**.
+  # Measured on a running host before the fix: `tracker_id=1e5` wrote rules for
+  # tracker 1 and answered *Successful update.*
+  #
+  # Every example here asserts both halves, and the second is the one that
+  # matters: the request is refused **and nothing was written**. A matrix save
+  # deletes before it inserts, so a selection accepted in part is not a partial
+  # save, it is a partial deletion.
+  #
+  # Eight of the twelve are the regression: verified red against the previous
+  # code, which wrote a rule for every one of them. The four project shapes were
+  # already refused -- `load_project_options` has checked shape as well as record
+  # since WP0 -- and they are here because the point of the table is that every
+  # selector on the screen now answers the same way, not that three of them do.
+  describe 'a selection naming something that does not exist' do
+    let(:matrix) do
+      { old_status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
+    end
+
+    def save_with(overrides)
+      post :update, params: { role_id: [role.id], tracker_id: [tracker.id],
+                              used_statuses_only: '0', transitions: matrix }.merge(overrides)
+    end
+
+    def rules_written
+      WorkflowTransition.where(old_status_id: old_status.id, new_status_id: new_status.id).count
+    end
+
+    {
+      'a tracker id that names nothing' => { tracker_id: %w[999999] },
+      'a live tracker and one that names nothing' => { tracker_id: [nil, '999999'] },
+      'a float-shaped tracker id, which Rails casts to id 1' => { tracker_id: %w[1e5] },
+      'a tracker id with trailing garbage' => { tracker_id: %w[1abc] },
+      'a negative tracker id' => { tracker_id: %w[-1] },
+      'a role id that names nothing' => { role_id: %w[999999] },
+      'a live role and one that names nothing' => { role_id: [nil, '999999'] },
+      'a float-shaped role id' => { role_id: %w[1e5] },
+      'a project id that names nothing' => { project_id: %w[999999] },
+      'a float-shaped project id' => { project_id: %w[1e5] },
+      'a project id with trailing garbage' => { project_id: %w[1abc] },
+      'a word that is not a keyword of the project selector' => { project_id: %w[any] }
+    }.each do |description, overrides|
+      it "answers 404 and writes nothing for #{description}" do
+        # nil in a list stands for "the live record this example is about",
+        # filled in here so the table above stays readable.
+        params = overrides.transform_values do |values|
+          values.map { |value| value.nil? ? live_id_for(overrides.keys.first) : value }
+        end
+
+        expect { save_with(params) }.not_to(change { rules_written })
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
+    # The contrast, so the twelve above are not all passing for the wrong
+    # reason: the same request with everything resolvable writes and redirects.
+    it 'writes and redirects when every value the request names exists' do
+      expect { save_with({}) }.to change { rules_written }.by(1)
+      expect(response).to have_http_status(:found)
+    end
+
+    def live_id_for(key)
+      key == :tracker_id ? tracker.id.to_s : role.id.to_s
+    end
+  end
+
   # F01: nothing drove a save with the whole-installation keyword, so nothing
   # said what the redirect after one may carry. The two examples below are the
   # controller half of that fix; the form half -- that the hidden fields hand
@@ -1264,6 +1332,20 @@ describe ProjectWorkflowRulesController, type: :controller do
 
     it 'rejects a target role id that does not exist' do
       expect { duplicate_with(target_role_ids: [target_role.id.to_s, '999999']) }
+        .not_to(change { workflow_snapshot })
+
+      expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_target_tracker_or_role))
+    end
+
+    # WP18. The target selectors now resolve against the very lists this form
+    # offers, not against every record of the class. A role that takes no part in
+    # a workflow is not on the form and copying to it would write rules nothing
+    # reads; core's own body resolved it and reported success.
+    it 'rejects a target role the form does not offer' do
+      unlisted = Role.create!(name: 'no-workflow-role', permissions: [])
+      expect(unlisted.consider_workflow?).to be(false)
+
+      expect { duplicate_with(target_role_ids: [target_role.id.to_s, unlisted.id.to_s]) }
         .not_to(change { workflow_snapshot })
 
       expect(flash.now[:error]).to eq(I18n.t(:error_workflow_copy_target_tracker_or_role))

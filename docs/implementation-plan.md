@@ -34,9 +34,9 @@
 | WP15 | The test debt three reviews named | **done** — all six items |
 | WP16 | Release engineering | **done** — all four items |
 | — | *WP10..WP16 made it releasable on paper. WP17..WP20 answer the review that read it back.* | |
-| WP17 | Recovery you can rely on | **next** |
-| WP18 | One exact selection resolver | planned |
-| WP19 | The compatibility banner, and the small hardening | planned |
+| WP17 | Recovery you can rely on | **done** — all six items; the stale-backup guard is a re-read and compare rather than the revision column planned (docs/DECISIONS.md) |
+| WP18 | One exact selection resolver | **done** |
+| WP19 | The compatibility banner, and the small hardening | **next** — minus F06, taken along with WP17 |
 | WP20 | The release gates that are not code | Jan's |
 
 ---
@@ -1219,6 +1219,18 @@ resolver already has a spec; they move with it.
 
 **Done when:** the twelve shapes in the finding's regression list answer the same
 way on every screen, and none of them writes a row.
+
+**Done.** `Services::ExactSelection` is the one resolver, and the four call sites
+are on it: the administration matrices' trackers and roles (the defect), the
+project selector, the copy screen's two target selectors and the graph's roles.
+Twelve shapes are driven through the writing screen and answer 404 with nothing
+written; eight of them were verified red against the previous code, and the four
+project shapes were already refused and are in the table because the point is
+that every selector now answers the same way. Two behaviours tightened on the
+way: the copy screen's target roles resolve against the list the form offers
+rather than against every Role, so a role that takes no part in a workflow is
+refused instead of copied to; and a matrix selection comes back in candidate
+order rather than in the order the browser submitted it.
 
 ---
 

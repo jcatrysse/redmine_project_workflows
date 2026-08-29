@@ -34,7 +34,12 @@ module RedmineProjectWorkflows
       return render_404 if @tracker.nil?
 
       @visible_roles = options.visible_roles(@project)
-      @roles = selected_roles
+      # WP18: the one resolver, against the offered list, so no shape of a
+      # parameter reaches a query and everything the request named that the
+      # project does not offer is reported rather than dropped.
+      selection = RedmineProjectWorkflows::Services::ExactSelection.resolve(
+        params[:role_id], candidates: @visible_roles
+      )
       # 404 where the request named something the project does not offer, and that
       # means *anything* it named, not merely all of it. Answering only on an empty
       # result made `role_id[]=<offered>&role_id[]=999999` render the offered role
@@ -46,51 +51,22 @@ module RedmineProjectWorkflows
       # scope brought one in -- is not a missing page, and the screen says so in
       # the same sentence the settings tab uses for the same state. That is why the
       # empty-result case still asks whether anything was on offer.
-      return render_404 if unresolved_role_ids.any?
+      return render_404 unless selection.exact?
 
+      @roles = selection.records.presence || own_roles
       render_404 if @roles.empty? && @visible_roles.any?
     end
 
-    # The role ids the request named that no offered role answered. De-duplicated,
-    # because an id repeated in a selection is one selection rather than a missing
-    # record -- the same rule +unresolved_target_ids+ applies on the copy screen.
-    # Empty when the request named no role at all, which is not a failed selection
-    # but the absence of one.
-    def unresolved_role_ids
-      requested = requested_role_ids.uniq
-      return [] if requested.empty?
-
-      requested - @roles.map { |role| role.id.to_s }
-    end
-
-    # What the request asked for, intersected with the list above -- so a parameter
-    # can only ever name a role the project already offers, and no shape of it
-    # reaches a query (Project.where(id: ['1e5']) resolves to project 1, which is
-    # why the shape of an id is never relied on).
-    #
-    # With nothing asked for, the reader's own roles here, which is the union the
-    # status dropdown on an issue of theirs is built from and therefore the answer
-    # to "what may I do". A reader who holds none -- an administrator, or somebody
-    # with the permission through a group -- gets the whole list rather than an
-    # empty drawing.
-    def selected_roles
+    # What is drawn when the request asked for no role at all: the reader's own
+    # roles, which is the union the status dropdown on an issue of theirs is
+    # built from and therefore the answer to "what may I do". A reader who holds
+    # none -- an administrator, or somebody with the permission through a group
+    # -- gets the whole list rather than an empty drawing.
+    def own_roles
       return [] if @visible_roles.empty?
-
-      requested = requested_role_ids
-      return @visible_roles.select { |role| requested.include?(role.id.to_s) } if requested.any?
 
       own = User.current.roles_for_project(@project).to_set(&:id)
       @visible_roles.select { |role| own.include?(role.id) }.presence || @visible_roles
-    end
-
-    # A scalar, a list, or anything else. Compared as strings against ids the
-    # server already holds, so a Hash or a nested array simply matches nothing and
-    # answers 404 -- it never reaches a query and never raises.
-    def requested_role_ids
-      value = params[:role_id]
-      return [] if value.blank?
-
-      (value.is_a?(Array) ? value : [value]).map(&:to_s)
     end
   end
 end

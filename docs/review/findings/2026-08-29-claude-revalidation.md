@@ -231,7 +231,7 @@ runs, and refuses rather than destroying a workflow the file does not hold.
 
 ### F03 — The administration matrix writes whatever resolves, so `tracker_id=1e5` writes to tracker 1 and reports success
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** major
 - **Confidence:** confirmed
 - **Category:** correctness
@@ -291,7 +291,22 @@ went unresolved. There are four resolvers with four strictnesses today and the
 least strict is the one that writes; the external review is right that
 consolidating them is the fix rather than patching this one.
 
-**Resolution:**
+**Resolution:** fixed in WP18. `Services::ExactSelection` is the one resolver:
+normalise to unique non-blank strings, split the keywords this control accepts,
+require `/\A\d+\z/` before an id goes anywhere near a query, resolve against
+the list the screen offers (or, for the one selector that may legitimately name
+a record it does not offer -- an archived project reached from the inventory --
+against a relation), and report everything the request named that no record
+answered. The four call sites are on it: the administration matrices' trackers
+and roles, the project selector, the copy screen's two target selectors, and the
+graph's roles. A matrix request naming anything unresolvable answers 404 before
+any write, which matters because a matrix save deletes before it inserts.
+`spec/services/exact_selection_spec.rb` covers the shapes; twelve of them are
+driven end to end through the writing screen, and the eight that were the defect
+were verified red against the previous code. Two behaviours tightened on the
+way, both deliberate: the copy screen's target roles now resolve against the
+list the form offers rather than against every Role, and a matrix selection
+comes back in candidate order rather than the order the browser submitted.
 
 ---
 

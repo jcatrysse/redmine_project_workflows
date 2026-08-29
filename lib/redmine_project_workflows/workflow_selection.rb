@@ -14,7 +14,7 @@ module RedmineProjectWorkflows
   # lived inside a patch on core's WorkflowsController, which is the only reason
   # it was ever filed there.
   #
-  # Nothing here renders except +invalid_project_selection?+, and that is
+  # Nothing here renders except +invalid_selection?+, and that is
   # deliberately a predicate the *action* returns on rather than a before_action:
   # a callback that renders answers before the action can decide, and on core's
   # own controller it answered before anyone had checked who was asking
@@ -41,48 +41,35 @@ module RedmineProjectWorkflows
 
     # Resolves the matrix selector. Values are 'global' (the generic
     # workflow), 'all', or project ids; anything else, and any id that does
-    # not exist, is collected in @invalid_project_ids for the caller to
-    # report. Nothing is rendered here: render_404 renders and returns false
-    # rather than aborting, so the decision belongs where the action can
-    # return straight after it.
+    # not exist, is recorded for the caller to report. Nothing is rendered
+    # here: render_404 renders and returns false rather than aborting, so the
+    # decision belongs where the action can return straight after it.
+    #
+    # WP18: resolved through Services::ExactSelection, the one resolver the
+    # plugin's screens share. Against a *relation* rather than the offered list,
+    # which is this selector's one difference from the others -- only what is
+    # offered narrows, and a link from the inventory into an archived project's
+    # matrix has to go on working (WP13, audit F09). The shape check happens
+    # before the relation, which is what keeps `project_id=1e5` from resolving
+    # to project 1.
     def load_project_options
-      # Every project that is not archived (WP13, audit F09). Only what is
-      # *offered* narrows: an id in the request is resolved against the database
-      # below, so a link from the inventory into an archived project's matrix
-      # goes on working. See Services::ProjectOptions.selectable.
       @projects = RedmineProjectWorkflows::Services::ProjectOptions.selectable
-      values = Array.wrap(params[:project_id]).reject(&:blank?).map(&:to_s).uniq
-      @invalid_project_ids = values.reject { |value| project_id_value?(value) }
-      project_ids = values - @invalid_project_ids
+      selection = RedmineProjectWorkflows::Services::ExactSelection.resolve(
+        params[:project_id], scope: Project.sorted, keywords: PROJECT_KEYWORDS
+      )
+      record_unresolved(selection)
 
-      @all_selected = project_ids.delete('all').present?
+      @all_selected = selection.keyword?('all')
       # Global is selected when explicitly chosen, when 'all' is selected,
       # or when no project params are provided (default Redmine behavior).
-      @global_selected = project_ids.delete('global').present? || project_ids.empty? || @all_selected
+      @global_selected = selection.keyword?('global') || selection.records.empty? || @all_selected
 
-      @selected_projects = resolve_selected_projects(project_ids)
+      @selected_projects = @all_selected ? @projects : selection.records
       @projects_for_update = @selected_projects
       # Only for a selection that named one project: 'all' on an installation
       # that happens to have a single project is still a whole-installation
       # selection, and @project drives the layout.
       @project = @selected_projects.first if !@all_selected && @selected_projects.one?
-    end
-
-    # The projects the selector named, in the order the selector lists them.
-    # An id that does not resolve joins @invalid_project_ids rather than being
-    # dropped, so that the action can answer 404 instead of silently showing a
-    # different selection from the one that was asked for.
-    def resolve_selected_projects(project_ids)
-      return @projects if @all_selected
-      return [] if project_ids.blank?
-
-      selected = Project.where(id: project_ids).sorted.to_a
-      @invalid_project_ids += project_ids - selected.map { |project| project.id.to_s }
-      selected
-    end
-
-    def project_id_value?(value)
-      PROJECT_KEYWORDS.include?(value) || value.match?(/\A\d+\z/)
     end
 
     # The copy form's target selector, which is a different control from the
@@ -91,16 +78,12 @@ module RedmineProjectWorkflows
     # the generic workflow -- and the values that were rejected, de-duplicated
     # and resolved in one query.
     def validated_target_project_ids
-      values = Array.wrap(params[:target_project_ids]).reject(&:blank?).map(&:to_s).uniq
-      invalid, valid = values.partition { |value| value != 'global' && !value.match?(/\A\d+\z/) }
-      global = valid.delete('global').present?
-
-      existing_ids = valid.empty? ? [] : Project.where(id: valid).pluck(:id)
-      invalid += valid - existing_ids.map(&:to_s)
-
-      resolved = existing_ids
-      resolved.unshift(nil) if global
-      [resolved, invalid]
+      selection = RedmineProjectWorkflows::Services::ExactSelection.resolve(
+        params[:target_project_ids], scope: Project, keywords: %w[global]
+      )
+      resolved = selection.ids
+      resolved.unshift(nil) if selection.keyword?('global')
+      [resolved, selection.unresolved]
     end
 
     def selected_projects
@@ -137,10 +120,20 @@ module RedmineProjectWorkflows
       project_context? ? selected_project_ids : [nil]
     end
 
+    # Everything the request named that no record answered, from every selector
+    # on the screen -- projects, trackers, roles. One list, because one answer:
+    # a request that named something that does not exist is refused before any
+    # of it is written, and *which* selector held the bad value does not change
+    # that (WP18, finding F03).
+    def record_unresolved(*selections)
+      @unresolved_selection_ids ||= []
+      @unresolved_selection_ids += selections.compact.flat_map(&:unresolved)
+    end
+
     # Renders the 404 and says so, for an action to return on. Every caller
     # runs after `require_admin`, which is the whole point.
-    def invalid_project_selection?
-      return false if @invalid_project_ids.blank?
+    def invalid_selection?
+      return false if @unresolved_selection_ids.blank?
 
       render_404
       true

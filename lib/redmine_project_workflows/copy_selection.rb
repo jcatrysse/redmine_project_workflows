@@ -96,17 +96,11 @@ module RedmineProjectWorkflows
       !value.match?(/\A\d+\z/) || record.nil?
     end
 
+    # Both target selectors, through the one resolver (WP18). It de-duplicates
+    # the way every other selector on the plugin now does: an id repeated in a
+    # selection is one selection, not a missing record.
     def unresolved_target_selection?
-      unresolved_target_ids(params[:target_tracker_ids], @target_trackers).present? ||
-        unresolved_target_ids(params[:target_role_ids], @target_roles).present?
-    end
-
-    # The submitted ids that no record answered, de-duplicated the same way
-    # validated_target_project_ids de-duplicates: an id repeated in the selection is
-    # one selection, not a missing record.
-    def unresolved_target_ids(values, records)
-      submitted = Array.wrap(values).reject(&:blank?).map(&:to_s).uniq
-      submitted - Array.wrap(records).map { |record| record.id.to_s }
+      !@target_tracker_selection.exact? || !@target_role_selection.exact?
     end
   end
 end
