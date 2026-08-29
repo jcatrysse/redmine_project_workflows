@@ -58,6 +58,9 @@ class ProjectWorkflowsController < ApplicationController
   # project and never query on the parameter itself (INV-7).
   before_action :find_tracker_and_role, except: %i[graph]
   before_action :find_tracker_and_roles, only: %i[graph]
+  # WP14. The drawing is a feature an installation can turn off, and a screen
+  # that is not offered must not be reachable by typing its path either.
+  before_action :require_graph_feature, only: %i[graph]
   # Only #enable. Every other action acts on a scope that already exists, or on
   # rules under one; taking a *new* workflow over is the one thing a role with no
   # member in the project is not offered (finding F05).
@@ -180,6 +183,12 @@ class ProjectWorkflowsController < ApplicationController
     @graph = RedmineProjectWorkflows::Services::WorkflowGraphQuery.new(
       project: @project, tracker: @tracker, role_ids: @roles.map(&:id)
     ).result
+    # WP14. Whether this workflow is larger than the drawing is allowed to be.
+    # Decided here rather than in the view so that the view never computes a
+    # layout it is not going to render: the layout is the expensive half and its
+    # cost is driven by the arrows, which is what the ceiling counts.
+    @graph_edge_ceiling = RedmineProjectWorkflows::Services::GraphBudget.edge_ceiling
+    @graph_over_ceiling = RedmineProjectWorkflows::Services::GraphBudget.over_ceiling?(@graph.edges.size)
     @manage_project_workflow_rules = User.current.allowed_to?(:manage_project_workflow_rules, @project)
   end
 
@@ -240,6 +249,16 @@ class ProjectWorkflowsController < ApplicationController
     offered = options.roles(@project)
     @role = options.visible_roles(@project, offered).detect { |role| role.id.to_s == params[:role_id].to_s }
     @role_offered = @role.present? && offered.any? { |role| role.id == @role.id }
+  end
+
+  # 404 rather than 403: with the drawing switched off there is no such screen on
+  # this installation, which is what Redmine answers for a feature that is not
+  # there. 403 would say the reader lacks a permission, and no permission would
+  # help them.
+  def require_graph_feature
+    return if performed?
+
+    render_404 unless RedmineProjectWorkflows::Services::GraphBudget.enabled?
   end
 
   # 403 rather than 404: the combination exists and this user may look at it, so

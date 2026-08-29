@@ -185,3 +185,9 @@ pl:
   warning_project_workflow_status_deleted_emptied:
     one: "%{count} przepływ pracy projektu nie zawiera już żadnej reguły: każda, którą miał, nazywała właśnie usunięty status. Projekt zachowuje tam własny przepływ pracy, a własny przepływ pracy bez reguł nie dopuszcza żadnej zmiany statusu. Sprawdź go w %{link} i dodaj reguły albo wróć do ogólnego przepływu pracy."
     other: "Liczba przepływów pracy projektów, które nie zawierają już żadnej reguły: %{count}. Każda reguła, którą miały, nazywała właśnie usunięty status. Te projekty zachowują tam własny przepływ pracy, a własny przepływ pracy bez reguł nie dopuszcza żadnej zmiany statusu. Sprawdź je w %{link} i dodaj reguły albo wróć do ogólnego przepływu pracy."
+  # WP14: the workflow drawing as a switchable feature with a size ceiling.
+  label_project_workflow_graph_enabled: 'Udostępniaj diagram przepływu pracy'
+  text_project_workflow_graph_enabled: 'Diagram to ekran tylko do odczytu, dostępny z ustawień przepływu pracy projektu, z jego macierzy i z formularza zagadnienia. Po wyłączeniu nigdzie nie pojawia się do niego odnośnik, a sam ekran odpowiada „nie znaleziono”; reszta pozostaje bez zmian.'
+  label_project_workflow_graph_edge_ceiling: 'Nie rysuj przepływu pracy mającego więcej niż'
+  text_project_workflow_graph_edge_ceiling: 'Liczba strzałek, bo to ich rozmieszczenie kosztuje: przepływ pracy o 400 statusach i 800 strzałkach rysuje się w około 50 ms, a taki o 60 statusach, w którym dozwolona jest niemal każda zmiana, zajmuje około 1,5 s. Powyżej tej wartości przepływ pracy jest pokazywany jako tabela zamiast rysunku. 0 oznacza brak limitu.'
+  text_project_workflow_graph_too_large: 'Liczba zmian statusu w tym przepływie pracy: %{count} — więcej niż %{ceiling}, które rysuje ta instalacja, więc nie został narysowany, a jego uwagi nie zostały wypisane. Tabela poniżej to cały przepływ pracy. Administrator może zmienić limit w ustawieniach wtyczki.'

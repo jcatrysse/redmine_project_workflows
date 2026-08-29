@@ -45,9 +45,22 @@ Redmine::Plugin.register :redmine_project_workflows do
   # just filled in, on a page that already says how many workflows one cell
   # stands for. Sharing 50 made the Save dialog fire on every multi-workflow save
   # -- two workflows of a six-status matrix is already 216 rules.
+  #
+  # WP14's two, and they are about a screen rather than about a write: whether
+  # the workflow *drawing* is offered at all, and how large a workflow it will
+  # draw. The drawing is on by default -- it is what WP9 was written for -- and
+  # a switch exists so that an installation that does not want it, or that meets
+  # something on a Redmine nobody has tried yet, can turn one screen off rather
+  # than carry a feature it has to defend on every upgrade (decided 2026-08-28).
+  # `graph_edge_ceiling` is counted in **arrows**, because the layout's cost is
+  # driven by edges and not by statuses; the measurement is in
+  # RedmineProjectWorkflows::Services::GraphBudget, which also holds both
+  # fallbacks. spec/plugin_conventions_spec.rb asserts they agree with these.
   settings default: { 'bulk_confirm_threshold' => '50',
                       'bulk_save_confirm_threshold' => '5000',
-                      'bulk_write_ceiling' => '200000' },
+                      'bulk_write_ceiling' => '200000',
+                      'graph_enabled' => '1',
+                      'graph_edge_ceiling' => '2000' },
            partial: 'settings/redmine_project_workflows'
 
   # WP4. Both permissions map projects#settings, because that is the action the

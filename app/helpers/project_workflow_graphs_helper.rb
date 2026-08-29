@@ -169,6 +169,12 @@ module ProjectWorkflowGraphsHelper
   # role, and a permission check per cell is the shape that turns into one
   # later.
   def project_workflow_graph_offered?(project)
+    # WP14: the switch first, because it is one hash lookup and it answers for
+    # every project at once. An installation with the drawing turned off offers
+    # no link to it anywhere -- the settings tab, the matrix header and the
+    # issue-form panel all come through here -- and the action itself answers 404.
+    return false unless RedmineProjectWorkflows::Services::GraphBudget.enabled?
+
     @project_workflow_graph_offered ||= {}
     return @project_workflow_graph_offered[project.id] if @project_workflow_graph_offered.key?(project.id)
 

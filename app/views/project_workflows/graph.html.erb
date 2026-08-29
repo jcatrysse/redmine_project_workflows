@@ -21,7 +21,10 @@
   Transitions only: field permissions are a property of a status rather than of a
   move, so they are not a graph. The comparison screen reads them side by side.
 %>
-<% layout = project_workflow_graph_layout(@graph) %>
+<%# WP14: a workflow with more arrows than the ceiling is not drawn at all, and
+    the layout -- the expensive half -- is not computed for it either. The
+    controller decided; this reads the answer. %>
+<% layout = @graph_over_ceiling ? nil : project_workflow_graph_layout(@graph) %>
 <% multiple_roles = @graph.role_states.size > 1 %>
 
 <div class="contextual">
@@ -116,7 +119,18 @@
       behind a disclosure rather than deleting it: the reader who wants to look
       at it anyway is one click away, and <details> needs no JavaScript and no
       stylesheet the plugin does not ship. %>
-  <% if @graph.dense? %>
+  <%# Larger than this installation draws (WP14). Not an error and not a refusal
+      -- nothing is written here, and the workflow is still completely readable
+      in the table below, which is the drawing's readable twin rather than a
+      consolation. The diagnostics go with the picture because they are read off
+      its layout, and the sentence says so rather than leaving a heading out
+      without explanation. %>
+  <% if @graph_over_ceiling %>
+    <p class="nodata project-workflow-graph-too-large">
+      <%= l(:text_project_workflow_graph_too_large,
+            count: @graph.edges.size, ceiling: @graph_edge_ceiling) %>
+    </p>
+  <% elsif @graph.dense? %>
     <p class="project-workflow-graph-dense">
       <em><%= l(:text_project_workflow_graph_dense) %></em>
     </p>
@@ -131,7 +145,7 @@
   <%# The diagnostics are the part a workflow administrator uses, so they stay
       out of the disclosure above whatever shape the workflow has. A workflow
       with no rule at all reports none of them -- the helper says why. %>
-  <% unless @graph.empty_workflow? %>
+  <% unless @graph.empty_workflow? || @graph_over_ceiling %>
     <h3><%= l(:label_project_workflow_graph_diagnostics) %></h3>
     <% diagnostics = project_workflow_graph_diagnostics(@graph, layout) %>
     <% if diagnostics.empty? %>

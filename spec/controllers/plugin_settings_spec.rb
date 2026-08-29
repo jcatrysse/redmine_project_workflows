@@ -109,6 +109,64 @@ describe SettingsController, type: :controller do
       expect(Setting.plugin_redmine_project_workflows['bulk_write_ceiling']).to eq('1000')
     end
 
+    # WP14's two, which are about a screen rather than about a write: whether the
+    # workflow drawing is offered at all, and how large a workflow it will draw.
+    it 'renders the graph switch, ticked' do
+      get :plugin, params: { id: 'redmine_project_workflows' }
+
+      expect(response.body).to include(ERB::Util.html_escape(
+                                         I18n.t(:label_project_workflow_graph_enabled)
+                                       ))
+      field = response.body[/<input[^>]*id="settings_graph_enabled"[^>]*>/]
+      expect(field).to include('type="checkbox"')
+      expect(field).to include('checked')
+    end
+
+    # A checkbox submits nothing when it is cleared, so the hidden '0' beside it
+    # is what makes turning the drawing off reach the server at all -- without it
+    # the setting would keep whatever it had and the screen would look as though
+    # it had saved.
+    it 'carries the hidden zero that lets the switch be turned off' do
+      get :plugin, params: { id: 'redmine_project_workflows' }
+
+      expect(response.body).to match(/<input[^>]*type="hidden"[^>]*name="settings\[graph_enabled\]"[^>]*value="0"/)
+    end
+
+    it 'shows the switch as cleared once it has been turned off' do
+      Setting.plugin_redmine_project_workflows = { 'graph_enabled' => '0' }
+
+      get :plugin, params: { id: 'redmine_project_workflows' }
+
+      expect(response.body[/<input[^>]*id="settings_graph_enabled"[^>]*>/]).not_to include('checked')
+    end
+
+    it 'saves the switch' do
+      post :plugin, params: { id: 'redmine_project_workflows', settings: { 'graph_enabled' => '0' } }
+
+      expect(Setting.plugin_redmine_project_workflows['graph_enabled']).to eq('0')
+      expect(RedmineProjectWorkflows::Services::GraphBudget).not_to be_enabled
+    end
+
+    it 'renders the graph ceiling field, with the number that is in force' do
+      get :plugin, params: { id: 'redmine_project_workflows' }
+
+      expect(response.body).to include('name="settings[graph_edge_ceiling]"')
+      expect(response.body).to include(ERB::Util.html_escape(
+                                         I18n.t(:label_project_workflow_graph_edge_ceiling)
+                                       ))
+      expect(response.body).to include(
+        %(value="#{RedmineProjectWorkflows::Services::GraphBudget::DEFAULT_EDGE_CEILING}")
+      )
+    end
+
+    it 'refuses a graph ceiling that is not a whole number, in the field itself' do
+      get :plugin, params: { id: 'redmine_project_workflows' }
+
+      field = response.body[/<input[^>]*name="settings\[graph_edge_ceiling\]"[^>]*>/]
+      expect(field).to include('type="number"')
+      expect(field).to include('min="0"')
+    end
+
     # The field shows the value in force rather than an empty box, so saving the
     # page without touching it keeps the number rather than clearing it.
     it 'shows a saved value back' do

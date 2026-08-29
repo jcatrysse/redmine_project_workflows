@@ -48,6 +48,18 @@ The workflow as a drawing.
 
 ### Changed
 
+- **The workflow diagram can be switched off, and is not drawn above a size.**
+  *Administration → Plugins → Project Workflows → Configure* has two new
+  settings: whether the diagram is offered at all (it is, by default), and how
+  large a workflow it will draw — 2,000 arrows by default. With the diagram
+  switched off no link to it appears anywhere and the screen answers *not found*;
+  nothing else changes. Above the size limit the page says so and lists the
+  workflow as a table instead, which holds exactly the same rules. Deciding where
+  to put the arrows is what a diagram costs, and it follows the arrows rather
+  than the statuses: a workflow of 400 statuses and 800 arrows is drawn in about
+  50 ms, one of 60 statuses where nearly every move is permitted takes about
+  1.5 s.
+
 - **`deface` is declared as `~> 1.9`** instead of unconstrained: the release
   every supported combination is tested against, up to but not including the next
   major. Your Redmine owns `Gemfile.lock`, so a host that already resolved deface

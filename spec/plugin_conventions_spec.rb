@@ -127,6 +127,8 @@ describe RedmineProjectWorkflows do
     expect(Setting.plugin_redmine_project_workflows).to have_key('bulk_confirm_threshold')
     expect(Setting.plugin_redmine_project_workflows).to have_key('bulk_save_confirm_threshold')
     expect(Setting.plugin_redmine_project_workflows).to have_key('bulk_write_ceiling')
+    expect(Setting.plugin_redmine_project_workflows).to have_key('graph_enabled')
+    expect(Setting.plugin_redmine_project_workflows).to have_key('graph_edge_ceiling')
   end
 
   # The number is written down twice on purpose -- once as the setting's default
@@ -141,6 +143,23 @@ describe RedmineProjectWorkflows do
       .to eq(RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_SAVE_CONFIRM_THRESHOLD)
     expect(declared['bulk_write_ceiling'].to_i)
       .to eq(RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_WRITE_CEILING)
+    expect(declared['graph_edge_ceiling'].to_i)
+      .to eq(RedmineProjectWorkflows::Services::GraphBudget::DEFAULT_EDGE_CEILING)
+    expect(declared['graph_enabled'])
+      .to eq(RedmineProjectWorkflows::Services::GraphBudget::DEFAULT_ENABLED)
+  end
+
+  # WP14. The drawing is on unless somebody turns it off, and the declared
+  # default has to say the same thing the helper's fallback does -- a default of
+  # '0' with a fallback of "anything but 0 is on" would be a feature that is off
+  # on a fresh installation and on for every installation that predates the key.
+  it 'declares a graph switch that agrees with the fallback' do
+    declared = Redmine::Plugin.find(:redmine_project_workflows).settings[:default]
+
+    Setting.plugin_redmine_project_workflows = { 'graph_enabled' => declared['graph_enabled'] }
+    expect(RedmineProjectWorkflows::Services::GraphBudget).to be_enabled
+  ensure
+    Setting.clear_cache
   end
 
   # The three are one scale and only make sense in order: a row or column action

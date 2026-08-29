@@ -1275,6 +1275,34 @@ visible. Three consequences:
   of the possible moves present, entry arrows excluded, integer arithmetic), and
   the screen then says the workflow permits nearly every move and folds the
   picture into a `<details>` rather than deleting it.
+- **The drawing is a feature that can be switched off, and one with a size
+  ceiling** (WP14). Two plugin settings, both in `Services::GraphBudget`:
+  `graph_enabled` (on by default) and `graph_edge_ceiling` (2,000 arrows).
+  With the switch off, `project_workflow_graph_offered?` answers false, so no
+  link is rendered anywhere -- the settings tab, the matrix header and the issue
+  form's panel all go through it -- and the action answers **404**, not 403,
+  because there is no such screen on that installation and no permission would
+  help. Above the ceiling the layout is **not computed**: the page keeps the
+  scope panel and the table, and says why the picture is not there.
+
+  The ceiling counts arrows rather than statuses because that is what the cost
+  follows. Measured on Redmine 7.0 and PostgreSQL 16, one project, one tracker,
+  one role:
+
+  | statuses | arrows | layout |
+  | --- | --- | --- |
+  | 21 | 400 | 79 ms |
+  | 41 | 1,600 | 522 ms |
+  | 61 | 3,600 | 1,550 ms |
+  | 201 | 400 | 29 ms |
+  | 401 | 800 | 49 ms |
+
+  So four hundred statuses are cheap and sixty statuses with every move permitted
+  are a second and a half of one request. The default is about 0.7 s on that
+  hardware; Redmine's own default workflow is five statuses and twenty-five
+  arrows. This is a different question from `dense?` above: that one is a picture
+  nobody can read and it still computes the layout, this one is a picture nobody
+  should wait for.
 
 ### The five objects
 

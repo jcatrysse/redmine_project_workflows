@@ -1,12 +1,14 @@
 <%#
   The plugin's settings screen (WP5).
 
-  Three settings, all counted in workflow rules and reading as one scale
-  (WP13): above the first a row or column action asks, above the second the Save
-  button asks, and above the third an administration matrix save is refused
-  outright. Rendered by Redmine inside its own box.tabular.settings, so the
-  markup is core's -- a label, a field and an em.info -- and the plugin adds no
-  styling of its own.
+  Three settings about writing, all counted in workflow rules and reading as one
+  scale (WP13): above the first a row or column action asks, above the second the
+  Save button asks, and above the third an administration matrix save is refused
+  outright. Then two about the workflow *drawing* (WP14): whether it is offered
+  at all, and how large a workflow it will draw -- counted in arrows, because
+  that is what the layout's cost follows. Rendered by Redmine inside its own
+  box.tabular.settings, so the markup is core's -- a label, a field and an
+  em.info -- and the plugin adds no styling of its own.
 
   The field shows the number that is actually in force, not an empty box, so an
   administrator who saves this page without touching it keeps what was there.
@@ -59,4 +61,38 @@
                      id: 'settings_bulk_write_ceiling', size: 8,
                      type: 'number', min: 0, step: 1 %>
   <em class="info"><%= l(:text_project_workflow_bulk_write_ceiling) %></em>
+</p>
+
+<p>
+  <label for="settings_graph_enabled">
+    <%= l(:label_project_workflow_graph_enabled) %>
+  </label>
+  <%# Redmine's own settings screens spell a boolean as a hidden '0' beside the
+      checkbox, so that clearing it submits a value rather than nothing. The
+      helper treats anything but an explicit '0' as on, which is what answers for
+      a settings hash saved before this key existed. %>
+  <%= hidden_field_tag 'settings[graph_enabled]', '0', id: nil %>
+  <%# Read from the `settings` local rather than from Setting, like every field
+      above: the local is what this form is editing, and the two differ on a page
+      Redmine is re-rendering after a failed save. The fallback is the helper's --
+      anything but an explicit '0' is on. %>
+  <%= check_box_tag 'settings[graph_enabled]', '1',
+                    settings['graph_enabled'].to_s != '0',
+                    id: 'settings_graph_enabled' %>
+  <em class="info"><%= l(:text_project_workflow_graph_enabled) %></em>
+</p>
+
+<p>
+  <label for="settings_graph_edge_ceiling">
+    <%= l(:label_project_workflow_graph_edge_ceiling) %>
+  </label>
+  <%# Counted in arrows rather than statuses: measured on 2026-08-29, a workflow
+      of 400 statuses and 800 arrows lays out in 49 ms while one of 61 statuses
+      and 3,600 arrows takes 1.5 s. Services::GraphBudget carries the table. %>
+  <%= text_field_tag 'settings[graph_edge_ceiling]',
+                     settings['graph_edge_ceiling'].presence ||
+                       RedmineProjectWorkflows::Services::GraphBudget::DEFAULT_EDGE_CEILING,
+                     id: 'settings_graph_edge_ceiling', size: 8,
+                     type: 'number', min: 0, step: 1 %>
+  <em class="info"><%= l(:text_project_workflow_graph_edge_ceiling) %></em>
 </p>

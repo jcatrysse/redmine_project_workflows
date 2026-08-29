@@ -211,6 +211,34 @@ describe ProjectsController, type: :controller do
       expect(response.body).to include(ERB::Util.html_escape(permissions))
     end
 
+    # WP14. The drawing is a feature an installation can turn off, and the tab is
+    # its main entry point: with the switch off no link to it is offered anywhere
+    # -- here, on the matrix header, or on the issue form's panel -- because all
+    # three go through ProjectWorkflowGraphsHelper#project_workflow_graph_link.
+    # Red on the code before WP14, which offered the link whatever the setting
+    # said.
+    it 'offers the drawing while the drawing is switched on' do
+      log_in(2, :view_project_workflow_rules)
+
+      get :settings, params: { id: project.id }
+
+      expect(response.body).to include('project-workflow-graph-link')
+    ensure
+      Setting.clear_cache
+    end
+
+    it 'offers no link to the drawing once it is switched off' do
+      Setting.plugin_redmine_project_workflows = { 'graph_enabled' => '0' }
+      log_in(2, :view_project_workflow_rules)
+
+      get :settings, params: { id: project.id }
+
+      expect(response.body).to include('tab-project_workflows')
+      expect(response.body).not_to include('project-workflow-graph-link')
+    ensure
+      Setting.clear_cache
+    end
+
     # WP6: the same audit line the administration inventory carries, on the tab
     # a project manager actually looks at.
     it 'says who last changed a workflow the project owns' do

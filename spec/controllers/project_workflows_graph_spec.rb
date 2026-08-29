@@ -126,6 +126,91 @@ describe ProjectWorkflowsController, type: :controller do
     end
   end
 
+  # WP14. The drawing is a feature that can be turned off, and one with a size
+  # ceiling. Both are red on the code before WP14: the action answered 200 with
+  # the setting off, and drew whatever it was given.
+  describe 'the switch and the ceiling' do
+    after { Setting.clear_cache }
+
+    it 'is not there at all when the drawing is switched off' do
+      Setting.plugin_redmine_project_workflows = { 'graph_enabled' => '0' }
+      transition(new_status, assigned)
+      log_in(2, :view_project_workflow_rules)
+
+      get :graph, params: graph_params
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    # 404 rather than 403: no permission would help, because there is no such
+    # screen on this installation. An administrator gets the same answer.
+    it 'is not there for an administrator either' do
+      Setting.plugin_redmine_project_workflows = { 'graph_enabled' => '0' }
+      @request.session[:user_id] = 1
+
+      get :graph, params: graph_params
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'is drawn as usual with the switch on' do
+      Setting.plugin_redmine_project_workflows = { 'graph_enabled' => '1' }
+      transition(new_status, assigned)
+      log_in(2, :view_project_workflow_rules)
+
+      get :graph, params: graph_params
+
+      expect(response).to have_http_status(:ok)
+      expect(graph_svg).to be_present
+    end
+
+    it 'says why it is not drawn above the ceiling, and still lists the workflow' do
+      Setting.plugin_redmine_project_workflows = { 'graph_edge_ceiling' => '1' }
+      transition(0, new_status)
+      transition(new_status, assigned)
+      transition(assigned, closed)
+      log_in(2, :view_project_workflow_rules)
+
+      get :graph, params: graph_params
+
+      expect(response).to have_http_status(:ok)
+      expect(graph_svg).to be_nil
+      expect(response.body).to include(ERB::Util.html_escape(
+                                         I18n.t(:text_project_workflow_graph_too_large, count: 3, ceiling: 1)
+                                       ))
+      # The table is the drawing's readable twin and stays: the workflow is
+      # still completely readable, which is what makes this not an error.
+      expect(response.body).to include('project-workflow-graph-transitions')
+    end
+
+    # Exactly at the ceiling is drawn; the refusal is strictly above it. Three
+    # rather than two, because the drawing has one arrow that is not a rule:
+    # where nothing leaves the entry node, core's fallback to the tracker's
+    # default status is drawn as well -- and the ceiling counts the arrows it
+    # would have to place, not the rules behind them.
+    it 'draws a workflow that is exactly at the ceiling' do
+      Setting.plugin_redmine_project_workflows = { 'graph_edge_ceiling' => '3' }
+      transition(new_status, assigned)
+      transition(assigned, closed)
+      log_in(2, :view_project_workflow_rules)
+
+      get :graph, params: graph_params
+
+      expect(assigns(:graph).edges.size).to eq(3)
+      expect(graph_svg).to be_present
+    end
+
+    it 'draws anything at all with the ceiling set to 0' do
+      Setting.plugin_redmine_project_workflows = { 'graph_edge_ceiling' => '0' }
+      transition(new_status, assigned)
+      log_in(2, :view_project_workflow_rules)
+
+      get :graph, params: graph_params
+
+      expect(graph_svg).to be_present
+    end
+  end
+
   describe 'what the selection may name' do
     before { log_in(2, :view_project_workflow_rules) }
 

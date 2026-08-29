@@ -428,9 +428,11 @@ exists to explain, from the other end.
 
 ## Settings
 
-**Administration → Plugins → Project Workflows → Configure** has three settings.
-All three are counted in **workflow rules** — one cell of a matrix, once for each
-workflow the selection covers — and they read as one scale:
+**Administration → Plugins → Project Workflows → Configure** has five settings:
+three about writing a workflow and two about drawing one.
+
+The first three are counted in **workflow rules** — one cell of a matrix, once
+for each workflow the selection covers — and they read as one scale:
 
 - **Ask before a row or column action changes more than** — 50 by default. One
   click on a row or column action can change a great many cells and you cannot
@@ -448,6 +450,26 @@ workflow the selection covers — and they read as one scale:
   the message says how many rules it would have been. This is the guard against
   selecting every project, every tracker and every role at once. `0` means no
   limit.
+
+The last two are about the **workflow diagram**:
+
+- **Offer the workflow diagram** — on. The diagram is a read-only screen reached
+  from a project's workflow settings, from its matrices and from the issue form.
+  Turn it off and no link to it is offered anywhere and the screen itself answers
+  *404 not found*; every other screen is untouched. It exists so that an
+  installation that does not want the diagram, or that meets something odd on a
+  Redmine nobody has tried yet, can switch off one screen rather than carry a
+  feature it has to think about on every upgrade.
+
+- **Do not draw a workflow with more than** — 2,000 arrows. Deciding where to put
+  the arrows is what the drawing costs, and it follows the arrows rather than the
+  statuses: measured on Redmine 7.0 and PostgreSQL 16, a workflow of 400 statuses
+  and 800 arrows is laid out in about 50 ms, while one of 60 statuses in which
+  nearly every move is permitted (3,600 arrows) takes about 1.5 s. Above the
+  limit the page says so and lists the workflow as a table instead — the table is
+  the diagram's readable twin and holds exactly the same rules. `0` means no
+  limit. For scale: Redmine's own default workflow is five statuses and
+  twenty-five arrows.
 
 ### How fast is a bulk save?
 
