@@ -14,12 +14,27 @@
 # 7.0-stable), and every documented way of building a host goes through that
 # script.
 #
-# `deface` is deliberately unpinned. There is no range to pin to -- deface has
-# had exactly one release since 2022-04-01 -- the host owns Gemfile.lock, so a
-# constraint in a plugin fragment cannot protect an existing installation, and it
-# *can* import a neighbouring plugin's resolver conflict into a host that has
-# none. The control that exists instead is
-# spec/integration/deface_overrides_spec.rb, on nine cells.
+# `deface` carries a major-version constraint, and no tighter one (audit F10).
+#
+# What the old, unpinned declaration got right and this keeps: the host owns
+# Gemfile.lock, so nothing written here protects an installation that already
+# resolved, and an exact pin in a plugin fragment can import a resolver conflict
+# into a host that has none. What it did not cover is a **new** installation, or
+# one running `bundle update`, where Bundler resolves whatever release exists
+# that day -- and `init.rb` turns a deface that will not load into a LoadError
+# that stops Redmine booting.
+#
+# `~> 1.9` is `>= 1.9, < 2.0`: the version every supported cell is tested against
+# is the floor, and the next major -- the one release that may move the override
+# API this plugin's five overrides hang on -- is excluded. It is strictly
+# narrower than no constraint: it can only refuse a resolution that would have
+# given this plugin a deface nobody has run it against, and a neighbour pinning
+# anywhere inside the same major still resolves.
+#
+# The control that catches the other half -- an override that loads and quietly
+# stops matching -- is still spec/integration/deface_overrides_spec.rb, on nine
+# cells, and spec/plugin_conventions_spec.rb asserts this constraint admits the
+# deface actually loaded and excludes 2.0.
 source 'https://rubygems.org'
 
-gem 'deface'
+gem 'deface', '~> 1.9'

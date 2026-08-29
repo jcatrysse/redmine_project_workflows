@@ -16,6 +16,23 @@ module RedmineProjectWorkflows
       # left alone, audit columns and all -- core only ever calls this on a role
       # or tracker it has just created, so there is nothing there to disturb,
       # and repeating it is a no-op rather than a fresh decision.
+      #
+      # **Every project that had a scope on the source pair gets one, including
+      # the projects that do not have the new tracker enabled** -- and that is
+      # deliberate, against the narrowing ProjectWorkflowCopier does for a
+      # project copy (audit F11, settled in docs/DECISIONS.md on 2026-08-29).
+      # The rules themselves are copied for every project whatever this method
+      # does: WorkflowRule.copy_one_with_projects carries project_id through the
+      # select list, and INV-4 exempts that method by name (CLAUDE.md; the
+      # marker comment itself lives there, and spec/plugin_conventions_spec.rb
+      # asserts it lives in exactly one file). Narrowing the
+      # scopes alone would therefore leave project rule rows with no scope over
+      # them -- rows the resolver ignores and nothing ever cleans up -- and
+      # narrowing the rules to match would mean rewriting the one statement that
+      # keeps copying a role from being 500 round trips per tracker. The
+      # narrowing ProjectWorkflowCopier does is a different question with a
+      # different answer: there the target project's tracker list is what the
+      # copy is *about*.
       def self.copy_scopes(source_tracker_id:, source_role_id:, target_tracker_id:, target_role_id:, user: User.current)
         source_tracker_id = Integer(source_tracker_id)
         source_role_id = Integer(source_role_id)

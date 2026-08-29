@@ -138,6 +138,25 @@ describe 'Copying a role or a tracker' do
 
       expect(WorkflowTransition.where(tracker_id: target_tracker.id, project_id: nil).count).to eq(1)
     end
+
+    # Audit F11, settled as deliberate (docs/DECISIONS.md, 2026-08-29).
+    # ProjectWorkflowCopier narrows a *project* copy to the target project's own
+    # trackers; ScopeCopier does not narrow a *tracker* copy to the projects that
+    # have the new tracker, and the difference is not an oversight. The rules are
+    # copied for every project whatever the scopes do -- that INSERT ... SELECT is
+    # INV-4's one deliberate exception and carries project_id through the select
+    # list -- so narrowing the scopes alone would leave project rule rows with no
+    # scope over them, which the resolver ignores and nothing would ever clean up.
+    it 'carries the decision of a project that does not have the new tracker' do
+      give_own_workflow(project, source_tracker, source_role)
+      transition(tracker_id: source_tracker.id, role_id: source_role.id, project_id: project.id)
+      expect(project.trackers).not_to include(target_tracker)
+
+      target_tracker.copy_workflow_rules(source_tracker)
+
+      expect(own_workflow?(project, target_tracker, source_role)).to be(true)
+      expect(WorkflowTransition.where(tracker_id: target_tracker.id, project_id: project.id).count).to eq(1)
+    end
   end
 
   describe 'the administration copy screen' do

@@ -6,7 +6,7 @@
 
   Rendered through core's own `view_projects_copy_only_items` hook, which sits
   inside that fieldset on 5.1, 6.1 and 7.0 alike -- so this needs no Deface
-  override and INV-9's count stays at fifteen. The seam is core's API rather
+  override and INV-9's count is untouched by it. The seam is core's API rather
   than a selector, but it can still go away, so
   spec/controllers/projects_copy_form_spec.rb asserts the checkbox reaches the
   rendered page on every supported version, exactly as INV-9's spec does for the
@@ -24,6 +24,19 @@
   Locals: project -- the *source* project (core passes it as `project`), plus
   whatever else call_hook puts in the context.
 %>
+<%#
+  The count is what a tick would actually bring across, which is narrower than
+  what the project holds (WP14). ProjectWorkflowCopier copies a decision only
+  where the target has the tracker, and the target's trackers are the source's --
+  Project.copy_from assigns them -- so a scope the source kept for a tracker it
+  has since disabled is not copied and must not be counted. Saying "3" and
+  copying 2 is the kind of small lie that costs somebody an afternoon.
+
+  One query for the ids and one count, both on the source project (INV-4). A
+  project with no tracker at all counts nothing, which is what an empty
+  `tracker_id` list already answers.
+%>
 <% key = RedmineProjectWorkflows::Services::ProjectWorkflowCopier::COPY_ONLY_KEY %>
-<% scope_count = ProjectWorkflowScope.where(project_id: project.id).count %>
+<% tracker_ids = Tracker.joins(:projects).where(projects: { id: project.id }).distinct.pluck(:id) %>
+<% scope_count = ProjectWorkflowScope.where(project_id: project.id, tracker_id: tracker_ids).count %>
 <label class="block"><%= check_box_tag 'only[]', key, true, id: nil %> <%= l(:label_project_workflow_copy_item) %> (<%= scope_count %>)</label>

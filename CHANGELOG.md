@@ -48,6 +48,18 @@ The workflow as a drawing.
 
 ### Changed
 
+- **`deface` is declared as `~> 1.9`** instead of unconstrained: the release
+  every supported combination is tested against, up to but not including the next
+  major. Your Redmine owns `Gemfile.lock`, so a host that already resolved deface
+  inside that range sees no change; what it protects is a fresh installation, or
+  one running `bundle update`, from resolving a deface this plugin has never been
+  run against — which, if it does not load, stops Redmine booting.
+
+- **The number beside *Project workflows* on the *Copy project* form is now what
+  a copy would actually carry.** It counted every workflow the source project
+  holds, including workflows for trackers the project has since disabled, which a
+  copy does not bring across. It counts the ones that will arrive.
+
 - **Archived projects are no longer offered a workflow of their own.** Nobody but
   an administrator can reach an archived project and no issue in it can be
   created or edited, so a workflow written for one governs nothing — and *give

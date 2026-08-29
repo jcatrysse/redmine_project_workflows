@@ -61,7 +61,8 @@ one of them has surprised somebody.
   0.1.6 *Copy project* offers **Project workflows (N)** among *Members*,
   *Issues* and the rest, ticked like all of them, and a ticked box brings the
   project's own workflow across — the decisions and the rules, an own *empty*
-  workflow included, for the trackers the copy actually has. Untick it and the
+  workflow included, for the trackers the copy actually has — which is also what
+  the number beside the box counts. Untick it and the
   copy starts from the generic workflow. Before 0.1.6 there was no box and no
   copying: the copy quietly ran the generic workflow, which in the ordinary case
   (a project given its own workflow to be *stricter*) made it more permissive
@@ -109,6 +110,12 @@ one of them has surprised somebody.
    RAILS_ENV=production bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
    ```
 3. Restart Redmine.
+
+The plugin's only runtime dependency is `deface`, declared as `~> 1.9` — the
+release every supported combination is tested against, up to but not including
+the next major version. Your Redmine owns `Gemfile.lock`, so `bundle install` is
+what applies it; on a host that already resolved `deface` inside that range,
+nothing changes.
 
 `RAILS_ENV` is not optional. Redmine's plugin migration task loads the
 environment it is given and defaults to **development**, so leaving it off

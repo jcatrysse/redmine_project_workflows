@@ -785,7 +785,7 @@ under 260 ms. Reopen it with a measurement, not with a redesign.
 
 ### F10 — `deface` is unconstrained, which protects an existing installation and not a new one
 
-- **Status:** open
+- **Status:** fixed 2026-08-29 (WP14) — see Resolution
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** dependency
@@ -821,13 +821,25 @@ the conflict the comment fears, because a neighbour pinning within the same majo
 still resolves. ADR-003 reduces the exposure from a different direction, by
 taking the override count from fifteen to two.
 
-**Resolution:**
+**Resolution:** Fixed as the finding suggested. `gem 'deface', '~> 1.9'` — which
+is `>= 1.9, < 2.0`: the floor is the version all nine CI cells run, the ceiling
+is the next major, and a neighbour pinning anywhere inside the same major still
+resolves. The Gemfile's comment keeps what the old one got right (the host owns
+`Gemfile.lock`; an exact pin can import a conflict) and says what it did not
+cover.
+
+Test: `spec/plugin_conventions_spec.rb`, "constrains deface to the major it is
+tested against" — asserted against `Gem.loaded_specs['deface'].version` rather
+than against the text of the requirement, so tightening or loosening it later is
+free as long as it still admits what CI runs and still excludes 2.0. Red on the
+old Gemfile, verified by reverting it and re-running: `expected [].empty? to be
+falsey`.
 
 ---
 
 ### F11 — `ScopeCopier` does not apply the rule `ProjectWorkflowCopier` states
 
-- **Status:** open
+- **Status:** wont-fix 2026-08-29 (WP14) — settled as deliberate; see Resolution
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** code-quality
@@ -861,6 +873,31 @@ Either narrow `ScopeCopier` the same way, or record the asymmetry in
 project's decision about it" is defensible. What should not survive is a
 difference that reads as an oversight.
 
-**Resolution:**
+**Resolution:** Settled as **deliberate**, the finding's second option, and
+recorded in `docs/DECISIONS.md` (2026-08-29) with the argument, in
+`ScopeCopier`'s own comment, and in an example that pins it.
+
+The decisive fact is one the finding did not have: **the rules are copied for
+every project whatever the scopes do.** `WorkflowRule.copy_one_with_projects`
+carries `project_id` through the select list of one `INSERT … SELECT`, and that
+statement is INV-4's one deliberate exception, named in `CLAUDE.md`. Narrowing
+the scopes alone would therefore leave project rule rows with no scope over them
+— rows the resolver ignores and nothing ever cleans up — and narrowing the rules
+to match means rewriting the statement that keeps copying a role from being 500
+round trips per tracker. So the two copiers answer two questions rather than one:
+a *project* copy is about the target project, whose tracker list is what the copy
+is for; a *tracker* copy is about the tracker, and every project that had decided
+something about the source keeps that decision.
+
+The direction of the remaining surprise also favours this. A project that enables
+the new tracker later arrives with the workflow it had for the source tracker,
+which is what "copy the workflow from tracker A" means; narrowing would hand it
+the generic workflow instead — more permissive than the original, with nothing
+said, which is exactly the shape the project-copy finding of 2026-08-28 was
+raised about.
+
+Test: `spec/models/workflow_rule_copy_spec.rb`, "carries the decision of a
+project that does not have the new tracker" — green today, and its job is to go
+red if somebody narrows this without reading the decision.
 
 ---

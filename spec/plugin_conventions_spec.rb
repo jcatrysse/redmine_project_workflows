@@ -400,6 +400,24 @@ describe RedmineProjectWorkflows do
     expect(declared).to contain_exactly('deface')
   end
 
+  # Audit F10. The host owns Gemfile.lock, so this constraint protects a *new*
+  # installation and one running `bundle update` -- the two cases where Bundler
+  # resolves whatever release exists that day, and where a deface that will not
+  # load turns into the LoadError init.rb raises. Asserted against the deface
+  # actually loaded rather than against the text of the requirement, so that
+  # tightening or loosening it is free as long as it still admits what nine CI
+  # cells run and still excludes the next major.
+  it 'constrains deface to the major it is tested against' do
+    line = File.readlines(File.expand_path('../Gemfile', __dir__))
+               .find { |candidate| candidate.match?(/^gem\s+['"]deface['"]/) }
+    requirements = line.scan(/['"]([^'"]+)['"]/).flatten.drop(1)
+
+    expect(requirements).not_to be_empty
+    requirement = Gem::Requirement.new(requirements)
+    expect(requirement.satisfied_by?(Gem.loaded_specs['deface'].version)).to be(true)
+    expect(requirement.satisfied_by?(Gem::Version.new('2.0.0'))).to be(false)
+  end
+
   # And the gems it does *not* name still have to be there, or this example is
   # asserting that the suite cannot run -- which it plainly can, since it is
   # running. Stated so the deletion above cannot be read as having removed a

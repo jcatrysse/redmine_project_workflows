@@ -26,6 +26,7 @@ describe ProjectsController, type: :controller do
   let(:project) { projects(:projects_001) }
   let(:tracker) { trackers(:trackers_001) }
   let(:role) { roles(:roles_001) }
+  let(:status) { issue_statuses(:issue_statuses_001) }
   let(:key) { RedmineProjectWorkflows::Services::ProjectWorkflowCopier::COPY_ONLY_KEY }
 
   before { ProjectWorkflowScope.delete_all }
@@ -56,6 +57,21 @@ describe ProjectsController, type: :controller do
       get :copy, params: { id: project.id }
 
       expect(response.body).to include("#{I18n.t(:label_project_workflow_copy_item)} (0)")
+    end
+
+    # WP14. The count has to be what a tick brings across, not what the project
+    # holds. A copy takes the source's trackers with it, so a scope the source
+    # kept for a tracker it has since disabled is not copied -- and counting it
+    # would promise one more workflow than arrives.
+    it 'counts only the workflows a copy would actually carry' do
+      disabled_tracker = Tracker.create!(name: 'Not on this project', default_status_id: status.id)
+      give_own_workflow(project, tracker, role)
+      give_own_workflow(project, disabled_tracker, role)
+
+      get :copy, params: { id: project.id }
+
+      expect(project.trackers).not_to include(disabled_tracker)
+      expect(response.body).to include("#{I18n.t(:label_project_workflow_copy_item)} (1)")
     end
   end
 
