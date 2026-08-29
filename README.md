@@ -521,12 +521,27 @@ projects copied early the old rules and the ones copied late the new ones.
 
 ## Upgrading and uninstalling
 
+**Check your Redmine version first.** 0.0.3 declared a minimum of Redmine 5.0;
+0.1.0 and later declare **5.1**. Redmine enforces a plugin's minimum at boot by
+raising, so installing this on a Redmine 5.0 leaves an installation that will not
+start until the plugin directory is removed again. Upgrade Redmine first.
+
 **Upgrading from 0.0.3 or earlier.** Migration 004 creates
 `project_workflow_scopes` and **backfills it**: every (project, tracker, role)
 that already had rules of its own gets a row saying so. That is what turns the
 old implicit model — *rules exist, therefore this project overrides* — into the
 explicit one, and it is why nothing changes for a project that was already
-working. Run it with the usual
+working.
+
+That last sentence is checked rather than claimed: `dev/check-release-upgrade.sh`
+installs the plugin as it is at the previous release, writes project rules
+through *that* release's code, records what it answers when an issue asks which
+statuses it may move to and which fields are required, then upgrades and asks
+again. On every supported Redmine and database, the answers are identical, not
+one workflow rule is added, removed or changed, and every project that had its
+own rules gets a decision recorded for exactly those combinations.
+
+Run it with the usual
 
 ```
 RAILS_ENV=production bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
