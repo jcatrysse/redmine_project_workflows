@@ -556,9 +556,85 @@ Two things change behaviour after the upgrade, both deliberately:
   to be filtered by role as well, which returned nothing for a project with no
   members.
 
-**Uninstalling.** Reverse the migrations *before* removing the plugin
-directory — the plugin's tables and its column on `workflows` are not removed by
-deleting the code:
+### Backing up the project workflows
+
+A downgrade is **not** the reverse of an upgrade, and this is the sentence the
+rest of this section follows from: reversing the migrations **deletes every
+workflow rule that names a project**, and drops the table that records which
+projects decided to run their own workflow at all. Both are deliberate — the
+reasons are under *Uninstalling* below — and between them they discard every
+project workflow on the installation. The generic workflow, the one every
+project shares, is untouched.
+
+So the plugin ships a backup of exactly that population:
+
+```
+RAILS_ENV=production bundle exec rake redmine_project_workflows:backup \
+  FILE=/var/backups/project-workflows.json
+```
+
+It writes one JSON file holding every project's decisions and every rule under
+them, with the names of the projects, trackers, roles and statuses they refer to
+so that the file can be read by whoever has to decide whether to restore it. It
+refuses to overwrite an existing file unless you add `FORCE=1`. The generic
+workflow is not in it, because nothing here puts the generic workflow at risk.
+
+The file is configuration, not issue data — no issue, journal, user or custom
+field *value* is in it — but it does carry the names of every project, tracker,
+role and status it refers to, so keep it wherever you keep a configuration dump
+rather than somewhere world-readable.
+
+To put it back — into a fresh installation of the plugin, or into the same one
+after a downgrade:
+
+```
+RAILS_ENV=production bundle exec rake redmine_project_workflows:restore \
+  FILE=/var/backups/project-workflows.json
+```
+
+The restore prints what it did, and five things are worth knowing before you run
+it:
+
+- **It leaves alone any project that already has its own workflow** for a
+  tracker and a role, and says how many it left. `OVERWRITE=1` replaces the rules
+  of those too, keeping the decision and its author.
+- **A project the file does not mention keeps inheriting.** A restore adds; it
+  never returns a project to the generic workflow.
+- **It keeps the audit trail** — who decided a project runs its own workflow, and
+  when — rather than attributing every project's workflow to whoever ran the
+  restore. A user deleted since the backup leaves that column empty, which is
+  what it already means.
+- **It validates every rule on the way in**, against the trackers, roles,
+  statuses and fields that exist *now*. A status deleted since the backup means
+  the rules naming it are refused and counted, not written back as rows pointing
+  at nothing.
+- **Duplicate rows come back as one row.** A database from before 0.1.6 can carry
+  exact duplicates (see [Maintenance](#maintenance)); the restore collapses them,
+  which is the same repair the deduplication task performs and cannot change what
+  a workflow permits.
+
+Running the restore twice is safe: the second run reports that everything was
+left alone and changes nothing.
+
+### Uninstalling
+
+Reverse the migrations *before* removing the plugin directory — the plugin's
+tables and its column on `workflows` are not removed by deleting the code. One
+task does the whole procedure, in the order that makes it survivable:
+
+```
+RAILS_ENV=production bundle exec rake redmine_project_workflows:uninstall \
+  FILE=/var/backups/project-workflows.json CONFIRM=yes
+```
+
+It prints what is about to be discarded and how much of it there is, refuses to
+go on without `CONFIRM=yes` typed in full, writes the backup and reads it back
+before anything is destroyed, and only then reverses every migration. A run
+refused at the confirmation writes no file and changes nothing. `SKIP_BACKUP=1`
+skips the backup for an operator who has a database dump instead; it is not the
+default, and it says so.
+
+The step it ends with is Redmine's own, and you can still run it by hand:
 
 ```
 RAILS_ENV=production bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows VERSION=0
@@ -571,14 +647,37 @@ deliberate and it has to precede the column drop: removing the column with those
 rows still in the table would leave stock Redmine reading every one of them as a
 *generic* rule. Your generic workflow itself is untouched.
 
-**Take a backup first, and check the output.** There is no way back from this one,
-and it is the one command here that has to run against the right database — see
-the `RAILS_ENV` note under [Installation](#installation).
+An own **empty** workflow — a project that deliberately permits nothing for a
+tracker and a role — does not survive either, and leaves no trace at all: the
+scope row is the only place that decision was ever recorded, and the scope table
+goes with the rest. This is the one thing a downgrade loses silently, and it is
+the reason the backup holds decisions and not only rules.
+
+**Check the output, and check the `RAILS_ENV`.** There is no way back from this
+one except the file the task just wrote — and it is the one command here that has
+to run against the right database (see the `RAILS_ENV` note under
+[Installation](#installation)).
 
 If you remove the plugin directory *without* running that, Redmine keeps working
 — core only ever reads and writes the `project_id IS NULL` rows — but every
 project rule stays in the table, invisible and inert, and comes back into force
 the moment the plugin is reinstalled.
+
+### Downgrading, and coming back
+
+There is no "downgrade to the previous version": the migrations only run to
+`VERSION=0` and back up again. Going back to a release before the plugin
+therefore means the uninstall above. Coming back afterwards is three steps:
+
+1. put the plugin directory back and `bundle install`;
+2. `RAILS_ENV=production bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows`;
+3. `RAILS_ENV=production bundle exec rake redmine_project_workflows:restore FILE=…`.
+
+Every step of that round trip — the refusal without `CONFIRM=yes`, the backup,
+the reversal, the reinstall and the restore, with the own *empty* decisions and
+the audit trail compared against what was there before — runs in CI on every
+push, on all three Redmine versions and all three databases
+(`dev/check-uninstall.sh`).
 
 ## Maintenance
 
@@ -612,7 +711,10 @@ branch discipline — and [`docs/STATE.md`](docs/STATE.md), which is where the
 project keeps its memory between sessions. [`docs/design.md`](docs/design.md)
 explains how the plugin decides which workflow applies;
 [`docs/implementation-plan.md`](docs/implementation-plan.md) is the route from
-here. Reviews run through [`docs/review/`](docs/review/README.md).
+here; [`docs/release-criteria.md`](docs/release-criteria.md) says what has to be
+true before a version is released and before the alpha warning at the top of
+this file comes off, and where each of those stands today. Reviews run through
+[`docs/review/`](docs/review/README.md).
 
 ## Testing
 

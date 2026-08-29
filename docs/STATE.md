@@ -6,109 +6,103 @@
 
 ## Current position
 
-- **WP15 is done — all six items of "the test debt three reviews named".** With
-  WP14 that closes the hardening track's defect and test backlog; **WP16, release
-  engineering, is the only work package left**.
-- **The whole package changed no production code.** The diff is `spec/`, one new
-  `dev/` script, one CI job and one comment carrying a measurement. That is what
-  it should be: the point of WP15 was to find out whether things already believed
-  were true, not to change them.
-- **What it found, in one sentence each.**
-  - *A neighbouring plugin below this one is bypassed, not broken.* Most of the
-    plugin's patch methods do not call `super` — they reimplement core's body
-    with the one project-blind query replaced (the decision of 2026-08-26,
-    because `super` would read other projects' rows). So a neighbour that
-    prepends **after** this plugin composes normally, and one that alias-chains
-    **before** it never runs at all: nothing raises, the answer stays right, and
-    the neighbour's filter is silently ignored. There is no fix — there is no
-    `super` that answers correctly — so it is now a stated property with a gate
-    on it, and `Project#copy`, which does delegate, is the contrast.
-  - *Four actions had no authorization example at all.* `#permissions`, `#graph`,
-    `#inherit` and `#clear`. All nine actions are now a table against six kinds
-    of visitor plus cross-project substitution both ways, and a last example asks
-    the **router** which actions exist, so an action added without a row fails.
-  - *MySQL and MariaDB can plan a 500-term `OR`.* Six of the nine cells had never
-    been asked; the suite now asks on every push, at exactly `DELETE_BATCH_SIZE`
-    and one past it.
-  - *A downgrade discards every project workflow.* `VERSION=0` is **not** the
-    reverse of an upgrade: migration 001's `down` deletes every rule naming a
-    project, deliberately, because dropping the column would otherwise turn every
-    project's rules into rules of the workflow every project shares. An own
-    *empty* decision does not survive either, the scope row being the only place
-    it was recorded. Nothing said either sentence out loud; both are now checked
-    on all nine cells and both belong at the top of WP16's downgrade procedure.
-  - *The hot path does not grow with roles, and the inventory is fast at ten
-    thousand.* 87 ms for a `deviations_only` page at 10,000 decisions, flat in
-    the offset; 6 ms for `everything`.
-- **Nothing a user can do has changed**, and nothing has been released: 0.1.6,
-  unreleased; `main` carries 0.0.3 and there is no tag.
+- **WP16 is three quarters done.** Items 2, 3 and 4 of the last work package —
+  a downgrade procedure, a scripted backup-aware uninstall, and release criteria
+  written down — landed this session. **Item 1 is what is left**, and it is
+  blocked on something small: see *Exact next step*.
+- **What the plugin can do that it could not.** Uninstalling it no longer means
+  losing every project workflow. Reversing the migrations deletes every workflow
+  rule that names a project and drops the table that records which projects
+  decided to run their own — both deliberate, established by WP15 — and between
+  them they discard every project workflow on the installation. There are now
+  three rake tasks: `backup` writes exactly that population to one JSON file,
+  `restore` puts it back, and `uninstall` does the whole procedure in the order
+  that makes it survivable — count what is about to be lost, say so, refuse
+  without `CONFIRM=yes` typed in full, write the backup **and read it back**, and
+  only then migrate.
+- **The restore goes through the writers, not around them.** A backup file is
+  data of unknown age from outside the application, so INV-2's whitelist stands
+  between it and the `workflows` table exactly as it stands between a request and
+  it. A status, tracker or custom field deleted since the export is refused there
+  and counted in the report rather than written back as a row naming nothing.
+- **The backup holds decisions, not only rules.** An own *empty* workflow — a
+  project that deliberately permits nothing for a tracker and a role — is a scope
+  row with nothing under it, and it is the one thing a downgrade loses without
+  leaving a trace. A backup of rules alone would bring it back as inheritance,
+  which is the exact confusion INV-3 exists to prevent.
+- **The alpha warning stays**, and `docs/release-criteria.md` now says why in a
+  form somebody can check: nine release criteria, four more for removing the
+  warning, each with how it is checked and where it stands. Three are unmet, and
+  one of them — "has run on a real installation, with real data, for a stated
+  period" — is not something this repository can answer about itself. That one is
+  Jan's.
+- **Nothing else a user can do has changed**, and nothing has been released:
+  0.1.6, unreleased; `main` carries 0.0.3 and there is still no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
-  `claude/docs-review-dsowk7`; `git checkout -B claude/dev origin/claude/dev` was
-  the whole rescue. **The local `claude/dev` ref was once again the unrelated
-  five-commit lineage** — always reset it from `origin/claude/dev` rather than
-  trusting the local ref. Fifth session in a row.
+  `claude/docs-review-rrs8vx`; `git checkout -B claude/dev origin/claude/dev` was
+  the whole rescue. Sixth session in a row. Always reset the local ref from
+  `origin/claude/dev` rather than trusting it.
 
 ## What this session produced
 
-Two commits, each green on three local hosts and lint-clean before the next.
+One commit, green on two local hosts and one MariaDB host, and lint-clean.
 
-### 1. `WP15 steps 1-4` — coexistence, authorization, escaping, batching
+### `WP16 items 2-4` — the backup, the uninstall, and the criteria
 
-**Item 1 — `spec/integration/neighbour_coexistence_spec.rb`.** A synthetic
-neighbouring plugin in both load orders a running process can build. A module
-already prepended cannot be pushed back down a chain, so "a neighbour prepends
-before us" is not constructible at spec time — and it is the harmless case
-anyway, two prepends composing through `super` either way round. What the file
-builds instead is a neighbour that **prepends after** (above us) and one that
-**alias-chains before** (below us, in the class itself), against
-`Issue#new_statuses_allowed_to`, `WorkflowTransition.replace_transitions`,
-`Project#copy` and core's two workflow helper modules. INV-1 holds in both
-orders — a neighbour cannot put core's project-blind write back in front of the
-plugin's writer, whatever it does.
+**The two services.**
+`lib/redmine_project_workflows/services/workflow_backup.rb` exports; 
+`workflow_restore.rb` imports. The file is JSON — reading a backup is
+`JSON.parse`, which builds no objects, where `YAML.load` of a file an operator
+was told to keep somewhere safe is a much larger promise. It holds the scope rows
+and the rules under them, plus the *names* of the projects, trackers, roles and
+statuses they refer to, so that the file can be read by whoever has to decide
+whether to restore it; nothing matches on those names, because ids are what a
+rule is made of and a renamed project is still the same project.
 
-The third combination — an alias chain over a prepend — is infinite recursion in
-Ruby, is every prepending Redmine plugin's exposure, and is the neighbour's own
-idiom (deprecated since Rails 5). Where this plugin *has* a choice is core's
-**helper modules**, which is where plugins have actually been alias-chaining
-since 2013; `WorkflowsHelper` now has the behavioural gate `ProjectsHelper`
-already had, and a structural rule states both at once.
+The generic workflow is **not** in it. Nothing in these migrations puts a
+`project_id IS NULL` row at risk, and restoring one would be a generic write,
+which INV-1 says a project restore must never be.
 
-**Item 2 — `spec/controllers/project_workflow_authorization_matrix_spec.rb`.**
-Ninety examples: every action against anonymous, a logged-in non-member, a
-member with neither permission, view-only, manage-only, and an administrator;
-then "authorized on A, path project B", and a tracker or role from elsewhere.
-The two deliberate exceptions have groups of their own — `#enable` is 403 on a
-role the project is not offered, `#graph` is 404 with the drawing switched off.
+**What the restore does, in the order it does it.** Load the referents once
+(projects, trackers, roles, the users the audit columns name, and which
+combinations already have a decision) — asking per combination would be six
+queries per row of a file that can hold one per project, tracker and role on the
+installation. Then create the missing scopes, **grouped** one call per (tracker,
+role, rule type) whatever the number of projects, because that is the call that
+takes a lock. Then one writer call per combination, which is irreducible: a
+writer call covers one project and the rules of two projects are not the same
+rules. Then the audit columns, from the backup rather than from whoever ran the
+task.
 
-**Item 3 — `spec/integration/status_name_escaping_spec.rb`.** The surfaces core
-does not have: the inline SVG (where `<` opens a tag exactly as in HTML), its
-`<title>` tooltips, the table beneath the drawing, the JavaScript response (where
-the escaping that matters is `escape_javascript`'s, not ERB's), and the matrix
-row and column actions' `title` and `data-` attributes. Each asserts the escaped
-form is present **and** that the parsed response holds no live element or event
-handler — the second without the first would pass on a page that dropped the
-name; the first without the second would pass on a page carrying both.
+Deliberately **not** one transaction over the whole file: each writer call has
+its own, which is where the locks belong. A restore interrupted halfway has done
+half its work, and running it again finishes the job — a combination already
+restored is one the database has a decision for, which the default leaves alone.
 
-**Item 4 — `spec/services/scope_bulk_writer_batching_spec.rb`.** Five hundred
-`OR`-ed triples issued against the real database, at the boundary and one past
-it. The padding varies **all three** columns, which is what lets the file tell an
-`OR` of triples from an `IN` per column — with one tracker and one role it could
-not, and the first version could not.
+**The one way a restore is not byte-for-byte:** duplicate rows, which a database
+from before 0.1.6 can carry, come back as one row. The payload the writers take
+is a matrix and a matrix has one cell. That is the same repair the deduplication
+task performs and it cannot change what a workflow permits.
 
-### 2. `WP15 steps 5-6` — the upgrade rehearsal, and what grows
+**The rake tasks** are in `lib/tasks/redmine_project_workflows.rake`, but their
+*bodies* are in `lib/redmine_project_workflows/tasks.rb`: RuboCop does not inspect
+`.rake` files and neither can a spec load one usefully. Moving them is what
+brought `Rails/Output` and `Rails/Exit` to bear, and both are excluded for that
+one file with the reason — a rake task's user interface *is* its standard output
+and its refusal *is* a non-zero exit.
 
-**Item 5 — `dev/check-upgrade.sh`, a new CI job on all nine cells.** Two legs.
-*The upgrade*: down to `VERSION=3` — before the scope table, which is where an
-installation on 0.0.3 stands — and up again over data already there, in the four
-shapes three reviews named: an own workflow, a duplicate rule under it, an own
-**empty** decision, and a scope whose author has been deleted. The backfill
-reconstructs both populations, attributes none of them to anybody, and leaves the
-duplicate untouched. *The downgrade*: `VERSION=0`, and what it costs (above).
+**`dev/check-uninstall.sh`**, a new CI job on all nine cells, in four legs: the
+refusal (no `CONFIRM=yes` changes nothing and writes no file), the uninstall
+(backup, then every migration reversed, then the host checked to be stock), the
+reinstall (migrate up, restore, and all four seeded shapes compared with what was
+there before), and a second restore that must change nothing — because an
+operator who is not sure whether it worked will run it twice.
 
-**Item 6 — `spec/services/hot_path_scale_spec.rb`,** plus one measurement.
-Equality across two sizes rather than a budget, and narrowed to statements
-against the two tables the plugin owns queries on. Two traps are recorded in the
-file because either makes the spec measure nothing (see *Known traps*).
+**The documentation.** `README.md` § *Upgrading and uninstalling* is now three
+sections — backing up, uninstalling, and coming back — opening with the sentence
+WP15 established and naming the own *empty* workflow as the thing a downgrade
+loses silently. `docs/release-criteria.md` is new. `dev/README.md`'s "three
+checks that must run before the suite" is now four.
 
 ## Evidence
 
@@ -116,50 +110,64 @@ Everything below was executed in this container.
 
 | Gate | Result |
 |---|---|
-| Plugin suite, Redmine 7.0 and 5.1 on PostgreSQL 16, **and 7.0 on MariaDB 10.11** | **1,221 examples, 0 failures** on each. Was 1,098 at the start of the session. |
-| RuboCop through `.github/lint/Gemfile` | **147 files, no offences** |
+| Plugin suite, Redmine 7.0 and 5.1 on PostgreSQL 16, and 7.0 on MariaDB 10.11 | **1,251 examples, 0 failures** on each. Was 1,221 at the start of the session. |
+| RuboCop through `.github/lint/Gemfile` | **152 files, no offences** |
 | `rake zeitwerk:check` | All is good! |
 | `node dev/check-bulk-js.mjs` | bulk action script OK |
-| `dev/check-upgrade.sh` | green on all three hosts, each from a database rebuilt from **core** migrations first |
-| Red-on-old-code | verified by reverting and re-running: the settings tab back inside `ProjectsHelper` (1 red), the matrix helper prepended onto `WorkflowsHelper` (1), `authorize` dropped from four actions (**19**), `raw` in the SVG title and `escape_javascript` removed from the panel (3), the delete predicate rewritten as a cross product (1), and the resolver rewritten as a lookup per role (2) |
-| CI | run **180** is the head (`8a2e240`) and is green on **all eleven jobs**, including the new *Upgrade rehearsal over populated data* step on every one of the nine cells. Run 178 was green on steps 1-4; run **179** shows as *cancelled* because pushing the documentation commit superseded it — the documented behaviour, not a failure, and 180 covers the same tree |
+| `dev/check-backfill.sh`, `dev/check-upgrade.sh`, `dev/check-uninstall.sh` | green on every host, each from a database rebuilt from **core** migrations first |
+| Red-on-old-code | verified by mutation, one at a time, re-running the two new spec files after each: `copy_generic: false` flipped to `true` in the restore (1 red — the own *empty* workflow comes back with a copied generic rule in it), the audit stamp removed (1), and `confirm!` moved after the backup in the uninstall (1 — a refused run leaves a file behind). All three reverted. |
+| CI | to be checked on the head after this session's push; run **180** (`8a2e240`) was the last one CI answered for and was green on all eleven jobs |
 
-**Two examples are forward gates and say so in the file.** The reload-guard pair
-cannot be made red on today's code, because `Module#prepend` is itself
-idempotent: emptying `prepend_once`'s guard changes nothing an example can see.
-They exist to catch an `apply_patches` that stops being idempotent — a fresh
-anonymous module per call, an `include` where a `prepend` was — which would grow
-the chain only on a host that reloads and never on CI.
+**One weakness this session found in its own gate, and fixed.**
+`dev/check-uninstall.sh`'s first leg asserted only that the uninstall *failed*
+without `CONFIRM=yes` — and it passed on a host the working tree had never been
+synced into, where the rake task did not exist and rake exited non-zero for that
+reason instead. It now greps the output for the refusal itself and for the
+sentence naming what was at stake.
 
 ## Exact next step
 
-**WP16 — release engineering**, the last work package. See
-`docs/implementation-plan.md`:
+**WP16 item 1 — an upgrade rehearsal from the previous release**, which is the
+last thing in the plan.
 
-1. **An upgrade rehearsal from the previous release, scripted and repeatable.**
-   Half of this exists now: `dev/check-upgrade.sh` rehearses the migration path
-   from before the scope table over populated data, on all nine cells. What it
-   does not do is start from a *checkout* of an earlier release — there are no
-   tags in this repository at all, which is itself a WP16 item.
-2. **A downgrade procedure, which does not exist today.** WP15 established what
-   it costs and the two sentences it has to open with; nothing yet writes it
-   down for an administrator.
-3. **A scripted, backup-aware uninstall.**
-4. **Release criteria written down**, and the alpha warning removed only when
-   they pass.
+`dev/check-upgrade.sh` already rehearses the migration path from `VERSION=3` —
+where an installation on 0.0.3 stands — over populated data, on all nine cells.
+What it cannot do is run the **code** of that release, which is the half that
+would catch a migration file edited after it shipped.
+
+**It is blocked on one small thing: the repository has no tags at all.** `main`
+carries 0.0.3. Tagging that commit `v0.0.3` unblocks it, and then the script
+wants a second mode: check the tag out into a scratch directory, install *that*
+plugin into a host, populate it, then swap the working tree in and migrate up.
+
+A tag is a release act rather than a code change, which is why this session did
+not create one — see *Open choices*. If Jan says go ahead, it is one command and
+then the script.
+
+After that, `docs/release-criteria.md` is the checklist for the release itself.
 
 ## Open choices
 
-**None.** Nothing this session needed the maintainer's answer for: WP15 changed
-no user-visible behaviour and took no decision that a later session cannot
-reverse. The six autonomous decisions it did take are in `docs/DECISIONS.md`
-under *Decided (autonomous) — 2026-08-29, WP15's test debt*.
+- **Choice:** the repository has **no git tags**, so "upgrade from the previous
+  release" has no previous release to check out — which is release criterion R5,
+  and blocks the last item of the last work package.
+  - **Options:** A) tag the commit on `main` that carries 0.0.3 as `v0.0.3`, and
+    tag every release from now on. B) leave it, and accept that R5 is met only
+    from 0.1.6 onwards, once *that* is tagged.
+  - **Recommendation:** **A.** It costs one command, it is what makes the *next*
+    release's upgrade rehearsal possible at all, and 0.0.3 is what real
+    installations are actually running — so it is the version an upgrade
+    rehearsal most needs to start from.
+  - **Urgent?** no — nothing is blocked but WP16 item 1, and no code depends on
+    it. This session did not do it because pushing a tag is a release act and
+    `main` is Jan's.
 
-**One thing worth Jan's eye when WP16 starts**, stated here rather than as a
-question because it blocks nothing: the repository has **no tags**, so "upgrade
-from the previous release" has no previous release to check out. WP16 will need
-one created for 0.0.3 (what `main` carries) before an end-to-end rehearsal from a
-real release is possible.
+- **Choice (carried, unchanged):** removing the *alpha* warning. Criterion A3 —
+  "has run on a real installation, with real data, for a stated period" — is not
+  something this repository can answer. `docs/release-criteria.md` lists the
+  other twelve and their state.
+  - **Urgent?** no — the warning stays until Jan says otherwise, which is the
+    safe default.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -266,6 +274,12 @@ dev/check-backfill.sh .redmine/7.0-stable-postgresql 3.3.6
 # same stock-database precondition as the two above.
 dev/check-upgrade.sh .redmine/7.0-stable-postgresql 3.3.6
 
+# WP16's uninstall rehearsal: the procedure an administrator runs, through the
+# plugin's own rake tasks -- refusal, backup, every migration reversed,
+# reinstall, restore, and a second restore that must change nothing. Same
+# precondition again.
+dev/check-uninstall.sh .redmine/7.0-stable-postgresql 3.3.6
+
 # sync the working tree and run the suite
 RUBY_VERSION=3.3.6 dev/run.sh .redmine/7.0-stable-postgresql
 RUBY_VERSION=3.2.6 dev/run.sh .redmine/5.1-stable-postgresql
@@ -321,6 +335,39 @@ prerequisites and the MySQL variant.
 
 Everything below cost time at least once. **This session's are first**, then the
 run that stood up a 45-plugin host, then everything carried forward.
+
+- **A gate that checks only an exit status passes on a broken host.**
+  `dev/check-uninstall.sh`'s refusal leg asserted that
+  `rake redmine_project_workflows:uninstall` **failed** without `CONFIRM=yes`. It
+  passed on the 5.1 host — where the working tree had never been synced in, the
+  rake task did not exist, and rake exited non-zero saying *"Don't know how to
+  build task"*. Assert on the output, not on the status: the refusal has a
+  sentence and the sentence is what the leg is about. The same shape as the
+  `value="2"` and INV-9 near-misses below — an assertion scoped more widely than
+  the thing it is about.
+- **RuboCop does not inspect `.rake` files.** Moving a rake task's body into a
+  `.rb` file — which is the right move, because it is then reviewable and
+  testable — brings `Rails/Output` and `Rails/Exit` to bear on code whose whole
+  interface is `puts` and whose refusal is `abort`. Both cops are right about a
+  web application and wrong about that one file. Exclude it in `.rubocop.yml`
+  with the reason rather than reaching for `# rubocop:disable` eleven times.
+- **`def foo(x) = y if cond` is not an endless method with a guard.** The
+  modifier binds to the `def`, so the method is defined conditionally and its
+  body is `y` unconditionally. Written that way,
+  `WorkflowRestore::Referents#user_id` would have returned the id of a deleted
+  user. Write the guard inside a normal `def`.
+- **`a += b && c` parses as `a += (b && c)`.** `report.skipped_existing += 1 && nil`
+  is `+= nil`, which raises. A `next` that also increments a counter needs two
+  lines; the one-liner is not shorter, it is broken.
+- **The working directory persists between tool calls** — this is in the recipe
+  below and it still cost a call this session. After `cd`-ing into a host
+  checkout to run one spec file, the next `python3 -` editing
+  `lib/...` fails with *No such file or directory*. Use absolute paths, or `cd`
+  back first.
+- **A heredoc inside a heredoc needs different delimiters.** Editing a shell
+  script that contains a `<<'PY'` block, from a `python3 - <<'PY'` call, ends the
+  outer heredoc at the inner one's terminator and feeds the rest to bash. The
+  symptom is a shell syntax error pointing at a line of Python.
 
 - **`user.reload` does not clear a member's roles.** Core memoises them per
   project on the User instance (`@membership_by_project_id`), and `reload` leaves
@@ -1407,36 +1454,31 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-WP0..WP14 are done. "Carry on" means, in order:
+WP0..WP15 are done and WP16 is three quarters done. "Carry on" means, in order:
 
-0. **Read ADR-004 before touching `ScopeWriter.enable`.** It is the newest and
-   least-settled piece of the plugin: a bulk write whose correctness rests on a
-   lock taken in another class, plus a retry that exists for one database
-   family's isolation level. The two MySQL defects it uncovered are the kind that
-   pass every PostgreSQL cell.
-1. **CI is green on the head.** Run **176** on `4b0cbdb` (ADR-004) passed all
-   eleven jobs, the six MySQL and MariaDB cells included, so there is nothing to
-   chase before starting WP15. Runs 169-171, 173 and 175 are green too; run
-   **172** shows as *cancelled* because a documentation push superseded it —
-   pushing a commit cancels the in-flight run for the previous one, so read the
-   latest run and treat a cancelled earlier one as superseded rather than
-   failed.
-2. **WP15** — the test debt three reviews named. *Exact next step* lists the six
-   items in priority order, and the two things WP13 and WP14 turned up and
-   deliberately did not do (the copy screen has no write ceiling; *give own
-   workflow* is still measured per combination).
+0. **Read `docs/release-criteria.md` first.** It is the shortest statement of
+   where the project actually is, and the last work package is measured against
+   it rather than against a feeling.
+1. **Check CI on the head.** Pushing a commit cancels the in-flight run for the
+   previous one, so read the *latest* run and treat a cancelled earlier one as
+   superseded rather than failed.
+2. **WP16 item 1** — the upgrade rehearsal from a real previous release. *Exact
+   next step* says what it needs and what it is blocked on (a tag, which is
+   Jan's to authorise).
 3. **Before any release, repeat the 45-plugin run.** It is still the only
    environment in which the permission-ownership gate can fail, and the
-   diagnostics page is now where that gate reports — so the run is also the way
-   to see that page say something other than "in order". Since WP12 that page
-   also checks the five Deface anchors against the host's own views, which on a
+   diagnostics page is where that gate reports — so the run is also the way to
+   see that page say something other than "in order". Since WP12 that page also
+   checks the five Deface anchors against the host's own views, which on a
    45-plugin 5.1 is the first environment where a neighbour could plausibly have
-   replaced one of them.
+   replaced one of them. It is release criterion A1.
 
 Do not invent a work package on top of WP16. Do not re-open the 2026-08-27 run's
 "Checked and not filed" table: 24 claims, thirteen rejected or already decided,
 four of them by Jan with an explicit instruction not to re-open them. Do not
-shorten the `_rules` suffix off either permission name. And do not hand-edit a
-digest in `lib/redmine_project_workflows/compatibility.yml` — read what changed
-first, then measure with `dev/measure_compatibility.rb`; updating a digest ahead
-of reading the diff is the one thing that makes the whole gate useless.
+shorten the `_rules` suffix off either permission name. Do not remove the alpha
+warning without Jan — criterion A3 is his to answer and no CI run substitutes for
+it. And do not hand-edit a digest in
+`lib/redmine_project_workflows/compatibility.yml` — read what changed first, then
+measure with `dev/measure_compatibility.rb`; updating a digest ahead of reading
+the diff is the one thing that makes the whole gate useless.

@@ -32,7 +32,7 @@
 | WP13 | One write-coordination service, and bounded bulk writes | done |
 | WP14 | The remaining defect backlog | **done** |
 | WP15 | The test debt three reviews named | **done** — all six items |
-| WP16 | Release engineering | planned |
+| WP16 | Release engineering | **in progress** — items 2, 3 and 4 done; item 1 waits on a tag |
 
 ---
 
@@ -1066,6 +1066,45 @@ is itself idempotent. They exist to catch an `apply_patches` that stops being.
 - A scripted, backup-aware uninstall.
 - Release criteria written down, and the alpha warning removed only when they
   pass.
+
+**Items 2, 3 and 4 are done.** They turned out to be one thing rather than
+three: a downgrade procedure that says "there is no way back" is not a
+procedure, so writing it down meant first making one.
+
+- **The backup.** `Services::WorkflowBackup` writes every project decision and
+  every rule under it to one JSON file — the population, and *only* the
+  population, that reversing the migrations discards. `Services::WorkflowRestore`
+  puts it back **through the writers**, so a file of unknown age is validated by
+  the same whitelist a request is (INV-2), and restores the three states of INV-3
+  apart from one another: rules, an own *empty* decision, and a combination the
+  file does not mention, which stays inheriting. It keeps the audit trail rather
+  than attributing every project's workflow to whoever ran it.
+- **The scripted uninstall.** `rake redmine_project_workflows:uninstall` counts
+  what is about to be lost and says so, refuses without `CONFIRM=yes` typed in
+  full, writes the backup **and reads it back** before anything is destroyed, and
+  only then reverses every migration. A run refused at the confirmation writes no
+  file. `dev/check-uninstall.sh` rehearses all of it — refusal, uninstall,
+  reinstall, restore, and a second restore that must change nothing — on all nine
+  cells, on every push.
+- **The procedure.** `README.md` § *Upgrading and uninstalling*, rewritten into
+  three sections: backing up, uninstalling, and coming back. It opens with the
+  sentence WP15 established — a downgrade is not the reverse of an upgrade — and
+  names the own *empty* workflow as the thing it loses without a trace.
+- **The criteria.** `docs/release-criteria.md`: nine release criteria and four
+  more for removing the alpha warning, each with how it is checked, and each
+  answered for 0.1.6. **The warning stays.** Three criteria are unmet — an
+  upgrade rehearsal from a real release (item 1, below), a tag, and the
+  45-plugin compatibility run repeated on the release commit — and one of them,
+  "has run on a real installation with real data", is not the sort of thing this
+  repository can answer at all.
+
+**Item 1 is what is left, and it is blocked on something small.** The repository
+has **no tags**, so "upgrade from the previous release" has no previous release
+to check out. `dev/check-upgrade.sh` already rehearses the migration path from
+`VERSION=3` — where an installation on 0.0.3 stands — over populated data on all
+nine cells; what it cannot do is run the *code* of that release, which is the
+half that would catch a migration file edited after it shipped. Tagging 0.0.3,
+which is what `main` carries, unblocks it.
 
 ---
 

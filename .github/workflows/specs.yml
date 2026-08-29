@@ -194,6 +194,15 @@ jobs:
       - name: Upgrade rehearsal over populated data
         run: dev/check-upgrade.sh "$REDMINE_DIR"
 
+      # WP16, and before the suite for the same reason as the three above. The
+      # uninstall an administrator runs, through the plugin's own rake tasks:
+      # the refusal without CONFIRM=yes, the backup, every migration reversed,
+      # the reinstall and the restore -- with the own EMPTY decision and the
+      # audit trail, which are the two a downgrade loses most quietly, compared
+      # against what was there before.
+      - name: Uninstall and restore rehearsal
+        run: dev/check-uninstall.sh "$REDMINE_DIR"
+
       # Redmine pushes each plugin's lib/ into the main Zeitwerk autoloader with
       # eager loading, so a misnamed constant only breaks in production.
       - name: Zeitwerk compliance

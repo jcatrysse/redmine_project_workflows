@@ -103,6 +103,50 @@ The workflow as a drawing.
 
 ### Added
 
+- **Uninstalling no longer means losing every project workflow.** Reversing the
+  plugin's migrations deletes every workflow rule that names a project and drops
+  the table recording which projects decided to run their own — both deliberate,
+  and between them they discard every project workflow on the installation. The
+  plugin now backs that population up and puts it back:
+
+  ```
+  rake redmine_project_workflows:backup  FILE=/var/backups/project-workflows.json
+  rake redmine_project_workflows:restore FILE=/var/backups/project-workflows.json
+  ```
+
+  The backup is one JSON file holding every project's decisions and the rules
+  under them, with the names of the projects, trackers, roles and statuses it
+  refers to so that it can be read before it is trusted. An own **empty**
+  workflow — a project that deliberately permits nothing for a tracker and a role
+  — is in it too, which matters because that decision leaves no other trace: the
+  scope row is the only place it was ever recorded.
+
+  The restore validates every rule against the trackers, roles, statuses and
+  fields that exist *now*, and says how many it refused; leaves alone any project
+  that already has its own workflow there, and says how many; keeps the audit
+  trail rather than attributing every project's workflow to whoever ran it; and
+  can be run twice safely. Running it does not return any project to the generic
+  workflow — a project the file does not mention keeps inheriting.
+
+- **A scripted uninstall, in the order that makes it survivable.**
+
+  ```
+  rake redmine_project_workflows:uninstall FILE=… CONFIRM=yes
+  ```
+
+  It prints what is about to be discarded and how much of it there is, refuses to
+  go on without `CONFIRM=yes` typed in full, writes the backup **and reads it back**
+  before anything is destroyed, and only then reverses every migration. A run
+  refused at the confirmation writes no file and changes nothing. The whole round
+  trip — refusal, uninstall, reinstall, restore — now runs in CI on every push, on
+  all three Redmine versions and all three databases.
+
+- **Release criteria, written down.** `docs/release-criteria.md` says what has to
+  be true before a version is released, and — separately — before the *alpha*
+  warning comes off, with how each one is checked and where it stands today. The
+  warning stays: three criteria are unmet, and one of them is not the sort of
+  thing a repository can answer about itself.
+
 - **The project side of the workflow has a screen of its own.**
   *Administration → Project workflows* carries the project selector, the scope
   panel, the summary, the copy form and both matrices. Redmine's own

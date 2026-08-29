@@ -82,7 +82,7 @@ somebody remembering. Run it by hand as well when that function changes, because
 it is a second of feedback rather than a push. Keeping the function small enough
 for this to be sufficient is the reason it has no event wiring of its own.
 
-### The three checks that must run before the suite
+### The four checks that must run before the suite
 
 `maintain_test_schema` reloads `db/schema.rb` when the suite starts and wipes the
 plugin's migration bookkeeping, after which a `VERSION=` migration silently does
@@ -105,14 +105,25 @@ dev/check-backfill.sh .redmine/7.0-stable-postgresql 3.3.6
 #    data an installation actually holds -- an own workflow, a duplicate rule
 #    under it, an own EMPTY decision, and a scope whose author has been deleted
 dev/check-upgrade.sh .redmine/7.0-stable-postgresql 3.3.6
+
+# 4. the uninstall rehearsal (WP16): the procedure an administrator runs, through
+#    the plugin's own rake tasks -- the refusal without CONFIRM=yes, the backup,
+#    every migration reversed, the reinstall, and the restore
+dev/check-uninstall.sh .redmine/7.0-stable-postgresql 3.3.6
 ```
 
-All three are CI jobs as well, on every one of the nine cells. The third is the
+All four are CI jobs as well, on every one of the nine cells. The third is the
 one that says out loud what a **downgrade** costs: `VERSION=0` deletes every rule
 that names a project, deliberately — without that, dropping the column would turn
 every project's rules into rules of the workflow every project shares. An own
 *empty* decision does not survive either, because the scope row is the only place
 it was ever recorded.
+
+The fourth is the answer to the third. It runs
+`redmine_project_workflows:uninstall` and then
+`redmine_project_workflows:restore`, and compares what came back with what was
+there — the rules, the own *empty* decisions and the audit trail — so that
+"there is a backup" is a thing that has been checked rather than believed.
 
 ## Continuous integration
 
@@ -120,10 +131,11 @@ it was ever recorded.
 7.0 and PostgreSQL / MySQL / MariaDB on every push and pull request, plus three
 gates per cell:
 
-1. **Migration reversibility** (up -> 0 -> up), deliberately *before* the suite:
-   `maintain_test_schema` reloads `db/schema.rb` when the suite starts and wipes
-   the plugin's migration bookkeeping, after which `VERSION=0` silently does
-   nothing and the check proves nothing.
+1. **The four migration checks above** — reversibility (up -> 0 -> up), the
+   backfill, the upgrade rehearsal and the uninstall rehearsal — deliberately
+   *before* the suite: `maintain_test_schema` reloads `db/schema.rb` when the
+   suite starts and wipes the plugin's migration bookkeeping, after which
+   `VERSION=0` silently does nothing and the checks prove nothing.
 2. **`zeitwerk:check`** — Redmine pushes each plugin's `lib/` into the main
    autoloader with eager loading, so a misnamed constant only breaks in
    production.

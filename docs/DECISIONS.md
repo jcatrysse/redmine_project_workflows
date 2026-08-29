@@ -877,3 +877,67 @@ than it looks on paper.
   is slow at a size nobody is running. But the number in the earlier version of
   this entry ("about 5 ms per combination, roughly 100 seconds") was optimistic:
   a clean run of the same thing took **294 seconds** once.
+
+## Decided (autonomous) — 2026-08-29, WP16 items 2-4: the backup-aware uninstall
+
+All Class A unless it says otherwise.
+
+- **The uninstall ships a backup rather than a warning.** WP15 established that
+  `VERSION=0` discards every project workflow on purpose; a downgrade procedure
+  whose first sentence is "there is no way back" is not a procedure. So the
+  plugin now exports the population the migrations destroy, and restores it.
+- **The file is JSON, not YAML.** Reading a backup is `JSON.parse`, which builds
+  no objects. `YAML.load` of a file an operator was told to keep somewhere safe
+  is a much larger promise, and `safe_load` would only move the question.
+- **A restore goes through the writers, not around them (INV-2).** A backup file
+  is data of unknown age from outside the application, so the whitelist that
+  stands between a request and the `workflows` table stands between the file and
+  it too. A status, tracker or custom field deleted since the export is refused
+  there and counted in the report. The cost is one writer call per (project,
+  tracker, role, rule type) — a restore is a maintenance task run once, not a
+  request path — and the *scope* creation is grouped, one lock per (tracker,
+  role), because that half is what a five-hundred-project restore would have
+  felt.
+- **The backup holds decisions, not only rules.** An own *empty* workflow is a
+  scope row with nothing under it, and it is the one thing a downgrade loses
+  without leaving a trace. A backup of rules alone would come back as
+  inheritance, which is the exact confusion INV-3 exists to prevent.
+- **The generic workflow is not in the file.** Nothing in these migrations puts
+  a `project_id IS NULL` row at risk, and restoring one would be a generic write
+  — which INV-1 says a project restore must never be.
+- **A restore leaves alone any combination that already has a decision**, and
+  says how many. `OVERWRITE=1` replaces the rules and keeps the decision and its
+  author (INV-3's third action), rather than deleting the scope and re-creating
+  it, which would move `created_by_id`. **Class B**, and the safest reversible
+  default: on the expected path — a database whose plugin data was just thrown
+  away — there is nothing to leave alone and the default costs nothing.
+- **A restore keeps the audit trail.** Stamping whoever ran the rake task would
+  answer "who decided this project runs its own workflow" wrongly for every
+  project at once. A user deleted since the export leaves the column null, which
+  is what the column already means.
+- **Duplicate rows come back as one.** The payload the writers take is a matrix
+  and a matrix has one cell. This is the same repair the deduplication task
+  performs and it cannot change what a workflow permits; it is written down
+  because it is the one way a restore is not byte-for-byte.
+- **The uninstall's order is the safety property, and a spec pins it**: count,
+  say, ask, write the backup *and read it back*, then migrate. A run refused at
+  the confirmation writes no file, so a forgotten `CONFIRM=yes` does not leave a
+  half-finished backup in the way of the next attempt.
+- **`CONFIRM=yes` is typed in full and never defaulted**, and `SKIP_BACKUP=1`
+  exists for an operator with a database dump — not as the default, and it says
+  so on the way past.
+- **The rake task bodies live in `lib/redmine_project_workflows/tasks.rb`**, not
+  in the `.rake` file: RuboCop does not inspect `.rake` files and neither can a
+  spec load one usefully. The two cops that then object — `Rails/Output` and
+  `Rails/Exit` — are excluded for that one file with the reason, because a rake
+  task's user interface *is* its standard output and its refusal *is* a non-zero
+  exit.
+- **`dev/check-uninstall.sh` checks the output of the refusal, not only its exit
+  status.** The first version passed on a host the working tree had never been
+  synced into, where the task did not exist and rake exited non-zero for that
+  reason instead.
+- **The alpha warning stays.** `docs/release-criteria.md` answers all thirteen
+  criteria for 0.1.6: three are unmet, and one of them — "has run on a real
+  installation, with real data, for a stated period" — is not something this
+  repository can answer. Removing the warning is a claim about production
+  installations and is Jan's to make.

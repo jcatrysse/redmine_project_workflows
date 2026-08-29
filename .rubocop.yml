@@ -136,6 +136,22 @@ Metrics/PerceivedComplexity:
 Metrics/ParameterLists:
   CountKeywordArgs: false
 
+# A rake task's user interface is its standard output, and its way of refusing is
+# a non-zero exit. Both cops are right about a web application -- a `puts` inside
+# a request goes somewhere nobody reads, and `exit` in a worker takes the process
+# with it -- and wrong about the one file here whose callers are a terminal and a
+# shell script. lib/redmine_project_workflows/tasks.rb holds the *bodies* of the
+# rake tasks, out of the .rake file so that they can be reviewed and tested like
+# anything else; RuboCop does not inspect .rake files at all, which is why moving
+# them is what brought these two cops to bear.
+Rails/Output:
+  Exclude:
+    - 'lib/redmine_project_workflows/tasks.rb'
+
+Rails/Exit:
+  Exclude:
+    - 'lib/redmine_project_workflows/tasks.rb'
+
 # Redmine's fixture names are numbered (`projects_001`, `issue_statuses_002`)
 # and specs address them by exactly those names; renaming them to satisfy the
 # cop would mean diverging from the host application's own fixtures.
