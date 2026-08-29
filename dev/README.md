@@ -82,6 +82,38 @@ somebody remembering. Run it by hand as well when that function changes, because
 it is a second of feedback rather than a push. Keeping the function small enough
 for this to be sufficient is the reason it has no event wiring of its own.
 
+### The three checks that must run before the suite
+
+`maintain_test_schema` reloads `db/schema.rb` when the suite starts and wipes the
+plugin's migration bookkeeping, after which a `VERSION=` migration silently does
+nothing. So anything that migrates has to run **first**, on a database built from
+core's migrations:
+
+```sh
+# from a stock database, per host
+(cd .redmine/7.0-stable-postgresql && rm -f db/schema.rb \
+   && RAILS_ENV=test bundle exec rake db:drop db:create db:migrate)
+
+# 1. reversibility (INV-8): up -> 0 -> up leaves nothing behind
+(cd .redmine/7.0-stable-postgresql && RAILS_ENV=test bundle exec rake \
+   redmine:plugins:migrate NAME=redmine_project_workflows VERSION=0)
+
+# 2. the backfill of migration 004, over a project that has rules
+dev/check-backfill.sh .redmine/7.0-stable-postgresql 3.3.6
+
+# 3. the upgrade rehearsal (WP15): the same migrations over the four shapes of
+#    data an installation actually holds -- an own workflow, a duplicate rule
+#    under it, an own EMPTY decision, and a scope whose author has been deleted
+dev/check-upgrade.sh .redmine/7.0-stable-postgresql 3.3.6
+```
+
+All three are CI jobs as well, on every one of the nine cells. The third is the
+one that says out loud what a **downgrade** costs: `VERSION=0` deletes every rule
+that names a project, deliberately — without that, dropping the column would turn
+every project's rules into rules of the workflow every project shares. An own
+*empty* decision does not survive either, because the scope row is the only place
+it was ever recorded.
+
 ## Continuous integration
 
 `.github/workflows/specs.yml` runs the same scripts across Redmine 5.1 / 6.1 /

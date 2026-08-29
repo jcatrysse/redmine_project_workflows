@@ -33,6 +33,21 @@ module RedmineProjectWorkflows
     # and about 1 MB retained; 100,000 251 ms and 9 MB; 1,000,000 2.8 s and 92 MB.
     # Per page change, because the memo is per-instance and per-request by design.
     #
+    # And end to end against a database, which the numbers above do not cover
+    # (WP15 item 6). Redmine 7.0, PostgreSQL 16, Ruby 3.3.6, in this container:
+    # 10,000 projects each holding one decision and one rule, one tracker, one
+    # role, `#total` plus one page of 25.
+    #
+    #   deviations_only   87 ms at offset 0 and 79 ms at offset 9,900 -- flat in
+    #                     the offset, as a plucked-and-sliced list is, and the
+    #                     cost is the pluck rather than the page
+    #   everything         6 ms at offset 9,900, which is the constant branch
+    #                     doing what the paragraph above says it does
+    #
+    # So the linear branch at ten thousand decisions is under a tenth of a second
+    # and the default is safe at that size; it is the *shape* that is worth
+    # knowing, not the number.
+    #
     # At the sizes this plugin's own model produces that is a non-event -- a scope
     # row exists per *decision actually taken*, and a million of them would mean
     # essentially every project overriding essentially everything, which

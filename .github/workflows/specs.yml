@@ -185,6 +185,15 @@ jobs:
       - name: Scope backfill reproduces the implicit model
         run: dev/check-backfill.sh "$REDMINE_DIR"
 
+      # WP15 item 5, and before the suite for the same reason as the two above.
+      # The upgrade an installation on 0.0.3 actually runs, over the four shapes
+      # of data three reviews named -- an own workflow, a duplicate rule under
+      # it, an own EMPTY decision and a scope whose author has been deleted --
+      # plus the downgrade, which discards every project workflow on purpose and
+      # is checked here rather than believed.
+      - name: Upgrade rehearsal over populated data
+        run: dev/check-upgrade.sh "$REDMINE_DIR"
+
       # Redmine pushes each plugin's lib/ into the main Zeitwerk autoloader with
       # eager loading, so a misnamed constant only breaks in production.
       - name: Zeitwerk compliance
