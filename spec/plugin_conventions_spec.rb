@@ -419,6 +419,45 @@ describe RedmineProjectWorkflows do
     expect(declared).to contain_exactly('deface')
   end
 
+  # WP14, F01 of docs/review/findings/2026-08-28-claude-wp12-incidental.md.
+  #
+  # ADR-002 watches two kinds of core method: the ones the plugin **shadows**,
+  # discovered from the patch modules, and the ones it **calls** without
+  # shadowing, which have no `super_method` and are therefore invisible unless
+  # somebody writes them down. `WorkflowsHelper#field_required?` was the second
+  # kind and nobody had: the plugin's matrix helper and two of its own views call
+  # it, and its body is a hard-coded list of field names.
+  #
+  # A list would have the same gap again on its first edit, so this is
+  # structural: every method core's WorkflowsHelper defines and the plugin's own
+  # code mentions has to be watched, as a shadow or as a declared dependency. It
+  # found `options_for_workflow_select` on the first run -- called by the
+  # plugin's own selection form and unshadowed since ADR-003 deleted the patch.
+  #
+  # Deliberately crude. It reads the sources as text, so a coincidence of naming
+  # costs somebody one manifest entry, while the failure it prevents is a screen
+  # that silently offers the wrong control on a Redmine nobody has read yet.
+  it 'watches every WorkflowsHelper method the plugin calls' do
+    root = File.expand_path('..', __dir__)
+    sources = Dir.glob("#{root}/{app,lib}/**/*.{rb,erb}")
+                 .reject { |file| file.include?('compatibility.yml') }
+                 .map { |file| File.read(file) }.join("\n")
+    core_methods = (WorkflowsHelper.instance_methods(false) +
+                    WorkflowsHelper.private_instance_methods(false)).map(&:to_s)
+    watched = RedmineProjectWorkflows::Services::CoreMethodDigest.digests.keys
+
+    called = core_methods.select { |name| sources.match?(/(?<![\w.:])#{Regexp.escape(name)}[\s(]/) }
+
+    expect(called).not_to be_empty, 'the plugin renders workflow matrices, so it calls something here'
+    called.each do |name|
+      expect(watched).to include("WorkflowsHelper##{name}"),
+                         "the plugin calls WorkflowsHelper##{name} and nothing watches it. Either it is a " \
+                         'shadow (put the copy in a patch module CoreMethodDigest::TARGETS names) or it is a ' \
+                         "declared dependency (add it to compatibility.yml's `dependencies:`, with its digest " \
+                         'measured on every verified minor by dev/measure_compatibility.rb).'
+    end
+  end
+
   # Audit F10. The host owns Gemfile.lock, so this constraint protects a *new*
   # installation and one running `bundle update` -- the two cases where Bundler
   # resolves whatever release exists that day, and where a deface that will not

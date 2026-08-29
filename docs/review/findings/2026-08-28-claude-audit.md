@@ -477,7 +477,7 @@ to placate." Every method there is private, for the reason `MatrixParams` and
 
 ### F06 — Three core methods the plugin shadows are not in the drift digest, including the two INV-1 rests on
 
-- **Status:** open
+- **Status:** fixed — confirmed 2026-08-29 (WP14); see Resolution
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** portability
@@ -532,7 +532,25 @@ than becoming a hand-kept list. Add `Issue#roles_for_workflow` as a declared
 dependency of its own — it is called, not shadowed, so it needs a second kind of
 entry.
 
-**Resolution:**
+**Resolution:** Both halves were done, exactly as suggested, during the ADR-002 /
+ADR-003 work that followed this audit; the finding's `Status:` line was simply
+never brought forward. Confirmed on 2026-08-29 by reading the code and running
+the gate rather than by trusting the memory:
+
+- `CoreMethodDigest::TARGETS` carries a third element per entry, `:instance` or
+  `:singleton`, and the three singleton patches are listed — `WorkflowRulePatch`,
+  `WorkflowTransitionPatch`, `WorkflowPermissionPatch`. Its comment names this
+  finding as the reason.
+- `Issue#roles_for_workflow` is in the manifest's `dependencies:` block with a
+  paragraph of its own, and `CoreMethodDigest.missing_dependencies` is asserted
+  empty by `spec/upstream/core_drift_spec.rb`.
+- The digest table now holds **26** entries per verified minor, including
+  `WorkflowRule.copy_one`, `WorkflowTransition.replace_transitions` and
+  `WorkflowPermission.replace_permissions` — the two methods INV-1's routing
+  rests on among them. `spec/upstream/` is green on 5.1 and 7.0.
+
+The two entries added on 2026-08-29 are a different finding (F01 of
+`2026-08-28-claude-wp12-incidental.md`) and are recorded there.
 
 ---
 

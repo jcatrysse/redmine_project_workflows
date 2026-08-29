@@ -78,6 +78,30 @@ databases:
 # core makes them private, and nothing but this list would notice one being
 # renamed away. The digest gate reads this and gives each an entry of its own.
 dependencies:
+  'WorkflowsHelper#options_for_workflow_select': >-
+    Core's own, and the plugin stopped shadowing it when ADR-003 deleted
+    WorkflowsHelperPatch -- but the plugin's own selection form still *calls* it,
+    for the tracker and role selectors on Administration -> Project workflows.
+    It is the control that decides what "all" means and when the selector becomes
+    a multi-select, so a change to it changes what an administrator can select on
+    a screen the plugin owns. Being called rather than shadowed, it has no
+    super_method and nothing but this list watches it. Identical on 5.1, 6.1 and
+    7.0. Found on 2026-08-29 by the conventions example that checks every
+    WorkflowsHelper method the plugin calls is either shadowed or declared, which
+    was written for the finding below and immediately named a second one.
+  'WorkflowsHelper#field_required?': >-
+    Core's own, and the plugin does not shadow it. ProjectWorkflowMatrixHelper's
+    field_permission_tag calls it to decide whether a field is already required
+    and therefore has no "Required" option to offer; it reaches it through
+    WorkflowsHelper, which is in the helper chain of every controller that renders
+    a matrix. Its body is a hard-coded list -- project_id, tracker_id, subject,
+    priority_id, is_private, plus is_required? for a custom field -- so a change
+    to it would make every field-permissions matrix in the plugin offer Required
+    for a field that already is, or omit it for one that is not, on the project
+    screens as well as the administration ones, with nothing to report it: the
+    plugin's specs assert the plugin's expected answers. If core removes it, the
+    matrix raises NoMethodError at render time. Identical on 5.1, 6.1 and 7.0.
+    Added 2026-08-29 (F01 of docs/review/findings/2026-08-28-claude-wp12-incidental.md).
   'Issue#roles_for_workflow': >-
     Private in core. TransitionQuery, PermissionQuery and TransitionMapQuery all
     call it to get the roles a user's workflow is resolved from; it is also what
@@ -143,6 +167,8 @@ minors:
       'WorkflowsController#update': '1870a65d5dd7348a3c061056a312d9320ff84014a3e873ae19032d0966c12fb7'
       'WorkflowsController#update_permissions': '4ce84af96a567ac3996e7ba0943becebc6af2eb65801a96306c1c5f551b1a2d9'
       'WorkflowsHelper#field_permission_tag': '76e4695140c0d2f51274dfc523cd9fea6b53119c5695c3dc995eef6b16307e6b'
+      'WorkflowsHelper#field_required?': '2a5e897776483d76b65969be164086217cbbcf3bd44ce449e0d858a76050383c'
+      'WorkflowsHelper#options_for_workflow_select': 'fe603bed5426e61e87790ad4cbbe162cafee02ad1db3545710713f56700e9a64'
       'WorkflowsHelper#transition_tag': 'bb36264c5c6afdd26a134451e833df406c7f32447e4aad7385622726e7f95d6d'
   '6.1':
     ruby: '3.3'
@@ -171,6 +197,8 @@ minors:
       'WorkflowsController#update': 'fc4f21d1efcbb31d0945614a879068f61ce0c6cb3259eaec0d41b1ad35b3be0b'
       'WorkflowsController#update_permissions': '3f091c92e22f0ac39e6f433083f95984d4664f5df38dfb962a3889bb01c9bb57'
       'WorkflowsHelper#field_permission_tag': '76e4695140c0d2f51274dfc523cd9fea6b53119c5695c3dc995eef6b16307e6b'
+      'WorkflowsHelper#field_required?': '2a5e897776483d76b65969be164086217cbbcf3bd44ce449e0d858a76050383c'
+      'WorkflowsHelper#options_for_workflow_select': 'fe603bed5426e61e87790ad4cbbe162cafee02ad1db3545710713f56700e9a64'
       'WorkflowsHelper#transition_tag': 'bb36264c5c6afdd26a134451e833df406c7f32447e4aad7385622726e7f95d6d'
   '7.0':
     ruby: '3.3'
@@ -199,4 +227,6 @@ minors:
       'WorkflowsController#update': 'fc4f21d1efcbb31d0945614a879068f61ce0c6cb3259eaec0d41b1ad35b3be0b'
       'WorkflowsController#update_permissions': '3f091c92e22f0ac39e6f433083f95984d4664f5df38dfb962a3889bb01c9bb57'
       'WorkflowsHelper#field_permission_tag': '76e4695140c0d2f51274dfc523cd9fea6b53119c5695c3dc995eef6b16307e6b'
+      'WorkflowsHelper#field_required?': '2a5e897776483d76b65969be164086217cbbcf3bd44ce449e0d858a76050383c'
+      'WorkflowsHelper#options_for_workflow_select': 'fe603bed5426e61e87790ad4cbbe162cafee02ad1db3545710713f56700e9a64'
       'WorkflowsHelper#transition_tag': 'bb36264c5c6afdd26a134451e833df406c7f32447e4aad7385622726e7f95d6d'

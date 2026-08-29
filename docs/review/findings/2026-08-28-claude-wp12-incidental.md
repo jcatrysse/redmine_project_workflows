@@ -25,7 +25,7 @@ built a mechanism for exactly that case and this call is not in it.
 
 ### F01 — `WorkflowsHelper#field_required?` is called but not a declared dependency
 
-- **Status:** open
+- **Status:** fixed 2026-08-29 (WP14) — see Resolution
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** operability
@@ -75,4 +75,32 @@ sweep for the whole plugin at once rather than for this one method: the question
 hand twice now, and a grep of the plugin's calls against
 `WorkflowsHelper.instance_methods` and its siblings would answer it properly.
 
-**Resolution:**
+**Resolution:** Fixed, and the finding's own second suggestion — "worth doing the
+same sweep for the whole plugin at once" — is what carries it, because doing it
+turned one entry into two.
+
+`WorkflowsHelper#field_required?` is now in the manifest's `dependencies:` block
+with the reasoning above, and its digest is recorded for all three verified
+minors (identical on 5.1, 6.1 and 7.0: `2a5e8977…`), measured with
+`dev/measure_compatibility.rb` on each host.
+
+The sweep is `spec/plugin_conventions_spec.rb`, "watches every WorkflowsHelper
+method the plugin calls": every method core's `WorkflowsHelper` defines and the
+plugin's own `app/` or `lib/` sources mention has to be watched — as a shadow
+discovered from a patch module, or as a declared dependency. **It found a second
+one on its first run:** `WorkflowsHelper#options_for_workflow_select`, called by
+the plugin's own selection form on *Administration → Project workflows* and no
+longer shadowed since ADR-003 deleted `WorkflowsHelperPatch`. It is the control
+that decides what *(All)* means and when a selector becomes a multi-select, so a
+change to it changes what an administrator can select on a screen the plugin
+owns. Declared and digested the same way (`fe603bed…`, also identical across the
+three).
+
+Deliberately textual rather than a call graph: a coincidence of naming costs one
+manifest entry, while the failure it prevents is a screen quietly offering the
+wrong control on a Redmine nobody has read yet.
+
+The example is red on the old manifest — verified by deleting both declarations
+and re-running: *"the plugin calls WorkflowsHelper#field_required? and nothing
+watches it."* The digest table is 26 entries per minor, was 24, and
+`spec/upstream/` is green on 5.1 and 7.0.
