@@ -29,43 +29,6 @@ module RedmineProjectWorkflows
     # type), whatever the number of projects -- because that one takes a lock.
     # This is a maintenance task run once, not a request path.
     class WorkflowRestore
-      # What a restore did, in the terms an operator has to check it against.
-      Report = Struct.new(:scopes, :rules, :rejected, :skipped_existing,
-                          :skipped_missing, :orphan_rules, :failed, keyword_init: true) do
-        # Four outcomes, told apart, because two of them used to share a word.
-        # "Left alone" covered both "this project already had exactly this" and
-        # "this project has a workflow of its own that differs from the backup",
-        # and after an interrupted restore it also covered "this combination was
-        # prepared and never written" -- which is the case an operator most
-        # needs to see (finding F01 of 2026-08-29-claude-revalidation).
-        def lines
-          [
-            "#{scopes} project #{'workflow'.pluralize(scopes)} restored, " \
-            "#{rules} #{'rule'.pluralize(rules)} read from the backup",
-            "#{rejected} #{'value'.pluralize(rejected)} refused by validation and not written",
-            "#{skipped_existing} left alone: the project already has a workflow there",
-            "#{orphan_rules} #{'rule'.pluralize(orphan_rules)} not restored: " \
-            'no recorded decision in the backup names them',
-            *failure_lines,
-            *skipped_missing
-          ]
-        end
-
-        def failed?
-          failed.any?
-        end
-
-        # Named individually rather than counted: a restore that could not put
-        # one project back is a thing somebody has to act on, and a number does
-        # not say which project.
-        def failure_lines
-          return [] if failed.empty?
-
-          ["#{failed.size} #{'combination'.pluralize(failed.size)} failed and were rolled back; " \
-           'run the restore again to retry them'] + failed
-        end
-      end
-
       # +overwrite+ decides the one case a restore cannot guess at: the
       # combination already has a scope. The default leaves it alone, because
       # the likeliest reason for one to be there is that somebody has since made
@@ -76,10 +39,12 @@ module RedmineProjectWorkflows
         document = WorkflowBackup.validate(document)
         rules = group_rules(document['rules'])
         referents = load_referents(document)
-        report = Report.new(scopes: 0, rules: 0, rejected: 0, skipped_existing: 0,
-                            skipped_missing: [], orphan_rules: 0, failed: [])
+        report = RestoreReport.new(scopes: 0, rules: 0, rejected: 0, skipped_existing: 0,
+                                   skipped_differing: 0, skipped_missing: [], orphan_rules: 0,
+                                   failed: [])
 
-        restorable = select_restorable(document['scopes'], rules, referents, overwrite, report)
+        restorable, skipped = select_restorable(document['scopes'], rules, referents, overwrite, report)
+        report.skipped_differing = RestoreComparison.differing(skipped)
         restorable.each { |entry| restore_one(entry, referents, report, user) }
         report.orphan_rules = rules.values.sum(&:size)
         report
@@ -158,7 +123,8 @@ module RedmineProjectWorkflows
       # with no decision behind it, and a rule left behind by a combination this
       # restore chose not to touch is not that.
       def self.select_restorable(scopes, rules, referents, overwrite, report)
-        scopes.filter_map do |scope|
+        skipped = []
+        restorable = scopes.filter_map do |scope|
           key = combination_key(scope)
           rows = rules.delete(key) || []
           missing = referents.missing(key)
@@ -168,11 +134,13 @@ module RedmineProjectWorkflows
           end
           if referents.scoped?(key) && !overwrite
             report.skipped_existing += 1
+            skipped << [key, rows]
             next
           end
 
           [key, scope, rows]
         end
+        [restorable, skipped]
       end
       private_class_method :select_restorable
 

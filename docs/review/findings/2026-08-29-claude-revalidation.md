@@ -143,10 +143,17 @@ A failure no longer stops the restore: the other combinations are finished and
 the failed ones are named, individually, in the report. The rake task exits
 non-zero when any failed, because a restore is what runs unattended.
 `spec/services/workflow_restore_recovery_spec.rb` is the reproduction above,
-inverted: six examples, all red on the previous code (verified by restoring it),
-including the interrupted-then-retried round trip and the rollback of an
-interrupted `OVERWRITE=1` run. The README sentence is replaced by one that says
-what holds after an interrupted run.
+inverted: twelve examples, the seven about interruption all red on the previous
+code (verified by restoring it), including the interrupted-then-retried round
+trip and the rollback of an interrupted `OVERWRITE=1` run.
+
+The report's other conflation is gone too: "left alone" now says how many of
+those combinations **differ** from the backup, which is the number that decides
+whether `OVERWRITE=1` would change anything. Compared as sets of what each rule
+permits (`RestoreComparison`), in one query for the whole run, so the duplicate
+rows a pre-0.1.6 database can carry are not reported as a change that a restore
+would not make. The README sentence is replaced by one that says what holds
+after an interrupted run.
 
 
 ---

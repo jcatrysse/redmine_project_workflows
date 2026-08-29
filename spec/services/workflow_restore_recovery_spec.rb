@@ -145,6 +145,72 @@ describe RedmineProjectWorkflows::Services::WorkflowRestore do
     end
   end
 
+  # WP17, the second half of finding F01's report defect. "Left alone" is the
+  # only outcome an operator has a decision to take about -- OVERWRITE=1 -- and
+  # until this it read identically whether the projects it counted were
+  # byte-for-byte what the file holds or three projects' worth of edits the
+  # restore was about to leave in place.
+  describe 'what the report says about the workflows it left alone' do
+    it 'counts none as differing when the database already holds the backup' do
+      document = backup.document
+
+      report = described_class.call(document)
+
+      expect(report.skipped_existing).to eq(3)
+      expect(report.skipped_differing).to eq(0)
+      expect(report.lines.join("\n")).to include('of those, 0 differ from the backup')
+    end
+
+    it 'counts the ones whose rules were changed since the export' do
+      document = backup.document
+      WorkflowRule.where(project_id: interrupted.id).delete_all
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: interrupted.id,
+                                 old_status_id: s2.id, new_status_id: s1.id)
+
+      report = described_class.call(document)
+
+      expect(report.skipped_existing).to eq(3)
+      expect(report.skipped_differing).to eq(1)
+      expect(report.lines.join("\n")).to include('of those, 1 differs from the backup')
+    end
+
+    # INV-3 again, in the report this time: a project that has since been
+    # emptied -- decision kept, rules gone -- is not the project the backup
+    # holds, and a restore that left it alone without saying so would be the
+    # quietest way to lose a workflow there is.
+    it 'counts a project emptied since the export as differing' do
+      document = backup.document
+      WorkflowRule.where(project_id: interrupted.id).delete_all
+
+      report = described_class.call(document)
+
+      expect(report.skipped_differing).to eq(1)
+    end
+
+    # The restore writes through the matrix writers and a matrix has one cell,
+    # so a duplicate row cannot survive one. Reporting it as a difference would
+    # promise a change that OVERWRITE=1 would not make.
+    it 'does not count a duplicate row as a difference' do
+      document = backup.document
+      WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: interrupted.id,
+                                 old_status_id: s1.id, new_status_id: s2.id)
+
+      report = described_class.call(document)
+
+      expect(report.skipped_differing).to eq(0)
+    end
+
+    it 'says nothing about differences when it left nothing alone' do
+      document = backup.document
+      discard_project_workflows
+
+      report = described_class.call(document)
+
+      expect(report.skipped_existing).to eq(0)
+      expect(report.lines.join("\n")).not_to include('of those')
+    end
+  end
+
   describe 'running the same command again, which is what the README says to do' do
     it 'restores what failed and leaves what succeeded alone, without OVERWRITE' do
       document = backup.document

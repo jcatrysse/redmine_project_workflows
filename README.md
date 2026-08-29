@@ -611,8 +611,10 @@ The restore prints what it did, and five things are worth knowing before you run
 it:
 
 - **It leaves alone any project that already has its own workflow** for a
-  tracker and a role, and says how many it left. `OVERWRITE=1` replaces the rules
-  of those too, keeping the decision and its author.
+  tracker and a role — and says both how many it left and how many of those
+  differ from the backup, which is the number that decides whether `OVERWRITE=1`
+  would change anything. `OVERWRITE=1` replaces the rules of those too, keeping
+  the decision and its author.
 - **A project the file does not mention keeps inheriting.** A restore adds; it
   never returns a project to the generic workflow.
 - **It keeps the audit trail** — who decided a project runs its own workflow, and
