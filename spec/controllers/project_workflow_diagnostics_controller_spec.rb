@@ -99,6 +99,16 @@ describe ProjectWorkflowDiagnosticsController, type: :controller do
       expect(response.body).not_to include(I18n.t(:label_project_workflow_diagnostics_drift))
     end
 
+    # WP19, finding F07. This page gave up its entry in Redmine's
+    # administration menu for a link in the plugin's own action bar, so the
+    # breadcrumb is what keeps it from being somewhere you can only leave with
+    # the browser's back button.
+    it 'leads back to the area it is reached from' do
+      get :show
+
+      expect(response.body).to include(project_workflow_rules_path)
+    end
+
     # And the state that cannot happen on a host the manifest lists. The
     # synthetic manifest is the seam spec/compatibility_spec.rb explains: the
     # digests are really measured here, only the table is fictional.

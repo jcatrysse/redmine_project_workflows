@@ -248,17 +248,19 @@ class ProjectWorkflowRulesController < ApplicationController
   # `all` is the keyword core's own selector submits, and it stays a keyword
   # rather than becoming an id nothing matches.
   def find_roles
-    @role_selection = RedmineProjectWorkflows::Services::ExactSelection.resolve(
-      params[:role_id], candidates: Role.sorted.select(&:consider_workflow?), keywords: %w[all]
-    )
-    @roles = selection_records(@role_selection, Role.sorted.select(&:consider_workflow?))
+    offered = Role.sorted.select(&:consider_workflow?)
+    @role_selection = exact_selection(params[:role_id], offered)
+    @roles = selection_records(@role_selection, offered)
   end
 
   def find_trackers
-    @tracker_selection = RedmineProjectWorkflows::Services::ExactSelection.resolve(
-      params[:tracker_id], candidates: Tracker.sorted.to_a, keywords: %w[all]
-    )
-    @trackers = selection_records(@tracker_selection, Tracker.sorted.to_a)
+    offered = Tracker.sorted.to_a
+    @tracker_selection = exact_selection(params[:tracker_id], offered)
+    @trackers = selection_records(@tracker_selection, offered)
+  end
+
+  def exact_selection(param, offered)
+    RedmineProjectWorkflows::Services::ExactSelection.resolve(param, candidates: offered, keywords: %w[all])
   end
 
   # nil for "nothing was selected", which is the state both matrices render the

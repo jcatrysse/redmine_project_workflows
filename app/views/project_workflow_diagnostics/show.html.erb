@@ -6,7 +6,12 @@
 
     Core's own app/views/admin/info.html.erb is the model for the markup: a
     `table.list` with a `td.tick` per row, and no styling of the plugin's own. %>
-<%= title l(:label_project_workflow_diagnostics) %>
+<%# WP19 / F07: the way back. This page gave up its entry in Redmine's
+    administration menu for a link in the plugin's own action bar, so the
+    breadcrumb is what keeps it from being somewhere you can only leave with the
+    browser's back button. Same shape as copy.html.erb's. %>
+<%= title [l(:label_project_workflow_rules), project_workflow_rules_path],
+          l(:label_project_workflow_diagnostics) %>
 
 <p><%= l(:text_project_workflow_diagnostics_description) %></p>
 
