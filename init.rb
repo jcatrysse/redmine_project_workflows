@@ -31,13 +31,23 @@ Redmine::Plugin.register :redmine_project_workflows do
   # which is what answers for a settings hash saved before this key existed.
   # spec/plugin_conventions_spec.rb asserts the two agree.
   #
-  # WP13's second setting, the same unit and the other end of it: above
-  # `bulk_write_ceiling` workflow rules an administration matrix save is
-  # **refused** rather than asked about, before its transaction opens (audit
-  # F08). 0 means no ceiling. Its fallback is
-  # RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_WRITE_CEILING, and
-  # spec/plugin_conventions_spec.rb asserts those agree as well.
-  settings default: { 'bulk_confirm_threshold' => '50', 'bulk_write_ceiling' => '200000' },
+  # WP13's two further settings, in the same unit and further along the same
+  # scale (audit F08). Above `bulk_save_confirm_threshold` the **Save** button
+  # asks; above `bulk_write_ceiling` an administration matrix save is **refused**
+  # before its transaction opens, and 0 means no ceiling. Both fall back to
+  # constants on RedmineProjectWorkflows::Services::WriteBudget, and
+  # spec/plugin_conventions_spec.rb asserts all three defaults agree with their
+  # fallbacks.
+  #
+  # Save has a threshold of its own, and a much larger one, because the two are
+  # not the same kind of surprise: a row or column action is one click whose
+  # effect is not visible until you look, while a Save is a form the operator has
+  # just filled in, on a page that already says how many workflows one cell
+  # stands for. Sharing 50 made the Save dialog fire on every multi-workflow save
+  # -- two workflows of a six-status matrix is already 216 rules.
+  settings default: { 'bulk_confirm_threshold' => '50',
+                      'bulk_save_confirm_threshold' => '5000',
+                      'bulk_write_ceiling' => '200000' },
            partial: 'settings/redmine_project_workflows'
 
   # WP4. Both permissions map projects#settings, because that is the action the

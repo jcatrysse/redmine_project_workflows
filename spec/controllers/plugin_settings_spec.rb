@@ -66,7 +66,21 @@ describe SettingsController, type: :controller do
       expect(Setting.plugin_redmine_project_workflows['bulk_confirm_threshold']).to eq('12')
     end
 
-    # WP13's second setting, the other end of the same unit: above this many
+    # WP13's second setting: the Save button's own confirmation threshold, which
+    # is not the row and column actions'.
+    it 'renders the save-confirmation field, with the number that is in force' do
+      get :plugin, params: { id: 'redmine_project_workflows' }
+
+      expect(response.body).to include('name="settings[bulk_save_confirm_threshold]"')
+      expect(response.body).to include(ERB::Util.html_escape(
+                                         I18n.t(:label_project_workflow_bulk_save_confirm_threshold)
+                                       ))
+      expect(response.body).to include(
+        %(value="#{RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_SAVE_CONFIRM_THRESHOLD}")
+      )
+    end
+
+    # WP13's third setting, the other end of the same unit: above this many
     # workflow rules an administration matrix save is refused outright.
     it 'renders the ceiling field, with the number that is in force' do
       get :plugin, params: { id: 'redmine_project_workflows' }

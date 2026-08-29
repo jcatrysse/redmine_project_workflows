@@ -90,21 +90,33 @@ module RedmineProjectWorkflows
 
     # The data attributes the Save button's own confirmation reads (WP13, audit
     # F08). A save rewrites every cell it submits, once per workflow the
-    # selection covers, so the number it asks about is the same one a row or
-    # column action asks about and it is compared against the same setting.
+    # selection covers, so the number it asks about is counted in the same unit a
+    # row or column action asks about -- workflow rules.
+    #
+    # **Its own threshold, and a much larger one.** It shared
+    # `bulk_confirm_threshold` until the write path was measured on 2026-08-29,
+    # and at 50 rules the dialog fired on essentially every multi-workflow save:
+    # two workflows of a six-status matrix is already 216 rules. A row or column
+    # action is one click whose effect you cannot see; a Save is a form the
+    # operator has just filled in, on a page that already says how many workflows
+    # one cell stands for. See Services::WriteBudget.
     #
     # `project_workflow_selection_size` rather than a cell count: how many cells
     # there are is decided by the status list and is the same on every save of
-    # this screen, so a threshold on it alone would ask on an ordinary
-    # single-workflow save -- which is what Redmine has always done and must not
-    # grow a dialog. The script multiplies by the cells it finds and asks only
-    # when the multiplier is more than one.
+    # this screen. The script multiplies by the cells it finds and asks only when
+    # the multiplier is more than one.
     def project_workflow_save_confirm_data
       {
         project_workflow_multiplier: project_workflow_selection_size,
-        project_workflow_threshold: project_workflow_bulk_confirm_threshold,
+        project_workflow_threshold: project_workflow_save_confirm_threshold,
         project_workflow_save_confirm: l(:text_project_workflow_save_confirm)
       }
+    end
+
+    # See Services::WriteBudget: the Save button's threshold, not the row and
+    # column actions'.
+    def project_workflow_save_confirm_threshold
+      RedmineProjectWorkflows::Services::WriteBudget.save_confirm_threshold
     end
 
     # One <script> per page, from whichever of the plugin's administration

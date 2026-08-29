@@ -81,6 +81,8 @@ pt:
   label_project_workflow_bulk_confirm_threshold: 'Pedir confirmação quando uma ação de linha ou de coluna alterar mais de'
   text_project_workflow_bulk_confirm_threshold: 'Número de regras de fluxo de trabalho. Uma ação de linha ou de coluna que alterasse mais do que isto pede primeiro confirmação. 0 pergunta sempre.'
   text_project_workflow_save_confirm: 'Guardar esta matriz reescreve %{count} regra(s) de fluxo de trabalho. Continuar?'
+  label_project_workflow_bulk_save_confirm_threshold: 'Pedir confirmação quando Guardar reescrever mais de'
+  text_project_workflow_bulk_save_confirm_threshold: 'Número de regras de fluxo de trabalho. Guardar uma matriz de administração que abrange mais do que um fluxo de trabalho pede confirmação assim que reescreveria mais do que isto. Guardar um único fluxo de trabalho nunca pergunta. 0 pergunta sempre.'
   label_project_workflow_bulk_write_ceiling: 'Recusar um guardar da matriz que reescreva mais de'
   text_project_workflow_bulk_write_ceiling: 'Número de regras de fluxo de trabalho. Um guardar da matriz de administração maior do que isto é recusado antes de ser escrito o que quer que seja, para que um único guardar não bloqueie as tabelas de fluxo de trabalho durante minutos. 0 significa sem limite.'
   error_project_workflow_save_too_large: 'Este guardar reescreveria %{count} regra(s) de fluxo de trabalho, mais do que o limite de %{ceiling}. Nada foi alterado. Selecione menos projetos, tipos de pedido ou perfis, ou aumente o limite nas definições do plugin.'

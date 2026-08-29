@@ -415,8 +415,24 @@ describe ProjectWorkflowRulesController, type: :controller do
       expect(form).to include('onsubmit="return projectWorkflowConfirmSave(this);"')
       expect(form).to include('data-project-workflow-multiplier="2"')
       expect(form).to include(%(data-project-workflow-threshold="#{
-        RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD}"))
+        RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_SAVE_CONFIRM_THRESHOLD}"))
       expect(form).to include('data-project-workflow-save-confirm=')
+    end
+
+    # The Save button's threshold, not the row and column actions'. They shared
+    # one until the write path was measured on 2026-08-29, and at 50 rules the
+    # dialog fired on essentially every multi-workflow save.
+    it 'does not use the row and column actions\' threshold' do
+      Setting.plugin_redmine_project_workflows = { 'bulk_confirm_threshold' => '7',
+                                                   'bulk_save_confirm_threshold' => '4321' }
+
+      get_transitions(tracker_id: [tracker.id, other_tracker.id])
+
+      expect(form_tag_in(response.body)).to include('data-project-workflow-threshold="4321"')
+      # The row and column actions still carry theirs, on their own element.
+      expect(response.body).to include('data-project-workflow-threshold="7"')
+    ensure
+      Setting.clear_cache
     end
 
     # The half that was missing in the first draft: the field permissions matrix

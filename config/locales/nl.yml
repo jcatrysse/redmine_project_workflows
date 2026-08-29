@@ -81,6 +81,8 @@ nl:
   label_project_workflow_bulk_confirm_threshold: 'Vraag bevestiging wanneer een rij- of kolomactie meer wijzigt dan'
   text_project_workflow_bulk_confirm_threshold: 'Aantal workflowregels. Een rij- of kolomactie die meer dan dit zou wijzigen, vraagt eerst om bevestiging. 0 vraagt altijd.'
   text_project_workflow_save_confirm: 'Deze matrix opslaan herschrijft %{count} workflowregel(s). Doorgaan?'
+  label_project_workflow_bulk_save_confirm_threshold: 'Vraag bevestiging wanneer Opslaan meer herschrijft dan'
+  text_project_workflow_bulk_save_confirm_threshold: 'Aantal workflowregels. Het opslaan van een beheermatrix die meer dan één workflow omvat, vraagt om bevestiging zodra er meer dan dit herschreven zou worden. Eén workflow opslaan vraagt nooit. 0 vraagt altijd.'
   label_project_workflow_bulk_write_ceiling: 'Weiger een matrixopslag die meer herschrijft dan'
   text_project_workflow_bulk_write_ceiling: 'Aantal workflowregels. Een beheermatrix die groter is dan dit wordt geweigerd voordat er iets wordt geschreven, zodat één opslagactie de workflowtabellen niet minutenlang vasthoudt. 0 betekent geen limiet.'
   error_project_workflow_save_too_large: 'Deze opslagactie zou %{count} workflowregel(s) herschrijven, meer dan de limiet van %{ceiling}. Er is niets gewijzigd. Selecteer minder projecten, trackers of rollen, of verhoog de limiet in de plugininstellingen.'

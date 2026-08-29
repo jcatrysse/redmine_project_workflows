@@ -25,8 +25,17 @@ The workflow as a drawing.
   Save button now asks first above the same number a row or column action asks
   about, and a save above a second, much larger number is refused before
   anything is written, with a message saying how many rules it would have been.
-  Both numbers are in *Administration → Plugins → Configure*; the second is new
-  and defaults to 200,000 rules, and `0` means no limit.
+  All three numbers are in *Administration → Plugins → Configure*; two of them are
+  new — Save asks above 5,000 rules and a save is refused above 200,000, and `0`
+  means no limit for either.
+
+  **Saving is not slow**, and does not become slow with the size of the
+  selection: the plugin writes a matrix in about eight statements per project
+  however many rules that is, where Redmine's own workflow save writes one
+  statement per rule. Measured on Redmine 7.0 and PostgreSQL 16, the same 1,620
+  rules take 30 statements and 0.22 s through this plugin and 6,480 statements
+  and 5.03 s written one at a time. The README's *Settings* section has the
+  numbers, including the one action that is still measured per combination.
 
 ### Changed
 

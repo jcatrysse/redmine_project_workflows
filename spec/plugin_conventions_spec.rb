@@ -125,6 +125,7 @@ describe RedmineProjectWorkflows do
     expect(plugin.settings[:partial]).to eq('settings/redmine_project_workflows')
     expect(Setting.available_settings).to have_key('plugin_redmine_project_workflows')
     expect(Setting.plugin_redmine_project_workflows).to have_key('bulk_confirm_threshold')
+    expect(Setting.plugin_redmine_project_workflows).to have_key('bulk_save_confirm_threshold')
     expect(Setting.plugin_redmine_project_workflows).to have_key('bulk_write_ceiling')
   end
 
@@ -136,8 +137,24 @@ describe RedmineProjectWorkflows do
 
     expect(declared['bulk_confirm_threshold'].to_i)
       .to eq(RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD)
+    expect(declared['bulk_save_confirm_threshold'].to_i)
+      .to eq(RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_SAVE_CONFIRM_THRESHOLD)
     expect(declared['bulk_write_ceiling'].to_i)
       .to eq(RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_WRITE_CEILING)
+  end
+
+  # The three are one scale and only make sense in order: a row or column action
+  # is one click whose effect is not visible until you look, a Save is a form the
+  # operator has just filled in, and above the ceiling nothing is written at all.
+  # Sharing the first two was measured on 2026-08-29 to fire the Save dialog on
+  # essentially every multi-workflow save.
+  it 'declares the three thresholds in increasing order' do
+    declared = Redmine::Plugin.find(:redmine_project_workflows).settings[:default]
+
+    expect(declared['bulk_confirm_threshold'].to_i)
+      .to be < declared['bulk_save_confirm_threshold'].to_i
+    expect(declared['bulk_save_confirm_threshold'].to_i)
+      .to be < declared['bulk_write_ceiling'].to_i
   end
 
   # WP6 added an action and forgot this mapping, and the symptom was a 403 for

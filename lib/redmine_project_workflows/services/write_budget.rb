@@ -30,21 +30,41 @@ module RedmineProjectWorkflows
     # actions of WP5 already ask about, which is (cells submitted) x (workflows
     # the selection covers):
     #
-    #   bulk_confirm_threshold   above this, the Save button asks first
-    #                            (client side, and only when the selection covers
-    #                            more than one workflow -- a single-workflow save
-    #                            is what Redmine has always done and must not
-    #                            grow a dialog)
-    #   bulk_write_ceiling       above this, the save is refused before the
-    #                            transaction opens. 0 means no ceiling.
+    #   bulk_confirm_threshold        above this, a *row or column action* asks
+    #                                 (WP5; one click, and what it changes is not
+    #                                 visible until you look)
+    #   bulk_save_confirm_threshold   above this, the *Save button* asks (client
+    #                                 side, and only when the selection covers
+    #                                 more than one workflow -- a single-workflow
+    #                                 save is what Redmine has always done and
+    #                                 must not grow a dialog)
+    #   bulk_write_ceiling            above this, the save is refused before the
+    #                                 transaction opens. 0 means no ceiling.
+    #
+    # **Why Save has a threshold of its own, and a much larger one.** Both were
+    # `bulk_confirm_threshold` until the write path was measured on 2026-08-29.
+    # At 50 rules the Save dialog fired on essentially *every* multi-workflow
+    # save -- two workflows of a six-status matrix is already 216 rules -- so it
+    # stopped carrying information and became something to click through. A row
+    # or column action is one click whose effect you cannot see; a Save is a form
+    # the operator has just filled in, on a page that already says how many
+    # workflows one cell stands for. The surprise is smaller and the threshold
+    # should be too.
     class WriteBudget
-      # About eight seconds of writing at the rate measured above (~26,000 rows a
-      # second), which is where a front-end proxy starts timing out -- and a
-      # timeout here is the worst outcome, because it rolls back everything and
-      # reports nothing. Deliberately far above any selection an installation of
-      # ordinary size can produce: 50 projects x 3 trackers x 3 roles x 36 cells
-      # is 16,200.
+      # Measured on 2026-08-29 (Redmine 7.0, PostgreSQL 16, in this container):
+      # about 27,000 workflow rules a second, flat from 4,860 to 172,800 rules
+      # and independent of how the selection is shaped. So the ceiling is roughly
+      # **seven seconds** of writing, which is where a front-end proxy starts
+      # timing out -- and a timeout is the worst outcome here, because it rolls
+      # back everything and reports nothing. Deliberately far above any selection
+      # an installation of ordinary size can produce: 50 projects x 3 trackers x
+      # 3 roles x 36 cells is 16,200. Answered **A** by Jan on 2026-08-29.
       DEFAULT_WRITE_CEILING = 200_000
+
+      # About a fifth of a second of writing at the rate above, and -- the number
+      # that actually decides it -- roughly 46 workflows of a six-status matrix.
+      # Fifty workflows rewritten at once is worth one question; two is not.
+      DEFAULT_SAVE_CONFIRM_THRESHOLD = 5_000
 
       # The rules a save would rewrite: every cell it submitted, once per
       # workflow the selection covers.
@@ -58,6 +78,10 @@ module RedmineProjectWorkflows
 
       def self.ceiling
         setting('bulk_write_ceiling', DEFAULT_WRITE_CEILING)
+      end
+
+      def self.save_confirm_threshold
+        setting('bulk_save_confirm_threshold', DEFAULT_SAVE_CONFIRM_THRESHOLD)
       end
 
       # 0 is "no ceiling", which is the escape hatch for an installation that has

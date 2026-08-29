@@ -6,10 +6,13 @@
 
 ## Current position
 
-- **WP13 is done, all three bullets.** Every workflow write now takes a lock
-  before it rewrites anything; a very large administration save is confirmed and
-  then, above a ceiling, refused before its transaction opens; and archived
-  projects have left every selector that decides what to write.
+- **WP13 is done, all three bullets, and the write path is now measured.** Every
+  workflow write takes a lock before it rewrites anything; a very large
+  administration save is confirmed and then, above a ceiling, refused before its
+  transaction opens; and archived projects have left every selector that decides
+  what to write. Jan answered **A** on the ceiling and asked whether bulk saves
+  are fast at all — so they were measured, and the numbers are in section 4
+  below, in `docs/design.md` and in the README.
 - **What that fixes, in one sentence each.**
   - *Concurrency (audit F07).* Two administrators saving the workflow every
     project shares, at the same moment, used to leave **duplicate rules** — a
@@ -21,6 +24,11 @@
     realistic large installation, extrapolated from a measured 1,620.
   - *Archived projects (audit F09).* *Give every project its own workflow* was
     quietly writing rules for projects nobody can reach.
+- **A matrix save is about eight statements per project, flat, and roughly 27,000
+  workflow rules a second.** The same rules written one statement at a time — the
+  way Redmine's own workflow save does it — cost 216× the statements and 23× the
+  time. That is the thing Jan remembered being slow, and it is what the writers
+  exist to avoid.
 - **Nothing else a user can do has changed**, and nothing has been released:
   0.1.6, unreleased; `main` carries 0.0.3 and there is no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
@@ -32,7 +40,7 @@
 
 ## What this session produced
 
-Three commits, each green on all four local hosts and in CI before the next.
+Four commits, each green on all four local hosts and in CI before the next.
 
 ### 1. `WP13 step 1` — one write-coordination service (audit F07)
 
@@ -90,7 +98,8 @@ selection covers):
 
 | setting | default | what it does |
 | --- | --- | --- |
-| `bulk_confirm_threshold` | 50 | above this the Save button asks first (this setting already existed; it now covers Save as well as a row or column action) |
+| `bulk_confirm_threshold` | 50 | above this a **row or column action** asks first (this setting already existed) |
+| `bulk_save_confirm_threshold` | 5,000 | above this the **Save** button asks first (added by the measurement below — see section 4) |
 | `bulk_write_ceiling` | 200,000 | above this the save is refused before its transaction opens. `0` means no ceiling |
 
 `Services::WriteBudget` owns both. The projection is **exact rather than
@@ -136,18 +145,59 @@ its authorization. Out of proportion to a nit whose own verification reads
 "Read; … not measured at scale". **Reopen it with a measurement, not with a
 redesign.**
 
+### 4. The write path, measured — and the one thing that changed because of it
+
+Jan answered **A** on the ceiling and asked the right question with it: *will bulk
+updates be fast? We need something because in the past with one insert/update per
+line a simple workflow could take very very long.* So the write path was measured
+rather than argued. Redmine 7.0 on PostgreSQL 16, in this container, which is not
+fast hardware:
+
+| action | statements | rate |
+| --- | --- | --- |
+| **save the matrix** | **~8 per project, flat** — 5 projects and 50 projects both cost 8.0/project. It grows with the *matrix* only through the 1,000-row insert batching: 13/project at 432 cells, 23 at 1,200. | ≈27,000 workflow rules a second, flat from 4,860 to 172,800 |
+| **empty this workflow** | **5 in total** for 1,000 combinations | 36,000 rules deleted in 0.33 s |
+| **return to the generic workflow** | **6 in total** for 1,000 combinations | 0.13 s |
+| **give own workflow** | **3 per combination** | ≈5 ms per combination, linear |
+
+**The contrast, on the same 1,620 rules:** the writer takes **30 statements and
+0.22 s**; writing them the way Redmine's own `replace_transitions` does — one
+`save` per rule — takes **6,480 statements and 5.03 s**. 216× the statements, 23×
+the time. That is the shape Jan remembered being slow, and it is what the writers
+exist to avoid.
+
+**What changed because of the measurement.** The Save confirmation shared
+`bulk_confirm_threshold` with the row and column actions, and at 50 rules it fired
+on essentially **every** multi-workflow save — two workflows of a six-status
+matrix is already 216 rules. A dialog that always appears carries no information
+and becomes something to click through, which is worse than not having one. Save
+has its own setting now, `bulk_save_confirm_threshold`, defaulting to 5,000 —
+about 46 workflows of a six-status matrix. `plugin_conventions_spec.rb` asserts
+the three defaults are in increasing order, because they only make sense as a
+scale.
+
+**What did not change, and is Jan's call.** *Give own workflow* is the one bulk
+action still measured per combination, and deliberately: `create_scopes` is one
+validated `save!` per row and `copy_generic_to_project` is one `INSERT … SELECT`
+per combination, both decided by Jan on 2026-08-27 with an explicit instruction
+not to batch them back — and with the note that if the slow case were ever met it
+is *"the ADR that gets written, not this method that gets rewritten"*. At 5 ms
+each, 20,000 combinations is about **100 seconds**, and the write ceiling does not
+cover it. It is now an open choice rather than a rewrite.
+
 ## Evidence
 
 Everything below was executed in this container.
 
 | Gate | Result |
 | --- | --- |
-| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6) on PostgreSQL 16 | **1,019 examples, 0 failures** on each. Was 977. |
-| Plugin suite, Redmine 7.0 on MariaDB 10.11 | **1,019 examples, 0 failures** — and this is where the two-connection concurrency examples were also run |
+| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6) on PostgreSQL 16 | **1,026 examples, 0 failures** on each. Was 977. |
+| Plugin suite, Redmine 7.0 on MariaDB 10.11 | **1,026 examples, 0 failures** — and this is where the two-connection concurrency examples were also run |
 | RuboCop through `.github/lint/Gemfile` | **134 files, no offences** |
+| The write path | measured at four sizes and against a row-by-row equivalent; the probes are in the scratchpad and the numbers are in `docs/design.md` and the README |
 | `rake zeitwerk:check` | All is good! |
 | `node dev/check-bulk-js.mjs` | all checks pass — **11 new** for the Save confirmation |
-| Locale parity | all eight files, 0 missing and 0 extra keys (in the suite). Four new keys, translated. |
+| Locale parity | all eight files, 0 missing and 0 extra keys (in the suite). **Six** new keys, translated. |
 | Migrations (INV-8) | up → down (`VERSION=0`) → up on 7.0/PostgreSQL, 5.1/PostgreSQL and 7.0/MariaDB, **before** the suite. No leftover table or column, no dashed `schema_migrations` rows. `dev/check-backfill.sh` green on all three. |
 | CI | runs **163**, **164** and **165** — one per commit — are **success on all eleven jobs**: the full 3 × 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Run 165 is the head. |
 
@@ -158,6 +208,7 @@ Everything below was executed in this container.
 | `WriteCoordinator.lock_generic` returning early | eight examples, and the two-connection one leaves **two** generic rules for one cell instead of one |
 | `WorkflowRule.lock_generic_copy` returning early | three copy-lock examples, one of them on Redmine's own copy screen |
 | the ceiling guard removed from `AdminMatrix#write_matrix` | the two refusal examples — rows written, no flash |
+| the Save confirmation pointed back at `bulk_confirm_threshold` | two view examples |
 | `ProjectOptions.selectable` put back to `Project.sorted` | four examples — the two selectors, the matrix save's `all`, and the scope action's `all` |
 
 **Not covered:** MySQL 8 was not run locally (PostgreSQL 16 and MariaDB 10.11
@@ -177,34 +228,47 @@ the order the plan lists them:
 - The copy form's item count is narrowed to the source's enabled trackers.
 - The graph becomes a switchable feature with a size ceiling.
 
-**One thing WP13 turned up and did not do, worth deciding early in WP14.** The
-**copy screen** is a bulk write too — a copy into many target projects writes the
-source's whole rule set per target — and it has no ceiling. WP13's `WriteBudget`
-bounds only the matrix save, because that is what audit F08 named and measured.
-The projection for a copy is a different shape (it needs the source's rule
-count, which is a query), so this is a decision rather than a five-line
-extension. Not a defect anybody has hit; recorded so it is not re-found.
+**Two things WP13 turned up and did not do**, both worth settling early in WP14
+and neither a defect anybody has hit:
+
+- **The copy screen is a bulk write with no ceiling.** A copy into many target
+  projects writes the source's whole rule set per target. `WriteBudget` bounds
+  only the matrix save, because that is what audit F08 named and measured. The
+  projection for a copy needs the source's rule count, which is a query, so this
+  is a decision rather than a five-line extension.
+- **So is *give own workflow*, and that one is measured** — about 5 ms per
+  combination, ~100 seconds for 20,000. It is the open choice below, because
+  the per-row write it would touch is a decision Jan made and marked as needing
+  an ADR.
 
 ## Open choices
 
-**One, and it is not urgent — we continued with the recommendation.**
+**One, and it is not urgent.** The ceiling question WP13 raised was answered
+**A** by Jan on 2026-08-29 and has moved to `docs/DECISIONS.md`.
 
-- **Choice:** What should the default write ceiling be — the number of workflow
-  rules above which an administration matrix save is refused outright?
-- **Options:** **A) 200,000**, which is what is implemented: about eight seconds
-  of writing at the measured rate, roughly where a front-end proxy starts timing
-  out, and far above any selection an ordinary installation produces (50 projects
-  × 3 trackers × 3 roles × 36 cells is 16,200). **B) Lower, say 50,000** —
-  refuses sooner, protects a slower database, and would refuse a deliberate
-  whole-installation save on a mid-sized installation. **C) 0 by default (no
-  ceiling)** — changes nothing for anybody until an administrator asks for it,
-  leaving the confirmation dialog as the only guard.
-- **Recommendation:** A. It is a limit nobody of ordinary size will meet, it is
-  one field to change, and `0` is available to anyone who wants the old behaviour
-  back — while C would ship the finding's defect with a setting beside it.
-- **Urgent?** no. It is one number, in `init.rb`,
-  `Services::WriteBudget::DEFAULT_WRITE_CEILING` and the assertion that holds
-  those two together.
+- **Choice:** *Give own workflow* is the one bulk action still measured **per
+  combination** — about 5 ms each, linear, and **not** covered by the write
+  ceiling. On a large installation (500 projects × 5 trackers × 8 roles = 20,000
+  combinations) that is roughly **100 seconds** in one request. Jan's own decision
+  of 2026-08-27 made it one validated `save!` per row on purpose, and said that if
+  the slow case were ever actually met it is *"the ADR that gets written, not this
+  method that gets rewritten"*. It has now been met in a measurement rather than
+  by a user. What should happen?
+- **Options:** **A) Nothing yet** — record the number and wait for somebody to
+  actually hit it. Nobody is running this at that size, and it is a deliberate,
+  once-per-project decision rather than something anybody repeats. **B) Give it
+  the same ceiling** — refuse above a configured number of combinations, so the
+  request cannot run for two minutes. Cheap, reversible, and it does not touch the
+  decided per-row write. **C) Write the ADR and batch it** — the round trips are
+  the cost, and the 2026-08-27 reasoning (a lost race must not be reported as a
+  created scope) can be kept in a different shape.
+- **Recommendation:** B — it closes the "one request runs for two minutes" hazard
+  without re-opening a decision made deliberately, and it is the same mechanism
+  WP13 already built for the matrix save. C is real work and should wait for
+  somebody who actually has 20,000 combinations.
+- **Urgent?** no. Nothing is blocked; the action is correct today and only slow
+  at a size nobody is running. **Nothing was implemented for it**, because the
+  decision it would re-open is one Jan made and marked as needing an ADR.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -1346,10 +1410,10 @@ WP0..WP13 are done. "Carry on" means, in order:
 1. **Read CI for the head and act on it if it is red.** MySQL 8 was not run
    locally (PostgreSQL 16 and MariaDB 10.11 were), and three of the nine cells are
    MySQL. Runs **163**, **164** and **165** are green on all eleven jobs — one per
-   WP13 commit, and 165 is the head, so the only thing after a green run is this
-   file. Pushing a commit **cancels** the in-flight run for the previous one, so
-   read the latest run and treat a cancelled earlier one as superseded rather
-   than failed.
+   WP13 code commit; the fourth commit (the measurement and the Save threshold)
+   was pushed after and its run should be read first. Pushing a commit
+   **cancels** the in-flight run for the previous one, so read the latest run and
+   treat a cancelled earlier one as superseded rather than failed.
 2. **WP14** — the remaining defect backlog. *Exact next step* lists the five
    items and the one thing WP13 turned up and deliberately did not do (the copy
    screen has no write ceiling).

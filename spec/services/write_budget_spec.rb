@@ -52,6 +52,40 @@ describe RedmineProjectWorkflows::Services::WriteBudget do
     end
   end
 
+  # Its own setting since 2026-08-29, and a much larger default: sharing
+  # `bulk_confirm_threshold` fired the Save dialog on essentially every
+  # multi-workflow save, because two workflows of a six-status matrix is already
+  # 216 rules.
+  describe '.save_confirm_threshold' do
+    it 'is the declared default when nothing has been saved' do
+      Setting.plugin_redmine_project_workflows = {}
+
+      expect(described_class.save_confirm_threshold)
+        .to eq(described_class::DEFAULT_SAVE_CONFIRM_THRESHOLD)
+    end
+
+    it 'is what an administrator saved' do
+      Setting.plugin_redmine_project_workflows = { 'bulk_save_confirm_threshold' => '250' }
+
+      expect(described_class.save_confirm_threshold).to eq(250)
+    end
+
+    it 'is not the row and column actions\' threshold' do
+      Setting.plugin_redmine_project_workflows = { 'bulk_confirm_threshold' => '7' }
+
+      expect(described_class.save_confirm_threshold)
+        .to eq(described_class::DEFAULT_SAVE_CONFIRM_THRESHOLD)
+    end
+
+    # A Save that would rewrite 216 rules -- two workflows of a six-status
+    # matrix -- is the case that made the shared threshold useless.
+    it 'lets the ordinary multi-workflow save through without asking' do
+      Setting.plugin_redmine_project_workflows = {}
+
+      expect(described_class.save_confirm_threshold).to be > 216
+    end
+  end
+
   describe '.over_ceiling?' do
     before { Setting.plugin_redmine_project_workflows = { 'bulk_write_ceiling' => '100' } }
 

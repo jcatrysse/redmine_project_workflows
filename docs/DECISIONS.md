@@ -761,26 +761,43 @@ than it looks on paper.
 | 2026-08-29 | A save that is refused loses the unsaved matrix | **Accepted** | The redirect re-reads the database, as every other refusal on this screen does. Re-rendering the submitted matrix would mean carrying the payload back through the view, and the operator has already been asked once by then — the Save button's confirmation uses the *same* number against a threshold far below the ceiling, so a request that reaches the refusal has been through a dialog naming it. |
 | 2026-08-29 | Whether the ceiling refuses a project's *own* matrix save too | **No — the administration screens only** | `AdminMatrix` is the administration path; a project's own matrix is one project, one tracker and one role by construction, so its projection is the cell count and bounding it would only ever refuse a legitimate save of one workflow. |
 
+## Decided (Jan) — 2026-08-29
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-08-29 | The default write ceiling for an administration matrix save | **A — 200,000 workflow rules** | Asked at the end of the WP13 session with A recommended, and answered the same day. Jan's question with the answer was whether bulk saves are fast at all, "because in the past with one insert/update per line a simple workflow could take very very long" — so the write path was measured rather than extrapolated (see below). At the measured ≈27,000 rules a second the ceiling is about seven seconds of writing, which is what the rationale in `Services::WriteBudget` now says instead of an extrapolation. |
+
+## Decided (autonomous) — 2026-08-29, the write path measured
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-08-29 | Whether a bulk save is fast enough to leave as it is | **Yes, and it is now measured rather than argued** | Redmine 7.0 / PostgreSQL 16, in the development container. A matrix save is **~8 statements per project and flat** — 5 projects and 50 projects both cost 8.0/project — and about **27,000 workflow rules a second**, flat from 4,860 to 172,800 rules. The contrast, on the same 1,620 rules: the writer takes **30 statements and 0.22 s**, one `save` per rule takes **6,480 statements and 5.03 s**. That is the shape Jan remembered being slow, and it is the shape the writers exist to avoid. *Empty this workflow* and *Return to the generic workflow* are 5 and 6 statements in total for 1,000 combinations. The numbers are in `docs/design.md`, the README and `docs/STATE.md`. |
+| 2026-08-29 | The Save button's confirmation threshold | **Its own setting, `bulk_save_confirm_threshold`, defaulting to 5,000 — not the row and column actions' 50** | Sharing one threshold was WP13's own doing and the measurement showed it was wrong: at 50 rules the dialog fired on essentially **every** multi-workflow save, because two workflows of a six-status matrix is already 216 rules. A dialog that always appears carries no information and becomes something to click through, which is worse than not having one. The two are not the same kind of surprise: a row or column action is one click whose effect is not visible until you look, while a Save is a form the operator has just filled in on a page that already says how many workflows a cell stands for. 5,000 is roughly 46 workflows of a six-status matrix, and `plugin_conventions_spec.rb` now asserts the three defaults are in increasing order, because they only make sense as a scale. |
+
 ## Open — for Jan (2026-08-29)
 
-- **Choice:** What should the default write ceiling be — the number of workflow
-  rules above which an administration matrix save is refused outright?
-- **Options:** A) **200,000**, which is what is implemented. About eight seconds
-  of writing at the rate measured in audit F08 (≈26,000 rows a second), which is
-  roughly where a front-end proxy starts timing out — and a timeout is the worst
-  outcome, because it rolls back everything and reports nothing. It is far above
-  any selection an ordinary installation can produce: 50 projects × 3 trackers ×
-  3 roles × 36 cells is 16,200. B) **Lower, say 50,000**, which refuses sooner
-  and so protects a slower database, at the cost of refusing a deliberate
-  whole-installation save on a mid-sized installation. C) **0 by default (no
-  ceiling)**, which changes nothing for anybody until an administrator asks for
-  it — the confirmation dialog would then be the only guard.
-- **Recommendation:** A. It is a limit nobody of ordinary size will meet, it is
-  one field to change, and 0 is available to anyone who wants the old behaviour
-  back — while C would ship the finding's defect with a setting beside it.
-- **Urgent?** no — we continued with A, and it is one number in `init.rb`,
-  `Services::WriteBudget::DEFAULT_WRITE_CEILING` and the assertion that holds
-  those two together.
+- **Choice:** *Give own workflow* is the one bulk action still measured **per
+  combination** — about 5 ms each, linear, and not covered by the write ceiling.
+  On a large installation (500 projects × 5 trackers × 8 roles = 20,000
+  combinations) that is roughly **100 seconds** in one request. Your own decision
+  of 2026-08-27 made it one validated `save!` per row on purpose, and said that
+  if the slow case were ever actually met it is "the ADR that gets written, not
+  this method that gets rewritten". It has now been met in a measurement rather
+  than by a user. What should happen?
+- **Options:** **A) Nothing yet** — record the number and wait for somebody to
+  actually hit it. Nobody is running this at that size, and the action is a
+  deliberate, once-per-project decision rather than something anybody repeats.
+  **B) Give it the same ceiling** — refuse above a configured number of
+  combinations, so the request cannot run for two minutes. Cheap, reversible, and
+  it does not touch the decided per-row write. **C) Write the ADR and batch it** —
+  the round trips are the cost, and the 2026-08-27 reasoning (a lost race must
+  not be reported as a created scope) can be kept with a different shape.
+- **Recommendation:** B. It closes the "one request runs for two minutes" hazard
+  without re-opening a decision you made deliberately, and it is the same
+  mechanism WP13 already built for the matrix save. C is real work and should
+  wait for somebody who actually has 20,000 combinations.
+- **Urgent?** no — nothing is blocked, and the action is correct today, only
+  slow at a size nobody is running.
 
 ## Decided (autonomous) — 2026-08-29, WP13 step 3: archived projects
 

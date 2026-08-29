@@ -538,15 +538,53 @@ Accepted rather than fixed, for the same reason as the `OR` growth below: it is
 one administration action, the growth is linear, and the confirmation dialog
 already says how many combinations it is about to touch.
 
+#### What the write path actually costs, measured
+
+All of it on 2026-08-29, Redmine 7.0 on PostgreSQL 16, in the development
+container — which is not fast hardware, so treat these as a floor.
+
+| action | statements | rate |
+|---|---|---|
+| **save the matrix** | **~8 per project, flat** (13 for a 432-cell matrix, 23 for a 1,200-cell one — the growth is the 1,000-row insert batching, not the rows) | ≈27,000 workflow rules a second, flat from 4,860 to 172,800 |
+| **empty this workflow** | **5 in total** for 1,000 combinations | 36,000 rules deleted in 0.33 s |
+| **return to the generic workflow** | **6 in total** for 1,000 combinations | 0.13 s |
+| **give own workflow** | **3 per combination** | ≈5 ms per combination, linear |
+
+The contrast that matters, measured on the same 1,620 rules: the writer takes
+**30 statements and 0.22 s**; writing them the way Redmine's own
+`replace_transitions` does — one `save` per rule — takes **6,480 statements and
+5.03 s**. That is 216× the statements and 23× the time, and it is the reason the
+writers are set-based rather than row-by-row.
+
+**`give own workflow` is the one action still measured per combination**, and
+deliberately: `ScopeWriter.create_scopes` is one validated `save!` per row and
+`WorkflowRule.copy_generic_to_project` is one `INSERT … SELECT` per combination,
+both decided by Jan on 2026-08-27 with an explicit instruction not to batch them
+back. At 5 ms each, 500 projects × 5 trackers × 8 roles is 20,000 combinations
+and about **100 seconds** — which is the "slow case actually met" that decision
+names as an ADR conversation rather than a rewrite. It is **not** covered by the
+ceiling below, which bounds the matrix save only.
+
+#### Bounding a bulk save
+
 **Bounded since WP13** (audit F08). The transaction stays; what is bounded is
-what goes inside it. Two numbers, both plugin settings, both counted in
-**workflow rules** — the unit the row and column actions of WP5 already ask
-about, which is (cells submitted) × (workflows the selection covers):
+what goes inside it. Three numbers, all plugin settings, all counted in
+**workflow rules** — (cells submitted) × (workflows the selection covers) — and
+they read as one scale:
 
 | setting | default | what it does |
 |---|---|---|
-| `bulk_confirm_threshold` | 50 | above this, the Save button asks first |
-| `bulk_write_ceiling` | 200,000 | above this, the save is refused before its transaction opens. 0 means no ceiling |
+| `bulk_confirm_threshold` | 50 | above this, a **row or column action** asks first |
+| `bulk_save_confirm_threshold` | 5,000 | above this, the **Save** button asks first |
+| `bulk_write_ceiling` | 200,000 | above this, the save is **refused** before its transaction opens. 0 means no ceiling |
+
+**Why Save has a threshold of its own.** It shared the first one until the write
+path was measured, and at 50 rules the dialog fired on essentially every
+multi-workflow save — two workflows of a six-status matrix is already 216 rules —
+so it stopped carrying information and became something to click through. A row
+or column action is one click whose effect you cannot see; a Save is a form the
+operator has just filled in, on a page that already says how many workflows one
+cell stands for. 5,000 rules is roughly 46 workflows of a six-status matrix.
 
 The confirmation is client-side and asks only when the selection covers **more
 than one workflow**. How many cells there are is decided by the status list and
@@ -556,12 +594,12 @@ form will actually submit — neither a disabled cell nor one left at *(No chang
 is counted — which is what keeps its number equal to the one the server computes
 from the payload it receives, in `Services::WriteBudget`.
 
-The ceiling's default is about eight seconds of writing at the rate measured
-above (≈26,000 rows a second), which is where a front-end proxy starts timing
-out — and a timeout is the worst outcome here, because it rolls back everything
-and reports nothing. It is deliberately far above any selection an installation
-of ordinary size can produce: 50 projects × 3 trackers × 3 roles × 36 cells is
-16,200.
+The ceiling's default is about **seven seconds** of writing at the rate measured
+above, which is where a front-end proxy starts timing out — and a timeout is the
+worst outcome here, because it rolls back everything and reports nothing. It is
+deliberately far above any selection an installation of ordinary size can
+produce: 50 projects × 3 trackers × 3 roles × 36 cells is 16,200. Answered **A**
+by Jan on 2026-08-29, against a lower default and against no default ceiling.
 
 **Not a background job.** Redmine 5.1's default ActiveJob backend is the async
 adapter, which loses its queue when the process restarts; a workflow write may
