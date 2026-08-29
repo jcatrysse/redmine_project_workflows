@@ -53,6 +53,12 @@
   all passing**. `dev/e2e/` is the harness and `dev/e2e/README.md` says how to
   stand it up; `docs/review/findings/2026-08-29-claude-browser.md` is what the
   run found. One nit, no defect.
+- **The workflow diagram has colour**, added on Jan's word: a blue dashed arrow
+  for author/assignee-only changes and an amber dotted one for Redmine's own
+  fallback, with a sample of each line in the legend. Line style and the words
+  still carry the meaning, so the picture reads the same in greyscale; ordinary
+  arrows and every box keep `currentColor`. Both accents were measured against
+  four grounds and checked in a browser on a simulated dark theme.
 - **The documentation was rewritten and split.** The README was 858 lines; it is
   now 165 and links to five documents under `docs/` — `usage.md`, `gotchas.md`,
   `settings.md`, `operations.md` and `compatibility.md` — with seven screenshots
@@ -124,7 +130,7 @@ Everything below was executed in this container.
 | `node dev/check-bulk-js.mjs` | bulk action script OK |
 | `dev/check-backfill.sh`, `dev/check-upgrade.sh`, `dev/check-uninstall.sh` | green, each from a database rebuilt from **core** migrations first. The uninstall rehearsal exercises the new restore end to end and prints the new report lines |
 | Red-on-old-code | verified by restoring the previous file and re-running: **7 of 7** in `spec/services/workflow_restore_recovery_spec.rb` and both new `Tasks.restore` examples for WP17; **8 of the 12** controller shapes for WP18 (the four project shapes were already refused, which is why they are in the table); and `spec/views/compatibility_banner_spec.rb` goes red for exactly the screen whose call is removed |
-| CI | run **201** on the head (`8d44730`) is green on **all eleven jobs** — the 3 × 3 matrix plus lint and JS, read from the Actions API. Runs 190 (WP17), 191 (WP18) and 194 (WP19) are green too. Several runs in between show as *cancelled* because the next push superseded them, which is the documented behaviour rather than a failure — do not read a cancelled job as a failing one |
+| CI | run **203** on the head (`ddbb824`) is green on **all eleven jobs** — the 3 × 3 matrix plus lint and JS, read from the Actions API. Runs 190 (WP17), 191 (WP18) and 194 (WP19) are green too. Several runs in between show as *cancelled* because the next push superseded them, which is the documented behaviour rather than a failure — do not read a cancelled job as a failing one |
 
 ## Exact next step
 
