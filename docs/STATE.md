@@ -107,21 +107,13 @@ Everything below was executed in this container.
 | `node dev/check-bulk-js.mjs` | bulk action script OK |
 | `dev/check-backfill.sh`, `dev/check-upgrade.sh`, `dev/check-uninstall.sh` | green, each from a database rebuilt from **core** migrations first. The uninstall rehearsal exercises the new restore end to end and prints the new report lines |
 | Red-on-old-code | verified by restoring the previous file and re-running: **7 of 7** in `spec/services/workflow_restore_recovery_spec.rb` and both new `Tasks.restore` examples for WP17; **8 of the 12** controller shapes for WP18 (the four project shapes were already refused, which is why they are in the table); and `spec/views/compatibility_banner_spec.rb` goes red for exactly the screen whose call is removed |
-| CI | run **190** (`0d36552`, WP17) and run **191** (`745e96f`, WP18) are green on **all eleven jobs** — the 3 × 3 matrix plus lint and JS, read from the Actions API. **WP19's nine-cell result was not read**: run 192 was cancelled by the next push, and run 193 was still running its nine cells (lint and JS green) when the session ended. A cancelled run is superseded, not failed |
+| CI | run **194** on the head (`e81032f`) is green on **all eleven jobs** — the 3 × 3 matrix plus lint and JS, read from the Actions API. Runs 190 (`0d36552`, WP17) and 191 (`745e96f`, WP18) are green too. Runs 192 and 193 show as *cancelled* because the next push superseded each of them, which is the documented behaviour rather than a failure — do not read a cancelled job as a failing one |
 
 ## Exact next step
 
-**Read the newest CI run on the head, and treat that as the first task.** WP19 and
-the follow-up commit are the only work on this branch whose nine-cell result has
-not been read: lint and JS were green, the nine matrix cells were still running.
-Everything WP19 touches was green on Redmine 5.1 locally and the two commits
-before it were green on all eleven jobs, so a failure here would be a
-cross-database or cross-version one — most plausibly in
-`spec/views/compatibility_banner_spec.rb`, which is the only new spec that
-renders views on all three Redmines.
-
-If it is green, the code work this repository can do is finished: WP0..WP19 are
-all done and `docs/review/findings/` has no open finding.
+**The code work this repository can do is finished.** WP0..WP19 are all done,
+`docs/review/findings/` has no open finding, and CI run 194 is green on all
+eleven jobs for the head this sentence was written on.
 
 What remains is **WP20, and it is Jan's**:
 
