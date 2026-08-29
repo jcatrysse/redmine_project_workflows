@@ -59,6 +59,15 @@ but it is the tooling the uninstall procedure rests on, so it blocks a release.
 
 **Counts:** blocker 1 · major 2 · minor 2 · nit 3 · question 0
 
+**All eight are fixed**, in WP17 (F01, F02, F06), WP18 (F03) and WP19 (F04, F05,
+F07, F08), on 2026-08-29 — the same day, by the sessions that read this file. Each
+`Resolution:` line below says what was done and how it was verified red against
+the previous code. Two of the fixes departed from what this file suggested, and
+both departures are recorded in `docs/DECISIONS.md`: the stale-backup guard is a
+re-read and compare rather than the monotonic revision column F02 proposed, and
+F06 was taken along with WP17 because the adapter predicate it needed was the one
+WP17's own two-connection example needed.
+
 ---
 
 ### F01 — An interrupted restore leaves workflows owned but empty, and the documented retry skips them

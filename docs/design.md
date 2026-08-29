@@ -1447,7 +1447,9 @@ measurement.
   core defines it in. A warning, never a refusal: an installation that has just
   been upgraded must keep the screens an administrator would put it right from.
 
-`Administration → Project workflow diagnostics` is where all of it is readable,
+`Administration → Project workflows → Diagnostics` is where all of it is readable
+(reached from the action bar of the plugin's own screens since WP19; it has no
+entry of its own in Redmine's administration menu, because ADR-003 costed one),
 and it carries three more checks whose wrong answer is otherwise silent: whether
 each permission the plugin registered is the one `AccessControl` answers with
 (two plugins can claim a name and the loser's screens answer 403 to everybody),

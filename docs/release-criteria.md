@@ -43,7 +43,7 @@ that cannot be checked mechanically says who checks it and against what.
 
 | | State |
 |---|---|
-| R1 | **met** on the last commit CI has answered for (run 190, `0d36552`). This one is only ever true of a *commit*, so it says nothing about any later one: re-check it on the release commit itself — and the line goes stale the moment anything is pushed, which is why it names the run as well as the commit (finding F08 of 2026-08-29-claude-revalidation). |
+| R1 | **met** on the last commit CI has answered for (run 191, `745e96f`). This one is only ever true of a *commit*, so it says nothing about any later one: re-check it on the release commit itself — and the line goes stale the moment anything is pushed, which is why it names the run as well as the commit (finding F08 of 2026-08-29-claude-revalidation). |
 | R2 | **met.** |
 | R3 | **met** — the directory is gone. |
 | R4 | **met**, including `dev/check-uninstall.sh`, which is new in this work package. |
