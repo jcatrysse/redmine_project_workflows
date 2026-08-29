@@ -6,184 +6,143 @@
 
 ## Current position
 
-- **WP13 is done, all three bullets, and the write path is now measured.** Every
-  workflow write takes a lock before it rewrites anything; a very large
-  administration save is confirmed and then, above a ceiling, refused before its
-  transaction opens; and archived projects have left every selector that decides
-  what to write. Jan answered **A** on the ceiling and asked whether bulk saves
-  are fast at all — so they were measured, and the numbers are in section 4
-  below, in `docs/design.md` and in the README.
-- **What that fixes, in one sentence each.**
-  - *Concurrency (audit F07).* Two administrators saving the workflow every
-    project shares, at the same moment, used to leave **duplicate rules** — a
-    matrix cell that renders as a dropdown instead of a checkbox. A project's
-    save has locked its scope rows since 0.1.2; the shared workflow has no scope
-    row, so it locked nothing. It has a row of its own now.
-  - *Bulk writes (audit F08).* An "all projects × all trackers × all roles" save
-    was one transaction over an unbounded number of rows — roughly 8 million on a
-    realistic large installation, extrapolated from a measured 1,620.
-  - *Archived projects (audit F09).* *Give every project its own workflow* was
-    quietly writing rules for projects nobody can reach.
-- **A matrix save is about eight statements per project, flat, and roughly 27,000
-  workflow rules a second.** The same rules written one statement at a time — the
-  way Redmine's own workflow save does it — cost 216× the statements and 23× the
-  time. That is the thing Jan remembered being slow, and it is what the writers
-  exist to avoid.
-- **Nothing else a user can do has changed**, and nothing has been released:
+- **WP14 is done — all five items of the plan's "remaining defect backlog", plus
+  the two open findings that belonged to it.** With that, **every finding in
+  `docs/review/findings/` is resolved**: the count of `Status: open` across the
+  whole directory is now zero for the first time (the only remaining match is
+  `TEMPLATE.md`, which is a template).
+- **What that changes, in one sentence each.**
+  - *Deleting an issue status no longer freezes a project silently (audit F03).*
+    Redmine deletes every workflow rule naming a status you delete. A project
+    whose rules for a tracker and role all named it kept its **decision** to run
+    its own workflow and was left with no rules — which permits no change of
+    status at all — and nothing said so. The deletion now reports how many
+    project workflows it emptied, with a link to them.
+  - *`deface` has bounds (audit F10).* `~> 1.9`, so a fresh installation cannot
+    resolve a deface nobody has run this against — which, if it fails to load,
+    stops Redmine booting.
+  - *The two copiers' asymmetry is settled (audit F11).* Deliberate, argued, and
+    pinned by an example: duplicating a tracker or a role carries every project's
+    decision; copying a project carries only the decisions for trackers the
+    target has.
+  - *The copy form's item count* says what a tick would actually carry rather
+    than everything the project holds.
+  - *The workflow drawing is a switchable feature with a size ceiling* — the
+    2026-08-28 answer to a review that proposed cutting it.
+  - *The drift gate watches the core helpers the plugin calls* (the WP12 note's
+    F01), and the structural sweep written for it found a second undeclared
+    dependency on its first run.
+- **Nothing a user can do has been taken away**, and nothing has been released:
   0.1.6, unreleased; `main` carries 0.0.3 and there is no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
-  `claude/docs-review-meusad`, which already pointed at the remote head;
-  `git checkout -B claude/dev origin/claude/dev` was the whole rescue. **The
-  local `claude/dev` ref was again the unrelated five-commit lineage** — always
-  reset it from `origin/claude/dev` rather than trusting the local ref. This is
-  the third session in a row that has had to.
+  `claude/docs-review-5ta7m5`; `git checkout -B claude/dev origin/claude/dev` was
+  the whole rescue. **The local `claude/dev` ref was once again the unrelated
+  five-commit lineage** — always reset it from `origin/claude/dev` rather than
+  trusting the local ref. Fourth session in a row.
 
 ## What this session produced
 
-Four commits, each green on all four local hosts and in CI before the next.
+Four commits, each green on all three local hosts and lint-clean before the next.
 
-### 1. `WP13 step 1` — one write-coordination service (audit F07)
+### 1. `WP14 step 1` — a status deletion says which project workflows it emptied (audit F03)
 
-**The defect.** A project write takes `SELECT … FOR UPDATE` on the scope rows of
-the combinations it is about to rewrite, which is what makes "does this project
-run its own workflow here?" and "write its rules" one decision. A **generic**
-write — the workflow every project shares — has no scope row and took nothing.
-Two saves of the same cell could both find no row to delete and both insert one.
+**The defect.** Core's `IssueStatus#delete_workflow_rules` removes every workflow
+row naming the status being destroyed, in both populations, with no project
+predicate. That is core's business and it is right. What core cannot know is that
+the plugin's **scope** row survives, and a scope with no rules is an own *empty*
+workflow: for transitions it permits nothing. So an administrator tidying up an
+unused status could move a project from "own workflow with N transitions" to
+"deny everything", with no message anywhere.
 
-**The calibration, because it decides how much machinery this deserves.** Core
-has the identical race and the plugin inherited it: core's own
-`replace_transitions` reads outside any lock and carries an opportunistic
-`w[1..-1].each(&:destroy)` that repairs duplicates on every save. The plugin is
-now the write path for both populations, so it can hold one policy for them.
+**Warn, never clean up.** Deleting the emptied scope would move the project to
+*follows the generic workflow* — two of INV-3's three meanings collapsed on its
+behalf, which is the defect the whole scope model exists to prevent. Core's
+deletion runs exactly as core wrote it; the only change is that somebody is told.
 
-**The shape.** `Services::WriteCoordinator` is the one entry point and a caller
-names one key, `(rule_type, project-or-generic, tracker, role)`. What the key
-resolves to differs by population, deliberately:
+**The shape.** `Services::StatusDeletionImpact` answers, in **one grouped
+statement** over the project population of `workflows` plus one scope lookup,
+which (project, tracker, role, rule type) combinations hold rules today and would
+hold none after the deletion — and only those a scope makes real, because a
+project rule row with no scope over it applies to nothing.
+`Patches::IssueStatusesControllerPatch` asks **before** `super` (core's
+`before_destroy` is what removes the rules the count is over) and reports
+**after**, in `flash[:warning]`, with a link into the inventory filtered to the
+projects affected.
 
-- **a project** — its own scope row, which already exists exactly when the
-  combination is writable;
-- **generic** — a row in `project_workflow_write_locks` (migration 007), a
-  plugin-owned table that carries nothing but the key.
+**Not a Deface override**, which is what a *pre*-warning on the issue-statuses
+list would need: a new anchor on a view the plugin does not own, INV-9 from five
+to six, and Redmine's delete link is a JavaScript `confirm` rather than a
+confirmation page, so there is no request in which to render one.
 
-Giving the generic workflow a *scope* row instead is the one thing that must not
-be done: a scope row means *this project decides* (INV-3), and a generic one
-would be a fourth state in a model whose whole purpose is that there are three.
-A table rather than advisory locks, which have no portable equivalent across
-PostgreSQL, MySQL and MariaDB.
+### 2. `WP14 step 2` — three from the audit backlog
 
-**Lock order, which is what makes two callers queue rather than deadlock:**
-ascending primary key within a table, and the generic rows **after** any project
-scope rows — which the callers already do without being told, because
-`WorkflowSelection#selected_project_ids` appends the generic `nil` last.
+- **F10.** `gem 'deface', '~> 1.9'`. The old unpinned declaration was right that
+  the host owns `Gemfile.lock` and that an exact pin can import a neighbour's
+  resolver conflict; it did not cover a **new** installation, or `bundle update`.
+  A major range is strictly narrower than nothing and still resolves against any
+  neighbour pinning inside the same major.
+- **F11.** Settled as deliberate rather than narrowed, on a fact the finding did
+  not have: **the rules are copied for every project whatever the scopes do**,
+  by the one statement INV-4 exempts by name. Narrowing the scopes alone would
+  leave project rule rows with no scope over them; narrowing the rules to match
+  means rewriting the statement that keeps copying a role from being 500 round
+  trips per tracker. The surprise also points the safer way — a project that
+  enables the new tracker later arrives with the workflow it had for the source,
+  where narrowing would hand it the more permissive generic one with nothing
+  said.
+- **The copy form's item count** counts scopes for the source's *enabled*
+  trackers, because a copy takes the source's trackers with it and
+  `ProjectWorkflowCopier` writes a decision only where the target has the
+  tracker. It said "3" and copied 2.
 
-**The gap the first draft had, and it is the interesting part.** The lock was
-taken in the plugin's own copy controller. **Redmine's own copy screen** writes
-generic rules through core's `WorkflowRule.copy` → the plugin's `.copy_one` →
-`.copy_one_for_project`, and never goes near the plugin's controller — so the
-one generic write path a matrix writer never sees would still have been
-unlocked. It is taken in the model beside the write now, in both
-`.copy_for_project` (as one sorted batch, which is what fixes the *order* two
-concurrent copies take the rows in) and `.copy_one_for_project` (which is what
-Redmine's own screen reaches).
+### 3. `WP14 step 3` — the drawing becomes switchable, with a ceiling
 
-**The spec that pinned the asymmetry — "is not taken for a generic write" — is
-inverted and says so in place.**
-
-### 2. `WP13 step 2` — bounded bulk writes (audit F08)
-
-The transaction stays; what is bounded is what goes inside it. Two numbers, both
-plugin settings, both counted in **workflow rules** — the unit the row and column
-actions of WP5 already ask about, which is (cells submitted) × (workflows the
-selection covers):
+Two settings, both in `Services::GraphBudget`:
 
 | setting | default | what it does |
 | --- | --- | --- |
-| `bulk_confirm_threshold` | 50 | above this a **row or column action** asks first (this setting already existed) |
-| `bulk_save_confirm_threshold` | 5,000 | above this the **Save** button asks first (added by the measurement below — see section 4) |
-| `bulk_write_ceiling` | 200,000 | above this the save is refused before its transaction opens. `0` means no ceiling |
+| `graph_enabled` | on | off, and no link to the drawing is rendered anywhere — the settings tab, the matrix header and the issue-form panel all go through `project_workflow_graph_offered?` — while the action answers **404**, not 403: there is no such screen, and no permission would help |
+| `graph_edge_ceiling` | 2,000 **arrows** | above it the layout is not computed at all; the page keeps the scope panel and the table and says why the picture is not there. `0` means no ceiling |
 
-`Services::WriteBudget` owns both. The projection is **exact rather than
-estimated**: `SanitizedPayload#submitted_leaf_count` runs on the writer that is
-about to run and counts the same leaves `#sanitize_and_count` does, so the number
-the screen refuses over and the number the writer would act on cannot drift
-apart.
+**The unit was measured, not chosen.** Redmine 7.0, PostgreSQL 16, in this
+container, one project / tracker / role:
 
-Two details that took a second pass:
-
-- **The confirmation asks only when the selection covers more than one
-  workflow.** How many cells there are is decided by the status list and is the
-  same on every save of the screen, so a threshold on the cell count alone would
-  have grown a dialog on an ordinary single-workflow save — which is what Redmine
-  has always done.
-- **The bulk script had to move.** It was rendered lazily by whichever row or
-  column header came first, and the **field permissions** matrix has no row or
-  column actions — so on that screen the script was never on the page and the new
-  handler would have called a function that is not there. Both administration
-  views render it above their form now; it is still one `<script>` per page.
-
-### 3. `WP13 step 3` — archived projects leave the write selectors (audit F09)
-
-`Project.sorted` carries no status predicate, so every project selector the
-plugin adds offered archived projects and `all` expanded to them.
-`Services::ProjectOptions.selectable` is the one place the rule lives now.
-
-**Only what is offered narrows**, which is the half that would have been silently
-lost: an id in the request is still resolved against the database, so the
-inventory's link into an archived project's matrix goes on working and a workflow
-one of them already has stays removable.
-
-**The inventory keeps archived projects, against the finding's suggested
-direction.** It is a report, not a control that decides what to write, and an
-archived project running its own workflow is exactly the row somebody needs to
-see — before they unarchive it, not after.
-
-**The rest of F09 is accepted rather than fixed**, and argued in the finding's
-Resolution: the remaining cost is one `<option>` per project on four
-administration pages, and the only real fix is not rendering the list at all —
-an autocomplete control, which is a screen redesign plus a controller action plus
-its authorization. Out of proportion to a nit whose own verification reads
-"Read; … not measured at scale". **Reopen it with a measurement, not with a
-redesign.**
-
-### 4. The write path, measured — and the one thing that changed because of it
-
-Jan answered **A** on the ceiling and asked the right question with it: *will bulk
-updates be fast? We need something because in the past with one insert/update per
-line a simple workflow could take very very long.* So the write path was measured
-rather than argued. Redmine 7.0 on PostgreSQL 16, in this container, which is not
-fast hardware:
-
-| action | statements | rate |
+| statuses | arrows | layout |
 | --- | --- | --- |
-| **save the matrix** | **~8 per project, flat** — 5 projects and 50 projects both cost 8.0/project. It grows with the *matrix* only through the 1,000-row insert batching: 13/project at 432 cells, 23 at 1,200. | ≈27,000 workflow rules a second, flat from 4,860 to 172,800 |
-| **empty this workflow** | **5 in total** for 1,000 combinations | 36,000 rules deleted in 0.33 s |
-| **return to the generic workflow** | **6 in total** for 1,000 combinations | 0.13 s |
-| **give own workflow** | **3 per combination** | ≈5 ms per combination, linear |
+| 21 | 400 | 79 ms |
+| 41 | 1,600 | 522 ms |
+| 61 | 3,600 | 1,550 ms |
+| 201 | 400 | 29 ms |
+| 401 | 800 | 49 ms |
 
-**The contrast, on the same 1,620 rules:** the writer takes **30 statements and
-0.22 s**; writing them the way Redmine's own `replace_transitions` does — one
-`save` per rule — takes **6,480 statements and 5.03 s**. 216× the statements, 23×
-the time. That is the shape Jan remembered being slow, and it is what the writers
-exist to avoid.
+Four hundred statuses are cheap; sixty statuses with every move permitted are a
+second and a half of one request. So the cost follows the **edges**, and the
+default is about 0.7 s. Redmine's own default workflow is five statuses and
+twenty-five arrows. This is a different question from `dense?`, which is about a
+picture nobody can read and still computes the layout.
 
-**What changed because of the measurement.** The Save confirmation shared
-`bulk_confirm_threshold` with the row and column actions, and at 50 rules it fired
-on essentially **every** multi-workflow save — two workflows of a six-status
-matrix is already 216 rules. A dialog that always appears carries no information
-and becomes something to click through, which is worse than not having one. Save
-has its own setting now, `bulk_save_confirm_threshold`, defaulting to 5,000 —
-about 46 workflows of a six-status matrix. `plugin_conventions_spec.rb` asserts
-the three defaults are in increasing order, because they only make sense as a
-scale.
+### 4. `WP14 step 4` — the drift gate watches the core helpers the plugin calls
 
-**What did not change, and is Jan's call.** *Give own workflow* is the one bulk
-action still measured per combination, and deliberately: `create_scopes` is one
-validated `save!` per row and `copy_generic_to_project` is one `INSERT … SELECT`
-per combination, both decided by Jan on 2026-08-27 with an explicit instruction
-not to batch them back — and with the note that if the slow case were ever met it
-is *"the ADR that gets written, not this method that gets rewritten"*. At 5 ms
-each, 20,000 combinations is about **100 seconds**, and the write ceiling does not
-cover it. It is now an open choice rather than a rewrite.
+ADR-002 watches methods the plugin **shadows** (discovered from the patch
+modules) and methods it **calls** without shadowing (which have no `super_method`
+and must be written down). `WorkflowsHelper#field_required?` was the second kind
+and nobody had written it down — the matrix helper and two of the plugin's own
+views call it, and its body is a hard-coded list of field names.
+
+A list would have the same gap again on its first edit, so the sweep is
+structural: `spec/plugin_conventions_spec.rb` asserts every method core's
+`WorkflowsHelper` defines and the plugin's sources mention is watched, as a
+shadow or as a declaration. **It found a second one on its first run** —
+`options_for_workflow_select`, called by the plugin's own selection form and
+unshadowed since ADR-003 deleted `WorkflowsHelperPatch`. Both are declared, with
+digests measured per verified minor on their own hosts; the table is **26**
+entries per minor, was 24.
+
+Audit **F06** was confirmed fixed in the same pass, by reading and running rather
+than by memory: `TARGETS` carries its `:singleton` entries, the three
+class-method shadows are digested — including the two INV-1's routing rests on —
+and `Issue#roles_for_workflow` is a declared dependency. Its `Status:` line had
+simply never been brought forward.
 
 ## Evidence
 
@@ -191,60 +150,52 @@ Everything below was executed in this container.
 
 | Gate | Result |
 | --- | --- |
-| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6) on PostgreSQL 16 | **1,026 examples, 0 failures** on each. Was 977. |
-| Plugin suite, Redmine 7.0 on MariaDB 10.11 | **1,026 examples, 0 failures** — and this is where the two-connection concurrency examples were also run |
-| RuboCop through `.github/lint/Gemfile` | **134 files, no offences** |
-| The write path | measured at four sizes and against a row-by-row equivalent; the probes are in the scratchpad and the numbers are in `docs/design.md` and the README |
+| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6) on PostgreSQL 16 | **1,075 examples, 0 failures** on each. Was 1,026. |
+| RuboCop through `.github/lint/Gemfile` | **140 files, no offences** |
 | `rake zeitwerk:check` | All is good! |
-| `node dev/check-bulk-js.mjs` | all checks pass — **11 new** for the Save confirmation |
-| Locale parity | all eight files, 0 missing and 0 extra keys (in the suite). **Six** new keys, translated. |
-| Migrations (INV-8) | up → down (`VERSION=0`) → up on 7.0/PostgreSQL, 5.1/PostgreSQL and 7.0/MariaDB, **before** the suite. No leftover table or column, no dashed `schema_migrations` rows. `dev/check-backfill.sh` green on all three. |
-| CI | runs **163**, **164**, **165** and **167** — one per code commit — are **success on all eleven jobs**: the full 3 × 3 matrix plus lint and the JavaScript gate, every cell also running migration reversibility, the backfill check and Zeitwerk. Run 167 is the head, so the only thing after a green run is this file. |
+| `node dev/check-bulk-js.mjs` | all checks pass |
+| Locale parity | all eight files, 162 keys each, 0 missing and 0 extra. **Eleven** new values, translated. |
+| Drift gate | `spec/upstream/` green on 5.1 and 7.0 with the two new declared dependencies; digests measured per host with `dev/measure_compatibility.rb` |
+| Red-on-old-code | verified for every fix by reverting the change and re-running: two controller examples for F03, the Gemfile example for F10, the copy-form count, four graph examples, and the dependency sweep |
+| CI | runs **169**, **170**, **171** green on all eleven jobs (one per commit). Run **172**, on the head `992ec28`, was still queued when this file was written — **read it first.** |
 
-**Red on the old code, observed rather than assumed:**
-
-| Change | What went red |
-| --- | --- |
-| `WriteCoordinator.lock_generic` returning early | eight examples, and the two-connection one leaves **two** generic rules for one cell instead of one |
-| `WorkflowRule.lock_generic_copy` returning early | three copy-lock examples, one of them on Redmine's own copy screen |
-| the ceiling guard removed from `AdminMatrix#write_matrix` | the two refusal examples — rows written, no flash |
-| the Save confirmation pointed back at `bulk_confirm_threshold` | two view examples |
-| `ProjectOptions.selectable` put back to `Project.sorted` | four examples — the two selectors, the matrix save's `all`, and the scope action's `all` |
-
-**Not covered:** MySQL 8 was not run locally (PostgreSQL 16 and MariaDB 10.11
-were); CI covers the remaining cells.
+**MySQL and MariaDB were not run locally this session.** Nothing in the diff is
+new SQL text except `StatusDeletionImpact`'s `SUM(CASE WHEN … THEN 1 ELSE 0 END)`
+in a `HAVING`, which is the one spelling all three adapters read, and the CI
+matrix covers six MySQL-family cells. If run 172 is red on a MySQL cell, that
+statement is the first place to look.
 
 ## Exact next step
 
-**WP14 — the remaining defect backlog.** See `docs/implementation-plan.md`. In
-the order the plan lists them:
+**WP15 — the test debt three reviews named.** See `docs/implementation-plan.md`,
+which lists it in priority order because it is the package most likely to be cut
+short:
 
-- Deleting an issue status that empties a project scope (audit F03) — **warn**
-  rather than clean up, so that two of INV-3's three meanings are not collapsed
-  on the administrator's behalf.
-- `deface` gets a lower bound and a next-major upper bound (audit F10).
-- The `ScopeCopier` / `ProjectWorkflowCopier` asymmetry is settled — narrowed, or
-  recorded in `docs/DECISIONS.md` as deliberate (audit F11).
-- The copy form's item count is narrowed to the source's enabled trackers.
-- The graph becomes a switchable feature with a size ceiling.
+1. **Neighbour coexistence** — a synthetic neighbouring plugin that alias-chains
+   and prepends the same methods, loaded before *and* after this one.
+2. **The full role matrix per action**, and cross-project substitution.
+3. **Stored XSS through status names** in the SVG, the table, the tooltip and the
+   JavaScript response.
+4. **`each_batch_predicate` at exactly `DELETE_BATCH_SIZE`** on all nine cells.
+5. **Upgrade rehearsals** from 0.0.3 and each later release, with populated data.
+6. **Scale** — a 10,000-project inventory, and the issue-save hot path's query
+   count for a user holding many roles.
 
-**Two things WP13 turned up and did not do**, both worth settling early in WP14
-and neither a defect anybody has hit:
+**Two things carried forward, neither a defect anybody has hit**, both raised by
+WP13 and still true:
 
 - **The copy screen is a bulk write with no ceiling.** A copy into many target
   projects writes the source's whole rule set per target. `WriteBudget` bounds
-  only the matrix save, because that is what audit F08 named and measured. The
-  projection for a copy needs the source's rule count, which is a query, so this
-  is a decision rather than a five-line extension.
-- **So is *give own workflow*, and that one is measured** — about 5 ms per
-  combination, ~100 seconds for 20,000. It is the open choice below, because
-  the per-row write it would touch is a decision Jan made and marked as needing
-  an ADR.
+  only the matrix save. The projection needs the source's rule count, which is a
+  query — a decision rather than a five-line extension.
+- ***Give own workflow* is still measured per combination**, about 5 ms each. It
+  is the open choice below.
 
 ## Open choices
 
-**One, and it is not urgent.** The ceiling question WP13 raised was answered
-**A** by Jan on 2026-08-29 and has moved to `docs/DECISIONS.md`.
+**One, and it is not urgent** — unchanged from the last session, and nothing was
+implemented for it because the decision it would re-open is one Jan made and
+marked as needing an ADR.
 
 - **Choice:** *Give own workflow* is the one bulk action still measured **per
   combination** — about 5 ms each, linear, and **not** covered by the write
@@ -255,20 +206,16 @@ and neither a defect anybody has hit:
   method that gets rewritten"*. It has now been met in a measurement rather than
   by a user. What should happen?
 - **Options:** **A) Nothing yet** — record the number and wait for somebody to
-  actually hit it. Nobody is running this at that size, and it is a deliberate,
-  once-per-project decision rather than something anybody repeats. **B) Give it
-  the same ceiling** — refuse above a configured number of combinations, so the
-  request cannot run for two minutes. Cheap, reversible, and it does not touch the
-  decided per-row write. **C) Write the ADR and batch it** — the round trips are
-  the cost, and the 2026-08-27 reasoning (a lost race must not be reported as a
-  created scope) can be kept in a different shape.
+  actually hit it. **B) Give it the same ceiling** — refuse above a configured
+  number of combinations, so the request cannot run for two minutes. Cheap,
+  reversible, and it does not touch the decided per-row write. **C) Write the ADR
+  and batch it** — the round trips are the cost, and the 2026-08-27 reasoning can
+  be kept in a different shape.
 - **Recommendation:** B — it closes the "one request runs for two minutes" hazard
   without re-opening a decision made deliberately, and it is the same mechanism
-  WP13 already built for the matrix save. C is real work and should wait for
-  somebody who actually has 20,000 combinations.
-- **Urgent?** no. Nothing is blocked; the action is correct today and only slow
-  at a size nobody is running. **Nothing was implemented for it**, because the
-  decision it would re-open is one Jan made and marked as needing an ADR.
+  WP13 already built for the matrix save.
+- **Urgent?** no. Nothing is blocked; the action is correct today and only slow at
+  a size nobody is running.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -1397,6 +1344,32 @@ Everything from here down is carried forward from earlier sessions.
   `WorkflowTransition.replace_transitions` and
   `WorkflowPermission.replace_permissions` are the two INV-1 rests on.
 
+### Traps from the 2026-08-29 WP14 session
+
+- **The Bash tool's working directory persists between calls, and a `cd` into a
+  host checkout survives into the next command.** It cost two mistakes here: a
+  `python3` edit that wrote nothing because the relative path no longer resolved,
+  and — worse — a `cp` that restored a plugin file into
+  `.redmine/7.0-stable-postgresql/app/controllers/`, i.e. into **Redmine's own**
+  `app/controllers`, where it would have defined the controller twice. Use
+  absolute paths for every write, and check `git status` in the host checkout if
+  a restore looks odd.
+- **`spec/plugin_conventions_spec.rb` greps the sources for the exact phrase
+  "INV-4's one deliberate exception" and fails if more than one file under
+  `app/`, `lib/` or `db/` carries it.** A new comment that merely *refers* to the
+  exception has to say so in other words — which is the gate working, not a
+  nuisance: the phrase is the marker, and a second copy of it is a second method
+  claiming the exemption.
+- **`WorkflowTransition` validates the presence of `new_status`**, so a spec
+  helper that builds a transition with `new_status_id: 0` raises. `old_status_id`
+  0 is fine — that is core's "new issue" pseudo-status.
+- **The drawing has one arrow that is not a rule.** Where nothing leaves the
+  entry node, core's fallback to the tracker's default status is drawn as well,
+  so `graph.edges.size` is one more than the rules a spec inserted. The ceiling
+  counts arrows to place, not rules.
+- **A settings partial should read the `settings` local, not `Setting`.** They
+  differ on a page Redmine is re-rendering after a failed save.
+
 ## Carrying on
 
 Prompt for the next session:
@@ -1405,17 +1378,19 @@ Prompt for the next session:
 Read CLAUDE.md and docs/STATE.md. Carry on.
 ```
 
-WP0..WP13 are done. "Carry on" means, in order:
+WP0..WP14 are done. "Carry on" means, in order:
 
-1. **Read CI for the head and act on it if it is red.** MySQL 8 was not run
-   locally (PostgreSQL 16 and MariaDB 10.11 were), and three of the nine cells are
-   MySQL. Runs **163**, **164**, **165** and **167** are green on all eleven jobs
-   — one per code commit, and 167 is the head. Pushing a commit **cancels** the
-   in-flight run for the previous one, so read the latest run and treat a
-   cancelled earlier one as superseded rather than failed.
-2. **WP14** — the remaining defect backlog. *Exact next step* lists the five
-   items and the one thing WP13 turned up and deliberately did not do (the copy
-   screen has no write ceiling).
+1. **Read CI for the head and act on it if it is red.** No MySQL-family cell was
+   run locally this session (PostgreSQL 16 only), and six of the nine cells are
+   MySQL or MariaDB. Runs **169**, **170** and **171** are green on all eleven
+   jobs; run **172**, on the head `992ec28`, was still queued when this was
+   written. Pushing a commit **cancels** the in-flight run for the previous one,
+   so read the latest run and treat a cancelled earlier one as superseded rather
+   than failed.
+2. **WP15** — the test debt three reviews named. *Exact next step* lists the six
+   items in priority order, and the two things WP13 and WP14 turned up and
+   deliberately did not do (the copy screen has no write ceiling; *give own
+   workflow* is still measured per combination).
 3. **Before any release, repeat the 45-plugin run.** It is still the only
    environment in which the permission-ownership gate can fail, and the
    diagnostics page is now where that gate reports — so the run is also the way

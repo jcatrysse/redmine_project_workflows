@@ -28,9 +28,9 @@
 | — | *WP0..WP9 delivered the plugin. WP10..WP16 are the hardening track that makes it releasable.* | |
 | WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **done** |
 | WP11 | Compatibility as an object (ADR-002) | **done** |
-| WP12 | Owned administration screens (ADR-003) | **in progress** — steps 1-3 done |
+| WP12 | Owned administration screens (ADR-003) | **done** — all eight steps; the table line said "steps 1-3" until 2026-08-29, after the section itself had recorded all eight as done |
 | WP13 | One write-coordination service, and bounded bulk writes | done |
-| WP14 | The remaining defect backlog | planned |
+| WP14 | The remaining defect backlog | **done** |
 | WP15 | The test debt three reviews named | planned |
 | WP16 | Release engineering | planned |
 
@@ -952,6 +952,37 @@ transaction opens.
   is defective — it is pure functions with 800 lines of specs — but because a
   feature that can be turned off is a feature that does not have to be defended
   on every upgrade.
+
+**Done, 2026-08-29**, all five, in four commits — and with them **every finding
+in `docs/review/findings/` is resolved**. What each became:
+
+- **F03** is a warning, never a repair: `Services::StatusDeletionImpact` counts
+  the combinations a deletion would empty, in one grouped statement plus one
+  scope lookup, and `Patches::IssueStatusesControllerPatch` reports them in a
+  flash with a link into the inventory. Deleting the emptied scope would collapse
+  two of INV-3's three meanings on the administrator's behalf. A flash rather than
+  a Deface override on a view the plugin does not own: INV-9 stays at five, and
+  Redmine's delete link is a JavaScript `confirm` rather than a confirmation
+  page, so there is no request in which to render a *pre*-warning.
+- **F10** is `gem 'deface', '~> 1.9'`, asserted by a conventions example against
+  the deface actually loaded rather than against the text of the requirement.
+- **F11** is settled as **deliberate**, on a fact the finding did not have: the
+  rules are copied for every project whatever the scopes do, by the one statement
+  INV-4 exempts by name, so narrowing the scopes alone would leave project rule
+  rows with no scope over them. Recorded in `docs/DECISIONS.md`, in
+  `ScopeCopier`'s comment, and in an example that pins it.
+- **The copy form's count** is the scopes for the source's *enabled* trackers,
+  which is what a tick actually carries.
+- **The graph** has `graph_enabled` (on) and `graph_edge_ceiling` (2,000
+  **arrows** — measured: the layout's cost follows the edges, not the statuses).
+  Off, no link is rendered anywhere and the action answers 404; above the
+  ceiling the layout is not computed and the table stands in for the picture.
+
+Two open findings that belonged here went with it: the WP12 note's **F01**
+(`WorkflowsHelper#field_required?` called and undeclared — now declared, with a
+structural sweep that immediately found `options_for_workflow_select` as well),
+and audit **F06**, confirmed already fixed by reading and running rather than by
+memory.
 
 ---
 
