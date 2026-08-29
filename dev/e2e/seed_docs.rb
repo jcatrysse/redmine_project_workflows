@@ -29,18 +29,28 @@ RedmineProjectWorkflows::Services::ScopeWriter.enable(
   rule_type: 'transitions', copy_generic: true, user: User.find_by(login: 'mgr')
 )
 
-# A workflow that is worth looking at: a plain path plus two shortcuts, rather
-# than the everything-to-everything default.
+# A workflow that is worth looking at, and that exercises everything the drawing
+# can distinguish -- otherwise the screenshot shows one legend line and a page of
+# identical arrows, which under-sells what the screen actually does.
+#
+#   * solid arrows  -- ordinary transitions
+#   * a dashed arrow -- Resolved -> Closed, assignee only
+#   * a dotted arrow -- no rule in the New issue row, so Redmine falls back to
+#                       the tracker's default status
+#   * a status below the band -- Rejected has a rule *out* of it and nothing
+#                       leading *into* it, which is the mistake the diagram
+#                       exists to make visible
 s = IssueStatus.order(:position).index_by(&:name)
 WorkflowTransition.where(project_id: site.id, tracker_id: bug.id, role_id: mgr.id).delete_all
-[[0, 'New'],
- ['New', 'In Progress'], ['New', 'Rejected'],
- ['In Progress', 'Resolved'], ['In Progress', 'Feedback'],
- ['Feedback', 'In Progress'],
- ['Resolved', 'Closed'], ['Resolved', 'Feedback']].each do |from, to|
-  WorkflowTransition.create!(tracker_id: bug.id, role_id: mgr.id, project_id: site.id,
-                             old_status_id: from.zero? ? 0 : s[from].id,
-                             new_status_id: s[to].id)
+[['New', 'In Progress', {}],
+ ['In Progress', 'Resolved', {}],
+ ['In Progress', 'Feedback', {}],
+ ['Feedback', 'In Progress', {}],
+ ['Resolved', 'Feedback', {}],
+ ['Resolved', 'Closed', { assignee: true }],
+ ['Rejected', 'Closed', {}]].each do |from, to, flags|
+  WorkflowTransition.create!({ tracker_id: bug.id, role_id: mgr.id, project_id: site.id,
+                               old_status_id: s[from].id, new_status_id: s[to].id }.merge(flags))
 end
 Issue.create!(project_id: site.id, tracker_id: bug.id, author_id: User.find_by(login: 'mgr').id,
               subject: 'Contact form does not send on mobile', status_id: s['In Progress'].id,

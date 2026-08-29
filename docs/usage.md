@@ -186,10 +186,22 @@ Under the drawing, in words:
 - **Not used by the selected roles** — a status the tracker's workflow uses under
   some other role.
 
-A solid arrow is a change anyone with the role may make, a dashed one is
-author-only or assignee-only, and a dotted one is Redmine's own fallback rather
-than a rule. Underneath is the same workflow as a table, which is what a screen
-reader reads, what Ctrl-F finds and what prints legibly.
+Three kinds of arrow, and a legend that names the ones actually on the page:
+
+| | |
+|---|---|
+| **Solid** | A change anyone holding the role may make. |
+| **Dashed** | A change only the author or the assignee may make. |
+| **Dotted** | Redmine's own fallback rather than a rule — see below. |
+
+A status in a dashed box below the dotted line cannot be reached from a new
+issue. The drawing uses line style rather than colour on purpose: a Redmine theme
+changes exactly the colours a diagram would otherwise hard-code, and a black
+stroke on a dark theme is invisible. Everything the picture distinguishes, the
+legend also says in words.
+
+Underneath is the same workflow as a table, which is what a screen reader reads,
+what Ctrl-F finds and what prints legibly.
 
 Two details:
 
