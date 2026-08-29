@@ -62,7 +62,10 @@ class ProjectWorkflowScopesController < ApplicationController
     all = values.delete('all')
     values.delete('global')
 
-    @project_ids = all ? Project.pluck(:id) : resolve_ids(Project, values)
+    # 'all' is the selector's own keyword, so it expands to exactly what the
+    # selector offered: every project that is not archived (WP13, audit F09).
+    # An id named explicitly still resolves, archived or not.
+    @project_ids = all ? RedmineProjectWorkflows::Services::ProjectOptions.selectable_ids : resolve_ids(Project, values)
     @tracker_ids = resolve_ids(Tracker, param_values(:tracker_id))
     @role_ids = resolve_ids(Role, param_values(:role_id))
 

@@ -29,7 +29,7 @@
 | WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **done** |
 | WP11 | Compatibility as an object (ADR-002) | **done** |
 | WP12 | Owned administration screens (ADR-003) | **in progress** — steps 1-3 done |
-| WP13 | One write-coordination service, and bounded bulk writes | in progress — the lock and the bulk bounds are done; the selector remains |
+| WP13 | One write-coordination service, and bounded bulk writes | done |
 | WP14 | The remaining defect backlog | planned |
 | WP15 | The test debt three reviews named | planned |
 | WP16 | Release engineering | planned |
@@ -913,12 +913,28 @@ Two findings, one mechanism.
   refused above `bulk_write_ceiling` (new, 200,000, `0` means no ceiling). **No
   background job:** Redmine 5.1's default ActiveJob backend is the async adapter,
   which is not something a workflow write may depend on.
-- **The inventory's filters** stop materialising every project (audit F09), and
-  archived projects leave the selector.
+- **The inventory's filters and archived projects** (audit F09). **Done,
+  2026-08-29, one half implemented and the other argued.** Archived projects have
+  left every selector that decides what to write, and *all* means the same set;
+  `Services::ProjectOptions.selectable` is the one place that rule lives. The
+  inventory keeps them deliberately — it is a report, and an archived project
+  running its own workflow is exactly the row somebody needs to see. The
+  materialisation half is **not** done: the remaining cost is one `<option>` per
+  project on four administration pages, and the only real fix is an autocomplete
+  control, which is a screen redesign plus a controller action plus its
+  authorization — out of proportion to a nit that has never been measured at
+  scale. Reopen it with a measurement. See the Resolution under F09.
 
 **Done when:** a real two-connection test on all three databases shows no
 duplicate logical key from concurrent generic saves, and a whole-installation
 save is either confirmed, batched or refused before any row changes.
+
+**Met, 2026-08-29.** The two-connection examples in
+`spec/services/workflow_concurrency_spec.rb` were run on PostgreSQL 16 and
+MariaDB 10.11 locally and on all nine cells in CI; without the lock they leave
+two rows for one cell, with it one. A whole-installation save is confirmed above
+`bulk_confirm_threshold` and refused above `bulk_write_ceiling`, before its
+transaction opens.
 
 ---
 

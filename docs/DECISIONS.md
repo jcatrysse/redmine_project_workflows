@@ -781,3 +781,12 @@ than it looks on paper.
 - **Urgent?** no — we continued with A, and it is one number in `init.rb`,
   `Services::WriteBudget::DEFAULT_WRITE_CEILING` and the assertion that holds
   those two together.
+
+## Decided (autonomous) — 2026-08-29, WP13 step 3: archived projects
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-08-29 | Archived projects on the workflow selectors | **Gone from everything that decides what to write; *all* means the same set** | A workflow written for an archived project governs nothing — nobody but an administrator can reach it and no issue in it can be created or edited — so offering one is noise, and *give every project its own workflow* was quietly writing rules for projects nobody can reach. `Services::ProjectOptions.selectable` is the one place the rule lives. Core's own project pickers scope to visible or active projects; `Project.sorted` carries no status predicate at all. |
+| 2026-08-29 | What "not offered" must not become | **Only the offered list narrows; an id in the request still resolves** | Otherwise an archived project's own workflow would be in the database, visible on the inventory, and removable from nowhere. `WorkflowSelection#resolve_selected_projects` asks the database rather than the offered list, so the inventory's link into the matrix goes on working — asserted, because this is the half that would have been silently lost. |
+| 2026-08-29 | Whether the **inventory** drops archived projects too, as audit F09 suggested | **No — it is a report, not a control** | The inventory answers "which projects deviate", and an archived project running its own workflow is exactly the row somebody needs to see before they unarchive it. Hiding it would mean the one page written to find deviations is the one page that cannot show that one. A deliberate divergence from the finding's suggested direction, recorded here rather than left for a reader to notice. |
+| 2026-08-29 | The rest of F09 — a three-thousand-option `<select>` on four pages | **Accepted, not fixed** | The only real fix is not rendering the list at all, i.e. an autocomplete control: a screen redesign plus a controller action plus its authorization. Out of proportion to a nit whose own verification reads "Read; ... not measured at scale", on pages already measured at 123 projects and 16,205 rules under 260 ms. Reopen it with a measurement rather than with a redesign. |

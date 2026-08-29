@@ -173,7 +173,14 @@ Take a backup, as with any migration that touches a core table.
 
 The administration screens take a selection, not one project: several trackers,
 several roles, and several projects, with **Generic** as one more entry in that
-list. What that means when you save:
+list. **Archived projects are not on it** — nobody but an administrator can reach
+an archived project and no issue in it can be edited, so a workflow written for
+one governs nothing — and *(All)* means every project that is not archived. If an
+archived project already has a workflow of its own, the *Project workflow
+inventory* still reports it and its link still opens the matrix, so you can see it
+and give it back.
+
+What the selection means when you save:
 
 - **Every cell you leave alone stays alone.** A cell whose value differs across
   the workflows in the selection carries a *(No change)* option, and saving with
@@ -190,9 +197,9 @@ list. What that means when you save:
   a workflow of their own, that is; see the next-but-one point. One click on a
   checkbox with three trackers, two roles and ten projects selected writes sixty
   workflows. Whenever one cell stands for more than one workflow, a sentence above
-  the matrix gives that number for the selection you have; and a row or column
+  the matrix gives that number for the selection you have; a row or column
   action asks for confirmation once it would pass the threshold in the plugin's
-  settings.
+  settings, and so does **Save** itself — see [Settings](#settings).
 - **The three state actions act only where they mean something.** *Give own
   workflow* touches only the combinations that currently follow the generic one,
   so pressing it twice does not discard what the first press produced. *Empty

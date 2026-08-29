@@ -28,6 +28,18 @@ The workflow as a drawing.
   Both numbers are in *Administration → Plugins → Configure*; the second is new
   and defaults to 200,000 rules, and `0` means no limit.
 
+### Changed
+
+- **Archived projects are no longer offered a workflow of their own.** Nobody but
+  an administrator can reach an archived project and no issue in it can be
+  created or edited, so a workflow written for one governs nothing — and *give
+  every project its own workflow* was quietly writing rules for projects nobody
+  can reach. They have left the project selector on the workflow screens and the
+  copy form, and *(All)* now means every project that is not archived. Nothing
+  becomes unreachable: a link that names an archived project still opens its
+  matrix, so a workflow one of them already has can still be seen and removed,
+  and the *Project workflow inventory* still reports it.
+
 ### Added
 
 - **The project side of the workflow has a screen of its own.**

@@ -46,7 +46,11 @@ module RedmineProjectWorkflows
     # rather than aborting, so the decision belongs where the action can
     # return straight after it.
     def load_project_options
-      @projects = Project.sorted
+      # Every project that is not archived (WP13, audit F09). Only what is
+      # *offered* narrows: an id in the request is resolved against the database
+      # below, so a link from the inventory into an archived project's matrix
+      # goes on working. See Services::ProjectOptions.selectable.
+      @projects = RedmineProjectWorkflows::Services::ProjectOptions.selectable
       values = Array.wrap(params[:project_id]).reject(&:blank?).map(&:to_s).uniq
       @invalid_project_ids = values.reject { |value| project_id_value?(value) }
       project_ids = values - @invalid_project_ids

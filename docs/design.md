@@ -568,12 +568,24 @@ adapter, which loses its queue when the process restarts; a workflow write may
 not depend on that.
 
 The project selector the plugin adds to those screens materialises every project
-in the installation, archived ones included, as `<option>` elements — on the
-summary page, both matrices, the copy screen and the inventory's filters. Core's
-workflow screens have no such control, so this is a cost the plugin introduces.
-Accepted at this size: it is the administration section, the list is the same one
-Redmine renders on its own project pages, and narrowing it would mean deciding
-which projects an administrator may not configure.
+in the installation as `<option>` elements — on the summary page, both matrices,
+the copy screen and the inventory's filters. Core's workflow screens have no such
+control, so this is a cost the plugin introduces. Accepted at this size: it is the
+administration section, and the list is the same one Redmine renders on its own
+project pages. Replacing the control with an autocomplete would be a screen
+redesign plus a controller action plus its authorization, which is out of
+proportion to a page-weight cost nobody has yet measured at scale (audit F09).
+
+**Archived projects are no longer offered** (WP13). A workflow written for an
+archived project governs nothing — nobody but an administrator can reach it and
+no issue in it can be created or edited — so `Services::ProjectOptions.selectable`
+is what the matrix, scope-action and copy selectors are built from, and *all*
+means that same set. Only what is *offered* narrows: an id in the request is
+still resolved, so a link into an archived project's own matrix goes on working
+and its existing workflow stays removable. **The inventory is deliberately
+unchanged**: it is the report that answers "which projects deviate", and an
+archived project running its own workflow is exactly the row somebody needs to
+see before they unarchive it.
 
 `Issue#tracker=` is the one place the resolution sits on a user's path, and only
 when the tracker actually changes — an ordinary issue save asks nothing. A

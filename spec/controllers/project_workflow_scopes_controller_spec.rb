@@ -182,5 +182,23 @@ describe ProjectWorkflowScopesController, type: :controller do
 
       expect(WorkflowTransition.where(project_id: nil).count).to eq(1)
     end
+
+    # WP13, audit finding F09. 'all' is what the selector offered, and an
+    # archived project is not on that list -- so *give every project its own
+    # workflow* does not quietly write one for a project nobody can reach. Named
+    # directly it still works, which is what keeps an archived project's existing
+    # workflow removable.
+    it 'leaves an archived project out of the all keyword, and acts on it when named' do
+      other.update!(status: Project::STATUS_ARCHIVED)
+
+      post :create, params: base_params(project_id: ['all'], source: 'empty')
+
+      expect(own_workflow?(project, tracker, role)).to be(true)
+      expect(own_workflow?(other, tracker, role)).to be(false)
+
+      post :create, params: base_params(project_id: [other.id.to_s], source: 'empty')
+
+      expect(own_workflow?(other, tracker, role)).to be(true)
+    end
   end
 end

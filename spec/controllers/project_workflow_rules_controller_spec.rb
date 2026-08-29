@@ -469,6 +469,26 @@ describe ProjectWorkflowRulesController, type: :controller do
       expect(written).to match_array(Project.pluck(:id) + [nil])
     end
 
+    # WP13, audit finding F09. 'all' is the selector's own keyword, so it means
+    # exactly what the selector offered -- and an archived project is not on that
+    # list, because a workflow written for one governs nothing. Named directly it
+    # still resolves; that is asserted in
+    # spec/views/project_workflow_rules/screens_spec.rb.
+    it 'leaves an archived project out of what the keyword expands to' do
+      archived = projects(:projects_002)
+      Project.sorted.each { |target| give_own_workflow(target, tracker, role) }
+      archived.update!(status: Project::STATUS_ARCHIVED)
+
+      post :update, params: {
+        role_id: [role.id], tracker_id: [tracker.id], project_id: ['all'], used_statuses_only: '0',
+        transitions: { old_status.id.to_s => { new_status.id.to_s => { 'always' => '1' } } }
+      }
+
+      written = WorkflowTransition.where(tracker_id: tracker.id, role_id: role.id).pluck(:project_id)
+      expect(written).to include(project.id, nil)
+      expect(written).not_to include(archived.id)
+    end
+
     it 'does the same for the field permissions matrix' do
       Project.sorted.each { |target| give_own_workflow(target, tracker, role, ProjectWorkflowScope::PERMISSIONS) }
 

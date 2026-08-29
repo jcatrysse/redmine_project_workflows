@@ -15,6 +15,36 @@ module RedmineProjectWorkflows
     # everywhere. A project can only be asked about the trackers it has enabled
     # and the roles that somebody actually holds in it.
     class ProjectOptions
+      # The projects a workflow may be *written* for, in Redmine's own order:
+      # every project that is not archived (WP13, audit finding F09).
+      #
+      # An archived project is not reachable by anybody but an administrator, no
+      # issue in it can be created or edited, and its workflow therefore governs
+      # nothing -- so offering one on a screen whose whole purpose is to decide
+      # what to write is noise. Core's own project pickers scope to visible or
+      # active projects for the same reason; `Project.sorted` carries no status
+      # predicate at all.
+      #
+      # **Only what is offered narrows.** An id that names an archived project is
+      # still resolved when a request carries it, which is what keeps a link from
+      # the inventory into the matrix working -- see
+      # WorkflowSelection#resolve_selected_projects, which asks the database and
+      # not this list. And *all* now means "every project that is not archived",
+      # which is the same set the selector shows.
+      #
+      # The inventory is deliberately **not** narrowed this way. It is a report,
+      # and an archived project running its own workflow is exactly the kind of
+      # thing the one page that answers "which projects deviate" has to be able to
+      # tell somebody -- before they unarchive it, not after.
+      def self.selectable
+        Project.where.not(status: Project::STATUS_ARCHIVED).sorted
+      end
+
+      # The same list as ids, for the callers that only expand *all*.
+      def self.selectable_ids
+        selectable.pluck(:id)
+      end
+
       # The trackers enabled for this project, in Redmine's own order.
       def self.trackers(project)
         project.trackers.sorted.to_a

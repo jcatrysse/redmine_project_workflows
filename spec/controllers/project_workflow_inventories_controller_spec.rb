@@ -257,5 +257,20 @@ describe ProjectWorkflowInventoriesController, type: :controller do
 
       expect(response.body).not_to include('project-workflow-scope-audit')
     end
+
+    # WP13, audit finding F09, and the half of it this page deliberately does
+    # **not** take. Archived projects left the selectors that decide what to
+    # write, because a workflow written for one governs nothing. They did not
+    # leave this page: it is a report, and an archived project running its own
+    # workflow is exactly the row somebody needs to see -- before they unarchive
+    # it, not after.
+    it 'still reports an archived project that runs its own workflow' do
+      give_own_workflow(other_project, tracker, role, ProjectWorkflowScope::TRANSITIONS)
+      other_project.update!(status: Project::STATUS_ARCHIVED)
+
+      get :index
+
+      expect(assigns(:rows).map { |row| row.project.id }).to include(other_project.id)
+    end
   end
 end

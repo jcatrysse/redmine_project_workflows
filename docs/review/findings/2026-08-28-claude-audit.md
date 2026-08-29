@@ -695,7 +695,7 @@ The remaining bullet of WP13 — the inventory's filters and archived projects
 
 ### F09 — Every administration workflow page renders one option per project, archived ones included
 
-- **Status:** open
+- **Status:** archived projects fixed 2026-08-29 (WP13 step 3); the selector's size accepted — see Resolution
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** performance
@@ -732,7 +732,30 @@ Reuse Redmine's own control for large project lists and exclude
 `Project::STATUS_ARCHIVED` from what is offered. The parameter is still
 intersected server-side either way, so nothing about INV-7 changes.
 
-**Resolution:**
+**Resolution:** Half done on 2026-08-29, and the other half deliberately not.
+
+**Archived projects are gone from what is offered.**
+`Services::ProjectOptions.selectable` is the one place the rule lives, and the
+matrix, scope-action and copy selectors are built from it; *all* means that same
+set, so *give every project its own workflow* no longer quietly writes one for a
+project nobody can reach. Only what is offered narrows — an id in the request is
+still resolved against the database, which is what keeps a link into an archived
+project's matrix working and its existing workflow removable. Red on the old code:
+four examples, verified by putting `Project.sorted` back.
+
+**The inventory keeps them, against this finding's suggestion.** It is a report,
+not a control that decides what to write, and an archived project running its own
+workflow is exactly the row somebody needs to see — before they unarchive it, not
+after. Recorded in `docs/DECISIONS.md` rather than left as a divergence a reader
+has to notice.
+
+**The selector's size stays as it is.** The remaining cost is one `<option>` per
+project on four administration pages, and the only real fix is not rendering a
+three-thousand-option `<select>` at all — an autocomplete control, which is a
+screen redesign plus a controller action plus its authorization. That is out of
+proportion to a nit whose own verification says "Read; ... not measured at
+scale", on pages the plugin has already measured at 123 projects and 16,205 rules
+under 260 ms. Reopen it with a measurement, not with a redesign.
 
 ---
 

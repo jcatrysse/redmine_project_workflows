@@ -350,6 +350,56 @@ describe ProjectWorkflowRulesController, type: :controller do
     end
   end
 
+  # WP13, audit finding F09. A workflow written for an archived project governs
+  # nothing -- nobody but an administrator can reach it and no issue in it can be
+  # created or edited -- so offering one on a screen whose whole purpose is to
+  # decide what to write is noise. Core's own project pickers scope to visible or
+  # active projects; `Project.sorted` carries no status predicate at all.
+  #
+  # Only what is *offered* narrows, which is the half that matters: an id in the
+  # request is still resolved, so the inventory's link into an archived project's
+  # matrix goes on working.
+  describe 'an archived project' do
+    let(:archived) { projects(:projects_002) }
+
+    before { archived.update!(status: Project::STATUS_ARCHIVED) }
+
+    # Scoped to the control, not to the page: a project id is also a tracker id
+    # and a role id, so a bare `include('value="2"')` over the whole body is
+    # satisfied by markup that has nothing to do with this.
+    def option_values(body, name)
+      block = body[%r{<select\b[^>]*name="#{Regexp.escape(name)}"[^>]*>.*?</select>}m]
+      block.to_s.scan(/<option[^>]*value="([^"]*)"/).flatten
+    end
+
+    it 'is not offered by the matrix selector' do
+      get_transitions
+
+      values = option_values(response.body, 'project_id[]')
+      expect(values).to include(project.id.to_s)
+      expect(values).not_to include(archived.id.to_s)
+    end
+
+    it 'is not offered by either of the copy form\'s project selectors' do
+      get :copy, params: { source_tracker_id: tracker.id, source_role_id: role.id }
+
+      expect(option_values(response.body, 'source_project_id')).not_to include(archived.id.to_s)
+      expect(option_values(response.body, 'target_project_ids[]')).not_to include(archived.id.to_s)
+    end
+
+    # The link the inventory builds names the id, and it still opens: this is
+    # what stops "not offered" from becoming "unreachable", which would leave an
+    # archived project's own workflow with nowhere at all to remove it from.
+    it 'still opens its own matrix when a request names it' do
+      give_own_workflow(archived, tracker, role)
+
+      get_transitions(project_id: [archived.id.to_s])
+
+      expect(response).to have_http_status(:ok)
+      expect(assigns(:selected_projects).map(&:id)).to eq([archived.id])
+    end
+  end
+
   # WP13, audit finding F08. The Save button asks before it rewrites more workflow
   # rules than the plugin setting allows, and the script that asks has to be on
   # the page for it to.
