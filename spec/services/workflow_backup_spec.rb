@@ -151,6 +151,35 @@ describe RedmineProjectWorkflows::Services::WorkflowBackup do
         .to raise_error(described_class::Error, /not a readable backup/)
     end
 
+    # WP19, finding F04 of 2026-08-29-claude-revalidation. The file names every
+    # project, tracker, role and status on the installation, and the README says
+    # to keep it somewhere that is not world-readable; before this it was written
+    # at whatever the umask allowed, measured as 0644.
+    it 'writes the file readable only by the operator who wrote it' do
+      transition(project)
+      give_own_workflow(project, tracker, role)
+
+      described_class.write(path)
+
+      expect(File.stat(path).mode & 0o777).to eq(0o600)
+    end
+
+    # Atomic, so that FORCE=1 cannot destroy the previous backup before the
+    # replacement is durable. The temporary file is beside the target because a
+    # rename is only atomic within one filesystem, and a backup path is exactly
+    # the kind of path that is a mount of its own.
+    it 'leaves the previous file untouched when the write fails' do
+      give_own_workflow(project, tracker, role)
+      described_class.write(path)
+      first = File.read(path)
+      allow(described_class).to receive(:read).and_raise(described_class::Error, 'simulated')
+
+      expect { described_class.write(path, force: true) }.to raise_error(described_class::Error)
+
+      expect(File.read(path)).to eq(first)
+      expect(Dir.children(dir)).to eq([File.basename(path)])
+    end
+
     it 'refuses a file that is not there' do
       expect { described_class.read(path) }.to raise_error(described_class::Error, /does not exist/)
     end

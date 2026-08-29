@@ -88,7 +88,7 @@ Redmine::Plugin.register :redmine_project_workflows do
   # *rules*, not the workflow feature. Migration 006 carries existing grants
   # across. **Do not shorten either name back.**
 
-  # The two administration entry points ADR-003 accepts.
+  # The **one** administration entry point ADR-003 accepts.
   # `Redmine::MenuManager.map :admin_menu` is a stable extension point on all
   # three supported versions, so an administration screen of the plugin's own
   # needs no Deface override to be reachable -- which is what lets ADR-003 take
@@ -100,29 +100,28 @@ Redmine::Plugin.register :redmine_project_workflows do
   #
   # Both the sprite name and the CSS class, exactly as core's own eleven entries
   # pass them: 6.0 and later read `:icon` and draw `sprite_icon(name)` from
-  # core's own sheet -- `workflows` and `summary` are both in it on 6.1 and 7.0 --
-  # while 5.1's MenuItem ignores the option entirely and draws the picture behind
-  # `.icon-workflows` / `.icon-summary`, which its stylesheet defines for both.
-  # Deliberately no `plugin:` option: that would send `sprite_icon` looking for a
-  # sheet in this plugin's assets, and this plugin ships none.
+  # core's own sheet -- `workflows` is in it on 6.1 and 7.0 -- while 5.1's
+  # MenuItem ignores the option entirely and draws the picture behind
+  # `.icon-workflows`, which its stylesheet defines. Deliberately no `plugin:`
+  # option: that would send `sprite_icon` looking for a sheet in this plugin's
+  # assets, and this plugin ships none.
   #
-  # The project dimension of the workflow (WP12, ADR-003), which used to live on
-  # core's own Administration -> Workflow screens through eleven Deface
-  # overrides. First of the two, and the one an administrator goes to; the
-  # diagnostics page is one they are sent to.
+  # The entry itself is the project dimension of the workflow (WP12, ADR-003),
+  # which used to live on core's own Administration -> Workflow screens through
+  # eleven Deface overrides.
+  #
+  # The diagnostics page (ADR-002) had a second entry here until WP19. ADR-003
+  # costed **one** extra line in Redmine's administration menu as the price of
+  # owning the screens, and a page an administrator visits when something is
+  # wrong is not worth a second (finding F07 of 2026-08-29-claude-revalidation).
+  # It keeps its route and its `require_admin`, and is reached from the
+  # contextual menu of the screens above -- which is where somebody who has just
+  # been told the host has drifted is standing.
   menu :admin_menu, :project_workflow_rules,
        { controller: 'project_workflow_rules', action: 'index' },
        caption: :label_project_workflow_rules,
        icon: 'workflows',
        html: { class: 'icon icon-workflows' }
-
-  # ADR-002: what this Redmine is, and whether what the plugin copied out of it
-  # still matches.
-  menu :admin_menu, :project_workflow_diagnostics,
-       { controller: 'project_workflow_diagnostics', action: 'show' },
-       caption: :label_project_workflow_diagnostics,
-       icon: 'summary',
-       html: { class: 'icon icon-summary' }
 
   project_module :issue_tracking do
     permission :view_project_workflow_rules,

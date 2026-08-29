@@ -312,7 +312,7 @@ comes back in candidate order rather than the order the browser submitted.
 
 ### F04 — The backup file is written non-atomically, at whatever the umask allows
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** security
@@ -347,13 +347,21 @@ Temporary file in the target directory at mode 0600, write, flush, `fsync`,
 validate by reading it, then rename into place. Keep the previous file until the
 new one is durable.
 
-**Resolution:**
+**Resolution:** WP19. `WorkflowBackup.write_atomically`: a temporary file
+beside the target -- a rename is only atomic within one filesystem, and a backup
+path is exactly the kind of path that is a mount of its own -- chmodded 0600,
+written, flushed, `fsync`ed, **read back before the rename** so that a file that
+does not parse can never become the backup, then renamed into place, with the
+directory entry synced after. The previous file survives until the new one is
+durable. Two examples: the mode, and that a failed write leaves the previous
+file and no debris behind.
+
 
 ---
 
 ### F05 — A drifted or unmeasured host warns in the log and on one page, and nowhere the operator is actually writing
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** operability
@@ -397,7 +405,19 @@ Workflow screens whenever the state is not `:verified`, naming the state and
 linking to the diagnostics page. No refusal — that is Jan's answer, and reversing
 it is a one-line policy change if the question ever comes back.
 
-**Resolution:**
+**Resolution:** WP19. `project_workflow_compatibility_banner`, on the seven
+screens where a workflow rule is about to change: both administration matrices,
+the summary, the copy screen, the two project matrices and the project's
+Workflow settings tab. It names the state in one sentence and, for an
+administrator, links to the diagnostics page -- not for anybody else, because
+that page requires an administrator and a link to a 403 tells a project manager
+less than the sentence already did. Nothing at all on a verified host, which is
+the common case: a banner that is always there is furniture. Still a warning and
+never a refusal, which is ADR-002 and Jan's answer A of 2026-08-29; reversing it
+is a change in this one method. `spec/views/compatibility_banner_spec.rb` drives
+every one of the seven screens in all four states, so a screen added later
+without the banner fails there rather than being noticed on a drifted host.
+
 
 ---
 
@@ -445,7 +465,7 @@ the idiom the nine concurrency examples already use.
 
 ### F07 — Two entries in Administration where ADR-003 costed one
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** ux
@@ -463,13 +483,19 @@ something is wrong.
 A link from the *Project workflows* screen rather than a menu entry of its own.
 The page keeps its route and its `require_admin`.
 
-**Resolution:**
+**Resolution:** WP19. The diagnostics entry is out of Redmine's
+administration menu and into the action bar of the plugin's own administration
+area, which is rendered on all four of its screens -- where somebody who has just
+read the banner is standing. The page keeps its route and its `require_admin`.
+The spec that asserted the menu entry now asserts the opposite, that the plugin
+contributes exactly one line to that menu, which is what ADR-003 costed.
+
 
 ---
 
 ### F08 — `docs/release-criteria.md` R1 cites a commit two runs behind the head
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** docs
@@ -484,7 +510,11 @@ The criterion is self-aware — it says a green run is only ever true of a commi
 and to re-check it on the release commit — so this is staleness rather than a
 wrong claim.
 
-**Resolution:**
+**Resolution:** WP19. R1 now names run 190 on `0d36552`, and says in the
+line itself that it goes stale on the next push -- which is why it names the run
+as well as the commit, and why the release procedure re-checks it on the release
+commit.
+
 
 ---
 

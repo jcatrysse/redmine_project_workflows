@@ -6,6 +6,32 @@ The workflow as a drawing.
 
 ### Fixed
 
+- **An interrupted restore can be recovered by running the same command again.**
+  `redmine_project_workflows:restore` used to create every project's decision
+  first and write the rules afterwards, so a restore that stopped halfway — a
+  dropped connection, a closed terminal — left every project it had not reached
+  with a workflow of its own and no rules in it, which is a project that permits
+  no status change at all. Running the restore again then skipped exactly those.
+  Each project, tracker, role and rule type is now put back in a transaction of
+  its own, so every one of them is either wholly restored or exactly as it was;
+  a failure no longer stops the rest, the ones that failed are named, and the
+  task exits non-zero so a script notices.
+
+- **A backup can no longer hold a state that never existed.** The decisions and
+  the rules were read one after the other, so a workflow saved in between could
+  produce a file in which the two halves describe two different moments. Both
+  reads now happen in one snapshot. And the uninstall task re-reads immediately
+  before it reverses anything: if a workflow changed while it was waiting for
+  `CONFIRM=yes`, it refuses rather than destroying what the backup does not hold.
+
+- **The administration matrices no longer write whatever a selection happens to
+  resolve to.** A tracker or role id naming something that does not exist was
+  dropped from the selection and the rest was written and reported as a success;
+  an id of the wrong shape was converted to a number, so `1e5` meant tracker 1.
+  Every selector in the plugin now refuses a value it cannot resolve, before
+  anything is written — which matters because a matrix save deletes before it
+  inserts.
+
 - **Two administrators saving the same workflow at the same moment no longer
   leave duplicate rules behind.** Every workflow write — a project's, the one
   every project shares, and a copy into either, from Redmine's own screens as
@@ -66,6 +92,17 @@ The workflow as a drawing.
   would undo a decision they made and nobody asked to undo.
 
 ### Changed
+
+- **A Redmine this plugin has not been tested against now says so on the screens
+  where a workflow rule is about to change**, not only in the log and on the
+  diagnostics page. It stays a warning: nothing is blocked.
+
+- **The diagnostics page moved out of Redmine's administration menu** and into
+  the action bar of the plugin's own administration screens. It keeps its
+  address and still requires an administrator.
+
+- **The backup file is written for your eyes only** — mode 0600 — and atomically,
+  so `FORCE=1` cannot destroy the previous backup before the new one is complete.
 
 - **The workflow diagram can be switched off, and is not drawn above a size.**
   *Administration → Plugins → Project Workflows → Configure* has two new

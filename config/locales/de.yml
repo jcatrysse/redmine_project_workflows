@@ -175,6 +175,10 @@ de:
   text_project_workflow_diagnostics_overrides_help: 'Dies sind Ergänzungen an Ansichten, die Redmine gehören. Jede hängt an einer Stelle in Redmines eigenem Markup, und Redmine meldet nichts, wenn diese Stelle nicht mehr da ist — der Ansicht fehlt dann einfach ein Bedienelement. Hier wird auf diesem Server geprüft, ob jede noch ihren Platz findet.'
   text_project_workflow_diagnostics_anchor_unmatched: 'Diese Ergänzung findet auf diesem Redmine keinen Platz, die Ansicht zeigt sie also nicht. Selektor: %{selector}'
   text_project_workflow_diagnostics_unmeasured: 'Niemand hat dieses Plugin gegen Redmine %{version} getestet, und dieses Ruby kann den Quelltext von Redmine nicht lesen, sodass kein Vergleich möglich war.'
+  # WP19 / F05: der Kompatibilitätszustand, auf den Bildschirmen, auf denen jemand gleich eine Workflow-Regel ändert.
+  text_project_workflow_compatibility_banner_unverified: 'Dieses Plugin wurde nicht gegen Redmine %{version} getestet. Alles, was es ersetzt, ist unverändert, und Workflow-Regeln können hier wie gewohnt bearbeitet werden.'
+  text_project_workflow_compatibility_banner_unmeasured: 'Dieses Plugin wurde nicht gegen Redmine %{version} getestet und konnte sich auf diesem Ruby nicht damit vergleichen. Workflow-Regeln können hier weiterhin bearbeitet werden.'
+  text_project_workflow_compatibility_banner_drifted: 'Redmine %{version} hat Teile geändert, die dieses Plugin ersetzt. Workflow-Regeln können hier weiterhin bearbeitet werden; prüfen Sie die Änderungen, bevor Sie ihnen vertrauen.'
   # WP12 / ADR-003: the plugin's own administration area.
   label_project_workflow_rules: 'Projekt-Workflows'
   label_project_workflow_generic_screens: 'Redmines eigener Workflow'

@@ -786,8 +786,8 @@ Redmine you are running, that each of them still finds the place it attaches
 to — because when one does not, Redmine says nothing at all and the screen
 simply comes out missing a control.
 
-That gives three answers, in the log at startup and on
-**Administration → Project workflow diagnostics**:
+That gives three answers, in the log at startup, on the plugin's own screens,
+and on the diagnostics page:
 
 - **Verified** — this Redmine is one the plugin is tested against. Nothing is
   measured and nothing is said.
@@ -803,7 +803,18 @@ proves is precise and worth stating plainly — that the *bodies* the plugin
 copied are unchanged. It does not prove that Redmine still calls them the same
 way. It is evidence, not a guarantee.
 
-### Administration → Project workflow diagnostics
+Anything but the first puts a banner on the screens where a workflow rule is
+about to change — both administration matrices, the summary, the copy screen,
+the two project matrices and the project's Workflow settings tab — naming the
+state and, for an administrator, linking to the page below. A verified Redmine
+says nothing anywhere, which is what keeps the banner worth reading.
+
+### Administration → Project workflows → Diagnostics
+
+Reached from the action bar of every screen in the plugin's administration area.
+It has no entry of its own in Redmine's administration menu: the plugin costs
+that menu one line, and this is a page you are sent to rather than one you go
+looking for.
 
 The same page answers three more questions, and all four are questions whose
 wrong answer is otherwise **silent**:

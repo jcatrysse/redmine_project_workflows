@@ -295,6 +295,21 @@ describe ProjectWorkflowRulesController, type: :controller do
       expect(css_select('div.contextual a[href="/project_workflow_rules"]')).to be_empty
       expect(css_select('div.contextual a[href="/project_workflow_rules/copy"]')).to be_present
     end
+
+    # WP19, finding F07. The diagnostics page gave up its entry in Redmine's
+    # administration menu -- ADR-003 costed one -- and is reached from here
+    # instead, on all four screens: somebody who has just been told the host has
+    # drifted is standing on one of them.
+    it 'links to the diagnostics page from every screen of the area' do
+      get_transitions
+      expect(css_select('div.contextual a[href="/project_workflow_diagnostics"]')).to be_present
+
+      get :index
+      expect(css_select('div.contextual a[href="/project_workflow_diagnostics"]')).to be_present
+
+      get :copy
+      expect(css_select('div.contextual a[href="/project_workflow_diagnostics"]')).to be_present
+    end
   end
 
   # WP5 / claude F06. The row and column actions come from the two Deface

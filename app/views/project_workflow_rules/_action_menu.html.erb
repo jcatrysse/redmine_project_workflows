@@ -6,6 +6,11 @@
   copy screen are as much part of the area as the matrices are -- with the link
   to the screen you are already on left out.
 
+  The diagnostics page is here rather than in Redmine's administration menu since
+  WP19: ADR-003 costed one extra line in that menu and a page you visit when
+  something is wrong is not worth a second (finding F07). This is where somebody
+  who has just been told the host has drifted is standing.
+
   The last link leaves the area: Redmine's own workflow screens, which since
   ADR-003 are the generic workflow and nothing else. One of the two cross-links
   the ADR asks for; the other is on core's screen and points back here.
@@ -21,6 +26,8 @@
   <% end %>
   <%= project_workflows_icon_link('list', l(:label_project_workflow_inventory),
                                   project_workflow_inventories_path) %>
+  <%= project_workflows_icon_link('help', l(:label_project_workflow_diagnostics),
+                                  project_workflow_diagnostics_path) %>
   <%= project_workflows_icon_link('workflows', l(:label_project_workflow_generic_screens),
                                   edit_workflows_path) %>
 </div>

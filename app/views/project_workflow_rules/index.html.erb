@@ -1,6 +1,7 @@
 <%= render partial: 'project_workflow_rules/action_menu', locals: { current: :summary } %>
 
 <%= title l(:label_project_workflow_rules), l(:field_summary) %>
+<%= project_workflow_compatibility_banner %>
 
 <%#
   Which workflow the grid below is counting. Without a project parameter the

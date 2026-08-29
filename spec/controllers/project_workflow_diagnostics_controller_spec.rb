@@ -204,12 +204,18 @@ describe AdminController, type: :controller do
 
   render_views
 
-  it 'draws the diagnostics entry on Redmine\'s own administration page' do
+  # WP19, finding F07 of 2026-08-29-claude-revalidation. ADR-003 costed **one**
+  # extra line in Redmine's administration menu as the price of owning the
+  # screens, and the diagnostics page had taken a second. It is a page an
+  # administrator is *sent* to when something is wrong, not one they go looking
+  # for, so it is reached from the contextual menu of the screens instead --
+  # asserted in spec/views/project_workflow_rules/screens_spec.rb.
+  it 'contributes exactly one entry to Redmine\'s own administration page' do
     @request.session[:user_id] = 1
 
     get :index
 
-    expect(response.body).to include(project_workflow_diagnostics_path)
-    expect(response.body).to include(I18n.t(:label_project_workflow_diagnostics))
+    expect(response.body).to include(project_workflow_rules_path)
+    expect(response.body).not_to include(I18n.t(:label_project_workflow_diagnostics))
   end
 end

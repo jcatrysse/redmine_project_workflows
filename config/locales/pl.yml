@@ -178,6 +178,10 @@ pl:
   text_project_workflow_diagnostics_overrides_help: 'To są dodatki do ekranów należących do Redmine. Każdy zaczepia się o fragment własnego kodu Redmine, a Redmine nic nie zgłasza, gdy tego fragmentu już nie ma: ekranowi po prostu brakuje wtedy elementu sterującego. Tutaj sprawdzamy na tym serwerze, czy każdy nadal znajduje swoje miejsce.'
   text_project_workflow_diagnostics_anchor_unmatched: 'Ten dodatek nie ma gdzie się umieścić w tym Redmine, więc ekran go nie pokazuje. Selektor: %{selector}'
   text_project_workflow_diagnostics_unmeasured: 'Nikt nie testował tej wtyczki z Redmine %{version}, a ten Ruby nie potrafi odczytać kodu źródłowego Redmine, więc porównanie nie było możliwe.'
+  # WP19 / F05: stan zgodności, na ekranach, na których ktoś zaraz zmieni regułę przepływu pracy.
+  text_project_workflow_compatibility_banner_unverified: 'Ta wtyczka nie została przetestowana z Redmine %{version}. Wszystko, co zastępuje, jest niezmienione, a reguły przepływu pracy można tu edytować jak zwykle.'
+  text_project_workflow_compatibility_banner_unmeasured: 'Ta wtyczka nie została przetestowana z Redmine %{version} i nie mogła się z nim porównać na tym Ruby. Reguły przepływu pracy nadal można tu edytować.'
+  text_project_workflow_compatibility_banner_drifted: 'Redmine %{version} zmienił części, które ta wtyczka zastępuje. Reguły przepływu pracy nadal można tu edytować; sprawdź, co się zmieniło, zanim na nich polegniesz.'
   # WP12 / ADR-003: the plugin's own administration area.
   label_project_workflow_rules: 'Przepływy pracy projektów'
   label_project_workflow_generic_screens: 'Własny przepływ pracy Redmine'

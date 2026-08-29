@@ -10,6 +10,43 @@
 module ProjectWorkflowsHelper
   include RedmineProjectWorkflows::VersionHelper
 
+  # WP19, finding F05 of 2026-08-29-claude-revalidation. What ADR-002's
+  # compatibility object knows, on the screens where somebody is about to change
+  # a workflow rule.
+  #
+  # Workflow logic is authorization logic, and a Redmine minor that changed
+  # `WorkflowPermission.replace_permissions` under the plugin is exactly what
+  # that object exists to catch. Until this it caught it into a log line and a
+  # diagnostics page nobody has to visit, which is most of the value thrown away.
+  #
+  # **A warning, never a refusal.** ADR-002 decided that, and Jan answered A
+  # again on 2026-08-29 when a second review proposed blocking writes until an
+  # administrator acknowledges the digest set: Redmine still boots and reads
+  # still work, so an installation halfway through an upgrade is not a good
+  # moment to lock its administrators out of the screens that would tell them
+  # why. Reversing it is a change in this one method.
+  #
+  # **Nothing at all on a verified host**, which is the common case and the whole
+  # reason this is bearable: a banner that is always there is furniture, and the
+  # next real one is not read.
+  #
+  # The link only for an administrator. The diagnostics page requires one, and a
+  # project manager who followed a link to a 403 would learn less than the
+  # sentence already told them.
+  def project_workflow_compatibility_banner
+    state = RedmineProjectWorkflows::Compatibility.state
+    return nil if state == :verified
+
+    sentence = l(:"text_project_workflow_compatibility_banner_#{state}",
+                 version: RedmineProjectWorkflows::Compatibility.host_minor)
+    body = User.current.admin? ? safe_join([sentence, diagnostics_link], ' ') : sentence
+    content_tag(:div, body, class: 'warning')
+  end
+
+  def diagnostics_link
+    link_to(l(:label_project_workflow_diagnostics), project_workflow_diagnostics_path)
+  end
+
   # The settings tab's rows: one per (tracker, role) this project can decide for,
   # with the state and the project's own rule count for each kind of rule.
   #

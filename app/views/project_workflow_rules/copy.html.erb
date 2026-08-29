@@ -1,6 +1,7 @@
 <%= render partial: 'project_workflow_rules/action_menu', locals: { current: :copy } %>
 
 <%= title [l(:label_project_workflow_rules), project_workflow_rules_path], l(:button_copy) %>
+<%= project_workflow_compatibility_banner %>
 
 <%= form_tag duplicate_project_workflow_rules_path, method: :post, id: 'workflow_copy_form' do %>
   <fieldset class="tabular box">

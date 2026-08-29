@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require 'fileutils'
+require 'tempfile'
+
 module RedmineProjectWorkflows
   module Services
     # Everything a downgrade throws away, written to one file.
@@ -121,9 +124,54 @@ module RedmineProjectWorkflows
         raise Error, "#{path} already exists; pass FORCE=1 to overwrite it" if File.exist?(path) && !force
 
         written = document || self.document
-        File.write(path, "#{JSON.pretty_generate(written)}\n")
+        write_atomically(path, "#{JSON.pretty_generate(written)}\n")
         written
       end
+
+      # WP19, finding F04 of 2026-08-29-claude-revalidation. `File.write` straight
+      # to the final path gave the file whatever the umask allowed -- **0644**,
+      # measured -- and `FORCE=1` destroyed the previous backup before the
+      # replacement was durable, so an interruption could leave neither.
+      #
+      # Beside the target rather than in /tmp, because a rename is only atomic
+      # within one filesystem and a backup path is exactly the kind of path that
+      # is a mount of its own. 0600 explicitly rather than relying on Tempfile's
+      # default: the README tells the operator this file names every project,
+      # tracker, role and status on the installation, and the code should make
+      # that true rather than describe it.
+      #
+      # Read back **before** the rename, not after: a file that does not parse
+      # must not become the backup, and the uninstall task's own read-back is
+      # then a second opinion rather than the only one.
+      def self.write_atomically(path, body)
+        temporary = Tempfile.create([".#{File.basename(path)}.", '.tmp'], File.dirname(path))
+        begin
+          File.chmod(0o600, temporary.path)
+          temporary.write(body)
+          temporary.flush
+          temporary.fsync
+          temporary.close
+          read(temporary.path)
+          File.rename(temporary.path, path)
+        rescue StandardError
+          FileUtils.rm_f(temporary.path)
+          raise
+        ensure
+          temporary.close unless temporary.closed?
+        end
+        sync_directory(File.dirname(path))
+      end
+      private_class_method :write_atomically
+
+      # The rename is durable only once the directory entry is. Best effort by
+      # design: a filesystem that will not open a directory for reading, or will
+      # not fsync one, is not a reason to fail a backup that is already written.
+      def self.sync_directory(directory)
+        File.open(directory, &:fsync)
+      rescue StandardError
+        nil
+      end
+      private_class_method :sync_directory
 
       def self.read(path)
         raise Error, "#{path} does not exist" unless File.exist?(path)

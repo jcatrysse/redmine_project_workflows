@@ -21,6 +21,7 @@
   permission check here; the actions below are gated separately, and every
   controller they post to checks again (INV-7).
 %>
+<%= project_workflow_compatibility_banner %>
 <% rows = project_workflow_settings_rows(@project) %>
 <% rule_types = ProjectWorkflowScope::RULE_TYPES %>
 <% if rows.empty? %>

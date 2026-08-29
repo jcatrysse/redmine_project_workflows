@@ -36,8 +36,8 @@
 | — | *WP10..WP16 made it releasable on paper. WP17..WP20 answer the review that read it back.* | |
 | WP17 | Recovery you can rely on | **done** — all six items; the stale-backup guard is a re-read and compare rather than the revision column planned (docs/DECISIONS.md) |
 | WP18 | One exact selection resolver | **done** |
-| WP19 | The compatibility banner, and the small hardening | **next** — minus F06, taken along with WP17 |
-| WP20 | The release gates that are not code | Jan's |
+| WP19 | The compatibility banner, and the small hardening | **done** — all five items; F06 was taken along with WP17 |
+| WP20 | The release gates that are not code | **next** — Jan's |
 
 ---
 
@@ -1248,6 +1248,19 @@ order rather than in the order the browser submitted it.
 - **The three nits**: the SQLite skip on the batching examples (F06), the
   diagnostics page as a link rather than a second administration menu entry
   (F07), and R1 of `docs/release-criteria.md` brought up to the head (F08).
+
+**Done.** The banner is a helper called from seven screens -- both
+administration matrices, the summary, the copy screen, the two project matrices
+and the project's Workflow settings tab -- and
+`spec/views/compatibility_banner_spec.rb` drives every one of them in all four
+states, so a screen added later without it fails there rather than on a drifted
+host. Three new locale keys in all eight files. The backup is written to a
+temporary file beside the target at 0600, flushed, `fsync`ed, read back and only
+then renamed, so `FORCE=1` cannot destroy the previous backup before the
+replacement is durable. The diagnostics page gave up its administration menu
+entry for a link in the plugin's own action bar. F06 landed with WP17, because
+the adapter predicate it needed was the one WP17's two-connection backup example
+needed.
 
 ---
 
