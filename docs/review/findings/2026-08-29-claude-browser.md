@@ -50,11 +50,16 @@ why.
 
 **Counts:** blocker 0 · major 0 · minor 0 · nit 1 · question 0
 
+**The nit is fixed** — see its `Resolution:` — and fixing it turned up a second,
+smaller thing that only a browser could see: an empty `<div>` had been providing
+a line break by accident, and removing it moved the actions onto the state
+label's line. Both are in the resolution.
+
 ---
 
 ### F01 — Three adjacent links in the settings-tab cell run together as one sentence
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** ux
@@ -100,7 +105,24 @@ them, since it is a sentence and they are actions. Whatever is chosen, the two
 files should agree, and the comment in `_scope_actions` is where the reasoning
 already lives.
 
-**Resolution:**
+**Resolution:** fixed the same day, in the session that found it, once Jan asked
+for it. `project_workflow_cell_details` is the one helper both screens now go
+through: the audit sentence and the links are separate blocks, and the links are
+joined with the same pipe `_scope_actions` uses. **The inventory had the same
+construction and therefore the same defect** — the finding named only the
+settings tab — so it was fixed there too; a fix that left the sibling screen
+inconsistent would not have been one.
+
+Making the details block conditional then took away a line break that an *empty*
+`<div>` had been providing by accident, and on a cell with no audit line and no
+links — every field-permissions cell of an inheriting row — the actions moved up
+beside the state label. That regression was invisible to the whole suite and
+visible in a browser, which is the same lesson twice in one finding; the actions
+now have a block of their own that says so. Four examples pin it:
+`spec/controllers/projects_settings_tab_spec.rb` for the separator, the audit
+line, the single-link case and the actions block, and
+`spec/controllers/project_workflow_inventories_controller_spec.rb` for the
+inventory. Two of them were verified red against the previous markup.
 
 ---
 

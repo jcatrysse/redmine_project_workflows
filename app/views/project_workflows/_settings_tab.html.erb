@@ -51,23 +51,37 @@
           <td class="project-workflow-<%= rule_type %>">
             <%= project_workflow_own_count_link(cell, row, rule_type) %>
             <%= project_workflow_state_tag(cell.state) %>
-            <%# A block, so the audit line and the comparison link drop below the
-                count and the state label rather than crowding onto one line. %>
-            <div class="project-workflow-cell-details">
-              <%= project_workflow_audit_tag(cell) %>
-              <%= project_workflow_compare_link(@project, row.tracker, row.role, rule_type, cell.state) %>
-              <%# The drawing, in the transitions column only: it draws
-                  transitions, and a link to it from the field-permissions cell
-                  would promise a picture of something that is not a graph. %>
-              <% if rule_type == ProjectWorkflowScope::TRANSITIONS %>
-                <%= project_workflow_graph_link(@project, row.tracker, row.role) %>
-              <% end %>
-            </div>
+            <%# Blocks, so the audit line and the links drop below the count and
+                the state label rather than crowding onto one line -- and the
+                links separated from each other and from the audit sentence, for
+                the reason project_workflow_cell_details argues.
+
+                The drawing is offered in the transitions column only: it draws
+                transitions, and a link to it from the field-permissions cell
+                would promise a picture of something that is not a graph. %>
+            <%= project_workflow_cell_details(
+                  cell,
+                  [project_workflow_compare_link(@project, row.tracker, row.role, rule_type, cell.state),
+                   (if rule_type == ProjectWorkflowScope::TRANSITIONS
+                      project_workflow_graph_link(@project, row.tracker, row.role)
+                    end)]
+                ) %>
+            <%# A block of its own, so the actions sit under the state label
+                rather than beside it. This used to happen by accident: the
+                details above were an empty <div> on a cell with no audit line
+                and no links, and the empty element was doing the line break. It
+                stopped being rendered when the details grew a condition, and the
+                actions moved up onto the state line -- a regression that no spec
+                could see and a browser could (finding F01 of
+                2026-08-29-claude-browser, in the fix for it). The plugin ships
+                no stylesheet, so the markup has to say this out loud. %>
             <% if manage %>
-              <%= render partial: 'project_workflows/scope_actions',
-                         locals: { project: @project, tracker: row.tracker, role: row.role,
-                                   rule_type: rule_type, state: cell.state, back_url: back_url,
-                                   offered: project_workflow_role_offered?(@project, row.role) } %>
+              <div class="project-workflow-cell-actions">
+                <%= render partial: 'project_workflows/scope_actions',
+                           locals: { project: @project, tracker: row.tracker, role: row.role,
+                                     rule_type: rule_type, state: cell.state, back_url: back_url,
+                                     offered: project_workflow_role_offered?(@project, row.role) } %>
+              </div>
             <% end %>
           </td>
         <% end %>

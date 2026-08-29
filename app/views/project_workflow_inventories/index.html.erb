@@ -73,23 +73,26 @@
         <td class="project-workflow-<%= rule_type %>">
           <%= project_workflow_inventory_count_link(cell, row, rule_type) %>
           <%= project_workflow_state_tag(cell.state) %>
-          <%# A block, so the audit line and the comparison link drop below the
-              count and the state label rather than crowding onto one line. The
-              plugin ships no stylesheet, so the markup has to do it. %>
-          <div class="project-workflow-cell-details">
-            <%= project_workflow_audit_tag(cell) %>
-            <%# The comparison is a project screen, so this link leads out of the
-                administration section, and it can answer 403 or 404: a project
-                whose issue tracking module has since been disabled or which has
-                been archived is refused, and one that no longer offers the
-                tracker -- or the role, once its last member is gone -- is a 404.
-                Either is the honest answer: the combination still has a scope,
-                and the project no longer offers the matrix to compare it
-                against. Rendering the link conditionally would mean preloading
-                each row's modules, trackers and member roles to answer a
-                question the link itself answers. %>
-            <%= project_workflow_compare_link(row.project, row.tracker, row.role, rule_type, cell.state) %>
-          </div>
+          <%# Blocks, so the audit line and the comparison link drop below the
+              count and the state label rather than crowding onto one line, and
+              so the sentence and the link do not run into each other. The plugin
+              ships no stylesheet, so the markup has to do it. See
+              project_workflow_cell_details.
+
+              The comparison is a project screen, so this link leads out of the
+              administration section, and it can answer 403 or 404: a project
+              whose issue tracking module has since been disabled or which has
+              been archived is refused, and one that no longer offers the
+              tracker -- or the role, once its last member is gone -- is a 404.
+              Either is the honest answer: the combination still has a scope, and
+              the project no longer offers the matrix to compare it against.
+              Rendering the link conditionally would mean preloading each row's
+              modules, trackers and member roles to answer a question the link
+              itself answers. %>
+          <%= project_workflow_cell_details(
+                cell,
+                [project_workflow_compare_link(row.project, row.tracker, row.role, rule_type, cell.state)]
+              ) %>
         </td>
       <% end %>
     </tr>

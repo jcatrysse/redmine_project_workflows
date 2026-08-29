@@ -121,14 +121,11 @@ Everything below was executed in this container.
 
 ## Exact next step
 
-**The code work this repository can do is finished**, with one nit outstanding.
-WP0..WP19 are all done and CI run 194 is green on all eleven jobs.
-`docs/review/findings/` has exactly one open finding: **F01 of
-`2026-08-29-claude-browser.md`**, a nit — three pieces of text in one cell of the
-project settings tab run together with no separator, in a plugin that solved the
-identical problem two files away and wrote down why. It is a one-line view change
-and it was deliberately not made in the session that found it, per CLAUDE.md's
-"report, don't fix, out-of-scope findings".
+**The code work this repository can do is finished.** WP0..WP19 are all done and
+`docs/review/findings/` has **no open finding**: the one the browser run raised
+was fixed the same day, on Jan's word, and its resolution records the regression
+that fixing it briefly introduced — an empty `<div>` had been providing a line
+break by accident.
 
 What remains is **WP20, and it is Jan's**:
 
@@ -380,6 +377,12 @@ earlier ones, in the order they were found.
   the call site -- or anonymous forwarding, `def m(&) ... m2(&)`, which is what
   `rubocop -a` produced and what the repo now carries in
   `WorkflowBackup.snapshot`.
+- **An empty element can be load-bearing.** The settings tab's action links sat
+  on their own line because an *empty* `div.project-workflow-cell-details` above
+  them was doing the line break. Making that div conditional -- correctly, it had
+  nothing in it -- moved the actions up beside the state label, and no example in
+  the suite could see it. The plugin ships no stylesheet, so layout lives in the
+  markup and a removed element is a layout change. Look at the page.
 - **`pgrep -f "rails server"` does not find the server.** Puma renames its own
   process, so the pattern to kill is `puma`. `pgrep -f "rails server"` matches
   the shell command that contains the string instead, which makes `kill` look

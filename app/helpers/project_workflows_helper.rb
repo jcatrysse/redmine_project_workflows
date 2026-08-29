@@ -254,6 +254,34 @@ module ProjectWorkflowsHelper
                 class: 'project-workflow-scope-audit')
   end
 
+  # The details under a cell of the settings tab and the inventory: who changed
+  # this workflow and when, and the links that lead somewhere from it.
+  #
+  # **Two blocks, and a pipe between the links.** The audit line is a sentence
+  # and the links are actions, and with nothing between them the browser renders
+  #
+  #     Updated by Maria Manager less than a minute ago Compare with the generic
+  #     workflow Workflow diagram
+  #
+  # as one run of text, and the reader has to find the seams. The pipe is the one
+  # `_scope_actions.html.erb` uses for its own pair and its comment argues for at
+  # length; this is the same situation on the screen a project manager uses most,
+  # and it did not have it (finding F01 of 2026-08-29-claude-browser, seen in a
+  # browser rather than in a spec). The plugin ships no stylesheet, so the markup
+  # has to do this.
+  #
+  # +links+ arrives already built, so this decides nothing about *which* links a
+  # screen offers -- the inventory has one and the settings tab has two, and a
+  # nil among them is a link that screen does not offer here.
+  def project_workflow_cell_details(cell, links)
+    audit = project_workflow_audit_tag(cell)
+    joined = safe_join(Array(links).compact, ' | ')
+    safe_join(
+      [(content_tag(:div, audit, class: 'project-workflow-cell-details') if audit),
+       (content_tag(:div, joined, class: 'project-workflow-cell-links') if joined.present?)].compact
+    )
+  end
+
   # The number of rules the project holds itself, linking into the matrix that
   # holds them. Never the generic count: an inheriting combination reads 0, and
   # the state label beside it -- not the number -- says the generic workflow

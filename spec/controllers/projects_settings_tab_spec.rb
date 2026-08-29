@@ -74,6 +74,77 @@ describe ProjectsController, type: :controller do
       end)
     end
 
+    # WP19 follow-up, finding F01 of 2026-08-29-claude-browser: seen in a browser
+    # rather than in a spec, which is why it survived every other gate. The audit
+    # line, the comparison link and the drawing link were emitted into one div
+    # with nothing between them, and rendered as
+    #
+    #     Updated by Maria Manager less than a minute ago Compare with the
+    #     generic workflow Workflow diagram
+    #
+    # -- one run of text with the seams left for the reader to find. The partial
+    # next door, _scope_actions, had already solved the identical problem with a
+    # pipe and written down why.
+    describe 'the details under a cell' do
+      before do
+        log_in(2, :view_project_workflow_rules)
+        scope = give_own_workflow(project, tracker, role)
+        scope.update!(updated_by_id: users(:users_002).id)
+      end
+
+      def cell_links
+        response.body[%r{<div class="project-workflow-cell-links">.*?</div>}m]
+      end
+
+      it 'separates the two links rather than running them into one sentence' do
+        get :settings, params: { id: project.id }
+
+        expect(cell_links).to include('|')
+        expect(cell_links).to match(%r{</a>\s*\|\s*<a})
+      end
+
+      it 'keeps the audit sentence out of the block the links are in' do
+        get :settings, params: { id: project.id }
+
+        expect(cell_links).not_to include('project-workflow-scope-audit')
+        expect(response.body).to include('project-workflow-cell-details')
+      end
+
+      # The regression the first version of this fix introduced, and the reason
+      # it is worth a spec: the actions used to be pushed onto their own line by
+      # an *empty* details div above them. Making that div conditional took the
+      # line break away, and on a cell with no audit line and no links -- every
+      # field-permissions cell of an inheriting row -- the actions moved up
+      # beside the state label. Nothing in the suite could see it; a browser
+      # could.
+      it 'puts the actions in a block of their own rather than beside the state label' do
+        # The actions are only rendered for somebody who may take them, so this
+        # is the one example in the group that needs the manage permission.
+        log_in(2, :manage_project_workflow_rules)
+
+        get :settings, params: { id: project.id }
+
+        expect(response.body).to include('<div class="project-workflow-cell-actions">')
+        # Every cell that offers an action wraps it, not just the first.
+        wrapped = response.body.scan('project-workflow-cell-actions').size
+        spans = response.body.scan('project-workflow-scope-actions').size
+        expect(wrapped).to eq(spans)
+      end
+
+      # A field-permissions cell has one link, not two, so it must not be given a
+      # separator with nothing on the other side of it.
+      it 'writes no separator where a cell offers a single link' do
+        get :settings, params: { id: project.id }
+
+        blocks = response.body.scan(%r{<div class="project-workflow-cell-links">.*?</div>}m)
+        single = blocks.reject { |b| b.scan('<a ').size > 1 }
+        # Not a vacuous assertion: the field-permissions column of every row is a
+        # single-link cell, so there are some to check.
+        expect(single).not_to be_empty
+        expect(single).to all(satisfy { |b| b.exclude?('|') })
+      end
+    end
+
     # The builtin roles have no members anywhere, so a project never sees them;
     # deciding the workflow for the people who are not its members stays a
     # system administrator's job.

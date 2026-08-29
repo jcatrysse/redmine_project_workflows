@@ -164,6 +164,23 @@ describe ProjectWorkflowInventoriesController, type: :controller do
         expect(response.body).to include(ERB::Util.html_escape(I18n.t(:label_project_workflow_state_own_empty)))
       end
 
+      # The other half of finding F01 of 2026-08-29-claude-browser. The finding
+      # named the settings tab; this screen had the same construction, so it had
+      # the same defect -- the audit sentence and the comparison link emitted
+      # into one div with nothing between them. A fix that left this screen
+      # inconsistent would not have been one.
+      it 'keeps the audit sentence and the comparison link in separate blocks' do
+        scope = give_own_workflow(project, tracker, role)
+        scope.update!(updated_by_id: users(:users_002).id)
+
+        get :index
+
+        links = response.body[%r{<div class="project-workflow-cell-links">.*?</div>}m]
+        expect(links).not_to be_nil
+        expect(links).not_to include('project-workflow-scope-audit')
+        expect(response.body).to include('project-workflow-cell-details')
+      end
+
       it 'links each row into the two matrices, pre-filled' do
         give_own_workflow(project, tracker, role)
 
