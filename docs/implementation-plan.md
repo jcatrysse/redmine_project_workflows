@@ -31,7 +31,7 @@
 | WP12 | Owned administration screens (ADR-003) | **done** — all eight steps; the table line said "steps 1-3" until 2026-08-29, after the section itself had recorded all eight as done |
 | WP13 | One write-coordination service, and bounded bulk writes | done |
 | WP14 | The remaining defect backlog | **done** |
-| WP15 | The test debt three reviews named | planned |
+| WP15 | The test debt three reviews named | **done** — all six items |
 | WP16 | Release engineering | planned |
 
 ---
@@ -1020,6 +1020,42 @@ In priority order, because this is the package most likely to be cut short:
    data: project rules, own-empty scopes, duplicates, orphaned audit users.
 6. **Scale**: a 10,000-project inventory, and the issue-save hot path's query
    count for a user holding many roles.
+
+**Done.** All six, on 2026-08-29, and the whole package changed no production
+code: the diff is `spec/`, one new `dev/` script, one CI job, and one comment
+carrying a measurement. Four things came out differently from the plan.
+
+1. **Item 1 measured an asymmetry nobody had written down.** Most of the
+   plugin's patch methods do not call `super` — they reimplement core's body
+   with the one project-blind query replaced, which is the decision of
+   2026-08-26. So a neighbouring plugin *above* this one composes normally,
+   while one *below* it is **bypassed rather than broken**: nothing raises, the
+   answer stays right, and the neighbour's wrapper never runs. That is a
+   property of the design and not a defect with a fix; it is asserted as a
+   stated property, with `Project#copy` — one of the two methods that does
+   delegate — as the contrast that makes the claim mean something.
+   `spec/integration/neighbour_coexistence_spec.rb`.
+2. **Item 5 found what a downgrade actually costs**, which nothing in the
+   repository said out loud. `VERSION=0` is not the reverse of an upgrade:
+   migration 001's `down` deletes every rule that names a project, deliberately,
+   because dropping the column would otherwise turn every project's rules into
+   rules of the workflow every project shares. So a downgrade discards every
+   project workflow and keeps the generic one, and an own *empty* decision does
+   not survive at all — the scope row is the only place it was recorded.
+   `dev/check-upgrade.sh` checks both legs on all nine cells; WP16's downgrade
+   procedure opens with those two sentences.
+3. **Item 4's question is now answered for MySQL and MariaDB.** A 500-term `OR`
+   is planned and run without complaint; the suite is green on 7.0/MariaDB
+   10.11 including the boundary and one past it.
+4. **Item 6's inventory number was measured end to end**, not only the Ruby
+   half: at 10,000 decisions the default `deviations_only` page is 87 ms at
+   offset 0 and 79 ms at offset 9,900 — flat in the offset, linear in the
+   decisions — against 6 ms for `everything`. The numbers are in
+   `InventoryQuery`'s own comment beside the ones that were already there.
+
+Two of the eleven new examples are **forward gates and say so in the file**: the
+reload-guard pair cannot be made red on today's code, because `Module#prepend`
+is itself idempotent. They exist to catch an `apply_patches` that stops being.
 
 ---
 

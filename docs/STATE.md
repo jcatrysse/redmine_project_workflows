@@ -6,226 +6,160 @@
 
 ## Current position
 
-- **WP14 is done — all five items of the plan's "remaining defect backlog", plus
-  the two open findings that belonged to it.** With that, **every finding in
-  `docs/review/findings/` is resolved**: the count of `Status: open` across the
-  whole directory is now zero for the first time (the only remaining match is
-  `TEMPLATE.md`, which is a template).
-- **What that changes, in one sentence each.**
-  - *Deleting an issue status no longer freezes a project silently (audit F03).*
-    Redmine deletes every workflow rule naming a status you delete. A project
-    whose rules for a tracker and role all named it kept its **decision** to run
-    its own workflow and was left with no rules — which permits no change of
-    status at all — and nothing said so. The deletion now reports how many
-    project workflows it emptied, with a link to them.
-  - *`deface` has bounds (audit F10).* `~> 1.9`, so a fresh installation cannot
-    resolve a deface nobody has run this against — which, if it fails to load,
-    stops Redmine booting.
-  - *The two copiers' asymmetry is settled (audit F11).* Deliberate, argued, and
-    pinned by an example: duplicating a tracker or a role carries every project's
-    decision; copying a project carries only the decisions for trackers the
-    target has.
-  - *The copy form's item count* says what a tick would actually carry rather
-    than everything the project holds.
-  - *The workflow drawing is a switchable feature with a size ceiling* — the
-    2026-08-28 answer to a review that proposed cutting it.
-  - *The drift gate watches the core helpers the plugin calls* (the WP12 note's
-    F01), and the structural sweep written for it found a second undeclared
-    dependency on its first run.
-- **And then, on Jan's answer, ADR-004: *give own workflow* is batched and
-  bounded.** It was the open choice this session carried; it was measured, and
-  the answer was **B and C together** — a ceiling *and* the rewrite. 20,000
-  combinations went from 110 s to 18 s on PostgreSQL and 99 s to 14 s on
-  MariaDB, in 151 statements rather than 60,042. Two MySQL-only defects older
-  than the change came out with it (see *Open choices*).
-- **Nothing a user can do has been taken away**, and nothing has been released:
-  0.1.6, unreleased; `main` carries 0.0.3 and there is no tag.
+- **WP15 is done — all six items of "the test debt three reviews named".** With
+  WP14 that closes the hardening track's defect and test backlog; **WP16, release
+  engineering, is the only work package left**.
+- **The whole package changed no production code.** The diff is `spec/`, one new
+  `dev/` script, one CI job and one comment carrying a measurement. That is what
+  it should be: the point of WP15 was to find out whether things already believed
+  were true, not to change them.
+- **What it found, in one sentence each.**
+  - *A neighbouring plugin below this one is bypassed, not broken.* Most of the
+    plugin's patch methods do not call `super` — they reimplement core's body
+    with the one project-blind query replaced (the decision of 2026-08-26,
+    because `super` would read other projects' rows). So a neighbour that
+    prepends **after** this plugin composes normally, and one that alias-chains
+    **before** it never runs at all: nothing raises, the answer stays right, and
+    the neighbour's filter is silently ignored. There is no fix — there is no
+    `super` that answers correctly — so it is now a stated property with a gate
+    on it, and `Project#copy`, which does delegate, is the contrast.
+  - *Four actions had no authorization example at all.* `#permissions`, `#graph`,
+    `#inherit` and `#clear`. All nine actions are now a table against six kinds
+    of visitor plus cross-project substitution both ways, and a last example asks
+    the **router** which actions exist, so an action added without a row fails.
+  - *MySQL and MariaDB can plan a 500-term `OR`.* Six of the nine cells had never
+    been asked; the suite now asks on every push, at exactly `DELETE_BATCH_SIZE`
+    and one past it.
+  - *A downgrade discards every project workflow.* `VERSION=0` is **not** the
+    reverse of an upgrade: migration 001's `down` deletes every rule naming a
+    project, deliberately, because dropping the column would otherwise turn every
+    project's rules into rules of the workflow every project shares. An own
+    *empty* decision does not survive either, the scope row being the only place
+    it was recorded. Nothing said either sentence out loud; both are now checked
+    on all nine cells and both belong at the top of WP16's downgrade procedure.
+  - *The hot path does not grow with roles, and the inventory is fast at ten
+    thousand.* 87 ms for a `deviations_only` page at 10,000 decisions, flat in
+    the offset; 6 ms for `everything`.
+- **Nothing a user can do has changed**, and nothing has been released: 0.1.6,
+  unreleased; `main` carries 0.0.3 and there is no tag.
 - **Branch:** `claude/dev`, pinned in `CLAUDE.md`. The environment minted
-  `claude/docs-review-5ta7m5`; `git checkout -B claude/dev origin/claude/dev` was
+  `claude/docs-review-dsowk7`; `git checkout -B claude/dev origin/claude/dev` was
   the whole rescue. **The local `claude/dev` ref was once again the unrelated
   five-commit lineage** — always reset it from `origin/claude/dev` rather than
-  trusting the local ref. Fourth session in a row.
+  trusting the local ref. Fifth session in a row.
 
 ## What this session produced
 
-Four commits, each green on all three local hosts and lint-clean before the next.
+Two commits, each green on three local hosts and lint-clean before the next.
 
-### 1. `WP14 step 1` — a status deletion says which project workflows it emptied (audit F03)
+### 1. `WP15 steps 1-4` — coexistence, authorization, escaping, batching
 
-**The defect.** Core's `IssueStatus#delete_workflow_rules` removes every workflow
-row naming the status being destroyed, in both populations, with no project
-predicate. That is core's business and it is right. What core cannot know is that
-the plugin's **scope** row survives, and a scope with no rules is an own *empty*
-workflow: for transitions it permits nothing. So an administrator tidying up an
-unused status could move a project from "own workflow with N transitions" to
-"deny everything", with no message anywhere.
+**Item 1 — `spec/integration/neighbour_coexistence_spec.rb`.** A synthetic
+neighbouring plugin in both load orders a running process can build. A module
+already prepended cannot be pushed back down a chain, so "a neighbour prepends
+before us" is not constructible at spec time — and it is the harmless case
+anyway, two prepends composing through `super` either way round. What the file
+builds instead is a neighbour that **prepends after** (above us) and one that
+**alias-chains before** (below us, in the class itself), against
+`Issue#new_statuses_allowed_to`, `WorkflowTransition.replace_transitions`,
+`Project#copy` and core's two workflow helper modules. INV-1 holds in both
+orders — a neighbour cannot put core's project-blind write back in front of the
+plugin's writer, whatever it does.
 
-**Warn, never clean up.** Deleting the emptied scope would move the project to
-*follows the generic workflow* — two of INV-3's three meanings collapsed on its
-behalf, which is the defect the whole scope model exists to prevent. Core's
-deletion runs exactly as core wrote it; the only change is that somebody is told.
+The third combination — an alias chain over a prepend — is infinite recursion in
+Ruby, is every prepending Redmine plugin's exposure, and is the neighbour's own
+idiom (deprecated since Rails 5). Where this plugin *has* a choice is core's
+**helper modules**, which is where plugins have actually been alias-chaining
+since 2013; `WorkflowsHelper` now has the behavioural gate `ProjectsHelper`
+already had, and a structural rule states both at once.
 
-**The shape.** `Services::StatusDeletionImpact` answers, in **one grouped
-statement** over the project population of `workflows` plus one scope lookup,
-which (project, tracker, role, rule type) combinations hold rules today and would
-hold none after the deletion — and only those a scope makes real, because a
-project rule row with no scope over it applies to nothing.
-`Patches::IssueStatusesControllerPatch` asks **before** `super` (core's
-`before_destroy` is what removes the rules the count is over) and reports
-**after**, in `flash[:warning]`, with a link into the inventory filtered to the
-projects affected.
+**Item 2 — `spec/controllers/project_workflow_authorization_matrix_spec.rb`.**
+Ninety examples: every action against anonymous, a logged-in non-member, a
+member with neither permission, view-only, manage-only, and an administrator;
+then "authorized on A, path project B", and a tracker or role from elsewhere.
+The two deliberate exceptions have groups of their own — `#enable` is 403 on a
+role the project is not offered, `#graph` is 404 with the drawing switched off.
 
-**Not a Deface override**, which is what a *pre*-warning on the issue-statuses
-list would need: a new anchor on a view the plugin does not own, INV-9 from five
-to six, and Redmine's delete link is a JavaScript `confirm` rather than a
-confirmation page, so there is no request in which to render one.
+**Item 3 — `spec/integration/status_name_escaping_spec.rb`.** The surfaces core
+does not have: the inline SVG (where `<` opens a tag exactly as in HTML), its
+`<title>` tooltips, the table beneath the drawing, the JavaScript response (where
+the escaping that matters is `escape_javascript`'s, not ERB's), and the matrix
+row and column actions' `title` and `data-` attributes. Each asserts the escaped
+form is present **and** that the parsed response holds no live element or event
+handler — the second without the first would pass on a page that dropped the
+name; the first without the second would pass on a page carrying both.
 
-### 2. `WP14 step 2` — three from the audit backlog
+**Item 4 — `spec/services/scope_bulk_writer_batching_spec.rb`.** Five hundred
+`OR`-ed triples issued against the real database, at the boundary and one past
+it. The padding varies **all three** columns, which is what lets the file tell an
+`OR` of triples from an `IN` per column — with one tracker and one role it could
+not, and the first version could not.
 
-- **F10.** `gem 'deface', '~> 1.9'`. The old unpinned declaration was right that
-  the host owns `Gemfile.lock` and that an exact pin can import a neighbour's
-  resolver conflict; it did not cover a **new** installation, or `bundle update`.
-  A major range is strictly narrower than nothing and still resolves against any
-  neighbour pinning inside the same major.
-- **F11.** Settled as deliberate rather than narrowed, on a fact the finding did
-  not have: **the rules are copied for every project whatever the scopes do**,
-  by the one statement INV-4 exempts by name. Narrowing the scopes alone would
-  leave project rule rows with no scope over them; narrowing the rules to match
-  means rewriting the statement that keeps copying a role from being 500 round
-  trips per tracker. The surprise also points the safer way — a project that
-  enables the new tracker later arrives with the workflow it had for the source,
-  where narrowing would hand it the more permissive generic one with nothing
-  said.
-- **The copy form's item count** counts scopes for the source's *enabled*
-  trackers, because a copy takes the source's trackers with it and
-  `ProjectWorkflowCopier` writes a decision only where the target has the
-  tracker. It said "3" and copied 2.
+### 2. `WP15 steps 5-6` — the upgrade rehearsal, and what grows
 
-### 3. `WP14 step 3` — the drawing becomes switchable, with a ceiling
+**Item 5 — `dev/check-upgrade.sh`, a new CI job on all nine cells.** Two legs.
+*The upgrade*: down to `VERSION=3` — before the scope table, which is where an
+installation on 0.0.3 stands — and up again over data already there, in the four
+shapes three reviews named: an own workflow, a duplicate rule under it, an own
+**empty** decision, and a scope whose author has been deleted. The backfill
+reconstructs both populations, attributes none of them to anybody, and leaves the
+duplicate untouched. *The downgrade*: `VERSION=0`, and what it costs (above).
 
-Two settings, both in `Services::GraphBudget`:
-
-| setting | default | what it does |
-| --- | --- | --- |
-| `graph_enabled` | on | off, and no link to the drawing is rendered anywhere — the settings tab, the matrix header and the issue-form panel all go through `project_workflow_graph_offered?` — while the action answers **404**, not 403: there is no such screen, and no permission would help |
-| `graph_edge_ceiling` | 2,000 **arrows** | above it the layout is not computed at all; the page keeps the scope panel and the table and says why the picture is not there. `0` means no ceiling |
-
-**The unit was measured, not chosen.** Redmine 7.0, PostgreSQL 16, in this
-container, one project / tracker / role:
-
-| statuses | arrows | layout |
-| --- | --- | --- |
-| 21 | 400 | 79 ms |
-| 41 | 1,600 | 522 ms |
-| 61 | 3,600 | 1,550 ms |
-| 201 | 400 | 29 ms |
-| 401 | 800 | 49 ms |
-
-Four hundred statuses are cheap; sixty statuses with every move permitted are a
-second and a half of one request. So the cost follows the **edges**, and the
-default is about 0.7 s. Redmine's own default workflow is five statuses and
-twenty-five arrows. This is a different question from `dense?`, which is about a
-picture nobody can read and still computes the layout.
-
-### 4. `WP14 step 4` — the drift gate watches the core helpers the plugin calls
-
-ADR-002 watches methods the plugin **shadows** (discovered from the patch
-modules) and methods it **calls** without shadowing (which have no `super_method`
-and must be written down). `WorkflowsHelper#field_required?` was the second kind
-and nobody had written it down — the matrix helper and two of the plugin's own
-views call it, and its body is a hard-coded list of field names.
-
-A list would have the same gap again on its first edit, so the sweep is
-structural: `spec/plugin_conventions_spec.rb` asserts every method core's
-`WorkflowsHelper` defines and the plugin's sources mention is watched, as a
-shadow or as a declaration. **It found a second one on its first run** —
-`options_for_workflow_select`, called by the plugin's own selection form and
-unshadowed since ADR-003 deleted `WorkflowsHelperPatch`. Both are declared, with
-digests measured per verified minor on their own hosts; the table is **26**
-entries per minor, was 24.
-
-Audit **F06** was confirmed fixed in the same pass, by reading and running rather
-than by memory: `TARGETS` carries its `:singleton` entries, the three
-class-method shadows are digested — including the two INV-1's routing rests on —
-and `Issue#roles_for_workflow` is a declared dependency. Its `Status:` line had
-simply never been brought forward.
+**Item 6 — `spec/services/hot_path_scale_spec.rb`,** plus one measurement.
+Equality across two sizes rather than a budget, and narrowed to statements
+against the two tables the plugin owns queries on. Two traps are recorded in the
+file because either makes the spec measure nothing (see *Known traps*).
 
 ## Evidence
 
 Everything below was executed in this container.
 
 | Gate | Result |
-| --- | --- |
-| Plugin suite, Redmine 5.1 (Ruby 3.2.6), 6.1 and 7.0 (Ruby 3.3.6) on PostgreSQL 16, **and 7.0 on MariaDB 10.11** | **1,098 examples, 0 failures** on each of the four. Was 1,026 at the start of the session. |
-| RuboCop through `.github/lint/Gemfile` | **142 files, no offences** |
+|---|---|
+| Plugin suite, Redmine 7.0 and 5.1 on PostgreSQL 16, **and 7.0 on MariaDB 10.11** | **1,221 examples, 0 failures** on each. Was 1,098 at the start of the session. |
+| RuboCop through `.github/lint/Gemfile` | **147 files, no offences** |
 | `rake zeitwerk:check` | All is good! |
-| `node dev/check-bulk-js.mjs` | all checks pass |
-| Locale parity | all eight files, 162 keys each, 0 missing and 0 extra. **Eleven** new values, translated. |
-| Drift gate | `spec/upstream/` green on 5.1 and 7.0 with the two new declared dependencies; digests measured per host with `dev/measure_compatibility.rb` |
-| Red-on-old-code | verified for every fix by reverting the change and re-running: two controller examples for F03, the Gemfile example for F10, the copy-form count, four graph examples, and the dependency sweep |
-| CI | runs **169**, **170**, **171**, **173**, **175** and **176** green on all eleven jobs. **176 is the head** (`4b0cbdb`, ADR-004) and covers every code change of this session, including all six MySQL and MariaDB cells. Run 172 shows as *cancelled*: pushing a documentation commit superseded it, which is the documented behaviour, not a failure. |
+| `node dev/check-bulk-js.mjs` | bulk action script OK |
+| `dev/check-upgrade.sh` | green on all three hosts, each from a database rebuilt from **core** migrations first |
+| Red-on-old-code | verified by reverting and re-running: the settings tab back inside `ProjectsHelper` (1 red), the matrix helper prepended onto `WorkflowsHelper` (1), `authorize` dropped from four actions (**19**), `raw` in the SVG title and `escape_javascript` removed from the panel (3), the delete predicate rewritten as a cross product (1), and the resolver rewritten as a lookup per role (2) |
+| CI | run **178** green on all eleven jobs for steps 1-4; run **179**, the head, covers steps 5-6 and the new upgrade-rehearsal job |
 
-**A MariaDB host was built for ADR-004 and is worth keeping in the recipe**
-(`dev/setup.sh 7.0-stable mysql 3.3.6`): both defects that work uncovered are
-invisible on PostgreSQL, and the suite is green on all four hosts.
+**Two examples are forward gates and say so in the file.** The reload-guard pair
+cannot be made red on today's code, because `Module#prepend` is itself
+idempotent: emptying `prepend_once`'s guard changes nothing an example can see.
+They exist to catch an `apply_patches` that stops being idempotent — a fresh
+anonymous module per call, an `include` where a `prepend` was — which would grow
+the chain only on a host that reloads and never on CI.
 
 ## Exact next step
 
-**WP15 — the test debt three reviews named.** See `docs/implementation-plan.md`,
-which lists it in priority order because it is the package most likely to be cut
-short:
+**WP16 — release engineering**, the last work package. See
+`docs/implementation-plan.md`:
 
-1. **Neighbour coexistence** — a synthetic neighbouring plugin that alias-chains
-   and prepends the same methods, loaded before *and* after this one.
-2. **The full role matrix per action**, and cross-project substitution.
-3. **Stored XSS through status names** in the SVG, the table, the tooltip and the
-   JavaScript response.
-4. **`each_batch_predicate` at exactly `DELETE_BATCH_SIZE`** on all nine cells.
-5. **Upgrade rehearsals** from 0.0.3 and each later release, with populated data.
-6. **Scale** — a 10,000-project inventory, and the issue-save hot path's query
-   count for a user holding many roles.
-
-**Two things carried forward, neither a defect anybody has hit**, both raised by
-WP13 and still true:
-
-- **The copy screen is a bulk write with no ceiling.** A copy into many target
-  projects writes the source's whole rule set per target. `WriteBudget` bounds
-  only the matrix save. The projection needs the source's rule count, which is a
-  query — a decision rather than a five-line extension.
-- ***Give own workflow* is still measured per combination**, about 5 ms each. It
-  is the open choice below.
+1. **An upgrade rehearsal from the previous release, scripted and repeatable.**
+   Half of this exists now: `dev/check-upgrade.sh` rehearses the migration path
+   from before the scope table over populated data, on all nine cells. What it
+   does not do is start from a *checkout* of an earlier release — there are no
+   tags in this repository at all, which is itself a WP16 item.
+2. **A downgrade procedure, which does not exist today.** WP15 established what
+   it costs and the two sentences it has to open with; nothing yet writes it
+   down for an administrator.
+3. **A scripted, backup-aware uninstall.**
+4. **Release criteria written down**, and the alpha warning removed only when
+   they pass.
 
 ## Open choices
 
-**None.** The one that stood here — *give own workflow* measured per combination
-and covered by no ceiling — was answered by Jan on 2026-08-29 (**B and C: guard
-and rewrite**) and is built. It is in `docs/DECISIONS.md` under *Decided (Jan) —
-2026-08-29, give own workflow in bulk*, with **ADR-004** carrying the argument.
+**None.** Nothing this session needed the maintainer's answer for: WP15 changed
+no user-visible behaviour and took no decision that a later session cannot
+reverse. The six autonomous decisions it did take are in `docs/DECISIONS.md`
+under *Decided (autonomous) — 2026-08-29, WP15's test debt*.
 
-What that session added, after the four WP14 commits:
-
-- **The action is batched and bounded.** 20,000 combinations and 600,000 rules:
-  **110 s → 18 s** on PostgreSQL (a second sample of the old path took 294 s) and
-  **99 s → 14 s** on MariaDB, in **151 statements** rather than 60,042. The own
-  *empty* variant went from 60 s to 3.9 s. Above `bulk_write_ceiling` — the
-  setting the matrix save already used — the copy is refused before anything is
-  written; the empty variant copies no rule and is never refused.
-- **The lock is what makes bulk correct**, not optimistic locking, which was the
-  shape first suggested: `lock_version` protects one row from two *updates*, and
-  this race is two *inserts*, already arbitrated by the unique index. What the
-  per-row write actually provided was attribution, and the coordination rows WP13
-  built provide it instead — trackers × roles rows, never per project.
-- **Two MySQL-only defects fell out of building it**, both older than the change
-  and both invisible on PostgreSQL, which re-reads per statement:
-  - `WriteCoordinator.lock_keys` re-read the coordination row it had just failed
-    to insert from a stale snapshot, found nothing, and returned **having locked
-    nothing** — on the first use of a (rule type, tracker, role). It takes a
-    locking (current) read when the plain one comes back short.
-  - The read that decides what is missing is stale for the same reason, and no
-    lock fixes that; `enable` retries **once in a new transaction**. A locking
-    read of the scope rows was rejected: a matrix save locks those first and
-    takes the coordination rows second, so the two would deadlock rather than
-    queue.
+**One thing worth Jan's eye when WP16 starts**, stated here rather than as a
+question because it blocks nothing: the repository has **no tags**, so "upgrade
+from the previous release" has no previous release to check out. WP16 will need
+one created for 0.0.3 (what `main` carries) before an end-to-end rehearsal from a
+real release is possible.
 
 ## Rebuilding the 45-plugin host (for a release check, not for ordinary work)
 
@@ -327,6 +261,11 @@ RUBY_VERSION=3.3.6 dev/run.sh .redmine/7.0-stable-mysql
 # leftovers must be [] AND schema_migrations must hold no '%-%' rows
 dev/check-backfill.sh .redmine/7.0-stable-postgresql 3.3.6
 
+# WP15's upgrade rehearsal: the same migrations over the four shapes of data an
+# installation actually holds, plus the downgrade and what it costs. Needs the
+# same stock-database precondition as the two above.
+dev/check-upgrade.sh .redmine/7.0-stable-postgresql 3.3.6
+
 # sync the working tree and run the suite
 RUBY_VERSION=3.3.6 dev/run.sh .redmine/7.0-stable-postgresql
 RUBY_VERSION=3.2.6 dev/run.sh .redmine/5.1-stable-postgresql
@@ -383,6 +322,48 @@ prerequisites and the MySQL variant.
 Everything below cost time at least once. **This session's are first**, then the
 run that stood up a 45-plugin host, then everything carried forward.
 
+- **`user.reload` does not clear a member's roles.** Core memoises them per
+  project on the User instance (`@membership_by_project_id`), and `reload` leaves
+  the memo alone. A spec that grants roles and then asks the same object sees the
+  roles it had before — so `hot_path_scale_spec.rb` measured **one** role at both
+  of its two sizes and passed, which is a comparison of nothing against nothing.
+  Load a fresh `User.find(id)` instead. The general shape: an example that
+  asserts "this did not grow" has to assert first that the thing which was
+  supposed to grow did.
+- **`roles_for_workflow` keeps only roles that answer `consider_workflow?`**,
+  which is `add_issues || edit_issues` — not "is not builtin", which is what it
+  looks like it should be. Roles created in a spec with `:view_issues` are
+  filtered out by core before the plugin ever sees them. Same failure as above,
+  reached a different way, and the two together took three attempts.
+- **The first `<svg>` on a Redmine page is not the drawing.** Since 6.0 the
+  layout is full of sprite icons, which are `<svg>` elements too, so
+  `body[/<svg.*?<\/svg>/m]` extracts a tab icon and an assertion about the
+  workflow drawing quietly becomes an assertion about that. Anchor on the class
+  the partial writes. Same family as the `value="2"` and INV-9 near-misses below:
+  an assertion scoped to the page rather than to the element.
+- **An `OR` of exact triples and an `IN` per column are indistinguishable when
+  the test data varies only one column.** The batching spec's padding first used
+  one tracker and one role, so rewriting `each_batch_predicate` as a cross
+  product — the plausible wrong repair — left every example green. Vary all three,
+  and include a combination that lies inside the cross product and in no named
+  triple.
+- **A `js` format request needs `xhr: true`.** Without it Rails' cross-origin
+  protection answers `ActionController::InvalidCrossOriginRequest` rather than
+  rendering, which reads like a routing or authorization problem and is neither.
+- **`css_select` takes one argument.** The `('selector', value)` form that
+  `assert_select` accepts for `[href=?]` interpolation is not the same method:
+  `css_select` reads a first String argument as the *root* to search in, and
+  fails with `undefined method 'document' for an instance of String`. Interpolate
+  the value into the selector yourself. Its return value is a `NodeSet`, which
+  answers `#to_s` but not `#join` — which is worth knowing because
+  RuboCop's `Style/MapJoin` will offer to autocorrect `map(&:to_s).join` into the
+  latter, and the correction raises.
+- **A rehearsal that fails is the point of a rehearsal.** The first version of
+  `dev/check-upgrade.sh` expected a `VERSION=0` round trip to give the project
+  rules back, and found one rule where it expected four. Migration 001's `down`
+  deletes every rule naming a project, deliberately. The instinct to "fix the
+  script" was wrong: the script was right and the expectation was, which is how
+  the downgrade's real cost came to be written down at all.
 - **A concurrency test that pauses in the wrong place proves nothing, and looks
   like it proves everything.** The example for F07 pauses one connection and lets
   the other run. Pausing it *before* its DELETE gives **one** row with the lock
