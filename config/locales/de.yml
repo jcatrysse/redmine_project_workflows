@@ -178,3 +178,7 @@ de:
   # WP12 / ADR-003: the plugin's own administration area.
   label_project_workflow_rules: 'Projekt-Workflows'
   label_project_workflow_generic_screens: 'Redmines eigener Workflow'
+  # WP14 / audit F03: what deleting an issue status left behind.
+  warning_project_workflow_status_deleted_emptied:
+    one: "%{count} Projekt-Workflow enthält jetzt keine einzige Regel mehr: Jede Regel, die er hatte, nannte den soeben gelöschten Status. Das Projekt behält dort seinen eigenen Workflow, und ein eigener Workflow ohne Regeln erlaubt keinen Statuswechsel. Prüfen Sie ihn in %{link} und fügen Sie Regeln hinzu oder kehren Sie zum allgemeinen Workflow zurück."
+    other: "%{count} Projekt-Workflows enthalten jetzt keine einzige Regel mehr: Jede Regel, die sie hatten, nannte den soeben gelöschten Status. Diese Projekte behalten dort ihren eigenen Workflow, und ein eigener Workflow ohne Regeln erlaubt keinen Statuswechsel. Prüfen Sie sie in %{link} und fügen Sie Regeln hinzu oder kehren Sie zum allgemeinen Workflow zurück."

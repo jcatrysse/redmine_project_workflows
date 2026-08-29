@@ -67,6 +67,15 @@ one of them has surprised somebody.
   (a project given its own workflow to be *stricter*) made it more permissive
   than the original with nothing said. A copy into a project that already runs a
   workflow of its own leaves that project's decisions alone.
+- **Deleting an issue status can leave a project's own workflow empty, and the
+  plugin says so.** Redmine deletes every workflow rule that names a status you
+  delete — the generic ones and every project's. A project whose rules for a
+  tracker and a role *all* named that status keeps its decision to run its own
+  workflow and is left holding no rules at all, which for transitions permits
+  nothing. Since 0.1.6 the deletion reports how many project workflows that
+  happened to, with a link to them. It is a warning and not a repair: "runs an
+  empty own workflow" and "follows the generic workflow" are different states,
+  and choosing between them is yours rather than the plugin's.
 - **Uninstalling is a data change, not just a code change.** See
   [Upgrading and uninstalling](#upgrading-and-uninstalling).
 

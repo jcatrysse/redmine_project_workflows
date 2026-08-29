@@ -23,6 +23,7 @@ require_relative 'redmine_project_workflows/services/scope_copier'
 require_relative 'redmine_project_workflows/services/project_workflow_copier'
 require_relative 'redmine_project_workflows/services/scope_state'
 require_relative 'redmine_project_workflows/services/status_list_query'
+require_relative 'redmine_project_workflows/services/status_deletion_impact'
 require_relative 'redmine_project_workflows/services/inventory_query'
 require_relative 'redmine_project_workflows/services/project_options'
 require_relative 'redmine_project_workflows/services/transition_map_query'
@@ -37,6 +38,7 @@ require_relative 'redmine_project_workflows/copy_scopes'
 require_relative 'redmine_project_workflows/admin_matrix'
 require_relative 'redmine_project_workflows/patches/issue_patch'
 require_relative 'redmine_project_workflows/patches/issues_controller_patch'
+require_relative 'redmine_project_workflows/patches/issue_statuses_controller_patch'
 require_relative 'redmine_project_workflows/patches/workflows_controller_patch'
 require_relative 'redmine_project_workflows/patches/workflow_transition_patch'
 require_relative 'redmine_project_workflows/patches/workflow_permission_patch'
@@ -88,6 +90,11 @@ module RedmineProjectWorkflows
     # workflow controller's chain, which core's own workflows/_form needs since
     # the row and column actions of WP5 are rendered into it. See the patch.
     Patches::WorkflowsControllerHelperPatch.apply!
+    # Warns when a status deletion has left a project's own workflow with no
+    # rules at all (audit F03). A prepend rather than a hook because core's
+    # #destroy has no extension point, and the count has to be taken before
+    # core's own before_destroy removes the rules it counts.
+    prepend_once(IssueStatusesController, Patches::IssueStatusesControllerPatch)
     prepend_once(Role, Patches::RolePatch)
     prepend_once(Tracker, Patches::TrackerPatch)
   end

@@ -58,6 +58,7 @@ module RedmineProjectWorkflows
       # on this page.
       ATTACHMENTS = [
         ['IssuePatch', :prepend, %w[Issue]],
+        ['IssueStatusesControllerPatch', :prepend, %w[IssueStatusesController]],
         ['IssuesControllerPatch', :helper, %w[IssuesController], 'ProjectWorkflowMapsHelper'],
         ['ProjectPatch', :prepend, %w[Project]],
         ['ProjectsHelperPatch', :helper, %w[ProjectsController]],

@@ -178,3 +178,7 @@ pt:
   # WP12 / ADR-003: the plugin's own administration area.
   label_project_workflow_rules: 'Fluxos de trabalho de projeto'
   label_project_workflow_generic_screens: 'Fluxo de trabalho do próprio Redmine'
+  # WP14 / audit F03: what deleting an issue status left behind.
+  warning_project_workflow_status_deleted_emptied:
+    one: "%{count} fluxo de trabalho de projeto já não contém qualquer regra: todas as que tinha nomeavam o estado que acaba de ser eliminado. O projeto mantém aí o seu fluxo de trabalho próprio, e um fluxo de trabalho próprio sem regras não permite qualquer mudança de estado. Reveja-o em %{link} e acrescente regras ou volte ao fluxo de trabalho genérico."
+    other: "%{count} fluxos de trabalho de projeto já não contêm qualquer regra: todas as que tinham nomeavam o estado que acaba de ser eliminado. Esses projetos mantêm aí o seu fluxo de trabalho próprio, e um fluxo de trabalho próprio sem regras não permite qualquer mudança de estado. Reveja-os em %{link} e acrescente regras ou volte ao fluxo de trabalho genérico."

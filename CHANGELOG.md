@@ -37,6 +37,15 @@ The workflow as a drawing.
   and 5.03 s written one at a time. The README's *Settings* section has the
   numbers, including the one action that is still measured per combination.
 
+- **Deleting an issue status no longer freezes a project's issues silently.**
+  Redmine deletes every workflow rule naming a status you delete, in the shared
+  workflow and in every project's. A project whose rules for a tracker and a role
+  all named that status was left running its own workflow with no rules in it —
+  which permits no change of status at all — and nothing said so. The deletion
+  now reports how many project workflows it emptied, with a link to them. It
+  warns and does not repair: returning those projects to the shared workflow
+  would undo a decision they made and nobody asked to undo.
+
 ### Changed
 
 - **Archived projects are no longer offered a workflow of their own.** Nobody but

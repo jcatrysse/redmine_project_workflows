@@ -181,3 +181,7 @@ pl:
   # WP12 / ADR-003: the plugin's own administration area.
   label_project_workflow_rules: 'Przepływy pracy projektów'
   label_project_workflow_generic_screens: 'Własny przepływ pracy Redmine'
+  # WP14 / audit F03: what deleting an issue status left behind.
+  warning_project_workflow_status_deleted_emptied:
+    one: "%{count} przepływ pracy projektu nie zawiera już żadnej reguły: każda, którą miał, nazywała właśnie usunięty status. Projekt zachowuje tam własny przepływ pracy, a własny przepływ pracy bez reguł nie dopuszcza żadnej zmiany statusu. Sprawdź go w %{link} i dodaj reguły albo wróć do ogólnego przepływu pracy."
+    other: "Liczba przepływów pracy projektów, które nie zawierają już żadnej reguły: %{count}. Każda reguła, którą miały, nazywała właśnie usunięty status. Te projekty zachowują tam własny przepływ pracy, a własny przepływ pracy bez reguł nie dopuszcza żadnej zmiany statusu. Sprawdź je w %{link} i dodaj reguły albo wróć do ogólnego przepływu pracy."

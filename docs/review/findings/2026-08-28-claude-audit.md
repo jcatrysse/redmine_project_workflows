@@ -273,7 +273,7 @@ The whole suite then runs on SQLite: 890 examples, 0 failures.
 
 ### F03 — Deleting an issue status can silently turn a project's own workflow into an empty one
 
-- **Status:** open
+- **Status:** fixed 2026-08-29 (WP14) — see Resolution
 - **Severity:** major
 - **Confidence:** confirmed
 - **Category:** correctness
@@ -328,7 +328,31 @@ inheritance. I lean to warning, because deleting the scope collapses two of
 INV-3's three meanings on the plugin's behalf, and INV-3 exists to keep them
 apart — but the fixing session owns the design.
 
-**Resolution:**
+**Resolution:** Fixed as **warn**, the finding's own lean and the plan's.
+
+`Services::StatusDeletionImpact` answers, in one grouped statement over the
+project population of `workflows` plus one scope lookup, which (project, tracker,
+role, rule type) combinations hold rules today and would hold none after the
+deletion — and only those a scope makes real, because a project rule row with no
+scope over it applies to nothing (INV-3). `Patches::IssueStatusesControllerPatch`
+asks it **before** `super` (core's `before_destroy` is what removes the rules the
+count is over), and reports the answer afterwards in `flash[:warning]`, with a
+link into the inventory filtered to the projects affected. Nothing is deleted and
+nothing is repaired: core's deletion runs exactly as core wrote it.
+
+Not a Deface override on the issue-statuses list, which is what a *pre*-warning
+would need: that is a new anchor on a view the plugin does not own, INV-9 would
+go from five to six, and Redmine's delete link is a JavaScript `confirm` rather
+than a confirmation page, so there is no request in which to render one.
+
+Tests: `spec/services/status_deletion_impact_spec.rb` (13 examples: the generic
+population ignored, rules with no scope ignored, a scope under another role not
+answering for this one, each rule type counted on its own, a status named as the
+target of a move, the entry pseudo-status not mistaken for a real one) and
+`spec/controllers/issue_statuses_controller_spec.rb` (8). Two of the controller
+examples are red on the old code — verified by removing the `prepend_once` line
+and re-running: `expected nil to include "project_id%5B%5D=1"`. The example that
+asserts the scope survives is the INV-3 regression test.
 
 ---
 

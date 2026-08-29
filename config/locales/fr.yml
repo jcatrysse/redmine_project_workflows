@@ -178,3 +178,7 @@ fr:
   # WP12 / ADR-003: the plugin's own administration area.
   label_project_workflow_rules: 'Workflows de projet'
   label_project_workflow_generic_screens: 'Workflow propre à Redmine'
+  # WP14 / audit F03: what deleting an issue status left behind.
+  warning_project_workflow_status_deleted_emptied:
+    one: "%{count} workflow de projet ne contient plus aucune règle : toutes celles qu'il avait nommaient le statut qui vient d'être supprimé. Le projet y conserve son workflow propre, et un workflow propre sans règle n'autorise aucun changement de statut. Vérifiez-le dans %{link} et ajoutez des règles ou revenez au workflow générique."
+    other: "%{count} workflows de projet ne contiennent plus aucune règle : toutes celles qu'ils avaient nommaient le statut qui vient d'être supprimé. Ces projets y conservent leur workflow propre, et un workflow propre sans règle n'autorise aucun changement de statut. Vérifiez-les dans %{link} et ajoutez des règles ou revenez au workflow générique."
