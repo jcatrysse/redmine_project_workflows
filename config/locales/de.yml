@@ -80,6 +80,10 @@ de:
   text_project_workflow_bulk_legend_actions: 'Eine Zeilen- oder Spaltenaktion mit "%{no_change}" setzt jede Zelle dieser Zeile oder Spalte auf den Wert zurück, mit dem die Seite geöffnet wurde.'
   label_project_workflow_bulk_confirm_threshold: 'Bestätigung verlangen, wenn eine Zeilen- oder Spaltenaktion mehr ändert als'
   text_project_workflow_bulk_confirm_threshold: 'Anzahl der Workflow-Regeln. Eine Zeilen- oder Spaltenaktion, die mehr als dies ändern würde, fragt zuerst nach einer Bestätigung. 0 fragt immer.'
+  text_project_workflow_save_confirm: 'Das Speichern dieser Matrix schreibt %{count} Workflow-Regel(n) neu. Fortfahren?'
+  label_project_workflow_bulk_write_ceiling: 'Ein Speichern der Matrix ablehnen, das mehr neu schreibt als'
+  text_project_workflow_bulk_write_ceiling: 'Anzahl der Workflow-Regeln. Ein Speichern der Verwaltungsmatrix, das größer ist als dies, wird abgelehnt, bevor etwas geschrieben wird, damit ein einzelner Vorgang die Workflow-Tabellen nicht minutenlang blockiert. 0 bedeutet keine Grenze.'
+  error_project_workflow_save_too_large: 'Dieser Vorgang würde %{count} Workflow-Regel(n) neu schreiben und liegt damit über der Grenze von %{ceiling}. Es wurde nichts geändert. Wählen Sie weniger Projekte, Tracker oder Rollen aus oder erhöhen Sie die Grenze in den Plugin-Einstellungen.'
   label_project_workflow_compare: Mit dem allgemeinen Workflow vergleichen
   label_project_workflow_copy_item: Projekt-Workflows
   label_project_workflow_compare_difference: Unterschied

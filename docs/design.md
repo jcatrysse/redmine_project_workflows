@@ -538,6 +538,35 @@ Accepted rather than fixed, for the same reason as the `OR` growth below: it is
 one administration action, the growth is linear, and the confirmation dialog
 already says how many combinations it is about to touch.
 
+**Bounded since WP13** (audit F08). The transaction stays; what is bounded is
+what goes inside it. Two numbers, both plugin settings, both counted in
+**workflow rules** — the unit the row and column actions of WP5 already ask
+about, which is (cells submitted) × (workflows the selection covers):
+
+| setting | default | what it does |
+|---|---|---|
+| `bulk_confirm_threshold` | 50 | above this, the Save button asks first |
+| `bulk_write_ceiling` | 200,000 | above this, the save is refused before its transaction opens. 0 means no ceiling |
+
+The confirmation is client-side and asks only when the selection covers **more
+than one workflow**. How many cells there are is decided by the status list and
+is the same on every save of the screen, so without that guard an ordinary
+single-workflow save would grow a dialog it has never had. It counts what the
+form will actually submit — neither a disabled cell nor one left at *(No change)*
+is counted — which is what keeps its number equal to the one the server computes
+from the payload it receives, in `Services::WriteBudget`.
+
+The ceiling's default is about eight seconds of writing at the rate measured
+above (≈26,000 rows a second), which is where a front-end proxy starts timing
+out — and a timeout is the worst outcome here, because it rolls back everything
+and reports nothing. It is deliberately far above any selection an installation
+of ordinary size can produce: 50 projects × 3 trackers × 3 roles × 36 cells is
+16,200.
+
+**Not a background job.** Redmine 5.1's default ActiveJob backend is the async
+adapter, which loses its queue when the process restarts; a workflow write may
+not depend on that.
+
 The project selector the plugin adds to those screens materialises every project
 in the installation, archived ones included, as `<option>` elements — on the
 summary page, both matrices, the copy screen and the inventory's filters. Core's

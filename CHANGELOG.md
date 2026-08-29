@@ -17,6 +17,17 @@ The workflow as a drawing.
   plugin inherited it; the plugin is now the write path for both the shared
   workflow and every project's, so it can hold one policy for them.
 
+- **A very large workflow save is bounded rather than attempted.** Selecting
+  every project, every tracker and every role and pressing Save could rewrite
+  millions of rules in one transaction, during which every other administrator
+  and every project manager saving their own workflow waits — and a web server
+  timing out in the middle rolls the whole thing back and reports nothing. The
+  Save button now asks first above the same number a row or column action asks
+  about, and a save above a second, much larger number is refused before
+  anything is written, with a message saying how many rules it would have been.
+  Both numbers are in *Administration → Plugins → Configure*; the second is new
+  and defaults to 200,000 rules, and `0` means no limit.
+
 ### Added
 
 - **The project side of the workflow has a screen of its own.**

@@ -1,10 +1,11 @@
 <%#
   The plugin's settings screen (WP5).
 
-  One setting so far: how much a single row or column action on a workflow
-  matrix may change before it asks. Rendered by Redmine inside its own
-  box.tabular.settings, so the markup is core's -- a label, a field and an
-  em.info -- and the plugin adds no styling of its own.
+  Two settings, both counted in workflow rules and both about the same thing
+  from opposite ends (WP13): above the first, an action asks; above the second,
+  an administration matrix save is refused outright. Rendered by Redmine inside
+  its own box.tabular.settings, so the markup is core's -- a label, a field and
+  an em.info -- and the plugin adds no styling of its own.
 
   The field shows the number that is actually in force, not an empty box, so an
   administrator who saves this page without touching it keeps what was there.
@@ -25,4 +26,20 @@
                      id: 'settings_bulk_confirm_threshold', size: 6,
                      type: 'number', min: 0, step: 1 %>
   <em class="info"><%= l(:text_project_workflow_bulk_confirm_threshold) %></em>
+</p>
+
+<p>
+  <label for="settings_bulk_write_ceiling">
+    <%= l(:label_project_workflow_bulk_write_ceiling) %>
+  </label>
+  <%# Same shape as the field above, and the same reason for type=number: Redmine
+      assigns the plugin settings hash exactly as it arrives, so the fallback in
+      Services::WriteBudget is what answers for anything that is not a run of
+      digits and this attribute is what stops one being submitted. %>
+  <%= text_field_tag 'settings[bulk_write_ceiling]',
+                     settings['bulk_write_ceiling'].presence ||
+                       RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_WRITE_CEILING,
+                     id: 'settings_bulk_write_ceiling', size: 8,
+                     type: 'number', min: 0, step: 1 %>
+  <em class="info"><%= l(:text_project_workflow_bulk_write_ceiling) %></em>
 </p>

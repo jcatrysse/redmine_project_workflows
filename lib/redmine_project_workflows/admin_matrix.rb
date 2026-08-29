@@ -25,7 +25,13 @@ module RedmineProjectWorkflows
     # otherwise leaves some of the selected workflows rewritten and the rest
     # untouched. The two writers take the same four arguments, so one method
     # serves both matrices.
+    #
+    # Bounded since WP13 (audit F08). The transaction stays; what is bounded is
+    # what goes inside it, and the refusal is *before* it opens, so a save that
+    # is too large costs one count and no rows.
     def write_matrix(writer, method, matrix)
+      return if refuse_oversized_save?(writer, matrix)
+
       result = RedmineProjectWorkflows::Services::MatrixSaveResult.none
       ActiveRecord::Base.transaction do
         result = selected_project_ids.sum(result) do |project_id|
@@ -33,6 +39,40 @@ module RedmineProjectWorkflows
         end
       end
       report_matrix_save(result)
+    end
+
+    # What this save would rewrite: every cell it submitted, once per workflow
+    # the selection covers. Exact rather than estimated -- both halves are in
+    # hand before anything is written.
+    def projected_matrix_writes(writer, matrix)
+      RedmineProjectWorkflows::Services::WriteBudget.projected_rules(
+        scopes: selected_project_ids.size, trackers: @trackers.size, roles: @roles.size,
+        cells: writer.submitted_leaf_count(matrix)
+      )
+    end
+
+    # Above the ceiling the save is refused and says so, naming the number, the
+    # limit and what to do about it.
+    #
+    # The operator has already been asked once by then: the Save button's own
+    # confirmation uses the *same* number against a threshold far below this, so
+    # a request that reaches here has been through a dialog naming it. That is
+    # what makes losing the unsaved matrix acceptable rather than merely
+    # unavoidable -- the redirect re-reads the database, as every other refusal
+    # on this screen does.
+    def refuse_oversized_save?(writer, matrix)
+      budget = RedmineProjectWorkflows::Services::WriteBudget
+      projected = projected_matrix_writes(writer, matrix)
+      return false unless budget.over_ceiling?(projected)
+
+      flash[:error] = l(:error_project_workflow_save_too_large, count: projected, ceiling: budget.ceiling)
+      RedmineProjectWorkflows::Services::WriteLog.record(
+        'admin_matrix_save_refused',
+        rule_type: @rule_type_for_log, actor: User.current.id,
+        projects: selected_project_ids, trackers: @trackers&.map(&:id), roles: @roles&.map(&:id),
+        projected: projected, ceiling: budget.ceiling
+      )
+      true
     end
 
     def matrix_redirect_params

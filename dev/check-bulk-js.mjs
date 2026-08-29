@@ -30,11 +30,11 @@ if (!block) {
 function loadScript() {
   // eslint-disable-next-line no-new-func
   return new Function(
-    `${block[1]}\nreturn [projectWorkflowBulkApply, projectWorkflowBulkUndo];`
+    `${block[1]}\nreturn [projectWorkflowBulkApply, projectWorkflowBulkUndo, projectWorkflowConfirmSave];`
   )();
 }
 
-let [bulkApply, bulkUndo] = loadScript();
+let [bulkApply, bulkUndo, confirmSave] = loadScript();
 
 let failures = 0;
 let confirmations = [];
@@ -97,7 +97,7 @@ let region = undoRegion();
 // check passes or fails on what an earlier scenario happened to leave behind.
 // This is how the first version of these checks went wrong.
 function reset() {
-  [bulkApply, bulkUndo] = loadScript();
+  [bulkApply, bulkUndo, confirmSave] = loadScript();
   region = undoRegion();
 }
 
@@ -283,6 +283,78 @@ run(cells, { value: '1', multiplier: 1 });
 check('an action still works with no region on the page', cells[0].checked, true);
 undo(cells);
 check('and so does the undo behind it', cells[0].checked, false);
+
+// --- the Save button's own confirmation (WP13, audit F08) --------------------
+//
+// It counts what the form will actually submit and multiplies by the workflows
+// the selection covers, which is the same unit the row and column actions use
+// and the same number the server computes from the payload it receives.
+function saveForm(controls, { multiplier, threshold = 50 }) {
+  return {
+    getAttribute(name) {
+      return { 'data-project-workflow-multiplier': multiplier === undefined ? null : String(multiplier),
+               'data-project-workflow-threshold': threshold === undefined ? null : String(threshold),
+               'data-project-workflow-save-confirm': 'saving rewrites %{count} rules' }[name];
+    },
+    querySelectorAll: () => controls
+  };
+}
+
+function save(controls, options) {
+  install(controls);
+  return confirmSave(saveForm(controls, options));
+}
+
+// A single-workflow save is what Redmine has always done: however many cells the
+// status list produces, it must not grow a dialog.
+reset();
+confirmations = [];
+cells = Array.from({ length: 400 }, () => checkbox({ checked: false }));
+check('a save of one workflow never asks', save(cells, { multiplier: 1 }), true);
+check('and puts no question on the screen', confirmations.length, 0);
+
+// A selection of several workflows, over the threshold: one question, naming
+// the number the server will compute.
+reset();
+confirmations = [];
+cells = [checkbox({ checked: false }), checkbox({ checked: true }),
+         select({ value: '1', options: ['1', '0', 'no_change'] })];
+check('a save over the threshold asks', save(cells, { multiplier: 10, threshold: 20 }), true);
+check('and names cells x workflows', confirmations, ['saving rewrites 30 rules']);
+
+// Under the threshold it goes straight through.
+reset();
+confirmations = [];
+cells = [checkbox({ checked: false })];
+check('a save under the threshold does not ask', save(cells, { multiplier: 2, threshold: 20 }), true);
+check('and asks nothing', confirmations.length, 0);
+
+// Neither a disabled control nor a cell left at "no change" is submitted, so
+// neither is counted -- which is what keeps this number equal to the server's.
+reset();
+confirmations = [];
+cells = [checkbox({ checked: false }), checkbox({ checked: false, disabled: true }),
+         select({ value: 'no_change', options: ['1', '0', 'no_change'] })];
+check('a save counts neither a disabled cell nor a "no change" one',
+      save(cells, { multiplier: 10, threshold: 5 }), true);
+check('so it asks about the one cell that will be submitted', confirmations, ['saving rewrites 10 rules']);
+
+// Declining stops the submit.
+reset();
+confirmations = [];
+confirmAnswer = false;
+cells = [checkbox({ checked: false })];
+check('declining the question stops the save', save(cells, { multiplier: 10, threshold: 5 }), false);
+confirmAnswer = true;
+
+// A page whose attributes are missing submits: this is a courtesy in front of
+// the server's ceiling, never the thing enforcing it.
+reset();
+confirmations = [];
+cells = [checkbox({ checked: false })];
+check('a form with no multiplier submits', save(cells, { multiplier: undefined }), true);
+check('a form with no threshold submits', save(cells, { multiplier: 10, threshold: undefined }), true);
+check('and neither asked anything', confirmations.length, 0);
 
 console.log(failures === 0 ? '\nbulk action script OK' : `\n${failures} check(s) failed`);
 process.exit(failures === 0 ? 0 : 1);

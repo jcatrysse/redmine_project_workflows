@@ -29,7 +29,7 @@
 | WP10 | Ecosystem safety: the name collision, the version probe, four confirmed defects | **done** |
 | WP11 | Compatibility as an object (ADR-002) | **done** |
 | WP12 | Owned administration screens (ADR-003) | **in progress** — steps 1-3 done |
-| WP13 | One write-coordination service, and bounded bulk writes | in progress — the lock is done; bulk bounds and the selector remain |
+| WP13 | One write-coordination service, and bounded bulk writes | in progress — the lock and the bulk bounds are done; the selector remains |
 | WP14 | The remaining defect backlog | planned |
 | WP15 | The test debt three reviews named | planned |
 | WP16 | Release engineering | planned |
@@ -902,16 +902,17 @@ Two findings, one mechanism.
   through `WorkflowRule.copy_one`, which is why the lock is taken in the model
   beside the write. The spec that pinned the asymmetry is inverted and says so.
   See `docs/DECISIONS.md`, 2026-08-29, and the Resolution under F07.
-- **Bulk writes** (audit F08). Measured: 5 projects × 3 trackers × 3 roles × 36
-  cells is 1,620 rows and 48 statements — the statement count is constant per
-  project, the row count is not. An "all projects" selection on a large
-  installation extrapolates to millions of rows in one transaction holding scope
-  locks throughout. Keep the transaction; bound the selection. Project the row
-  count before executing — `project_workflow_selection_size` already computes the
-  multiplier — put a confirmation in front of a save that crosses the threshold
-  the plugin setting already carries, and refuse above a ceiling. **No background
-  job:** Redmine 5.1's default ActiveJob backend is the async adapter, which is
-  not something a workflow write may depend on.
+- **Bulk writes** (audit F08). **Done, 2026-08-29.** Measured: 5 projects × 3
+  trackers × 3 roles × 36 cells is 1,620 rows and 48 statements — the statement
+  count is constant per project, the row count is not. An "all projects"
+  selection on a large installation extrapolates to millions of rows in one
+  transaction holding coordination rows throughout. The transaction stays and the
+  selection is bounded: `Services::WriteBudget` projects the row count exactly
+  before anything is written, the Save button asks above
+  `bulk_confirm_threshold` (the setting that already existed) and the save is
+  refused above `bulk_write_ceiling` (new, 200,000, `0` means no ceiling). **No
+  background job:** Redmine 5.1's default ActiveJob backend is the async adapter,
+  which is not something a workflow write may depend on.
 - **The inventory's filters** stop materialising every project (audit F09), and
   archived projects leave the selector.
 

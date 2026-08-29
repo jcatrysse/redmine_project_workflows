@@ -83,6 +83,10 @@ pl:
   text_project_workflow_bulk_legend_actions: 'Akcja wiersza lub kolumny ustawiona na "%{no_change}" przywraca każdej komórce w tym wierszu lub tej kolumnie wartość, z którą strona została otwarta.'
   label_project_workflow_bulk_confirm_threshold: 'Pytaj o potwierdzenie, gdy akcja wiersza lub kolumny zmieni więcej niż'
   text_project_workflow_bulk_confirm_threshold: 'Liczba reguł przepływu pracy. Akcja wiersza lub kolumny, która zmieniłaby więcej, najpierw poprosi o potwierdzenie. 0 pyta zawsze.'
+  text_project_workflow_save_confirm: 'Zapisanie tej macierzy przepisze %{count} reguł(y) przepływu pracy. Kontynuować?'
+  label_project_workflow_bulk_write_ceiling: 'Odrzuć zapis macierzy, który przepisałby więcej niż'
+  text_project_workflow_bulk_write_ceiling: 'Liczba reguł przepływu pracy. Zapis macierzy administracyjnej większy niż ta wartość jest odrzucany, zanim cokolwiek zostanie zapisane, aby jeden zapis nie blokował tabel przepływu pracy przez wiele minut. 0 oznacza brak limitu.'
+  error_project_workflow_save_too_large: 'Ten zapis przepisałby %{count} reguł(y) przepływu pracy, czyli więcej niż limit %{ceiling}. Nic nie zostało zmienione. Wybierz mniej projektów, typów zagadnień lub ról albo zwiększ limit w ustawieniach wtyczki.'
   label_project_workflow_compare: Porównaj z ogólnym przepływem pracy
   label_project_workflow_copy_item: Przepływy pracy projektu
   label_project_workflow_compare_difference: Różnica

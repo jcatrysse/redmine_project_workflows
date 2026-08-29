@@ -607,7 +607,7 @@ and remove it.
 
 ### F08 — An administration matrix save wraps the whole selection in one transaction, and the row count is unbounded
 
-- **Status:** open
+- **Status:** fixed 2026-08-29 (WP13 step 2) — see Resolution
 - **Severity:** minor
 - **Confidence:** confirmed
 - **Category:** performance
@@ -658,7 +658,38 @@ setting already carries, or refuse above a configured ceiling. Not a background
 job: Redmine 5.1's default ActiveJob backend is the async adapter, which is not
 something a workflow write should depend on.
 
-**Resolution:**
+**Resolution:** Done on 2026-08-29, as the suggested direction. The transaction
+stays; the selection is bounded by two numbers, both plugin settings, both
+counted in **workflow rules** — the unit the row and column actions of WP5
+already ask about, which is (cells submitted) × (workflows the selection covers).
+
+`bulk_confirm_threshold` (50, the setting that already existed) now also puts a
+confirmation in front of Save. `bulk_write_ceiling` (new, 200,000, 0 means no
+ceiling) refuses the save *before* its transaction opens, so a save that is too
+large costs one count and no rows. `Services::WriteBudget` owns both, and the
+projection is exact rather than estimated: `submitted_leaf_count` on the writer
+that is about to run counts the same leaves `sanitize_and_count` does, so the
+number the screen refuses over and the number the writer would act on cannot
+drift apart.
+
+Two details that took a second pass:
+
+- **The confirmation asks only when the selection covers more than one
+  workflow.** How many cells there are is decided by the status list and is the
+  same on every save of the screen, so a threshold on the cell count alone would
+  have asked on an ordinary single-workflow save — which is what Redmine has
+  always done and must not grow a dialog.
+- **The script had to move.** It was rendered from a row or column header, which
+  the *field permissions* matrix has not got, so on that screen the confirmation
+  would have called a function that is not on the page. Both administration
+  views render it above their form now.
+
+Red on the old code: with the guard removed, the two refusal examples fail (rows
+written, no flash). The JavaScript half is covered by `dev/check-bulk-js.mjs`,
+which grew eleven checks — including the two guards above.
+
+The remaining bullet of WP13 — the inventory's filters and archived projects
+(F09) — is separate and still open.
 
 ---
 

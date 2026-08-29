@@ -109,8 +109,10 @@ migrates the wrong database and tells you it worked.
 
 The migrations change Redmine's own `workflows` table: they add a nullable
 `project_id` column, four indexes and a foreign key to `projects`, drop two
-indexes the new ones replace, and create one table of the plugin's own
-(`project_workflow_scopes`). `VERSION=0` removes all of it and returns the
+indexes the new ones replace, and create two tables of the plugin's own —
+`project_workflow_scopes`, which records which projects run their own workflow,
+and `project_workflow_write_locks`, which holds nothing but a place for two
+simultaneous saves to queue. `VERSION=0` removes all of it and returns the
 installation to stock behaviour; that reversal is tested on every supported
 Redmine and database on every push.
 
@@ -403,11 +405,23 @@ exists to explain, from the other end.
 
 ## Settings
 
-**Administration → Plugins → Project Workflows → Configure** has one setting:
+**Administration → Plugins → Project Workflows → Configure** has two settings.
+Both are counted in **workflow rules** — one cell of a matrix, once for each
+workflow the selection covers — and they are the same measure from opposite ends:
 
-- **Ask before a row or column action changes more than** — a number of workflow
-  rules, 50 by default. A row or column action that would change more than that
-  asks for confirmation first; `0` asks every time.
+- **Ask before a row or column action changes more than** — 50 by default. A row
+  or column action that would change more than that asks for confirmation first;
+  `0` asks every time. The **Save** button on an administration matrix asks the
+  same question about the whole matrix, and only when the selection covers more
+  than one workflow: saving a single workflow is what Redmine has always done and
+  does not ask.
+
+- **Refuse a matrix save that would rewrite more than** — 200,000 by default. An
+  administration save larger than that is refused before anything is written, and
+  the message says how many rules it would have been. This is the guard against
+  selecting every project, every tracker and every role at once: such a save
+  holds the workflow tables for as long as it takes, and a web server timing out
+  in the middle rolls it all back and reports nothing. `0` means no limit.
 
 ## Upgrading and uninstalling
 
@@ -455,8 +469,8 @@ RAILS_ENV=production bundle exec rake redmine:plugins:migrate NAME=redmine_proje
 ```
 
 That **deletes every project-specific rule** before dropping the `project_id`
-column on `workflows`; `project_workflow_scopes` goes too, earlier in the run,
-because the migrations reverse in the order they were applied. The delete is
+column on `workflows`; both of the plugin's own tables go too, earlier in the
+run, because the migrations reverse in the order they were applied. The delete is
 deliberate and it has to precede the column drop: removing the column with those
 rows still in the table would leave stock Redmine reading every one of them as a
 *generic* rule. Your generic workflow itself is untouched.

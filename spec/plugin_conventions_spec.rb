@@ -125,6 +125,7 @@ describe RedmineProjectWorkflows do
     expect(plugin.settings[:partial]).to eq('settings/redmine_project_workflows')
     expect(Setting.available_settings).to have_key('plugin_redmine_project_workflows')
     expect(Setting.plugin_redmine_project_workflows).to have_key('bulk_confirm_threshold')
+    expect(Setting.plugin_redmine_project_workflows).to have_key('bulk_write_ceiling')
   end
 
   # The number is written down twice on purpose -- once as the setting's default
@@ -135,6 +136,8 @@ describe RedmineProjectWorkflows do
 
     expect(declared['bulk_confirm_threshold'].to_i)
       .to eq(RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD)
+    expect(declared['bulk_write_ceiling'].to_i)
+      .to eq(RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_WRITE_CEILING)
   end
 
   # WP6 added an action and forgot this mapping, and the symptom was a 403 for

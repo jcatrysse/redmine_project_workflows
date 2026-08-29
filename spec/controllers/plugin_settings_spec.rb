@@ -66,6 +66,35 @@ describe SettingsController, type: :controller do
       expect(Setting.plugin_redmine_project_workflows['bulk_confirm_threshold']).to eq('12')
     end
 
+    # WP13's second setting, the other end of the same unit: above this many
+    # workflow rules an administration matrix save is refused outright.
+    it 'renders the ceiling field, with the number that is in force' do
+      get :plugin, params: { id: 'redmine_project_workflows' }
+
+      expect(response.body).to include('name="settings[bulk_write_ceiling]"')
+      expect(response.body).to include(ERB::Util.html_escape(
+                                         I18n.t(:label_project_workflow_bulk_write_ceiling)
+                                       ))
+      expect(response.body).to include(
+        %(value="#{RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_WRITE_CEILING}")
+      )
+    end
+
+    it 'refuses a ceiling that is not a whole number, in the field itself' do
+      get :plugin, params: { id: 'redmine_project_workflows' }
+
+      field = response.body[/<input[^>]*name="settings\[bulk_write_ceiling\]"[^>]*>/]
+      expect(field).to include('type="number"')
+      expect(field).to include('min="0"')
+    end
+
+    it 'saves the ceiling that was typed into it' do
+      post :plugin, params: { id: 'redmine_project_workflows',
+                              settings: { 'bulk_write_ceiling' => '1000' } }
+
+      expect(Setting.plugin_redmine_project_workflows['bulk_write_ceiling']).to eq('1000')
+    end
+
     # The field shows the value in force rather than an empty box, so saving the
     # page without touching it keeps the number rather than clearing it.
     it 'shows a saved value back' do

@@ -12,7 +12,17 @@
   <%= render partial: 'project_workflow_rules/scope_panel',
              locals: { rule_type: ProjectWorkflowScope::PERMISSIONS } %>
 
-  <%= form_tag update_permissions_project_workflow_rules_path, method: :patch, id: 'workflow_form' do %>
+  <%# The one <script> both the row and column actions and the Save button's
+      confirmation call into. Rendered here rather than left to a row header,
+      which the field permissions matrix does not have. %>
+  <%= project_workflow_bulk_script %>
+
+  <%# See the transitions matrix: the Save button asks first above the plugin
+      setting's threshold (WP13). %>
+  <%= form_tag update_permissions_project_workflow_rules_path,
+                method: :patch, id: 'workflow_form',
+                onsubmit: 'return projectWorkflowConfirmSave(this);',
+                data: project_workflow_save_confirm_data do %>
     <%= @trackers.map { |tracker| hidden_field_tag 'tracker_id[]', tracker.id, id: nil }.join.html_safe %>
     <%= @roles.map { |role| hidden_field_tag 'role_id[]', role.id, id: nil }.join.html_safe %>
     <%# See edit.html.erb: the selector is in a form of its own, so these are the

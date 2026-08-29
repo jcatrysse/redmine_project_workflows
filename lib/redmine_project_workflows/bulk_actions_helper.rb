@@ -83,8 +83,50 @@ module RedmineProjectWorkflows
     # or typed something else into, and for the key an older saved settings hash
     # does not carry at all.
     def project_workflow_bulk_confirm_threshold
-      value = Setting.plugin_redmine_project_workflows['bulk_confirm_threshold'].to_s
-      value.match?(/\A\d+\z/) ? value.to_i : DEFAULT_BULK_CONFIRM_THRESHOLD
+      RedmineProjectWorkflows::Services::WriteBudget.setting(
+        'bulk_confirm_threshold', DEFAULT_BULK_CONFIRM_THRESHOLD
+      )
+    end
+
+    # The data attributes the Save button's own confirmation reads (WP13, audit
+    # F08). A save rewrites every cell it submits, once per workflow the
+    # selection covers, so the number it asks about is the same one a row or
+    # column action asks about and it is compared against the same setting.
+    #
+    # `project_workflow_selection_size` rather than a cell count: how many cells
+    # there are is decided by the status list and is the same on every save of
+    # this screen, so a threshold on it alone would ask on an ordinary
+    # single-workflow save -- which is what Redmine has always done and must not
+    # grow a dialog. The script multiplies by the cells it finds and asks only
+    # when the multiplier is more than one.
+    def project_workflow_save_confirm_data
+      {
+        project_workflow_multiplier: project_workflow_selection_size,
+        project_workflow_threshold: project_workflow_bulk_confirm_threshold,
+        project_workflow_save_confirm: l(:text_project_workflow_save_confirm)
+      }
+    end
+
+    # One <script> per page, from whichever of the plugin's administration
+    # matrices is rendering.
+    #
+    # Public since WP13, and it had to become so. It used to be rendered only
+    # from a row or column header, which the *field permissions* matrix does not
+    # have -- so on that screen the script was never on the page, and the Save
+    # button's confirmation would have called a function that is not there.
+    # Both administration views now render it above their form; the header call
+    # below finds it already done.
+    #
+    # Still one <script>: the transitions page renders core's grid three times
+    # and the function is the same for all three, so the alternative would be a
+    # fourth Deface anchor for something no page can be without (INV-9 asks for
+    # a spec per anchor, and an anchor that carries nothing but a script is one
+    # more thing to go stale).
+    def project_workflow_bulk_script
+      return ''.html_safe if @project_workflow_bulk_script_rendered
+
+      @project_workflow_bulk_script_rendered = true
+      render partial: 'redmine_project_workflows/bulk_script'
     end
 
     private
@@ -100,19 +142,6 @@ module RedmineProjectWorkflows
 
     def project_workflow_bulk_title_key(dimension)
       dimension == 'old' ? :label_project_workflow_bulk_row : :label_project_workflow_bulk_column
-    end
-
-    # One <script> per page, from whichever row or column header is rendered
-    # first. The transitions page renders core's grid three times and the
-    # function is the same for all three, so the alternative would be a fourth
-    # Deface anchor for something no page can be without (INV-9 asks for a spec
-    # per anchor, and an anchor that carries nothing but a script is one more
-    # thing to go stale).
-    def project_workflow_bulk_script
-      return ''.html_safe if @project_workflow_bulk_script_rendered
-
-      @project_workflow_bulk_script_rendered = true
-      render partial: 'redmine_project_workflows/bulk_script'
     end
   end
 end

@@ -1516,6 +1516,73 @@ describe ProjectWorkflowRulesController, type: :controller do
         transitions: transitions }
     end
 
+    # WP13, audit finding F08. The transaction around a matrix save is right; what
+    # was not bounded is what goes inside it. A selection of all projects x all
+    # trackers x all roles rewrites every cell of every combination in one
+    # transaction, and the row count -- unlike the statement count, which is
+    # constant per project -- grows with the selection.
+    #
+    # The refusal is before the transaction opens, so a save that is too large
+    # costs one count and no rows. Above the ceiling and nowhere else: the
+    # examples below are the boundary from both sides.
+    describe 'a save larger than the ceiling' do
+      after { Setting.clear_cache }
+
+      def one_cell
+        matrix_params(old_status.id.to_s => { new_status.id.to_s => { 'always' => '1' } })
+      end
+
+      it 'writes nothing and says why' do
+        Setting.plugin_redmine_project_workflows = { 'bulk_write_ceiling' => '1' }
+        give_own_workflow(project, tracker, role)
+
+        patch :update, params: one_cell.merge(project_id: [project.id.to_s, 'global'])
+
+        expect(WorkflowTransition.count).to eq(0)
+        expect(flash[:error]).to eq(
+          I18n.t(:error_project_workflow_save_too_large, count: 2, ceiling: 1)
+        )
+        expect(flash[:notice]).to be_nil
+      end
+
+      # One cell, one tracker, one role, one scope is exactly one rule -- the
+      # ceiling is a ceiling, not a limit to stay under.
+      it 'lets a save that lands exactly on the ceiling through' do
+        Setting.plugin_redmine_project_workflows = { 'bulk_write_ceiling' => '1' }
+
+        patch :update, params: one_cell.merge(project_id: ['global'])
+
+        expect(WorkflowTransition.where(project_id: nil).count).to eq(1)
+        expect(flash[:error]).to be_nil
+      end
+
+      # 0 is the escape hatch for an installation that has measured its own
+      # database, and it must not read as "refuse everything".
+      it 'refuses nothing when the ceiling is 0' do
+        Setting.plugin_redmine_project_workflows = { 'bulk_write_ceiling' => '0' }
+
+        patch :update, params: one_cell.merge(project_id: ['global'])
+
+        expect(WorkflowTransition.where(project_id: nil).count).to eq(1)
+        expect(flash[:error]).to be_nil
+      end
+
+      # The field permissions matrix is the other half of the same screen and
+      # counts in the same unit -- one leaf per (status, field).
+      it 'refuses an oversized field permissions save too' do
+        Setting.plugin_redmine_project_workflows = { 'bulk_write_ceiling' => '1' }
+
+        patch :update_permissions, params: {
+          role_id: [role.id], tracker_id: [tracker.id], used_statuses_only: '0',
+          project_id: ['global'],
+          permissions: { old_status.id.to_s => { 'subject' => 'readonly', 'due_date' => 'required' } }
+        }
+
+        expect(WorkflowPermission.count).to eq(0)
+        expect(flash[:error]).to be_present
+      end
+    end
+
     # A cell of the transitions grid is three controls -- always, author,
     # assignee -- and each can independently render as a <select> whose default
     # is core's "no change". The writer keyed its delete on the cell alone, so

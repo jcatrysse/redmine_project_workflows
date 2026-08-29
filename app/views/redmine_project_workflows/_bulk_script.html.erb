@@ -8,6 +8,11 @@
   would actually differ, and asks first when that would touch more workflow
   rules than the plugin setting allows.
 
+  Since WP13 it also carries the Save button's own confirmation, which asks the
+  same question about the whole matrix (audit F08). It is here rather than in a
+  second partial because it reads the same two settings and counts in the same
+  unit, and because one <script> on the page is what the actions already need.
+
   A <select> is what a mixed cell renders as, so both kinds of control are
   handled: "no change" means the select's own no-change option, and for a
   checkbox it means the value the page was opened with.
@@ -99,6 +104,45 @@ function projectWorkflowBulkApply(link) {
   }
   projectWorkflowBulkUndoStack.push({ changes: pending, multiplier: multiplier });
   projectWorkflowBulkSay('data-project-workflow-changed', pending.length, rules);
+}
+
+// The Save button's own confirmation (WP13, audit F08).
+//
+// A save rewrites every cell it submits, once per workflow the selection
+// covers, so the number it asks about is the one a row or column action asks
+// about and it is compared against the same setting. Two guards decide when it
+// asks at all:
+//
+//   multiplier <= 1   a single-workflow save is what Redmine has always done.
+//                     How many cells there are is decided by the status list
+//                     and is the same on every save of the screen, so without
+//                     this an ordinary save would grow a dialog it never had.
+//   disabled / no_change   neither submits, so neither is counted -- which is
+//                     what keeps this number equal to the one the server
+//                     computes from the payload it actually receives.
+//
+// Returns true to let the form through, which is what an onsubmit handler has
+// to answer. A page whose attributes are missing or unreadable submits: this is
+// a courtesy in front of the server's ceiling, never the thing enforcing it.
+function projectWorkflowConfirmSave(form) {
+  var multiplier = parseInt(form.getAttribute('data-project-workflow-multiplier'), 10);
+  var threshold = parseInt(form.getAttribute('data-project-workflow-threshold'), 10);
+  if (isNaN(multiplier) || multiplier <= 1 || isNaN(threshold)) { return true; }
+
+  var controls = form.querySelectorAll(
+    'input[type=checkbox][name^="transitions["], select[name^="transitions["], ' +
+    'input[type=checkbox][name^="permissions["], select[name^="permissions["]');
+  var cells = 0;
+  for (var i = 0; i < controls.length; i++) {
+    if (controls[i].disabled) { continue; }
+    if (controls[i].tagName === 'SELECT' && controls[i].value === 'no_change') { continue; }
+    cells += 1;
+  }
+
+  var rules = cells * multiplier;
+  if (rules <= threshold) { return true; }
+  var question = form.getAttribute('data-project-workflow-save-confirm') || '';
+  return window.confirm(question.replace(/%\{count\}/g, rules));
 }
 
 function projectWorkflowBulkUndo() {

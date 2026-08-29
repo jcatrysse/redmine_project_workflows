@@ -350,6 +350,45 @@ describe ProjectWorkflowRulesController, type: :controller do
     end
   end
 
+  # WP13, audit finding F08. The Save button asks before it rewrites more workflow
+  # rules than the plugin setting allows, and the script that asks has to be on
+  # the page for it to.
+  describe 'the confirmation in front of Save' do
+    def form_tag_in(body)
+      body[/<form\b[^>]*id="workflow_form"[^>]*>/]
+    end
+
+    it 'carries the multiplier, the threshold and the question on the transitions form' do
+      get_transitions(tracker_id: [tracker.id, other_tracker.id])
+
+      form = form_tag_in(response.body)
+      expect(form).to include('onsubmit="return projectWorkflowConfirmSave(this);"')
+      expect(form).to include('data-project-workflow-multiplier="2"')
+      expect(form).to include(%(data-project-workflow-threshold="#{
+        RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD}"))
+      expect(form).to include('data-project-workflow-save-confirm=')
+    end
+
+    # The half that was missing in the first draft: the field permissions matrix
+    # has no row or column actions, so nothing on it used to render the script --
+    # and the handler would have called a function that is not there.
+    it 'carries the same attributes on the field permissions form' do
+      get_permissions(tracker_id: [tracker.id, other_tracker.id])
+
+      form = form_tag_in(response.body)
+      expect(form).to include('onsubmit="return projectWorkflowConfirmSave(this);"')
+      expect(form).to include('data-project-workflow-multiplier="2"')
+    end
+
+    it 'puts the script on both pages, once each' do
+      get_transitions
+      expect(response.body.scan('function projectWorkflowConfirmSave').size).to eq(1)
+
+      get_permissions
+      expect(response.body.scan('function projectWorkflowConfirmSave').size).to eq(1)
+    end
+  end
+
   # WP6. What the last row or column action did, and a way back. Unlike the note
   # above it, this does not wait for a cell to stand for more than one workflow:
   # the actions are there whatever the size of the selection, and so is the cost

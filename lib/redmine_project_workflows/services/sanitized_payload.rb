@@ -32,6 +32,19 @@ module RedmineProjectWorkflows
         [sanitized, submitted - leaf_count(sanitized)]
       end
 
+      # What a save would rewrite, asked *before* anything is written (WP13,
+      # audit F08): the submitted values at the depth this writer's whitelist
+      # decides at, which is one per cell of the matrix the operator filled in.
+      #
+      # The same +leaf_count+ #sanitize_and_count uses, so the number the screen
+      # refuses a save over and the number the writer would act on cannot drift
+      # apart. It counts what was *submitted*, not what the whitelist would keep:
+      # a save is bounded by the work it asks for, and a payload full of values
+      # the whitelist drops is not a cheaper save, it is a stranger one.
+      def submitted_leaf_count(payload)
+        leaf_count(normalize_payload(payload))
+      end
+
       # Most payloads need nothing; PermissionWriter overrides this.
       def normalize_payload(payload)
         payload

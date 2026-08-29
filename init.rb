@@ -30,7 +30,14 @@ Redmine::Plugin.register :redmine_project_workflows do
   # RedmineProjectWorkflows::BulkActionsHelper::DEFAULT_BULK_CONFIRM_THRESHOLD,
   # which is what answers for a settings hash saved before this key existed.
   # spec/plugin_conventions_spec.rb asserts the two agree.
-  settings default: { 'bulk_confirm_threshold' => '50' },
+  #
+  # WP13's second setting, the same unit and the other end of it: above
+  # `bulk_write_ceiling` workflow rules an administration matrix save is
+  # **refused** rather than asked about, before its transaction opens (audit
+  # F08). 0 means no ceiling. Its fallback is
+  # RedmineProjectWorkflows::Services::WriteBudget::DEFAULT_WRITE_CEILING, and
+  # spec/plugin_conventions_spec.rb asserts those agree as well.
+  settings default: { 'bulk_confirm_threshold' => '50', 'bulk_write_ceiling' => '200000' },
            partial: 'settings/redmine_project_workflows'
 
   # WP4. Both permissions map projects#settings, because that is the action the

@@ -750,3 +750,34 @@ than it looks on paper.
 | 2026-08-29 | The rows are created but never deleted | **Accepted** | The table is bounded by rule types × trackers × roles, the rows carry no data, and the two foreign keys clear them up when a tracker or a role goes. Deleting a row that is not held would be a second race for nothing. |
 | 2026-08-29 | No timestamps on the lock table, against `Rails/CreateTableWithTimestamps` | **Cop disabled with the reason in the migration** | The row records no event. A `created_at` would be the first time anybody saved that combination, which nothing reads or shows, and an `updated_at` would never change — two columns that would read as an audit trail beside the real one on `project_workflow_scopes`. |
 | 2026-08-29 | `MatrixScope#writable_pairs` after the logic moved | **Deleted rather than kept as a delegation** | RuboCop's `Rails/Delegate` objected to the one-line forwarder, and the cop was right for once: the writers now name `WriteCoordinator.writable_pairs` at the call site, so the thing deciding is the thing named. `MatrixScope` keeps `pair_predicate`, which is what the two writers genuinely share. |
+
+## Decided (autonomous) — 2026-08-29, WP13 step 2: bounded bulk writes
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-08-29 | What a save is *counted* as | **Workflow rules: (cells submitted) × (workflows the selection covers)** | The unit the row and column actions of WP5 already ask about, so the two dialogs on the same screen mean the same thing by the same word. The projection is exact rather than estimated: `submitted_leaf_count` runs on the writer that is about to run and counts the same leaves `sanitize_and_count` does, so what the screen refuses over and what the writer would act on cannot drift apart. |
+| 2026-08-29 | When the Save confirmation asks | **Only when the selection covers more than one workflow** | How many cells there are is decided by the status list and is the same on every save of the screen, so a threshold on the cell count alone would have asked on an ordinary single-workflow save — which is what Redmine has always done and must not grow a dialog. The same condition the page already uses to decide whether to show the bulk note and the *(No change)* option. |
+| 2026-08-29 | Where the bulk script is rendered | **Above the form on both administration matrices, not from a row header** | It was rendered lazily by whichever row or column header came first, and the **field permissions** matrix has no row or column actions — so on that screen the script was never on the page and the new handler would have called a function that is not there. Still one `<script>` per page: the helper's guard is unchanged and the header call finds it already done. |
+| 2026-08-29 | A save that is refused loses the unsaved matrix | **Accepted** | The redirect re-reads the database, as every other refusal on this screen does. Re-rendering the submitted matrix would mean carrying the payload back through the view, and the operator has already been asked once by then — the Save button's confirmation uses the *same* number against a threshold far below the ceiling, so a request that reaches the refusal has been through a dialog naming it. |
+| 2026-08-29 | Whether the ceiling refuses a project's *own* matrix save too | **No — the administration screens only** | `AdminMatrix` is the administration path; a project's own matrix is one project, one tracker and one role by construction, so its projection is the cell count and bounding it would only ever refuse a legitimate save of one workflow. |
+
+## Open — for Jan (2026-08-29)
+
+- **Choice:** What should the default write ceiling be — the number of workflow
+  rules above which an administration matrix save is refused outright?
+- **Options:** A) **200,000**, which is what is implemented. About eight seconds
+  of writing at the rate measured in audit F08 (≈26,000 rows a second), which is
+  roughly where a front-end proxy starts timing out — and a timeout is the worst
+  outcome, because it rolls back everything and reports nothing. It is far above
+  any selection an ordinary installation can produce: 50 projects × 3 trackers ×
+  3 roles × 36 cells is 16,200. B) **Lower, say 50,000**, which refuses sooner
+  and so protects a slower database, at the cost of refusing a deliberate
+  whole-installation save on a mid-sized installation. C) **0 by default (no
+  ceiling)**, which changes nothing for anybody until an administrator asks for
+  it — the confirmation dialog would then be the only guard.
+- **Recommendation:** A. It is a limit nobody of ordinary size will meet, it is
+  one field to change, and 0 is available to anyone who wants the old behaviour
+  back — while C would ship the finding's defect with a setting beside it.
+- **Urgent?** no — we continued with A, and it is one number in `init.rb`,
+  `Services::WriteBudget::DEFAULT_WRITE_CEILING` and the assertion that holds
+  those two together.
