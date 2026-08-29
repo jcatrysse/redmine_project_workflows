@@ -117,7 +117,7 @@ Everything below was executed in this container.
 | `node dev/check-bulk-js.mjs` | bulk action script OK |
 | `dev/check-backfill.sh`, `dev/check-upgrade.sh`, `dev/check-uninstall.sh` | green, each from a database rebuilt from **core** migrations first. The uninstall rehearsal exercises the new restore end to end and prints the new report lines |
 | Red-on-old-code | verified by restoring the previous file and re-running: **7 of 7** in `spec/services/workflow_restore_recovery_spec.rb` and both new `Tasks.restore` examples for WP17; **8 of the 12** controller shapes for WP18 (the four project shapes were already refused, which is why they are in the table); and `spec/views/compatibility_banner_spec.rb` goes red for exactly the screen whose call is removed |
-| CI | run **194** on the head (`e81032f`) is green on **all eleven jobs** — the 3 × 3 matrix plus lint and JS, read from the Actions API. Runs 190 (`0d36552`, WP17) and 191 (`745e96f`, WP18) are green too. Runs 192 and 193 show as *cancelled* because the next push superseded each of them, which is the documented behaviour rather than a failure — do not read a cancelled job as a failing one |
+| CI | run **197** on the head (`5fe390a`) is green on **all eleven jobs** — the 3 × 3 matrix plus lint and JS, read from the Actions API. Runs 190 (WP17), 191 (WP18) and 194 (WP19) are green too. Several runs in between show as *cancelled* because the next push superseded them, which is the documented behaviour rather than a failure — do not read a cancelled job as a failing one |
 
 ## Exact next step
 
