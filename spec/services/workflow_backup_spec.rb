@@ -156,6 +156,144 @@ describe RedmineProjectWorkflows::Services::WorkflowBackup do
     end
   end
 
+  # WP17, finding F02 of docs/review/findings/2026-08-29-claude-revalidation.md.
+  #
+  # A project workflow is two rows in two tables: the decision and the rules.
+  # Reading them one after the other on an installation nobody has been asked to
+  # stop using could catch a save in between and write a file holding a state
+  # that never existed -- and one direction of that is silent, because a
+  # decision with no rules under it is an own EMPTY workflow, a project that
+  # permits no status change at all. Restoring such a file creates that state on
+  # a project that never chose it.
+  describe 'the snapshot both reads are taken in' do
+    # Transactional fixtures *are* an already-open transaction, so this is the
+    # case every other example in this file runs under. Asserted once, on its
+    # own, because the failure mode is an exception rather than a wrong answer:
+    # an isolation level can only be set by the transaction that begins.
+    it 'joins a transaction that is already open rather than raising' do
+      expect(ActiveRecord::Base.connection).to be_transaction_open
+
+      expect { described_class.document }.not_to raise_error
+    end
+
+    it 'asks for repeatable read when it opens one of its own' do
+      allow(ProjectWorkflowScope.connection).to receive(:transaction_open?).and_return(false)
+      # Stubbed rather than called: asking Rails for an isolation level while
+      # the fixture transaction is open is exactly what the guard above avoids,
+      # and what is under test here is which level is asked for.
+      allow(ActiveRecord::Base).to receive(:transaction) { |**_options, &block| block.call }
+
+      described_class.document
+
+      expect(ActiveRecord::Base).to have_received(:transaction).with(isolation: :repeatable_read)
+    end
+
+    # SQLite answers `supports_transaction_isolation?` with **true** and then
+    # refuses every level but read_uncommitted, so the fallback cannot be a
+    # question asked in advance -- it has to be the refusal, caught. An adapter
+    # nobody has met yet gets a backup rather than an exception.
+    it 'falls back to a plain transaction when the adapter refuses at BEGIN' do
+      give_own_workflow(project, tracker, role)
+      transition(project)
+      allow(ProjectWorkflowScope.connection).to receive(:transaction_open?).and_return(false)
+      allow(ActiveRecord::Base).to receive(:transaction) do |**options, &block|
+        raise ActiveRecord::TransactionIsolationError, 'this adapter will not' if options[:isolation]
+
+        block.call
+      end
+
+      document = described_class.document
+
+      expect(document['scopes'].size).to eq(1)
+      expect(document['rules'].size).to eq(1)
+    end
+
+    # The other half, and the one a `began` flag got wrong: Rails opens a
+    # transaction lazily, so the BEGIN is deferred to the first statement inside
+    # the block and the refusal arrives from the middle of the read rather than
+    # from the `transaction` call. Measured on Rails 6.1 with SQLite, by
+    # dev/check-uninstall.sh, where it aborted the whole uninstall.
+    it 'falls back when the adapter refuses at the first statement inside the block' do
+      give_own_workflow(project, tracker, role)
+      transition(project)
+      allow(ProjectWorkflowScope.connection).to receive(:transaction_open?).and_return(false)
+      allow(ActiveRecord::Base).to receive(:transaction) do |**options, &block|
+        if options[:isolation]
+          described_class.send(:scope_rows)
+          raise ActiveRecord::TransactionIsolationError, 'refused at the first statement'
+        end
+        block.call
+      end
+
+      document = described_class.document
+
+      expect(document['scopes'].size).to eq(1)
+      expect(document['rules'].size).to eq(1)
+    end
+  end
+
+  describe 'a save landing between the two reads' do
+    # Two connections that can see each other's committed work, which the
+    # suite's usual one-transaction-per-example cannot give. The interaction
+    # examples above pin which isolation level is asked for; this one is the
+    # only thing that shows what asking for it buys, and it is red without it
+    # on all three supported adapters -- outside a transaction each of the two
+    # reads is its own, whatever the adapter's default isolation.
+    if respond_to?(:use_transactional_tests=)
+      self.use_transactional_tests = false
+    else
+      self.use_transactional_fixtures = false
+    end
+
+    before do
+      skip('SQLite holds one reader against one writer, and is not one of the nine cells') unless supported_adapter?
+    end
+
+    after do
+      WorkflowRule.delete_all
+      ProjectWorkflowScope.delete_all
+      ProjectWorkflowWriteLock.delete_all
+    end
+
+    def in_parallel(&block)
+      thread = Thread.new { ActiveRecord::Base.connection_pool.with_connection(&block) }
+      raise 'the second connection never came back' unless thread.join(30)
+    end
+
+    it 'cannot write a decision whose rules it read after they were deleted' do
+      give_own_workflow(project, tracker, role)
+      transition(project)
+      main = Thread.current
+      target = project.id
+      tracker_id = tracker.id
+      role_id = role.id
+
+      # The export has read the decisions and is about to read the rules. The
+      # other request arrives here and returns the project to inheritance --
+      # scope and rules both gone, committed, before the second read runs.
+      allow(described_class).to receive(:scope_rows).and_wrap_original do |original|
+        rows = original.call
+        if Thread.current == main
+          in_parallel do
+            RedmineProjectWorkflows::Services::ScopeWriter.return_to_inheritance(
+              project_ids: [target], tracker_ids: [tracker_id], role_ids: [role_id],
+              rule_type: ProjectWorkflowScope::TRANSITIONS
+            )
+          end
+        end
+        rows
+      end
+
+      document = described_class.document
+
+      # The state as of the first read, whole: the deletion committed after it
+      # and is not in this file at all. What must never come back is the scope
+      # without its rule, which is a decision this project did not take.
+      expect(document['scopes'].size).to eq(1)
+      expect(document['rules'].size).to eq(1)
+    end
+  end
+
   describe 'the round trip' do
     it 'brings back the rules, the decisions and the generic workflow untouched' do
       transition(nil, from: s2, to: s1)

@@ -93,6 +93,15 @@ describe RedmineProjectWorkflows::Services::ScopeBulkWriter do
 
   # The half that only a real database can answer.
   describe 'the delete this database actually runs' do
+    # Finding F06 of 2026-08-29-claude-revalidation. Five hundred OR'd triples
+    # is a statement SQLite cannot parse -- `parser stack overflow` -- and the
+    # batch size is exactly what these four examples exist to run. SQLite is not
+    # one of the nine supported cells, so this is the repository's usual skip
+    # rather than a smaller batch that would test a different number.
+    before do
+      skip('SQLite cannot parse a statement of DELETE_BATCH_SIZE OR\'d triples') unless supported_adapter?
+    end
+
     it 'plans and runs a statement of exactly DELETE_BATCH_SIZE terms' do
       rule_for(project, s1, s2)
       combinations = padding_triples(batch - 1) + [[project.id, tracker.id, role.id]]

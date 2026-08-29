@@ -31,7 +31,13 @@ module RedmineProjectWorkflows
     class WorkflowRestore
       # What a restore did, in the terms an operator has to check it against.
       Report = Struct.new(:scopes, :rules, :rejected, :skipped_existing,
-                          :skipped_missing, :orphan_rules, keyword_init: true) do
+                          :skipped_missing, :orphan_rules, :failed, keyword_init: true) do
+        # Four outcomes, told apart, because two of them used to share a word.
+        # "Left alone" covered both "this project already had exactly this" and
+        # "this project has a workflow of its own that differs from the backup",
+        # and after an interrupted restore it also covered "this combination was
+        # prepared and never written" -- which is the case an operator most
+        # needs to see (finding F01 of 2026-08-29-claude-revalidation).
         def lines
           [
             "#{scopes} project #{'workflow'.pluralize(scopes)} restored, " \
@@ -40,36 +46,23 @@ module RedmineProjectWorkflows
             "#{skipped_existing} left alone: the project already has a workflow there",
             "#{orphan_rules} #{'rule'.pluralize(orphan_rules)} not restored: " \
             'no recorded decision in the backup names them',
+            *failure_lines,
             *skipped_missing
           ]
         end
-      end
 
-      # The three things a rule is made of, as they are *now*, plus the users
-      # its audit columns name and the combinations that already have a
-      # decision. Loaded once: asking per combination would be six queries per
-      # row of a file that can hold one per project, tracker and role on the
-      # installation.
-      Referents = Struct.new(:projects, :trackers, :roles, :users, :scoped) do
-        def missing(key)
-          project_id, tracker_id, role_id, rule_type = key
-          gone = []
-          gone << "project #{project_id}" unless projects.include?(project_id)
-          gone << "tracker #{tracker_id}" unless trackers.key?(tracker_id)
-          gone << "role #{role_id}" unless roles.key?(role_id)
-          gone << "rule type #{rule_type.inspect}" unless ProjectWorkflowScope::RULE_TYPES.include?(rule_type)
-          return nil if gone.empty?
-
-          "skipped #{rule_type} for project #{project_id}, tracker #{tracker_id}, " \
-            "role #{role_id}: #{gone.join(', ')} not found"
+        def failed?
+          failed.any?
         end
 
-        def scoped?(key) = scoped.include?(key)
+        # Named individually rather than counted: a restore that could not put
+        # one project back is a thing somebody has to act on, and a number does
+        # not say which project.
+        def failure_lines
+          return [] if failed.empty?
 
-        # Nil for a user deleted since the export, which is what the column
-        # already means. An endless method would swallow the guard.
-        def user_id(id)
-          id if id && users.include?(id)
+          ["#{failed.size} #{'combination'.pluralize(failed.size)} failed and were rolled back; " \
+           'run the restore again to retry them'] + failed
         end
       end
 
@@ -84,14 +77,81 @@ module RedmineProjectWorkflows
         rules = group_rules(document['rules'])
         referents = load_referents(document)
         report = Report.new(scopes: 0, rules: 0, rejected: 0, skipped_existing: 0,
-                            skipped_missing: [], orphan_rules: 0)
+                            skipped_missing: [], orphan_rules: 0, failed: [])
 
         restorable = select_restorable(document['scopes'], rules, referents, overwrite, report)
-        prepare(restorable.map(&:first), referents, user)
-        restorable.each { |key, scope, rows| write_one(key, scope, rows, referents, report) }
+        restorable.each { |entry| restore_one(entry, referents, report, user) }
         report.orphan_rules = rules.values.sum(&:size)
         report
       end
+
+      # **One combination, one transaction** -- and that is the whole of finding
+      # F01 of 2026-08-29-claude-revalidation.
+      #
+      # This used to prepare *every* combination first -- creating each missing
+      # scope, clearing each overwritten one -- and only then loop over them
+      # writing rules. The window between "all the scopes exist" and "this
+      # combination's rules are written" was therefore the entire length of the
+      # restore, and a scope with no rules under it is an own **empty** workflow:
+      # no status change permitted at all. An interruption left every
+      # unreached combination in that state, and `select_restorable` then skipped
+      # exactly those on the retry the README recommends, because they now had a
+      # scope. Reproduced: three projects in, two left empty, the retry reported
+      # three skipped and restored nothing.
+      #
+      # Per combination, the two outcomes are both safe. A completed one has its
+      # scope *and* its rules, so skipping it on a retry is right. A failed one
+      # is rolled back to having neither, so a retry treats it as fresh and does
+      # it again. Neither needs `OVERWRITE=1`, and neither needs the operator to
+      # know which happened.
+      #
+      # **A failure does not stop the restore.** One combination that cannot be
+      # put back must not hold the other 1,999 hostage; it is recorded by name
+      # and the caller decides. `requires_new: true` because the enclosing
+      # transaction is real in a spec and absent in the rake task, and the
+      # rollback has to be of this combination either way.
+      #
+      # The cost, stated because a later session will find it: the scope
+      # creation is no longer grouped by (tracker, role, rule type), so a restore
+      # of five hundred projects takes five hundred coordination locks rather
+      # than one. That is the same trade `ScopeWriter.create_scopes` records and
+      # settles the same way -- this is a maintenance task run once, and
+      # correctness is not negotiable against its round trips.
+      def self.restore_one(entry, referents, report, user)
+        key, scope, rows = entry
+        rejected = nil
+        ActiveRecord::Base.transaction(requires_new: true) do
+          prepare_one(key, referents, user)
+          rejected = write_one(key, scope, rows, referents)
+        end
+        return report.failed << "#{combination_name(key)}: rolled back without raising" if rejected.nil?
+
+        report.rejected += rejected
+        report.scopes += 1
+        report.rules += rows.size
+      rescue StandardError => e
+        report.failed << "#{combination_name(key)}: #{e.class} #{e.message}"
+      end
+      private_class_method :restore_one
+
+      # Counted only after the transaction has committed, and that is not a
+      # detail. The audit stamp is the last statement of the combination, so a
+      # failure there rolls the rows back -- and a report built inside the block
+      # would have counted the same combination as restored *and* as failed,
+      # which is worse than either. Nothing here reports what the database has
+      # not kept.
+      def self.write_one(key, scope, rows, referents)
+        rejected = write_rules(key, rows, referents)
+        stamp_audit(key, scope, referents)
+        rejected
+      end
+      private_class_method :write_one
+
+      def self.combination_name(key)
+        project_id, tracker_id, role_id, rule_type = key
+        "project #{project_id}, tracker #{tracker_id}, role #{role_id}, #{rule_type}"
+      end
+      private_class_method :combination_name
 
       # Every combination the backup records a decision for is taken out of the
       # rule index here, skipped or not: an orphan is a rule the backup names
@@ -126,41 +186,20 @@ module RedmineProjectWorkflows
       # would leave, for every cell the backup does not mention, whatever the
       # generic workflow says today -- which is the additive override INV-5 says
       # does not exist.
-      def self.prepare(keys, referents, user)
-        existing, fresh = keys.partition { |key| referents.scoped?(key) }
-        by_pair(fresh) do |selection|
+      def self.prepare_one(key, referents, user)
+        project_id, tracker_id, role_id, rule_type = key
+        selection = { project_ids: [project_id], tracker_ids: [tracker_id],
+                      role_ids: [role_id], rule_type: rule_type }
+        if referents.scoped?(key)
+          # Overwriting: the scope stays and its rules go, which is INV-3's third
+          # action. Deleting the scope and enabling it again would move
+          # `created_by_id`, and the backup is about to put the original back.
+          ScopeWriter.clear_rules(**selection, user: user)
+        else
           ScopeWriter.enable(**selection, copy_generic: false, user: user)
         end
-        # Overwriting: the scope stays and its rules go, which is INV-3's third
-        # action. Deleting the scope and enabling it again would move
-        # `created_by_id`, and the backup is about to put the original back.
-        by_pair(existing) do |selection|
-          ScopeWriter.clear_rules(**selection, user: user)
-        end
       end
-      private_class_method :prepare
-
-      # One call per (tracker, role, rule type) rather than one per combination.
-      # ScopeWriter.enable takes the coordination rows for the pairs it is given,
-      # so a restore of five hundred projects takes one lock per pair instead of
-      # five hundred; and with one tracker and one role the cross product it
-      # creates over the project list is exactly the combinations asked for.
-      def self.by_pair(keys)
-        keys.group_by { |(_project_id, tracker_id, role_id, rule_type)| [tracker_id, role_id, rule_type] }
-            .each do |(tracker_id, role_id, rule_type), group|
-          yield(project_ids: group.map(&:first), tracker_ids: [tracker_id],
-                role_ids: [role_id], rule_type: rule_type)
-        end
-      end
-      private_class_method :by_pair
-
-      def self.write_one(key, scope, rows, referents, report)
-        report.rejected += write_rules(key, rows, referents)
-        report.scopes += 1
-        report.rules += rows.size
-        stamp_audit(key, scope, referents)
-      end
-      private_class_method :write_one
+      private_class_method :prepare_one
 
       # [project_id, tracker_id, role_id, rule_type] -- the unit a scope is a
       # decision about, and the unit a writer call covers.
@@ -189,7 +228,7 @@ module RedmineProjectWorkflows
       def self.load_referents(document)
         rows = document['scopes'] + document['rules']
         keys = document['scopes'].map { |scope| combination_key(scope) }
-        Referents.new(
+        RestoreReferents.new(
           id_set(Project, rows.map { |row| row['project_id'] }),
           by_id(Tracker, rows.map { |row| row['tracker_id'] }),
           by_id(Role, rows.map { |row| row['role_id'] }),

@@ -19,11 +19,8 @@ namespace :redmine_project_workflows do
   task restore: :environment do
     path = RedmineProjectWorkflows::Tasks.required_file
     document = RedmineProjectWorkflows::Services::WorkflowBackup.read(path)
-    report = RedmineProjectWorkflows::Services::WorkflowRestore.call(
-      document, overwrite: ENV['OVERWRITE'].present?, user: User.anonymous
-    )
-    puts "redmine_project_workflows: restored from #{path}"
-    puts report.lines.join("\n")
+    puts "redmine_project_workflows: restoring from #{path}"
+    RedmineProjectWorkflows::Tasks.restore(document)
   end
 
   desc 'Back up, then reverse every migration. FILE= where to write it, CONFIRM=yes to go ahead'

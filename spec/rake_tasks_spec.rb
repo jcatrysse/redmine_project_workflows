@@ -38,27 +38,62 @@ describe RedmineProjectWorkflows::Tasks do
     %w[FILE CONFIRM FORCE SKIP_BACKUP OVERWRITE].each { |key| ENV.delete(key) }
   end
 
-  # Returns what the task printed and whether it exited. `abort` raises
-  # SystemExit, so a helper that let it through would lose the output printed
-  # before it -- which is the half these examples are about.
+  # Returns what the task printed, whether it exited, and what it refused with.
+  # `abort` raises SystemExit, so a helper that let it through would lose the
+  # output printed before it -- which is the half these examples are about.
   #
-  # Standard error is captured too, and thrown away: `abort` writes its message
-  # there, and six examples printing a refusal into the middle of the suite's
-  # output read like six failures.
+  # Standard error is captured separately rather than mixed in: `abort` writes
+  # its message there, and examples printing a refusal into the middle of the
+  # suite's output read like failures. It is returned third so that the
+  # examples which only want the first two can keep destructuring two.
   def capture
     original = [$stdout, $stderr]
     buffer = StringIO.new
+    errors = StringIO.new
     $stdout = buffer
-    $stderr = StringIO.new
+    $stderr = errors
     exited = false
     begin
       yield
     rescue SystemExit
       exited = true
     end
-    [buffer.string, exited]
+    [buffer.string, exited, errors.string]
   ensure
     $stdout, $stderr = original
+  end
+
+  # WP17. The uninstall task's counterpart: the restore is the one thing here
+  # that runs unattended -- from an installer, a container entrypoint, a
+  # colleague's script after a database restore -- and a run that could not put
+  # a combination back has to say so in the only channel a script reads.
+  describe '.restore' do
+    let(:writer) { RedmineProjectWorkflows::Services::TransitionWriter }
+
+    it 'prints what it did and exits zero when everything came back' do
+      document = RedmineProjectWorkflows::Services::WorkflowBackup.document
+      WorkflowRule.where.not(project_id: nil).delete_all
+      ProjectWorkflowScope.where.not(project_id: nil).delete_all
+
+      output, exited = capture { described_class.restore(document) }
+
+      expect(exited).to be(false)
+      expect(output).to include('1 project workflow restored')
+    end
+
+    it 'names the failure and exits non-zero when a combination could not be put back' do
+      document = RedmineProjectWorkflows::Services::WorkflowBackup.document
+      WorkflowRule.where.not(project_id: nil).delete_all
+      ProjectWorkflowScope.where.not(project_id: nil).delete_all
+      allow(writer).to receive(:replace_transitions_for_project_id)
+        .and_raise(ActiveRecord::StatementInvalid, 'simulated: connection lost')
+
+      output, exited = capture { described_class.restore(document) }
+
+      expect(exited).to be(true)
+      expect(output).to include('run the restore again to retry them')
+      expect(output).to match(/project #{project.id}, tracker #{tracker.id}/)
+    end
   end
 
   describe '.uninstall' do
@@ -117,6 +152,37 @@ describe RedmineProjectWorkflows::Tasks do
       expect(output).to include('no backup will be written')
       expect(described_class).to have_received(:reverse_migrations)
       expect(Dir.children(dir)).to be_empty
+    end
+
+    # WP17. The confirmation is a question put to a human, and a human takes
+    # seconds to answer it. On a production installation that is long enough for
+    # a colleague to save a workflow -- and the file already written is then not
+    # what the migrations are about to destroy.
+    it 'reverses nothing when a workflow changed while it waited for the confirmation' do
+      ENV['FILE'] = path
+      ENV['CONFIRM'] = 'yes'
+      allow(described_class).to receive(:confirm!) do
+        WorkflowTransition.create!(tracker_id: tracker.id, role_id: role.id, project_id: project.id,
+                                   old_status_id: issue_statuses(:issue_statuses_002).id,
+                                   new_status_id: issue_statuses(:issue_statuses_001).id)
+      end
+
+      _output, exited, refusal = capture { described_class.uninstall }
+
+      expect(exited).to be(true)
+      expect(described_class).not_to have_received(:reverse_migrations)
+      expect(refusal).to include('no longer matches the database')
+      expect(refusal).to include('Nothing has been destroyed')
+    end
+
+    it 'reverses the migrations when nothing changed while it waited' do
+      ENV['FILE'] = path
+      ENV['CONFIRM'] = 'yes'
+
+      _output, exited = capture { described_class.uninstall }
+
+      expect(exited).to be(false)
+      expect(described_class).to have_received(:reverse_migrations)
     end
 
     it 'names the restore command it leaves behind' do

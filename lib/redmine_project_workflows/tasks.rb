@@ -23,6 +23,28 @@ module RedmineProjectWorkflows
         ]
       end
 
+      # The restore, as the rake task runs it -- here rather than in the rake
+      # file so that its one decision can be tested.
+      #
+      # That decision: a run with a failed combination in it **exits non-zero**.
+      # An operator reading the terminal sees the named lines either way, but a
+      # restore is the thing that runs unattended -- from an installer, a
+      # container entrypoint, a colleague's shell script after a database
+      # restore -- and a silent zero there is how a half-restored installation
+      # gets declared finished. Nothing above the failure was left half-written
+      # (each combination is its own transaction), so re-running the same
+      # command retries exactly what failed.
+      def restore(document)
+        report = Services::WorkflowRestore.call(
+          document, overwrite: ENV['OVERWRITE'].present?, user: User.anonymous
+        )
+        puts report.lines.join("\n")
+        return report unless report.failed?
+
+        abort 'redmine_project_workflows: the restore did not complete. Nothing that failed was left ' \
+              'half-written; run the same command again to retry it.'
+      end
+
       # The scripted uninstall. It is the destructive one, so it says what it
       # is about to destroy *before* it asks, and refuses to run without an
       # answer typed in full.
@@ -45,9 +67,38 @@ module RedmineProjectWorkflows
         announce(document)
         confirm!
         path = write_backup(document)
+        refuse_if_changed!(document)
         reverse_migrations
         puts 'redmine_project_workflows: every migration reversed; the plugin directory can now be removed.'
         puts restore_recipe(path) if path
+      end
+
+      # WP17. The window this closes is small and it is real: the export is
+      # taken, the operator is shown a count and asked to type CONFIRM=yes, and
+      # only then is anything destroyed. On a production installation nobody has
+      # been asked to stop using, a colleague can save a workflow while that
+      # question is on the screen -- and what the migrations then destroy is not
+      # what the file holds. The file is the only way back, so a file that is
+      # already out of date is the one thing this task must not proceed past.
+      #
+      # Compared rather than counted. Both collections are ordered by every
+      # column that identifies a row, precisely so that two exports of the same
+      # database are the same file, so a difference of any kind shows here --
+      # including one that leaves the counts alone.
+      #
+      # What it does not close, said plainly: a write landing between this
+      # comparison and the first statement of the migration. Closing that would
+      # mean holding every combination locked across a schema change, which is a
+      # worse thing to do to a production database than the risk it removes.
+      # This narrows the window from "as long as a human takes to answer" to
+      # "between two statements".
+      def refuse_if_changed!(document)
+        current = Services::WorkflowBackup.document
+        return if current['scopes'] == document['scopes'] && current['rules'] == document['rules']
+
+        abort 'redmine_project_workflows: a project workflow changed while this task was waiting for ' \
+              "CONFIRM=yes, so the backup no longer matches the database. Nothing has been destroyed. \n" \
+              'Run the task again to take a backup of what is there now.'
       end
 
       def announce(document)

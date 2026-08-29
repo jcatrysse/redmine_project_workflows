@@ -74,10 +74,18 @@ module WorkflowStatementOrderHelpers
     statements.index { |sql| sql.match?(/\A\s*(INSERT INTO|DELETE FROM|UPDATE)\s+\W?workflows\b/i) }
   end
 
-  # SQLite has no row locking to assert and is not one of the nine supported
-  # cells; PostgreSQL, MySQL and MariaDB all speak SELECT ... FOR UPDATE.
-  def row_locking?
+  # One of the nine supported cells, as against the SQLite a development
+  # container falls back to when the `pg` gem cannot be built. What SQLite does
+  # not give: row locking to assert, a statement of five hundred OR'd triples,
+  # and a second connection that can write while a first is reading.
+  def supported_adapter?
     ActiveRecord::Base.connection.adapter_name.match?(/postgres|mysql|trilogy/i)
+  end
+
+  # SQLite has no row locking to assert; PostgreSQL, MySQL and MariaDB all speak
+  # SELECT ... FOR UPDATE.
+  def row_locking?
+    supported_adapter?
   end
 end
 

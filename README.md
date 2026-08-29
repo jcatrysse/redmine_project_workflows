@@ -628,8 +628,18 @@ it:
   which is the same repair the deduplication task performs and cannot change what
   a workflow permits.
 
-Running the restore twice is safe: the second run reports that everything was
-left alone and changes nothing.
+**An interrupted restore is safe to run again, and that is how you recover one.**
+Each project, tracker, role and rule type is put back in a transaction of its
+own, so a machine that dies halfway through leaves every combination either
+wholly restored or exactly as it was — never with a decision recorded and no
+rules under it, which would be an own *empty* workflow permitting no status
+change at all. If any combination fails, the restore finishes the others, names
+the ones that failed, and exits non-zero so a script notices. Run the same
+command again — the same `FILE=`, and no `OVERWRITE=1`: the combinations that
+completed are left alone and the ones that failed are done properly this time.
+
+Running the restore twice on a run that completed is safe too: the second run
+reports that everything was left alone and changes nothing.
 
 ### Uninstalling
 

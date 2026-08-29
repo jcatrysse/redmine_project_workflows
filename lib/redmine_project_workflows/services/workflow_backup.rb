@@ -36,9 +36,33 @@ module RedmineProjectWorkflows
 
       class Error < StandardError; end
 
+      # **Both reads in one snapshot**, which is WP17 and finding F02 of
+      # 2026-08-29-claude-revalidation. A project workflow is two rows in two
+      # tables -- the decision in `project_workflow_scopes`, the rules in
+      # `workflows` -- and reading them one after the other on a live
+      # installation could catch a save in between, writing a file holding a
+      # state that never existed. Both directions are damaging, and the second
+      # silently:
+      #
+      #   * scopes read first, rules read after somebody enabled a project's own
+      #     workflow: rules with no decision behind them. The restore reports
+      #     them as orphans and drops them, so the file is merely incomplete.
+      #   * scopes read first, rules read after somebody returned a project to
+      #     inheritance: a decision with no rules under it, which is not an
+      #     absence but an own EMPTY workflow -- a project that permits no
+      #     status change at all (INV-3). Restoring that file *creates* that
+      #     state on a project that never chose it.
+      #
+      # A backup is the thing an operator takes before a migration, on a
+      # production installation nobody has been asked to stop using. So it takes
+      # the strongest isolation the adapter offers rather than the default:
+      # PostgreSQL's READ COMMITTED would let the second query see a commit the
+      # first did not, which is exactly the window above. MySQL and MariaDB
+      # default to REPEATABLE READ already and asking for it costs nothing;
+      # SQLite has no isolation levels to set and gives one reader one
+      # consistent view anyway.
       def self.document
-        scopes = scope_rows
-        rules = rule_rows
+        scopes, rules = snapshot { [scope_rows, rule_rows] }
         {
           'format' => FORMAT,
           'format_version' => FORMAT_VERSION,
@@ -50,6 +74,40 @@ module RedmineProjectWorkflows
           'rules' => rules
         }
       end
+
+      # Joins a transaction that is already open rather than nesting inside one:
+      # an isolation level can only be set by the transaction that begins, and
+      # a caller who has already opened one -- a spec under transactional
+      # fixtures, an operator's own wrapper -- has given the two reads their
+      # snapshot by opening it. Asking anyway would raise
+      # ActiveRecord::TransactionIsolationError and turn a backup into an
+      # exception, which is the last thing this file should do.
+      #
+      # And falls back to a plain transaction on an adapter that will not give
+      # the level. `supports_transaction_isolation?` is not the question to ask
+      # -- SQLite answers **true** to it and then refuses every level but
+      # `read_uncommitted` -- so the check that reads like the careful one is
+      # the one that raises. Asking and catching the refusal is the only form
+      # that is right for an adapter nobody has met yet.
+      #
+      # A **retry**, deliberately, and not a resume. Rails opens a transaction
+      # lazily: the BEGIN is deferred to the first statement inside the block,
+      # so the refusal can arrive either from the `transaction` call itself or
+      # from the middle of the block, and which one depends on the Rails version
+      # as much as on the adapter. Measured, not assumed: on Rails 6.1 with
+      # SQLite it arrives from inside the block, so a fallback that only covered
+      # the first case would re-raise -- which is what `dev/check-uninstall.sh`
+      # caught before this comment was written. Running the block twice is safe
+      # because it is two SELECTs and nothing else; anything that writes must
+      # not be put inside it.
+      def self.snapshot(&)
+        return yield if ProjectWorkflowScope.connection.transaction_open?
+
+        ActiveRecord::Base.transaction(isolation: :repeatable_read, &)
+      rescue ActiveRecord::TransactionIsolationError
+        ActiveRecord::Base.transaction(&)
+      end
+      private_class_method :snapshot
 
       # Refuses to overwrite an existing file unless asked twice. A backup is
       # written by an operator who is about to destroy the thing it holds, and

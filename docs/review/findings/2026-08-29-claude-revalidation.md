@@ -63,7 +63,7 @@ but it is the tooling the uninstall procedure rests on, so it blocks a release.
 
 ### F01 — An interrupted restore leaves workflows owned but empty, and the documented retry skips them
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** blocker
 - **Confidence:** confirmed
 - **Category:** correctness
@@ -135,13 +135,25 @@ The report needs to tell four things apart where it now says two: restored,
 skipped because identical, skipped because it exists and differs, failed. And the
 README sentence has to say what holds after an *interrupted* run.
 
-**Resolution:**
+**Resolution:** WP17. `WorkflowRestore` now restores **one combination in one
+transaction** — lock, scope, rules, audit, commit — so a combination is either
+wholly restored or wholly rolled back to inheriting; neither state needs
+`OVERWRITE=1` on a retry, and an operator does not have to know which happened.
+A failure no longer stops the restore: the other combinations are finished and
+the failed ones are named, individually, in the report. The rake task exits
+non-zero when any failed, because a restore is what runs unattended.
+`spec/services/workflow_restore_recovery_spec.rb` is the reproduction above,
+inverted: six examples, all red on the previous code (verified by restoring it),
+including the interrupted-then-retried round trip and the rollback of an
+interrupted `OVERWRITE=1` run. The README sentence is replaced by one that says
+what holds after an interrupted run.
+
 
 ---
 
 ### F02 — A backup is assembled from two unlocked queries, so it can hold a state that never existed
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** major
 - **Confidence:** confirmed
 - **Category:** concurrency
@@ -193,7 +205,20 @@ prompt: a single monotonic revision that the write coordinator bumps, carried in
 the backup, and re-checked immediately before the migrations run. If it moved,
 refuse and say so.
 
-**Resolution:**
+**Resolution:** WP17. Both reads are taken in one snapshot —
+`WorkflowBackup.snapshot`, at `repeatable_read` where the adapter gives it, and
+joining a transaction that is already open rather than nesting inside one. The
+fallback is the refusal caught, not a capability asked about in advance:
+SQLite answers `supports_transaction_isolation?` with **true** and then refuses
+every level but `read_uncommitted`. It is a retry rather than a resume because
+Rails begins a transaction lazily, so on Rails 6.1 the refusal arrives from
+inside the block — which `dev/check-uninstall.sh` caught, and which two examples
+now pin from both sides. The uninstall gained a second guard for the *other*
+window this finding implies: the export is taken, a human is asked to type
+CONFIRM=yes, and a colleague can save a workflow while that question is on the
+screen. `Tasks.refuse_if_changed!` re-reads and compares before any migration
+runs, and refuses rather than destroying a workflow the file does not hold.
+
 
 ---
 
@@ -356,7 +381,7 @@ it is a one-line policy change if the question ever comes back.
 
 ### F06 — Four specs assert a statement SQLite cannot parse, with no adapter guard
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** test-quality
@@ -387,7 +412,12 @@ failures in that file with that exception. CI run 187: green on all nine cells.
 The same skip the lock examples use, on the same question — whether this adapter
 can plan a statement of that shape.
 
-**Resolution:**
+**Resolution:** WP17, taken along with F02 because the guard it needed is the
+predicate F02's own two-connection example needed. `spec_helper.rb` gained
+`supported_adapter?` — one of the nine cells, as against the SQLite a container
+falls back to — and the four batching examples skip on anything else, which is
+the idiom the nine concurrency examples already use.
+
 
 ---
 
