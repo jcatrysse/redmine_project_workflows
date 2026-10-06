@@ -1,5 +1,10 @@
 # STATE — where we are
 
+> **Branch `redmine70-migration`, 2026-10-06:** the Redmine 7 migration session's state, results,
+> function inventory, findings (C1 fixed, C2/M1/T1 open) and open questions for Jan are in
+> `docs/REDMINE7-MIGRATION.md`. Everything below describes `claude/dev` as of 2026-08-29 and is
+> unchanged by that session, except the deface declaration (see `docs/DECISIONS.md`, 2026-10-06).
+
 > This file is the project's memory between sessions. It is rewritten in full
 > at the end of **every** session (overwritten, not appended). Write it as if
 > the next session knows nothing, because it does.

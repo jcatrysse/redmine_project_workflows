@@ -219,7 +219,11 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
   accepted and fixed with a test, see `docs/reviews/openai-2026-10-06-30b313b.md`: the Gemfile guard
   stepped aside for an earlier deface confined to a non-default group or platform (production would
   then miss deface); the webhook step threw on a host without a non-loopback IPv4 (now SKIP).
-  Third run on the final head: see below.
+- **OpenAI review, third run** (`4e3f6d2..60a5e4b`): **no findings**,
+  `docs/reviews/openai-2026-10-06-60a5e4b.md`.
+- After the last fix only `issue_effect.mjs` was re-run in the browser (MariaDB, 0 problems); the
+  full set on both databases ran on `30b313b`, whose only later changes are the Gemfile guard
+  (covered by rspec on both databases and the combined host's bundle) and that scenario.
 
 ## Open questions for Jan
 
