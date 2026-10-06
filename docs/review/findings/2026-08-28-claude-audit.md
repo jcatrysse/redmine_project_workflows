@@ -803,7 +803,7 @@ under 260 ms. Reopen it with a measurement, not with a redesign.
 
 ### F10 — `deface` is unconstrained, which protects an existing installation and not a new one
 
-- **Status:** fixed 2026-08-29 (WP14) — see Resolution
+- **Status:** fixed 2026-08-29 (WP14) — see Resolution; **superseded 2026-10-06** by finding C1 of `docs/REDMINE7-MIGRATION.md`: the constraint made Bundler refuse any host with another plugin declaring plain `gem 'deface'`, and was removed
 - **Severity:** nit
 - **Confidence:** confirmed
 - **Category:** dependency

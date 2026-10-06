@@ -14,27 +14,25 @@
 # 7.0-stable), and every documented way of building a host goes through that
 # script.
 #
-# `deface` carries a major-version constraint, and no tighter one (audit F10).
+# `deface` is declared **without** a version requirement, and only if no plugin
+# loaded before this one has declared it already.
 #
-# What the old, unpinned declaration got right and this keeps: the host owns
-# Gemfile.lock, so nothing written here protects an installation that already
-# resolved, and an exact pin in a plugin fragment can import a resolver conflict
-# into a host that has none. What it did not cover is a **new** installation, or
-# one running `bundle update`, where Bundler resolves whatever release exists
-# that day -- and `init.rb` turns a deface that will not load into a LoadError
-# that stops Redmine booting.
+# Every plugins/*/Gemfile is evaluated into the same Bundler DSL, and Bundler
+# rejects the same gem declared twice with *different* requirements while it
+# parses the Gemfile, before it resolves anything. `gem 'deface' unless dependencies.any? { |dependency| dependency.name == 'deface' }`
+# (audit F10) therefore broke every host with another plugin that says plain
+# `gem 'deface'`: redmine_view_issue_description does, loads after this plugin,
+# and `bundle install` stopped -- so Redmine did not boot (finding C1 in
+# docs/REDMINE7-MIGRATION.md, measured on 7.0-stable-GEOxyz). A plain
+# declaration is identical to theirs, which Bundler accepts in either order; the
+# guard lets an earlier plugin's own requirement stand instead of clashing with
+# it.
 #
-# `~> 1.9` is `>= 1.9, < 2.0`: the version every supported cell is tested against
-# is the floor, and the next major -- the one release that may move the override
-# API this plugin's five overrides hang on -- is excluded. It is strictly
-# narrower than no constraint: it can only refuse a resolution that would have
-# given this plugin a deface nobody has run it against, and a neighbour pinning
-# anywhere inside the same major still resolves.
-#
-# The control that catches the other half -- an override that loads and quietly
-# stops matching -- is still spec/integration/deface_overrides_spec.rb, on nine
-# cells, and spec/plugin_conventions_spec.rb asserts this constraint admits the
-# deface actually loaded and excludes 2.0.
+# What the major constraint was for -- a new installation resolving a deface
+# nobody has run -- is left to the host's Gemfile.lock and to
+# spec/integration/deface_overrides_spec.rb, which asserts on every CI cell that
+# each of the five overrides still matches. spec/plugin_conventions_spec.rb
+# asserts both orders bundle.
 source 'https://rubygems.org'
 
-gem 'deface', '~> 1.9'
+gem 'deface' unless dependencies.any? { |dependency| dependency.name == 'deface' }

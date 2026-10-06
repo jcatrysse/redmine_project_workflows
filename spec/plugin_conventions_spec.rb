@@ -5,6 +5,7 @@
 # conventions that keep it that way.
 #
 require_relative 'spec_helper'
+require 'tmpdir'
 
 describe RedmineProjectWorkflows do
   it 'prepends a patch once, and only to a target that does not already have it' do
@@ -510,22 +511,38 @@ describe RedmineProjectWorkflows do
     end
   end
 
-  # Audit F10. The host owns Gemfile.lock, so this constraint protects a *new*
-  # installation and one running `bundle update` -- the two cases where Bundler
-  # resolves whatever release exists that day, and where a deface that will not
-  # load turns into the LoadError init.rb raises. Asserted against the deface
-  # actually loaded rather than against the text of the requirement, so that
-  # tightening or loosening it is free as long as it still admits what nine CI
-  # cells run and still excludes the next major.
-  it 'constrains deface to the major it is tested against' do
-    line = File.readlines(File.expand_path('../Gemfile', __dir__))
-               .find { |candidate| candidate.match?(/^gem\s+['"]deface['"]/) }
-    requirements = line.scan(/['"]([^'"]+)['"]/).flatten.drop(1)
+  # Redmine evals every plugins/*/Gemfile into one Bundler DSL, and Bundler
+  # refuses the *same* gem declared twice with different requirements at parse
+  # time -- before any resolution, so "a neighbour pinning inside the same
+  # major still resolves" (audit F10's resolution) was never true. With
+  # `gem 'deface', '~> 1.9'` here and redmine_view_issue_description's plain
+  # `gem 'deface'` after it, `bundle install` stops and Redmine does not boot
+  # (finding C1 of docs/REDMINE7-MIGRATION.md, measured on 7.0-stable-GEOxyz).
+  # So the declaration is plain, and skipped when a plugin loaded earlier has
+  # already declared deface with whatever requirement it chose.
+  it 'declares deface so that a neighbour declaring it too still bundles, in either order' do
+    ours = File.expand_path('../Gemfile', __dir__)
+    Dir.mktmpdir do |dir|
+      plain = File.join(dir, 'plain.gemfile')
+      File.write(plain, "gem 'deface'\n")
+      pinned = File.join(dir, 'pinned.gemfile')
+      File.write(pinned, "gem 'deface', '~> 1.9'\n")
 
-    expect(requirements).not_to be_empty
-    requirement = Gem::Requirement.new(requirements)
-    expect(requirement.satisfied_by?(Gem.loaded_specs['deface'].version)).to be(true)
-    expect(requirement.satisfied_by?(Gem::Version.new('2.0.0'))).to be(false)
+      [[ours, plain], [plain, ours], [pinned, ours]].each do |order|
+        dsl = Bundler::Dsl.new
+        expect { order.each { |file| dsl.eval_gemfile(file) } }
+          .not_to raise_error, "Bundler refused #{order.map { |f| File.basename(f) }.join(' then ')}"
+        requirements = dsl.dependencies.select { |dep| dep.name == 'deface' }.map { |dep| dep.requirement.to_s }.uniq
+        expect(requirements.size).to eq(1)
+      end
+    end
+  end
+
+  # What the Gemfile no longer says, the suite still checks: every CI cell runs
+  # the deface major the five overrides were written against, and
+  # spec/integration/deface_overrides_spec.rb asserts each of them matches.
+  it 'runs on the deface major the overrides are tested against' do
+    expect(Gem::Requirement.new('~> 1.9').satisfied_by?(Gem.loaded_specs['deface'].version)).to be(true)
   end
 
   # And the gems it does *not* name still have to be there, or this example is

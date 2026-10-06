@@ -52,8 +52,9 @@ cover.
 - 5.1 is the declared minimum. There is no declared maximum, so the plugin
   installs on a newer Redmine and tells you whether anything it depends on has
   changed — see [Compatibility](docs/compatibility.md).
-- The only dependency is `deface` (`~> 1.9`), which most Redmine installations
-  already have.
+- The only dependency is `deface` (tested on 1.9), which most Redmine
+  installations already have. It is declared without a version requirement so
+  that it bundles beside other plugins that declare it too.
 
 ## Installing
 
