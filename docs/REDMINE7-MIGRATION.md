@@ -18,12 +18,12 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | Plugin id | `redmine_project_workflows` |
 | GEOxyz runs today | `main` |
 | Upstream | geen (eigen plugin) |
-| Runs on Redmine 7 as is | DEELS |
+| Runs on Redmine 7 as is | JA (branch `redmine70-migration`, 0.1.6 line); alleen naast andere plugins was een fix nodig (C1) |
 | Upstream sync | GEEN UPSTREAM |
 | After sync | n.v.t. |
 | Complexity (1 trivial .. 5 rewrite) | 1 |
-| Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz + latest 7.0-stable), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16 and MariaDB 10.11 |
-| Branch head when this file was written | `49c6be7` |
+| Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz `8067e23`), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16.15 and MariaDB 10.11.14 |
+| Migration session | 2026-10-06, done; results below |
 
 ## Already on this branch
 
@@ -37,14 +37,33 @@ In this order: things that break, security, the GEOxyz changes, the open items, 
 **Open items from the analysis** (Dutch; where they conflict with a decision or a priority item above, those win)
 
 1. Decide whether claude/dev (0.1.6 rewrite, 210 commits ahead of main, own CI incl. 7.0) replaces main
+   - **Verdict: decided by Jan** (coordinator addendum below): GEOxyz moves to the 0.1.6 line; this
+     branch carries it. The upgrade from `main` was rehearsed (`dev/check-release-upgrade.sh origin/main`,
+     green on both databases).
 2. claude/dev boots, migrates (001-006, rollback OK) and smokes 72/72 on R7; its rspec could not run in the harness (rspec-rails removed from plugin Gemfile)
+   - **Verdict: done.** rspec runs through `dev/setup.sh`/`dev/run.sh`, which put rspec-rails in the
+     host's `Gemfile.local` (kept that way). Migrations are 001-**007** on this branch.
 3. Optionally pin deface ~> 1.9
+   - **Verdict: reversed.** The branch already pinned `~> 1.9`, and that pin **breaks the host bundle**
+     beside `redmine_view_issue_description` (finding C1). Now plain `gem 'deface'`, skipped when an
+     earlier plugin declared it (`e4c4dc9`).
 
 **Checks**
 
 4. Run the plugin's whole test suite on Redmine 7.0-stable-GEOxyz with PostgreSQL AND MariaDB, and once on 5.1-stable if the branch is meant to stay 5.1-compatible.
 5. Check Redmine 7 webhooks against this plugin (see "Rules"), and note the result here even if nothing is needed.
 6. Verify every feature of the plugin by hand on a running Redmine 7 (screenshots).
+
+   - 4: **done**, numbers under "Results". 5.1 not run locally; CI runs 5.1, 6.1 and 7.0 on three
+     databases on every push of this branch (see "Results").
+   - 5: **done, nothing needed.** Core renders the issue payload with `issues/show.api.rsb` and empty
+     params, so `include_in_api_response?('allowed_statuses')` is false and the only
+     workflow-dependent part of an issue is never in a webhook. The plugin changes which status a
+     user may pick, not issue data. Verified live: `issue_effect.mjs` receives a real
+     `issue.updated` webhook for a status change made under a project workflow, with the new status
+     and no `allowed_statuses`. Note: Redmine 7 refuses loopback webhook URLs
+     (`WebhookEndpointValidator`), so the scenario listens on the container's own address.
+   - 6: **done**, see "Function inventory".
 
 ## Migration session 2026-10-06: baseline (before any change)
 
@@ -70,6 +89,129 @@ directory after `cd`-ing into it, so `dev/setup.sh 7.0-stable postgresql 3.3.6 .
 plugin into `.redmine/x/.redmine/x/plugins/` and the host runs without it. Pass an absolute path.
 Recorded, not fixed (outside the migration).
 
+## Results (2026-10-06, final head)
+
+| Check | PostgreSQL 16.15 | MariaDB 10.11.14 |
+|---|---|---|
+| rspec, this plugin alone | **1351 examples, 0 failures** | **1351 examples, 0 failures** |
+| Migrations 001-007 up, `VERSION=0` (stock schema, 0 bookkeeping rows), up again | OK | OK |
+| `dev/check-backfill.sh` (migration 004 backfill) | OK | OK |
+| `dev/check-upgrade.sh` (four data shapes, downgrade, up) | OK | OK |
+| `dev/check-uninstall.sh` (refusal, backup, all down, reinstall, restore, second restore) | OK | OK |
+| `dev/check-release-upgrade.sh origin/main` (0.0.3 code, then this branch) | OK | OK |
+| Boot + production eager load (`start_server.sh`, production) | OK | OK |
+| e2e: smoke (26 pages) + core flows (6) + 9 plugin scenarios | **11 runs, 103 screenshots, 141 assertions, 0 problems** | **identical: 103 screenshots, 141 assertions, 0 problems** |
+| RuboCop (`.github/lint`) | 162 files, no offenses | |
+| CI (`specs.yml`: 5.1, 6.1, 7.0 x PostgreSQL, MySQL, MariaDB, lint, JS) | run 209 on `fe3477d` green; later runs: see the Actions tab | |
+
+Screenshots: `docs/e2e/` (PostgreSQL, with one `<scenario>.md` table each) and `docs/e2e/mariadb/`.
+Before pictures on 5.1 were not made: nothing in behaviour or layout changed in this session (the
+only code change is the Gemfile).
+
+**Together with other GEOxyz plugins** (`.redmine/70geo-together`, PostgreSQL, their
+`redmine70-migration` branches where they exist): redmine_custom_workflows, redmine_issue_field_visibility,
+redmine_depending_custom_fields, redmine_subtask, redmine_context_menu_actions (default branch),
+redmine_tint_issues, redmine_parent_child_filters, redmine_view_issue_description,
+redmine_extended_api, redmine_itil_priority, redmine_issue_todo_lists2, redmine_inline_edit_issues.
+
+- Before C1 was fixed: `bundle install` refused the Gemfile, Redmine could not start.
+- After: bundle, 369 migrations, boot OK; this plugin's rspec **1351 examples, 2 failures**: both
+  are the core-drift gate (`compatibility_spec.rb:116`, `upstream/core_drift_spec.rb:103`) reporting
+  that `WorkflowsController#permissions` under this plugin is redmine_itil_priority's, not core's.
+  That is the gate doing its job, and it points at finding C2. On a verified Redmine (7.0 is) the
+  plugin measures nothing at runtime, so users see no banner.
+- e2e on that host (production, same scenarios): 11 runs, 103 screenshots, 140 assertions; 3
+  problems, all from redmine_view_issue_description's own permission (`vid_authorize_issue_detail`
+  answers 403 on `/issues/1` for the seeded Reporter and viewer roles, which lack
+  `view_issue_description`). With that permission granted, `issue_effect` and `core` re-run with
+  0 problems. Not an interaction with this plugin.
+- C2 shown on that host: `WorkflowsController.ancestors` puts this plugin's patch in front of
+  redmine_itil_priority's, and Administration → Workflow → Fields permissions has a Priority row but
+  no Impact/Urgency rows: `docs/e2e/together/together-itil-core-permissions.png`.
+
+Only the public GEOxyz plugins were combined; the private ones (agile, checklists, contacts,
+helpdesk, people, tags, zenedit, ai_triage, resources, drive, questions, reporter) were not.
+Among the public ones only redmine_view_issue_description declares `deface` in its Gemfile.
+
+## Function inventory
+
+Every function, how a user reaches it, the scenario that drives it (`test/e2e/`), and the
+screenshots (`docs/e2e/<scenario>-<name>.png`; same names under `docs/e2e/mariadb/`). Users:
+admin, manager (role "E2E full", every permission), viewer (only `view_project_workflow_rules`,
+added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no membership).
+
+| Function | How a user reaches it | Scenario | Screenshots (what they prove) |
+|---|---|---|---|
+| Project settings → Workflow tab, one row per tracker x role | Project → Settings → Workflow (view or manage permission) | `project_settings_tab` | `manager-inherits`, `viewer-readonly` (no actions), `admin-private-tab`; refusals `reporter-no-settings`, `reporter-matrix-403`, `outsider-private-403` |
+| Give own workflow (copy) / own empty / Empty / Return to generic (INV-3, three distinct states) | the tab, the matrix panel | `project_settings_tab`, `project_matrix` | `manager-own-copy`, `manager-own-empty`, `manager-perm-empty`; forged 404 for an unknown tracker, viewer's forged POST 403 |
+| Project transitions matrix: read-only while inheriting, edit + Save when own | tab → count link | `project_matrix` | `inherits-readonly`, `own-saved` (generic untouched, INV-1), `viewer-own-readonly`, `invalid-tracker`, `invalid-status-refused` (forged status: nothing written, message shown) |
+| Project field-permissions matrix | tab → Fields permissions | `project_matrix` | `permissions-inherits`, `permissions-saved`, `reporter-403` |
+| Compare with the generic workflow | tab, matrix, inventory | `project_matrix` | `compare-permissions`, `compare-transitions`; bad `rule_type` 404 |
+| Workflow diagram (SVG + table, unreachable/dead-end lists, ceiling, on/off setting) | tab, matrix, issue panel | `diagram` | `dense-folded`, `manager`, `over-ceiling`, `disabled-404` (and no link), `bad-role-404`, `viewer`, `reporter-403` |
+| Effect on issues: status list follows the project workflow | issue edit form | `issue_effect` | `form-own-one-rule`, `viewer-generic` (another role unaffected), `status-changed` |
+| "Workflow for this issue" panel (+ Deface links on the status field, both branches) | issue form, workflow icon next to Status | `issue_effect` | `panel-inherits`, `panel-own-empty` (no status field, the panel says why), `panel-own`, `outsider-panel-404` |
+| REST `include=allowed_statuses` | API | `issue_effect` | agrees with the form in all three states (no screenshot: API) |
+| Redmine 7 webhook on a status change | Administration → Webhooks | `issue_effect` | payload received by a local listener: `issue.updated`, new status, no `allowed_statuses` |
+| Administration → Project workflows: menu entry, summary | Administration menu | `admin_rules` | `admin-menu`, `summary` |
+| Admin transitions matrix over a selection (several projects, generic, "(No change)") | Project workflows → Status transitions | `admin_rules` | `matrix-two-inheriting`, `matrix-two-own`, `matrix-saved` (generic untouched) |
+| Admin state actions over a selection, write ceiling | scope panel on the admin matrices | `admin_rules` | `matrix-two-empty`, `ceiling-refused` (nothing written) |
+| Row/column Yes/No/(No change) actions with counter and Undo | every matrix | `admin_rules`, `core_workflow` | `bulk-row-no` (counter, Undo restores), `generic-column-no` (core screen: actions, no counter, finding M1) |
+| Admin field-permissions matrix | Project workflows → Fields permissions | `admin_rules` | `permissions-two` |
+| Bad selections refused (unknown, float-shaped, garbage ids) | URL / forged requests | `admin_rules`, `project_matrix` | `bad-selection-404`; forged PATCH 404 |
+| Non-admins and anonymous on the admin area | URL | `admin_rules` | `manager-403` (also reporter, outsider, forged POST 403), `anonymous-login` |
+| Copy screen (one workflow onto several projects) | Project workflows → Copy | `copy_workflows` | `copy-screen`, `copy-filled`, `copy-done`, `copy-no-target`, `manager-403` |
+| Copy project carries "Project workflows (N)" (hook) | Project → Copy | `copy_workflows` | `project-copy-form`, `project-copy-result`; unticked: 0 copied |
+| Workflow inventory | Project workflows → Workflow inventory | `admin_tools` | `inventory`, `inventory-all`, `inventory-bad-filter` |
+| Diagnostics (ADR-002) | Project workflows → diagnostics link | `admin_tools` | `diagnostics` (7.0.1 tested, every patch present) |
+| Plugin settings (thresholds, write ceiling, diagram) | Administration → Plugins → Configure | `admin_tools`, `diagram`, `admin_rules` | `settings`, `settings-invalid-fallback` (forged "abc" falls back to 50) |
+| Copying a role or tracker copies its project rules | Administration → Roles / Trackers → Copy | `admin_tools` | `role-copied`, `tracker-copied` |
+| Deleting a status that empties a project workflow warns | Administration → Issue statuses → Delete | `admin_tools` | `status-deleted-warning` |
+| Core Administration → Workflow still edits the generic workflow only (INV-1, INV-4) | Administration → Workflow | `core_workflow` | `summary`, `generic-saved`, `generic-permissions`, `core-copy`, `manager-403` |
+| Cross-link from core's workflow screen (Deface) | Administration → Workflow | `admin_rules` | asserted; visible in `docs/e2e/smoke-12.png` |
+| Rake: backup (0600, FORCE), restore (OVERWRITE, junk file), deduplicate, uninstall refusal | shell | `rake_tasks` | `before-restore`, `after-restore`, `after-uninstall-refused`; full uninstall/reinstall: `dev/check-uninstall.sh` |
+| Compatibility banner on an unverified Redmine | the seven write screens | not driven | 7.0 is verified, so no banner by design; covered by `spec/views/compatibility_banner_spec.rb` |
+| Mail, cron, REST endpoints of its own, macros | none | n/a | the plugin has none |
+
+## Findings of this session
+
+- **C1 (fixed, `e4c4dc9`) Gemfile pin breaks the host bundle.** `gem 'deface', '~> 1.9'` plus
+  redmine_view_issue_description's plain `gem 'deface'` makes Bundler refuse the Gemfile
+  ("You cannot specify the same gem twice with different version requirements"), so Redmine does not
+  start. Test in `plugin_conventions_spec.rb`, red on the old Gemfile.
+- **C2 (open, pre-existing) redmine_itil_priority's Impact/Urgency on Fields permissions.**
+  redmine_itil_priority prepends `WorkflowsController#permissions` (calls `super`, adds two rows)
+  and extends `WorkflowPermission#validate_field_name`. This plugin prepends after it and replaces
+  `#permissions` without `super` (deliberately: core's query has no `project_id` predicate, INV-4),
+  and its `PermissionWriter` only accepts core fields and custom field ids. With both installed the
+  two rows are not shown on Administration → Workflow → Fields permissions and could not be saved.
+  0.0.3 on `main` replaces the action the same way, so this is not a regression of the migration.
+  Proposed fix (not built, it touches INV-2/INV-4 code): scope `WorkflowPermission.rules_by_status_id`
+  to `project_id: nil` in `WorkflowPermissionPatch` and drop the `#permissions` override so the
+  action chain composes; let `PermissionWriter` accept a field name the model's own
+  `validate_field_name` accepts. See open question 3.
+- **M1 (open, pre-existing, nit)** README says the row/column actions come "with a count of what
+  changed and an Undo" on every matrix; on core's own Administration → Workflow screen they work
+  but have no counter or Undo (the undo region is rendered on the plugin's screens only). Same on
+  5.1. `core_workflow.mjs` documents today's behaviour.
+- **T1 (tooling, not fixed)** `dev/setup.sh` and `dev/sync.sh` resolve a relative target directory
+  after `cd`-ing into it; pass an absolute path.
+
+## Open questions for Jan
+
+1. **CI triggers.** `.github/workflows/specs.yml` (from claude/dev) runs on every push and pull
+   request; the migration rules say GitHub Actions are manual only (`workflow_dispatch`). I did not
+   add triggers and did not remove them.
+   - A) keep push + pull_request (the plugin's own CLAUDE.md treats CI on every push as a hard gate);
+   - B) make it `workflow_dispatch` only, like the other GEOxyz plugins.
+   - Recommendation: A for this plugin, it is the only automated 5.1/6.1/7.0 x 3-database check it has.
+2. **deface version cap.** C1 removes the `~> 1.9` cap; a fresh install could resolve a future deface
+   2.x. A) accept (Gemfile.lock and CI catch it), B) ask redmine_view_issue_description to declare the
+   same `~> 1.9` and pin both identically. Recommendation: A now; B only if deface 2 ever appears.
+3. **C2, ITIL fields in workflow field permissions.** A) build the proposed fix in a follow-up (also
+   makes the plugin compose with any neighbour that extends this screen); B) leave it, ITIL field
+   rules are then edited elsewhere or not at all. Recommendation: A, as its own change with tests,
+   before GEOxyz relies on per-role Impact/Urgency rules.
+
 ## GEOxyz changes to review or re-apply
 
 Own plugin: all of it is GEOxyz code, so there is nothing to re-apply. While migrating, hold the code you touch to the rules below; list larger quality problems you find in the work list instead of fixing them in passing.
@@ -79,6 +221,24 @@ Own plugin: all of it is GEOxyz code, so there is nothing to re-apply. While mig
 Actions the person doing the upgrade must take, or know about, for this plugin:
 
 - claude/dev migrations 004-006 rename permissions: after the upgrade check the roles' permissions (Administration > Roles) and the project-specific workflows.
+- From `main` (0.0.3) the migrations are 004-**007**: 004 backfills one "own workflow" decision per
+  project/tracker/role that has rules, 005 drops two redundant indexes, 006 renames
+  `view_project_workflow`/`manage_project_workflow` to `..._rules` (grants carried across), 007 adds
+  the write-lock table. Run `bundle exec rake redmine:plugins:migrate RAILS_ENV=production`.
+  Rehearsed with real 0.0.3 code on Redmine 7 (PostgreSQL and MariaDB): behaviour unchanged, rules
+  untouched.
+- Take a backup of the project workflows first, with the **old** release still installed if
+  possible, and in any case right after the upgrade:
+  `bundle exec rake redmine_project_workflows:backup FILE=/path/backup.json RAILS_ENV=production`.
+- `bundle install` is needed (Gemfile changed: plain `gem 'deface'`). With
+  `redmine_view_issue_description` installed, the previous `~> 1.9` pin would stop the bundle.
+- Optional, once: `rake redmine_project_workflows:deduplicate_workflow_rules RAILS_ENV=production`
+  removes exact duplicate rows older installations can carry (it deletes nothing else).
+- If `redmine_itil_priority` is installed: the Impact/Urgency rows on Administration > Workflow >
+  Fields permissions are not shown or saved while this plugin is installed (finding C2, also true
+  for 0.0.3). Whether existing Impact/Urgency rules are still enforced was not verified.
+- Nothing to do for mail, cron, files or settings: the plugin sends no mail, has no cron job, and
+  its settings keep their defaults.
 
 ## How to test
 

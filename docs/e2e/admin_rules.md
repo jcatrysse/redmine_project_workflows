@@ -1,6 +1,6 @@
 # admin_rules
 
-Run 2026-10-06T19:46:19.538Z against http://127.0.0.1:3000.
+Run 2026-10-06T20:11:54.043Z against http://127.0.0.1:3000.
 
 | screenshot | user | URL | shows |
 |---|---|---|---|
