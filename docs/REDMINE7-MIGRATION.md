@@ -147,7 +147,7 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
 | Project transitions matrix: read-only while inheriting, edit + Save when own | tab → count link | `project_matrix` | `inherits-readonly`, `own-saved` (generic untouched, INV-1), `viewer-own-readonly`, `invalid-tracker`, `invalid-status-refused` (forged status: nothing written, message shown) |
 | Project field-permissions matrix | tab → Fields permissions | `project_matrix` | `permissions-inherits`, `permissions-saved`, `reporter-403` |
 | Compare with the generic workflow | tab, matrix, inventory | `project_matrix` | `compare-permissions`, `compare-transitions`; bad `rule_type` 404 |
-| Workflow diagram (SVG + table, unreachable/dead-end lists, ceiling, on/off setting) | tab, matrix, issue panel | `diagram` | `dense-folded`, `manager`, `over-ceiling`, `disabled-404` (and no link), `bad-role-404`, `viewer`, `reporter-403` |
+| Workflow diagram (SVG + table, unreachable/dead-end lists, ceiling, on/off setting) | tab, matrix, issue panel | `diagram` | `dense-folded`, `manager`, `over-ceiling`, `disabled-404` (and no link), `bad-tracker-404`, `viewer`, `reporter-403` |
 | Effect on issues: status list follows the project workflow | issue edit form | `issue_effect` | `form-own-one-rule`, `viewer-generic` (another role unaffected), `status-changed` |
 | "Workflow for this issue" panel (+ Deface links on the status field, both branches) | issue form, workflow icon next to Status | `issue_effect` | `panel-inherits`, `panel-own-empty` (no status field, the panel says why), `panel-own`, `outsider-panel-404` |
 | REST `include=allowed_statuses` | API | `issue_effect` | agrees with the form in all three states (no screenshot: API) |
@@ -214,7 +214,12 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
   captions corrected. Not changed: Bundler's "listed more than once" warning (now silenced in the
   spec), a deface version check in `init.rb` (left as open question 2).
 - **OpenAI review** (`./.codex/openai_review.sh`, gpt-5, `4e3f6d2..e713b5b`, 19 files):
-  **no findings**. `docs/reviews/openai-2026-10-06-e713b5b.md`; second run on the final head below.
+  **no findings**. `docs/reviews/openai-2026-10-06-e713b5b.md`.
+- **OpenAI review, second run** (`4e3f6d2..30b313b`, after the fixes above): two findings, both
+  accepted and fixed with a test, see `docs/reviews/openai-2026-10-06-30b313b.md`: the Gemfile guard
+  stepped aside for an earlier deface confined to a non-default group or platform (production would
+  then miss deface); the webhook step threw on a host without a non-loopback IPv4 (now SKIP).
+  Third run on the final head: see below.
 
 ## Open questions for Jan
 

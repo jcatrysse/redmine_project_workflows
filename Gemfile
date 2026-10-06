@@ -28,8 +28,12 @@
 #
 # What this covers, and what it does not:
 # - a plain declaration later on is identical to ours, which Bundler accepts;
-# - any declaration earlier on wins, whatever it says (the guard only checks the
-#   name, so an earlier `require: false`, group or `~> 2.0` is taken as is);
+# - an earlier declaration that every production bundle installs (default group,
+#   no platform restriction) wins, whatever requirement it has, so an earlier
+#   `~> 2.0` is taken as is; one confined to another group or platform does not
+#   count, and this plain declaration is added beside it (if that earlier one
+#   carries a requirement, Bundler then refuses loudly rather than leaving
+#   production without deface);
 # - a declaration *with* a requirement later on still makes Bundler refuse the
 #   Gemfile. Nothing a plugin Gemfile can write avoids that; the neighbour has
 #   to declare it plainly or guard it the same way.
@@ -40,4 +44,6 @@
 # still matches. spec/plugin_conventions_spec.rb pins the orders above.
 source 'https://rubygems.org'
 
-gem 'deface' unless dependencies.any? { |dependency| dependency.name == 'deface' }
+gem 'deface' unless dependencies.any? do |dependency|
+  dependency.name == 'deface' && dependency.groups.include?(:default) && dependency.platforms.empty?
+end

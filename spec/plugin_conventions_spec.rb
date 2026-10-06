@@ -541,6 +541,14 @@ describe RedmineProjectWorkflows do
       dsl = Bundler::Dsl.new
       expect { Bundler.ui.silence { [ours, pinned].each { |file| dsl.eval_gemfile(file) } } }
         .to raise_error(Bundler::GemfileError)
+
+      # An earlier declaration that production would not install (another group)
+      # must not make this one step aside: deface has to reach the default group.
+      dev_only = File.join(dir, 'dev_only.gemfile')
+      File.write(dev_only, "group :development do\n  gem 'deface'\nend\n")
+      dsl = Bundler::Dsl.new
+      Bundler.ui.silence { [dev_only, ours].each { |file| dsl.eval_gemfile(file) } }
+      expect(dsl.dependencies.select { |dep| dep.name == 'deface' }.flat_map(&:groups)).to include(:default)
     end
   end
 
