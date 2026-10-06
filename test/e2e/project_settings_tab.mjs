@@ -18,8 +18,8 @@ const table = t.page.locator('table.project-workflow-settings');
 assert(t, await table.count() === 1, 'manager sees the Workflow tab with its table');
 const rows = await table.locator('tbody tr').count();
 assert(t, rows === 9, `one row per enabled tracker x role held in the project (3 x 3), got ${rows}`);
-assert(t, (await t.page.locator('#content').textContent()).includes('Follows the generic workflow'),
-  'every combination starts as "Follows the generic workflow"');
+assert(t, (await table.locator('td', { hasText: 'Follows the generic workflow' }).count()) === rows * 2,
+  'every combination, both kinds of rule, starts as "Follows the generic workflow"');
 await t.shot('manager-inherits', 'Manager: the Workflow tab, every combination follows the generic workflow, actions offered');
 
 const bugFull = table.locator('tbody tr', { hasText: 'E2E full' }).filter({ hasText: 'Bug' });

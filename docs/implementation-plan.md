@@ -1319,3 +1319,5 @@ that never existed; an uninstall refuses rather than destroying a workflow that
 changed after its export; no screen writes a selection it could not resolve in
 full; and a host whose Redmine has drifted says so where somebody is about to
 write.
+
+> 2026-10-06: F10's `~> 1.9` above was removed again (finding C1 of `docs/REDMINE7-MIGRATION.md`): it made Bundler refuse the Gemfile beside a plugin declaring plain `gem 'deface'`.

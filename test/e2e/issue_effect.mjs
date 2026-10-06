@@ -40,7 +40,7 @@ assert(t, inherited.length > 2, `while the project inherits, the status list off
 const panel1 = await openPanel('panel-inherits', 'Manager: "Workflow for this issue" says the project follows the generic workflow');
 assert(t, panel1.includes('Follows the generic workflow'), 'the panel names the generic workflow');
 const api1 = await apiStatuses('manager');
-assert(t, api1.length === inherited.length, `REST include=allowed_statuses agrees with the form (${api1.join(', ')})`);
+assert(t, JSON.stringify(api1) === JSON.stringify(inherited), `REST include=allowed_statuses agrees with the form (${api1.join(', ')})`);
 
 // 2. Own EMPTY workflow for Bug x E2E full: no status change at all.
 let st = await forge(t, 'POST', `/projects/e2e-project/workflow/scope?tracker_id=${BUG}&role_id=${FULL}&rule_type=transitions&source=empty`);
@@ -86,7 +86,8 @@ await t.shot('viewer-generic', 'Viewer (role E2E workflow viewer): the project w
 const received = [];
 // Redmine 7 refuses loopback webhook targets, so the listener takes the
 // container's own address.
-const ip = Object.values(os.networkInterfaces()).flat().find(a => a.family === 'IPv4' && !a.internal).address;
+const ip = Object.values(os.networkInterfaces()).flat().find(a => a.family === 'IPv4' && !a.internal)?.address;
+if (!ip) throw new Error('no non-loopback IPv4 address for the webhook listener');
 const hookUrl = `http://${ip}:3901/hook`;
 const server = http.createServer((req, res) => {
   let body = ''; req.on('data', c => { body += c; });

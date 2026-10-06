@@ -4,27 +4,45 @@
 // rows alone. The plugin adds the row/column Yes/No/undo actions to core's
 // grid (Deface) and a link across to Project workflows; the summary counts the
 // generic workflow only (INV-4).
+import fs from 'node:fs';
 import { e2e } from '../../.codex/e2e/lib.mjs';
 import { reset, rails, ruleCount, acceptDialogs, assert, forge } from './support.mjs';
 
 const ids = reset();
 const P = ids.project, BUG = ids.trackers.Bug, FEATURE = ids.trackers.Feature, FULL = ids.roles['E2E full'];
 const DEV = ids.roles.Developer;
-// Restore the generic Bug x E2E full workflow at the end: copy of Manager.
-const restore = () => rails(`WorkflowRule.where(project_id: nil, role_id: ${FULL}).delete_all
-  r = Role.find(${FULL}); r.copy_workflow_rules(Role.find_by!(name: 'Manager'))
-  WorkflowRule.where.not(project_id: nil).where(role_id: ${FULL}).delete_all; ProjectWorkflowScope.delete_all`);
+// This scenario changes the GENERIC workflow (core's screens can write nothing
+// else), so the two generic combinations it touches are snapshotted first and
+// written back in `finally`, whatever happens in between. Written back directly:
+// restoring a fixture is not a workflow write through the plugin's writers.
+const pairs = `[[${BUG}, ${FULL}], [${FEATURE}, ${DEV}]]`;
+const snapshot = rails(`puts WorkflowRule.where(project_id: nil, tracker_id: [${BUG}, ${FEATURE}], role_id: [${FULL}, ${DEV}])
+  .select { |w| ${pairs}.include?([w.tracker_id, w.role_id]) }.map { |w| w.attributes.except('id') }.to_json`);
+const restore = () => {
+  fs.writeFileSync('/tmp/rpw-core-workflow-snapshot.json', JSON.stringify(snapshot));
+  rails(`${pairs}.each { |tr, ro| WorkflowRule.where(project_id: nil, tracker_id: tr, role_id: ro).delete_all }
+    JSON.parse(File.read('/tmp/rpw-core-workflow-snapshot.json')).each { |a| a['type'].constantize.create!(a) }
+    WorkflowRule.where.not(project_id: nil).delete_all; ProjectWorkflowScope.delete_all`);
+};
 
 const t = await e2e('core_workflow');
+try {
 await t.login('admin');
 acceptDialogs(t.page);
 await forge(t, 'POST', `/projects/e2e-project/workflow/scope?tracker_id=${BUG}&role_id=${FULL}&rule_type=transitions&source=copy`);
-const projectRules = ruleCount({ project: P, tracker: BUG, role: FULL });
+let projectRules = ruleCount({ project: P, tracker: BUG, role: FULL });
 
-// Summary: counts the generic workflow only.
+// Summary: counts the generic workflow only. One project rule is removed first,
+// so a count that mixed the two populations would read 30 + 29, not 30.
+rails(`WorkflowTransition.where(project_id: ${P}, tracker_id: ${BUG}, role_id: ${FULL}).limit(1).delete_all`);
 await t.go('/workflows');
 const cell = rails(`puts WorkflowTransition.where(project_id: nil, tracker_id: ${BUG}, role_id: ${FULL}).count`);
-assert(t, (await t.page.locator('#content table').textContent()).includes(String(cell)), `the summary shows the generic count (${cell}) for Bug x E2E full`);
+const heads = await t.page.locator('#content table thead th, #content table thead td').allTextContents();
+const col = heads.findIndex(h => h.trim() === 'E2E full');
+const shown = (await t.page.locator('#content table tbody tr').filter({ has: t.page.locator('td.name', { hasText: /^\s*Bug\s*$/ }) })
+  .locator('td').nth(col).textContent()).trim();
+assert(t, col > 0 && shown === String(cell), `the Bug x E2E full cell shows the generic count only (${shown}, generic ${cell})`);
+projectRules = ruleCount({ project: P, tracker: BUG, role: FULL });
 await t.shot('summary', "Admin: Redmine's own workflow summary counts the generic workflow only");
 
 // Generic matrix: column action "No" on Resolved, save.
@@ -73,14 +91,13 @@ assert(t, devGeneric === ruleCount({ tracker: BUG, role: FULL }), `core's copy w
 assert(t, ruleCount({ project: P, tracker: BUG, role: FULL }) === projectRules && ruleCount({ project: P, tracker: FEATURE, role: DEV }) === 0,
   'and wrote nothing for any project');
 await t.shot('core-copy', "Admin: core's workflow copy, generic only");
-// Put Developer's Feature workflow back from Manager's.
-rails(`WorkflowRule.where(project_id: nil, tracker_id: ${FEATURE}, role_id: ${DEV}).delete_all
-  WorkflowRule.where(project_id: nil, tracker_id: ${FEATURE}, role_id: Role.find_by!(name: 'Manager').id).each { |w| w.class.create!(w.attributes.except('id').merge('role_id' => ${DEV})) }`);
 
 // Not for anybody else.
 await t.login('manager');
 await t.go('/workflows/edit', { status: 403 });
 await t.shot('manager-403', "Manager: Redmine's own workflow administration answers 403");
-restore();
+} finally {
+  restore();
+}
 
 await t.done();

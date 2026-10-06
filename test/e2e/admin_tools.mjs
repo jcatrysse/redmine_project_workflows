@@ -9,7 +9,7 @@ import { reset, rails, scopes, acceptDialogs, assert, forge } from './support.mj
 const ids = reset();
 const P = ids.project, BUG = ids.trackers.Bug, FULL = ids.roles['E2E full'];
 rails(`Role.where(name: 'E2E copied role').destroy_all; Tracker.where(name: 'E2E copied tracker').destroy_all
-       IssueStatus.where(name: 'E2E doomed').each { |s| WorkflowRule.where(old_status_id: s.id).or(WorkflowRule.where(new_status_id: s.id)).delete_all; s.destroy }`);
+       IssueStatus.where(name: 'E2E doomed').each(&:destroy)`);
 const t = await e2e('admin_tools');
 await t.login('admin');
 acceptDialogs(t.page);
@@ -54,7 +54,8 @@ const sst = await forge(t, 'POST', '/settings/plugin/redmine_project_workflows',
 assert(t, [200, 302].includes(sst), `a forged non-number setting is accepted by core's settings action (HTTP ${sst})`);
 await t.go(`/project_workflow_rules/edit?tracker_id[]=${BUG}&role_id[]=${FULL}&project_id[]=${P}`);
 const thr = await t.page.locator('span.project-workflow-bulk').first().getAttribute('data-project-workflow-threshold');
-assert(t, /^\d+$/.test(thr), `a non-number setting falls back to a number on the matrix (threshold "${thr}")`);
+assert(t, rails(`puts Setting.plugin_redmine_project_workflows['bulk_confirm_threshold']`) === 'abc', 'the forged "abc" was stored as sent');
+assert(t, thr === '50', `and the matrix falls back to the default threshold (got "${thr}")`);
 await t.shot('settings-invalid-fallback', `Admin: after saving "abc" as threshold the matrix still works (threshold ${thr})`);
 rails(`Setting.plugin_redmine_project_workflows = Redmine::Plugin.find(:redmine_project_workflows).settings[:default]`);
 
@@ -93,6 +94,7 @@ await t.shot('tracker-copied', 'Admin: tracker copied with "Copy workflow from" 
 // is given an own workflow whose only rule names the doomed status.
 const FEATURE = ids.trackers.Feature;
 await forge(t, 'POST', `/projects/e2e-project/workflow/scope?tracker_id=${FEATURE}&role_id=${FULL}&rule_type=transitions&source=empty`);
+// Fixture written directly: a rule naming a status that is about to be deleted.
 const doomed = rails(`s = IssueStatus.create!(name: 'E2E doomed'); WorkflowTransition.create!(project_id: ${P}, tracker_id: ${FEATURE}, role_id: ${FULL}, old_status_id: ${ids.statuses.New}, new_status_id: s.id); puts s.id`);
 await t.go('/issue_statuses');
 const row = t.page.locator('tr', { hasText: 'E2E doomed' });

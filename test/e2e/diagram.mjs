@@ -21,6 +21,7 @@ await t.shot('dense-folded', 'Manager: the generic workflow permits nearly every
 // author-only Resolved -> In Progress, Rejected unreachable.
 const S = ids.statuses;
 await forge(t, 'POST', `/projects/e2e-project/workflow/scope?tracker_id=${BUG}&role_id=${FULL}&rule_type=transitions&source=empty`);
+// Fixture written directly (not a workflow write under test), so the drawing has a known shape.
 rails(`[[${S.New}, ${S['In Progress']}, false, false], [${S['In Progress']}, ${S.Resolved}, false, false], [${S.Resolved}, ${S.Closed}, false, false], [${S.Resolved}, ${S['In Progress']}, true, false]].each do |o, n, a, b|
   WorkflowTransition.create!(project_id: ${ids.project}, tracker_id: ${BUG}, role_id: ${FULL}, old_status_id: o, new_status_id: n, author: a, assignee: b)
 end`);
@@ -28,9 +29,10 @@ await t.go(url);
 assert(t, await t.page.locator('details.project-workflow-graph-disclosure').count() === 0, 'a workflow with a path is drawn straight away');
 const labels = await t.page.locator('#content svg text').allTextContents();
 assert(t, ['New', 'In Progress', 'Resolved', 'Closed'].every(n => labels.some(l => l.includes(n))), `the drawing labels the statuses (${labels.slice(0, 8).join(', ')})`);
-const words = await t.page.locator('#content').textContent();
-assert(t, /Rejected/.test(words) && /cannot be reached|Nothing leads out/i.test(words), 'and says in words what is unreachable or a dead end');
-await t.shot('manager', 'Manager: own workflow drawn as a diagram, dashed author-only arrow, Rejected listed as unreachable');
+const diag = t.page.locator('ul.project-workflow-graph-diagnostics li');
+assert(t, (await diag.filter({ hasText: 'Nothing leads out of these' }).textContent()).includes('Closed'), 'it lists Closed as a status nothing leads out of');
+assert(t, (await diag.filter({ hasText: 'Not used by the selected roles' }).textContent()).includes('Rejected'), 'and Rejected as not used by the selected roles');
+await t.shot('manager', 'Manager: own workflow drawn as a diagram with a dashed author-only arrow; Closed a dead end, Feedback and Rejected unused');
 
 // Above the arrow ceiling the picture is not drawn, the table stays.
 rails(`Setting.plugin_redmine_project_workflows = Setting.plugin_redmine_project_workflows.merge('graph_edge_ceiling' => '3')`);
@@ -41,17 +43,19 @@ assert(t, await t.page.locator('#content svg text').count() === 0, 'and draws no
 await t.shot('over-ceiling', 'Manager: with graph_edge_ceiling = 3 the 5-arrow workflow is not drawn; the table remains');
 
 // Switched off: the screen is gone, and so is the link to it.
+await t.go('/projects/e2e-project/settings/project_workflows');
+assert(t, await t.page.locator('a.project-workflow-graph-link').count() > 0, 'while the diagram is on, the settings tab links to it');
 rails(`Setting.plugin_redmine_project_workflows = Setting.plugin_redmine_project_workflows.merge('graph_edge_ceiling' => '2000', 'graph_enabled' => '0')`);
 await t.go(url, { status: 404 });
 await t.shot('disabled-404', 'Manager: with the diagram switched off in the plugin settings, the page answers 404');
 await t.go('/projects/e2e-project/settings/project_workflows');
-assert(t, await t.page.getByText('Workflow diagram').count() === 0, 'and the settings tab no longer offers it');
+assert(t, await t.page.locator('a.project-workflow-graph-link').count() === 0, 'and the settings tab no longer offers it');
 rails(`Setting.plugin_redmine_project_workflows = Setting.plugin_redmine_project_workflows.merge('graph_enabled' => '1')`);
 
 // Invalid input: a role this project does not offer, a tracker that does not exist.
 await t.go(`/projects/e2e-project/workflow/graph?tracker_id=${BUG}&role_id[]=${ids.roles.Developer}`, { status: 404 });
 await t.go(`/projects/e2e-project/workflow/graph?tracker_id=999999&role_id[]=${FULL}`, { status: 404 });
-await t.shot('bad-role-404', 'Manager: a tracker id that names nothing answers 404');
+await t.shot('bad-tracker-404', 'Manager: a tracker id that names nothing answers 404');
 
 // Viewer: may read the diagram (view permission), for their own role too.
 await t.login('viewer');

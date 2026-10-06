@@ -77,7 +77,7 @@ await t.go(`/projects/e2e-project/workflow/transitions?tracker_id=${BUG}&role_id
 await t.go(`/projects/e2e-project/workflow/compare?${sel}&rule_type=bogus`, { status: 404 });
 const before = ruleCount({ project: P, tracker: BUG, role: FULL });
 const status = await forge(t, 'PATCH', `/projects/e2e-project/workflow/transitions`,
-  { tracker_id: `${BUG}`, role_id: `${ids.roles.Developer}`, 'transitions[1][2][always]': '1' });
+  { tracker_id: `${BUG}`, role_id: `${ids.roles.Developer}`, [`transitions[${ids.statuses.New}][${ids.statuses['In Progress']}][always]`]: '1' });
 assert(t, status === 404, `a save for a role nobody holds in the project answers 404 (got ${status})`);
 const bad = await forge(t, 'PATCH', `/projects/e2e-project/workflow/transitions`,
   { tracker_id: `${BUG}`, role_id: `${FULL}`, 'transitions[999999][1][always]': '1' });
@@ -85,8 +85,9 @@ assert(t, ruleCount({ project: P, tracker: BUG, role: FULL }) === before &&
   rails(`puts WorkflowTransition.where(project_id: ${P}, old_status_id: 999999).count`) === 0,
   `a save naming a status that does not exist changes nothing (HTTP ${bad}, ${before} rules before and after)`);
 await t.go(`/projects/e2e-project/workflow/transitions?${sel}`);
-const flash = await t.page.locator('#flash_warning, #flash_error, #flash_notice').first().textContent().catch(() => '');
-assert(t, !/Successful update/i.test(flash), `and the screen does not claim success: "${flash.trim()}"`);
+const flash = (await t.page.locator('#flash_warning, #flash_error').allTextContents()).join(' ');
+assert(t, /not accepted/.test(flash), `and the screen says the value was not accepted: "${flash.trim()}"`);
+assert(t, await t.page.locator('#flash_notice').count() === 0, 'and does not claim success');
 await t.shot('invalid-status-refused', 'Manager: after a forged save naming a status that does not exist, the screen says what happened and the matrix is unchanged');
 
 // Viewer: read-only, even for an own workflow; a forged save is refused.

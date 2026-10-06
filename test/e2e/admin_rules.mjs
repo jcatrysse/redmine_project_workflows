@@ -18,7 +18,7 @@ let dialogs = acceptDialogs(t.page);
 await t.go('/admin');
 assert(t, await t.page.locator('#admin-menu a[href="/project_workflow_rules"], a.project-workflow-rules[href="/project_workflow_rules"], #main-menu a[href="/project_workflow_rules"], #sidebar a[href="/project_workflow_rules"], #content a[href="/project_workflow_rules"]').count() >= 1,
   'Administration lists "Project workflows"');
-await t.shot('admin-menu', 'Admin: "Project workflows" in the administration menu, with the core workflows icon');
+await t.shot('admin-menu', 'Admin: "Project workflows" in the administration menu');
 await t.go('/workflows/edit');
 assert(t, await t.page.locator('div.contextual a[href="/project_workflow_rules"]').count() === 1, "Redmine's own Workflow screen links across to Project workflows");
 
@@ -29,7 +29,7 @@ await t.shot('summary', 'Admin: Project workflows summary (generic), counts per 
 
 // Transitions matrix over two projects: both inherit, so Save writes nothing for them.
 await t.go(`/project_workflow_rules/edit?${two}`);
-assert(t, /2/.test(await t.page.locator('.project-workflow-scope').textContent()), 'the scope panel speaks about the two selected workflows');
+assert(t, /stands for 2 workflow/.test(await t.page.locator('#content').textContent()), 'the matrix says one cell stands for the 2 selected workflows');
 await t.shot('matrix-two-inheriting', 'Admin: transitions matrix over e2e-project and e2e-private, both follow the generic workflow');
 
 // Give both their own workflow (copy) from the scope panel.
@@ -73,7 +73,7 @@ await t.shot('permissions-two', 'Admin: field permissions matrix over the two pr
 await t.go(`/project_workflow_rules/edit?${two}`);
 await Promise.all([t.page.waitForLoadState('load'), t.page.locator('.project-workflow-scope a', { hasText: 'Empty' }).first().click()]);
 await t.settle();
-assert(t, ruleCount({ project: P, tracker: BUG, role: FULL }) === 0 && scopes(P).length === 1, 'Empty removes the rules and keeps both decisions');
+assert(t, [P, Q].every(id => ruleCount({ project: id, tracker: BUG, role: FULL }) === 0 && scopes(id).length === 1), 'Empty removes the rules of both projects and keeps both decisions');
 await t.shot('matrix-two-empty', 'Admin: both projects own EMPTY workflows');
 await Promise.all([t.page.waitForLoadState('load'), t.page.locator('.project-workflow-scope a', { hasText: 'Return to the generic workflow' }).first().click()]);
 await t.settle();
@@ -86,7 +86,7 @@ await Promise.all([t.page.waitForLoadState('load'), t.page.locator('.project-wor
 await t.settle();
 assert(t, scopes(P).length === 0 && scopes(Q).length === 0, 'above the write ceiling nothing is written');
 assert(t, await t.page.locator('#flash_error').count() === 1, 'and the refusal is shown');
-await t.shot('ceiling-refused', 'Admin: with bulk_write_ceiling = 5, giving two projects a copy of 30 rules each is refused before anything is written');
+await t.shot('ceiling-refused', 'Admin: with bulk_write_ceiling = 5, giving two projects a copy of the generic rules is refused before anything is written');
 rails(`Setting.plugin_redmine_project_workflows = Setting.plugin_redmine_project_workflows.merge('bulk_write_ceiling' => '200000')`);
 
 // Bad selections answer 404 and write nothing.
@@ -95,7 +95,7 @@ for (const [what, q] of [['a tracker that names nothing', `tracker_id[]=999999&r
   ['a role that names nothing', `tracker_id[]=${BUG}&role_id[]=999999`],
   ['a project that names nothing', `tracker_id[]=${BUG}&role_id[]=${FULL}&project_id[]=999999`]]) {
   await t.go(`/project_workflow_rules/edit?${q}`, { status: 404 });
-  assert(t, true, `404 for ${what}`);
+  // t.go records a problem unless the answer is 404 (${what}).
 }
 await t.shot('bad-selection-404', 'Admin: a selection naming a tracker that does not exist answers 404');
 const forged = await forge(t, 'PATCH', '/project_workflow_rules/update',

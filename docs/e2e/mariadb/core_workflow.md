@@ -1,6 +1,6 @@
 # core_workflow
 
-Run 2026-10-06T20:26:55.139Z against http://127.0.0.1:3000.
+Run 2026-10-06T21:10:51.938Z against http://127.0.0.1:3000.
 
 | screenshot | user | URL | shows |
 |---|---|---|---|

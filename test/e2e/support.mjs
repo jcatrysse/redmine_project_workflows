@@ -20,12 +20,20 @@ export function rails(code) {
   try { return JSON.parse(last); } catch { return last; }
 }
 
-// No project has a workflow of its own, the settings are the defaults, and the
-// ids the scenarios need, by name.
+// No project has a workflow of its own, the E2E roles' generic workflows and
+// the settings are as seeded, and the ids the scenarios need, by name.
 export function reset() {
   return rails(`
     ProjectWorkflowScope.delete_all
     WorkflowRule.where.not(project_id: nil).delete_all
+    # The generic workflows of the two E2E roles, as test/e2e/seed.rb made them,
+    # in case a scenario that changes the generic workflow stopped half way.
+    template = Role.find_by(name: 'Manager')
+    Role.where(name: ['E2E full', 'E2E workflow viewer']).each do |role|
+      WorkflowRule.where(project_id: nil, role_id: role.id).delete_all
+      role.copy_workflow_rules(template) if template
+    end
+    Setting.webhooks_enabled = '0'
     Setting.plugin_redmine_project_workflows = Redmine::Plugin.find(:redmine_project_workflows).settings[:default]
     p = Project.find_by!(identifier: 'e2e-project')
     q = Project.find_by!(identifier: 'e2e-private')

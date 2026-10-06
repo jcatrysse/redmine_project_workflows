@@ -8,8 +8,9 @@
 # Adds what the generic seed cannot know about this plugin:
 #   viewer   member of e2e-project with "E2E workflow viewer": may read the
 #            project's workflow (view_project_workflow_rules), not change it
-#   a generic workflow for the "E2E full" role (a copy of core's Manager), so
-#   the manager can move issues before any project decides anything
+#   a generic workflow for the "E2E full" and "E2E workflow viewer" roles (a
+#   copy of core's Manager), so both can move issues before any project decides
+#   anything
 #
 # Then it puts the plugin in its starting state: no project has a workflow of
 # its own. Idempotent; test/e2e/support.mjs calls the same reset between scenarios.

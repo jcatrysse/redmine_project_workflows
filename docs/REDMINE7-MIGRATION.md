@@ -99,10 +99,10 @@ Recorded, not fixed (outside the migration).
 | `dev/check-upgrade.sh` (four data shapes, downgrade, up) | OK | OK |
 | `dev/check-uninstall.sh` (refusal, backup, all down, reinstall, restore, second restore) | OK | OK |
 | `dev/check-release-upgrade.sh origin/main` (0.0.3 code, then this branch) | OK | OK |
+| CI run 213 on `e4c4dc9` (the Gemfile fix): 5.1, 6.1, 7.0 x PostgreSQL, MySQL, MariaDB, lint, JS | green | |
 | Boot + production eager load (`start_server.sh`, production) | OK | OK |
-| e2e: smoke (26 pages) + core flows (6) + 9 plugin scenarios | **11 runs, 103 screenshots, 141 assertions, 0 problems** | **identical: 103 screenshots, 141 assertions, 0 problems** |
+| e2e: smoke (26 pages) + core flows (6) + 9 plugin scenarios (`support.mjs` is a helper, also started by `e2e.sh`, does nothing) | **103 screenshots, 141 assertions, 0 problems** (after the review fixes) | **103 screenshots, 141 assertions, 0 problems** |
 | RuboCop (`.github/lint`) | 162 files, no offenses | |
-| CI (`specs.yml`: 5.1, 6.1, 7.0 x PostgreSQL, MySQL, MariaDB, lint, JS) | run 209 on `fe3477d` green; later runs: see the Actions tab | |
 
 Screenshots: `docs/e2e/` (PostgreSQL, with one `<scenario>.md` table each) and `docs/e2e/mariadb/`.
 Before pictures on 5.1 were not made: nothing in behaviour or layout changed in this session (the
@@ -196,6 +196,26 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
 - **T1 (tooling, not fixed)** `dev/setup.sh` and `dev/sync.sh` resolve a relative target directory
   after `cd`-ing into it; pass an absolute path.
 
+## Reviews
+
+- **Own review, adversarial, in a fresh subagent** (diff `cdb32dd..HEAD`). No blocker, no invariant
+  hit in production code. Accepted and fixed in the commit after `78a75ec`:
+  the Gemfile comment quoted the new line where it meant the old one (a find-and-replace slip);
+  docs and the spec overclaimed "either order" (a *later* pinned neighbour still fails; now said in
+  the Gemfile, README, operations.md, DECISIONS and asserted as a refusal in the spec); the Gemfile
+  now says the guard takes an earlier declaration as is; CHANGELOG and implementation-plan updated.
+  E2E: the "abc falls back to 50" check was vacuous (now asserts the stored "abc" and threshold 50);
+  the selection-size, Empty-both-projects, invalid-status flash, diagram dead-end/unused lists (the
+  old caption wrongly called Rejected "unreachable"), diagram link positive control and
+  core-summary cell (now one project rule fewer, exact cell compared) are now real checks; four
+  `assert(true)` removed; `core_workflow` restores the generic rows it touched from a snapshot in
+  `finally` (it used to copy Manager's rules over Developer's); `reset()` re-seeds the E2E roles'
+  generic workflows and switches webhooks off; fixture writes that bypass the writers are commented;
+  captions corrected. Not changed: Bundler's "listed more than once" warning (now silenced in the
+  spec), a deface version check in `init.rb` (left as open question 2).
+- **OpenAI review** (`./.codex/openai_review.sh`, gpt-5, `4e3f6d2..e713b5b`, 19 files):
+  **no findings**. `docs/reviews/openai-2026-10-06-e713b5b.md`; second run on the final head below.
+
 ## Open questions for Jan
 
 1. **CI triggers.** `.github/workflows/specs.yml` (from claude/dev) runs on every push and pull
@@ -205,8 +225,10 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
    - B) make it `workflow_dispatch` only, like the other GEOxyz plugins.
    - Recommendation: A for this plugin, it is the only automated 5.1/6.1/7.0 x 3-database check it has.
 2. **deface version cap.** C1 removes the `~> 1.9` cap; a fresh install could resolve a future deface
-   2.x. A) accept (Gemfile.lock and CI catch it), B) ask redmine_view_issue_description to declare the
-   same `~> 1.9` and pin both identically. Recommendation: A now; B only if deface 2 ever appears.
+   2.x. Note the limit of the fix: a plugin evaluated *after* this one that declares deface with a
+   requirement still stops the bundle (the spec asserts that). A) accept (Gemfile.lock and CI catch a
+   deface 2); B) agree one rule for every GEOxyz plugin: declare `gem 'deface'` plainly, or guarded
+   like this one. Recommendation: A now, and B as a convention when a GEOxyz plugin touches its Gemfile.
 3. **C2, ITIL fields in workflow field permissions.** A) build the proposed fix in a follow-up (also
    makes the plugin compose with any neighbour that extends this screen); B) leave it, ITIL field
    rules are then edited elsewhere or not at all. Recommendation: A, as its own change with tests,

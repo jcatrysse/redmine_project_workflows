@@ -54,7 +54,7 @@ cover.
   changed — see [Compatibility](docs/compatibility.md).
 - The only dependency is `deface` (tested on 1.9), which most Redmine
   installations already have. It is declared without a version requirement so
-  that it bundles beside other plugins that declare it too.
+  that it bundles beside other plugins that declare it plainly.
 
 ## Installing
 

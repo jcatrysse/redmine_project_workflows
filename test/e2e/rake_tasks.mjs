@@ -73,6 +73,7 @@ r = rake('redmine_project_workflows:restore', { FILE: junk });
 assert(t, r.status !== 0 && rails(`puts WorkflowRule.where(project_id: ${P}).count`) === rulesBefore, 'restoring a file that is not a backup fails and changes nothing');
 
 // deduplicate: an exact duplicate row is removed, nothing else.
+// A duplicate row on purpose: the writers refuse to create one, which is the point.
 rails(`w = WorkflowTransition.where(project_id: ${P}, tracker_id: ${BUG}).first
   WorkflowTransition.insert_all!([w.attributes.except('id')])`);
 assert(t, rails(`puts WorkflowRule.where(project_id: ${P}).count`) === rulesBefore + 1, 'a duplicate row exists');

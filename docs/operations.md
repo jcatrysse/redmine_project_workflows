@@ -24,10 +24,11 @@ environment it is given and defaults to **development**, so leaving it off
 migrates the wrong database and reports success.
 
 The only runtime dependency is `deface`, tested on 1.9. It is declared without a
-version requirement, and not at all when a plugin loaded earlier already declared
-it: Bundler refuses the same gem named twice with different requirements, so a
+version requirement, and not at all when something evaluated earlier
+(`Gemfile.local` or an earlier plugin) already declared it: Bundler refuses the same gem named twice with different requirements, so a
 constraint here stopped `bundle install` on any host with another plugin that
-says plain `gem 'deface'`. Your Redmine owns `Gemfile.lock`; on a host that
+says plain `gem 'deface'`. A plugin evaluated after this one that declares deface
+*with* a requirement still stops the bundle; it has to declare it plainly. Your Redmine owns `Gemfile.lock`; on a host that
 already resolved `deface`, nothing changes.
 
 ## What the migrations do

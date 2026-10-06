@@ -14,6 +14,7 @@ acceptDialogs(t.page);
 
 // Source: e2e-project gets an own workflow for Bug x E2E full with one rule.
 await forge(t, 'POST', `/projects/e2e-project/workflow/scope?tracker_id=${BUG}&role_id=${FULL}&rule_type=transitions&source=empty`);
+// Fixture written directly: the one rule the copy is expected to carry.
 rails(`WorkflowTransition.create!(project_id: ${P}, tracker_id: ${BUG}, role_id: ${FULL}, old_status_id: ${ids.statuses.New}, new_status_id: ${ids.statuses.Resolved})`);
 
 // Copy screen: from e2e-project Bug x E2E full to e2e-private Feature x E2E full.

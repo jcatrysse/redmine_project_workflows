@@ -518,9 +518,11 @@ describe RedmineProjectWorkflows do
   # `gem 'deface', '~> 1.9'` here and redmine_view_issue_description's plain
   # `gem 'deface'` after it, `bundle install` stops and Redmine does not boot
   # (finding C1 of docs/REDMINE7-MIGRATION.md, measured on 7.0-stable-GEOxyz).
-  # So the declaration is plain, and skipped when a plugin loaded earlier has
-  # already declared deface with whatever requirement it chose.
-  it 'declares deface so that a neighbour declaring it too still bundles, in either order' do
+  # So the declaration is plain, and skipped when something evaluated earlier
+  # has already declared deface with whatever requirement it chose. A *later*
+  # declaration with a requirement still makes Bundler refuse the Gemfile;
+  # that limit is asserted too, so it stays visible rather than assumed away.
+  it 'declares deface so that a plain neighbour bundles in either order, and an earlier pinned one before it' do
     ours = File.expand_path('../Gemfile', __dir__)
     Dir.mktmpdir do |dir|
       plain = File.join(dir, 'plain.gemfile')
@@ -530,17 +532,20 @@ describe RedmineProjectWorkflows do
 
       [[ours, plain], [plain, ours], [pinned, ours]].each do |order|
         dsl = Bundler::Dsl.new
-        expect { order.each { |file| dsl.eval_gemfile(file) } }
+        expect { Bundler.ui.silence { order.each { |file| dsl.eval_gemfile(file) } } }
           .not_to raise_error, "Bundler refused #{order.map { |f| File.basename(f) }.join(' then ')}"
         requirements = dsl.dependencies.select { |dep| dep.name == 'deface' }.map { |dep| dep.requirement.to_s }.uniq
         expect(requirements.size).to eq(1)
       end
+
+      dsl = Bundler::Dsl.new
+      expect { Bundler.ui.silence { [ours, pinned].each { |file| dsl.eval_gemfile(file) } } }
+        .to raise_error(Bundler::GemfileError)
     end
   end
 
-  # What the Gemfile no longer says, the suite still checks: every CI cell runs
-  # the deface major the five overrides were written against, and
-  # spec/integration/deface_overrides_spec.rb asserts each of them matches.
+  # A check of the CI environment rather than of the plugin: every cell runs the
+  # deface major the five overrides were written against.
   it 'runs on the deface major the overrides are tested against' do
     expect(Gem::Requirement.new('~> 1.9').satisfied_by?(Gem.loaded_specs['deface'].version)).to be(true)
   end

@@ -6,6 +6,12 @@ The workflow as a drawing.
 
 ### Fixed
 
+- **`deface` is declared without a version requirement again** (`gem 'deface'`,
+  skipped when something evaluated earlier already declared it). The `~> 1.9`
+  below made Bundler refuse the whole Gemfile on any Redmine with another plugin
+  that declares plain `gem 'deface'` — redmine_view_issue_description does — so
+  Redmine did not start. Run `bundle install` after upgrading.
+
 - **An interrupted restore can be recovered by running the same command again.**
   `redmine_project_workflows:restore` used to create every project's decision
   first and write the rules afterwards, so a restore that stopped halfway — a
