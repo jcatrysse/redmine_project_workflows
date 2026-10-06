@@ -1,0 +1,20 @@
+<%#
+  The two matrices, as core's own tabs. Locals: selected -- :transitions or
+  :permissions. The selection travels between them, which is what makes them
+  tabs rather than two links: switching matrix keeps the workflow, the trackers
+  and the roles you were looking at.
+%>
+<% selection = { role_id: @roles, tracker_id: @trackers,
+                 project_id: project_workflow_selection_values } %>
+<div class="tabs">
+  <ul>
+    <li>
+      <%= link_to l(:label_status_transitions), edit_project_workflow_rules_path(selection),
+                  class: (selected == :transitions ? 'selected' : nil) %>
+    </li>
+    <li>
+      <%= link_to l(:label_fields_permissions), permissions_project_workflow_rules_path(selection),
+                  class: (selected == :permissions ? 'selected' : nil) %>
+    </li>
+  </ul>
+</div>

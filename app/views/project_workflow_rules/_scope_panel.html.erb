@@ -1,0 +1,72 @@
+<%#
+  The three actions of INV-3, above the matrix.
+
+  The panel itself renders only when the selection contains at least one real
+  project: the generic workflow has no scope, so a selection of it alone -- which
+  is what these screens open on -- shows no scope at all.
+
+  The state is a text label first; colour only supports it, and "own empty
+  workflow" is a deliberate configuration, not an error.
+%>
+<%# What a cell of this matrix stands for, above everything else: it applies to
+    a selection of several trackers or roles as well, not only to one that named
+    a project, so it sits outside the panel's own condition. %>
+<%= render partial: 'project_workflow_rules/matrix_note', locals: { rule_type: rule_type } %>
+
+<% state = @project_workflow_scope_state %>
+<% if state && state.any? %>
+  <%# 'all' stays 'all': expanding it would put every project id in the link. %>
+  <% selected_project_values = @all_selected ? ['all'] : Array(@selected_projects).map { |project| project.id.to_s } %>
+  <% selection = { project_id: selected_project_values,
+                   tracker_id: @trackers.map(&:id),
+                   role_id: @roles.map(&:id),
+                   rule_type: rule_type,
+                   used_statuses_only: params[:used_statuses_only] } %>
+  <div class="box project-workflow-scope">
+    <p>
+      <strong><%= l(:label_project_workflow_scope) %>:</strong>
+      <%= project_workflow_scope_state_tag(state) %>
+    </p>
+    <%# Separated by a pipe, like every other run of adjacent links in this
+        plugin. A mixed selection can offer all four of these at once, and with
+        only a space between them they render as one sentence -- the same defect
+        _scope_actions.html.erb argues about and the settings tab was fixed for
+        (finding F01 of 2026-08-29-claude-browser, found on this screen too). %>
+    <% actions = [] %>
+    <% if state.enable_possible? %>
+      <% actions << link_to(l(:button_project_workflow_enable_copy),
+                            project_workflow_scopes_path(selection.merge(source: 'copy')),
+                            method: :post,
+                            data: { confirm: l(:text_project_workflow_enable_copy_confirm,
+                                               count: state.inheriting) }) %>
+      <% actions << link_to(l(:button_project_workflow_enable_empty),
+                            project_workflow_scopes_path(selection.merge(source: 'empty')),
+                            method: :post,
+                            data: { confirm: l(:text_project_workflow_enable_empty_confirm,
+                                               count: state.inheriting) }) %>
+    <% end %>
+    <% if state.scoped? %>
+      <% actions << link_to(l(:button_project_workflow_clear),
+                            clear_project_workflow_scopes_path(selection),
+                            method: :post,
+                            data: { confirm: l(:text_project_workflow_clear_confirm) }) %>
+      <% actions << link_to(l(:button_project_workflow_inherit),
+                            project_workflow_scopes_path(selection),
+                            method: :delete,
+                            data: { confirm: l(:text_project_workflow_inherit_confirm) }) %>
+    <% end %>
+    <p class="project-workflow-scope-actions"><%= safe_join(actions, ' | ') %></p>
+    <%# The grid below shows what the selection *stores*, so a combination that
+        inherits renders as an empty matrix -- which looks exactly like "nothing
+        is permitted here" and is the opposite of the truth. Saying so is what
+        makes the empty grid readable, and the sentence also states that Save
+        will not change such a combination: taking a workflow over is one of the
+        three actions above, never a side effect of pressing Save (INV-3). %>
+    <% if state.inheriting.positive? %>
+      <p class="project-workflow-scope-inheriting">
+        <em><%= l(:text_project_workflow_scope_inheriting_note, count: state.inheriting) %></em>
+      </p>
+    <% end %>
+    <p class="project-workflow-scope-help"><em><%= l(:text_project_workflow_scope_help) %></em></p>
+  </div>
+<% end %>

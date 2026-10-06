@@ -2,3 +2,195 @@ fr:
   label_project_workflows_global: Générique
   error_workflow_copy_source_project: Veuillez sélectionner un tracker, un rôle et un projet source.
   error_workflow_copy_target: Veuillez sélectionner des trackers, rôles et projets cibles.
+  error_workflow_copy_target_project: Un ou plusieurs des projets cibles sélectionnés n'existent pas.
+  error_workflow_copy_target_tracker_or_role: Un ou plusieurs des trackers ou rôles cibles sélectionnés n'existent pas.
+  label_project_workflow_scope: Workflow pour les projets sélectionnés
+  label_project_workflow_state_inherits: "Suit le workflow générique"
+  label_project_workflow_state_own: Workflow propre
+  label_project_workflow_state_own_empty: Workflow propre vide
+  label_project_workflow_count_own:
+    one: "%{count} workflow propre"
+    other: "%{count} workflows propres"
+  label_project_workflow_count_own_empty:
+    one: "%{count} workflow propre vide"
+    other: "%{count} workflows propres vides"
+  label_project_workflow_count_inherits:
+    one: "%{count} suit le workflow générique"
+    other: "%{count} suivent le workflow générique"
+  button_project_workflow_enable_copy: Donner un workflow propre (copie du générique)
+  button_project_workflow_enable_empty: Donner un workflow propre vide
+  button_project_workflow_clear: Vider ce workflow
+  button_project_workflow_inherit: Revenir au workflow générique
+  text_project_workflow_scope_help: Un workflow propre remplace le workflow générique ; il ne s'y ajoute jamais. Un workflow propre vide n'autorise rien.
+  text_project_workflow_enable_copy_confirm: Donner à ce projet son propre workflow, en partant d'une copie du générique ? Cela concerne %{count} combinaison(s) de projet, tracker et rôle.
+  text_project_workflow_enable_empty_confirm: Donner à ce projet son propre workflow, vide ? Rien ne sera autorisé tant que vous n'aurez pas ajouté de règles. Cela concerne %{count} combinaison(s) de projet, tracker et rôle.
+  text_project_workflow_clear_confirm: Supprimer toutes les règles de ce workflow ? Le projet conserve son propre workflow, mais celui-ci n'autorisera rien.
+  text_project_workflow_inherit_confirm: Revenir au workflow générique ? Les règles propres du projet sont supprimées.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} workflow copié depuis le générique."
+    other: "%{count} workflows copiés depuis le générique."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} workflow propre vide créé."
+    other: "%{count} workflows propres vides créés."
+  notice_project_workflow_inherited:
+    one: "%{count} workflow revenu au générique."
+    other: "%{count} workflows revenus au générique."
+  notice_project_workflow_emptied:
+    one: "%{count} workflow vidé."
+    other: "%{count} workflows vidés."
+  notice_project_workflow_scope_unchanged: Rien n'avait à être modifié.
+  label_project_workflow_inventory: Inventaire des workflows
+  label_project_workflow_rule_type: Type de règle
+  label_project_workflow_inventory_deviations_only: Uniquement les projets ayant leur propre workflow
+  text_project_workflow_inventory_description: "Une ligne par projet, tracker et rôle. Le nombre indique combien de règles le projet possède lui-même ; le libellé indique si ce sont ces règles qui s'appliquent, ou le workflow général."
+  text_project_workflow_inventory_empty: Aucun projet n'a son propre workflow pour cette sélection.
+  text_project_workflow_inventory_empty_filtered: Aucune combinaison de projet, tracker et rôle ne correspond à cette sélection.
+  button_project_workflow_inventory_show_all: Afficher tous les projets, trackers et rôles
+  button_project_workflow_inventory_open_matrices: Ouvrir les matrices de workflow
+  error_project_workflow_inventory_filter: Une ou plusieurs valeurs de filtre n'existent plus et ont été ignorées.
+  permission_view_project_workflow_rules: Consulter le workflow du projet
+  permission_manage_project_workflow_rules: Gérer le workflow du projet
+  label_project_workflow_project_scope: Workflow de ce projet
+  label_project_workflow_open_matrix: Ouvrir ce workflow
+  text_project_workflow_tab_description: Une ligne par tracker et rôle dont ce projet peut décider. Le nombre indique combien de règles le projet possède lui-même ; le libellé dit si ce sont ces règles qui s'appliquent ou le workflow générique.
+  text_project_workflow_tab_nothing_to_configure: "Il n'y a encore rien à configurer ici : ce projet n'a aucun tracker activé, ou aucun rôle avec des membres qui participe à un workflow."
+  text_project_workflow_project_enable_copy_confirm: Donner à ce projet son propre workflow pour ce tracker et ce rôle, à partir d'une copie du workflow générique ?
+  text_project_workflow_project_enable_empty_confirm: Donner à ce projet son propre workflow, vide, pour ce tracker et ce rôle ? Rien ne sera autorisé jusqu'à ce que vous ajoutiez des règles.
+  text_project_workflow_readonly_generic: "Ce projet suit le workflow générique pour ce tracker et ce rôle. Il est affiché ci-dessous à titre de référence ; donnez au projet son propre workflow pour le modifier."
+  text_project_workflow_readonly_own: Ceci est le workflow propre au projet. Le modifier demande la permission de gérer le workflow de ce projet.
+  notice_project_workflow_not_own: "Ce projet suit le workflow générique pour ce tracker et ce rôle ; rien n'a donc été enregistré. Donnez d'abord au projet son propre workflow."
+  notice_project_workflow_save_nothing_applied: "Rien n'a été enregistré. Soit aucune cellule n'a été modifiée, soit les valeurs envoyées n'ont pas été acceptées."
+  notice_project_workflow_save_rejected_values:
+    one: "%{count} valeur envoyée n'a pas été acceptée ; la règle qu'elle désigne est restée inchangée."
+    other: "%{count} valeurs envoyées n'ont pas été acceptées ; les règles qu'elles désignent sont restées inchangées."
+  notice_project_workflow_copy_left_empty:
+    one: "%{count} combinaison de projet, tracker et rôle a maintenant son propre workflow vide : la copie n'y a laissé aucune règle de ce type. Rien n'y est permis tant que vous n'ajoutez pas de règles."
+    other: "%{count} combinaisons de projet, tracker et rôle ont maintenant leur propre workflow vide : la copie n'y a laissé aucune règle de ce type. Rien n'y est permis tant que vous n'ajoutez pas de règles."
+  text_project_workflow_scope_inheriting_note:
+    one: "%{count} combinaison de cette sélection suit encore le workflow générique. La matrice ci-dessous n'affiche que les règles que la sélection possède elle-même ; cette combinaison apparaît donc vide, et l'enregistrement ne la modifiera pas — donnez-lui d'abord son propre workflow."
+    other: "%{count} combinaisons de cette sélection suivent encore le workflow générique. La matrice ci-dessous n'affiche que les règles que la sélection possède elle-même ; ces combinaisons apparaissent donc vides, et l'enregistrement ne les modifiera pas — donnez-leur d'abord leur propre workflow."
+  notice_project_workflow_save_skipped_inheriting:
+    one: "%{count} combinaison de projet, tracker et rôle suit encore le workflow générique et n'a pas été modifiée. Donnez-lui d'abord son propre workflow."
+    other: "%{count} combinaisons de projet, tracker et rôle suivent encore le workflow générique et n'ont pas été modifiées. Donnez-leur d'abord leur propre workflow."
+  label_project_workflow_bulk_row: 'Mettre toute la ligne "%{name}" à %{value}'
+  label_project_workflow_bulk_column: 'Mettre toute la colonne "%{name}" à %{value}'
+  text_project_workflow_bulk_confirm: 'Cette action concerne %{count} règle(s) de workflow. Continuer ?'
+  text_project_workflow_bulk_selection: 'Une cellule de cette matrice représente %{count} workflow(s) : %{trackers} tracker(s) × %{roles} rôle(s) × %{scopes} portée(s) de workflow.'
+  text_project_workflow_bulk_legend: '"%{no_change}" signifie que les workflows représentés par une cellule ne disent pas tous la même chose ; à l''enregistrement, chacun reste tel quel.'
+  text_project_workflow_bulk_legend_actions: 'Une action de ligne ou de colonne réglée sur "%{no_change}" remet chaque cellule de cette ligne ou de cette colonne à la valeur avec laquelle la page a été ouverte.'
+  label_project_workflow_bulk_confirm_threshold: 'Demander confirmation lorsqu''une action de ligne ou de colonne modifie plus de'
+  text_project_workflow_bulk_confirm_threshold: 'Nombre de règles de workflow. Une action de ligne ou de colonne qui en modifierait davantage demande d''abord confirmation. 0 demande toujours.'
+  text_project_workflow_save_confirm: 'Enregistrer cette matrice réécrit %{count} règle(s) de workflow. Continuer ?'
+  label_project_workflow_bulk_save_confirm_threshold: 'Demander confirmation lorsque Enregistrer réécrit plus de'
+  text_project_workflow_bulk_save_confirm_threshold: 'Nombre de règles de workflow. L''enregistrement d''une matrice d''administration couvrant plus d''un workflow demande confirmation dès qu''il en réécrirait davantage. L''enregistrement d''un seul workflow ne demande jamais. 0 demande toujours.'
+  label_project_workflow_bulk_write_ceiling: 'Refuser un enregistrement de la matrice qui réécrirait plus de'
+  text_project_workflow_bulk_write_ceiling: 'Nombre de règles de workflow. Un enregistrement de la matrice d''administration plus grand que cela est refusé avant que quoi que ce soit ne soit écrit, afin qu''un seul enregistrement ne bloque pas les tables de workflow pendant des minutes. 0 signifie aucune limite.'
+  error_project_workflow_save_too_large: 'Cet enregistrement réécrirait %{count} règle(s) de workflow, soit plus que la limite de %{ceiling}. Rien n''a été modifié. Sélectionnez moins de projets, de trackers ou de rôles, ou augmentez la limite dans les paramètres du plugin.'
+  label_project_workflow_compare: Comparer avec le workflow générique
+  label_project_workflow_copy_item: Flux de travail du projet
+  label_project_workflow_compare_difference: Différence
+  label_project_workflow_compare_project_only: Uniquement dans ce projet
+  label_project_workflow_compare_generic_only: Uniquement dans le workflow générique
+  label_project_workflow_compare_changed: Différent
+  label_project_workflow_compare_condition: S'applique à
+  label_project_workflow_compare_in_project: Dans ce projet
+  label_project_workflow_compare_in_generic: Dans le workflow générique
+  label_project_workflow_condition_always: Toute personne ayant ce rôle
+  label_project_workflow_condition_author: Également lorsque l'utilisateur est l'auteur
+  label_project_workflow_condition_assignee: Également lorsque l'utilisateur est l'assigné
+  text_project_workflow_compare_description: Le workflow de ce projet remplace le workflow générique pour ce tracker et ce rôle ; ce qui suit constitue donc la totalité de la différence. Rien n'est fusionné et rien du workflow générique ne s'applique encore.
+  text_project_workflow_compare_counts: Ce projet possède %{project} règle(s) propre(s) pour ce tracker et ce rôle ; le workflow générique en possède %{generic}.
+  text_project_workflow_compare_identical: Le workflow propre de ce projet est identique au workflow générique pour ce tracker et ce rôle.
+  text_project_workflow_compare_inherits: "Ce projet suit le workflow générique pour ce tracker et ce rôle : il n'y a donc rien à comparer."
+  button_project_workflow_bulk_undo: Annuler
+  text_project_workflow_bulk_changed: '%{cells} cellule(s) modifiée(s), %{rules} règle(s) de workflow.'
+  text_project_workflow_bulk_undone: 'Annulé : %{cells} cellule(s) rétablie(s).'
+  text_project_workflow_bulk_unsaved: Rien n'a encore été enregistré. Cliquez sur Enregistrer pour appliquer ces modifications.
+  label_project_workflow_comparison: Comparaison des workflows
+  text_project_workflow_compare_unreachable_field: Au moins une différence ci-dessous concerne un champ que ce tracker ne propose plus ; la matrice propre au projet ne peut donc ni l'afficher ni le modifier. Un administrateur système peut supprimer une telle règle depuis l'administration.
+  label_project_workflow_map: Workflow de cette demande
+  label_project_workflow_map_scope: Quel workflow s'applique
+  label_project_workflow_map_from_here: Changements de statut autorisés depuis ici
+  label_project_workflow_map_leads_here: Statuts qui mènent à celui-ci
+  label_project_workflow_map_available: Disponible maintenant
+  text_project_workflow_map_authority: Voici ce que le workflow autorise. La liste des statuts du formulaire reste la référence pour ce que vous pouvez faire à cet instant ; chaque écart entre les deux est expliqué ci-dessous.
+  text_project_workflow_map_no_outgoing: Ce workflow n'autorise aucun changement de statut depuis ici.
+  text_project_workflow_map_no_incoming: Ce workflow n'autorise aucun changement de statut vers celui-ci.
+  text_project_workflow_map_no_roles: Vous n'avez dans ce projet aucun rôle participant à un workflow, donc aucun changement de statut n'est autorisé.
+  text_project_workflow_map_own_empty: Ce projet a son propre workflow pour ce tracker et ce rôle, et celui-ci ne contient aucune règle, donc aucun changement de statut n'est autorisé. C'est une configuration voulue et non une anomalie.
+  text_project_workflow_map_own_empty_some: 'Au moins un de vos rôles dispose ici d''un workflow propre qui ne contient aucune règle ; ce rôle n''autorise donc aucun changement de statut. Un autre de vos rôles peut néanmoins en autoriser. C''est une configuration voulue et non une anomalie.'
+  text_project_workflow_map_requires_author: Seul l'auteur de la demande peut effectuer ce changement.
+  text_project_workflow_map_requires_assignee: Seule la personne assignée peut effectuer ce changement.
+  text_project_workflow_map_requires_author_or_assignee: Seul l'auteur ou la personne assignée peut effectuer ce changement.
+  text_project_workflow_map_unavailable: Pas disponible pour cette demande actuellement.
+  label_project_workflow_map_condition_author: Seulement si l'utilisateur est l'auteur
+  label_project_workflow_map_condition_assignee: Seulement si l'utilisateur est la personne assignée
+  label_project_workflow_map_condition_author_or_assignee: Seulement si l'utilisateur est l'auteur ou la personne assignée
+  label_project_workflow_graph: Diagramme du flux de travail
+  label_project_workflow_graph_roles: Rôles affichés
+  label_project_workflow_graph_diagnostics: Ce qu'il faut regarder
+  label_project_workflow_graph_table: Le même flux de travail sous forme de tableau
+  label_project_workflow_graph_unreachable: Inaccessible depuis une nouvelle demande
+  label_project_workflow_graph_dead_end: Rien n'en sort
+  label_project_workflow_graph_unmentioned: Non utilisé par les rôles sélectionnés
+  label_project_workflow_graph_fallback: 'Repli propre à Redmine'
+  label_project_workflow_graph_show_anyway: 'Afficher quand même le diagramme'
+  text_project_workflow_graph_aria: 'Diagramme de ce flux de travail : %{statuses} statuts et %{transitions} transitions. Les mêmes informations figurent dans le tableau ci-dessous.'
+  text_project_workflow_graph_aria_fallback: 'Une flèche supplémentaire est le repli propre à Redmine et non une transition configurée : c''est là que démarre une nouvelle demande.'
+  text_project_workflow_graph_no_roles: Aucun des rôles sélectionnés ne participe à un flux de travail ; il n'y a donc rien à dessiner.
+  text_project_workflow_graph_empty: Au moins un des rôles sélectionnés dispose ici d'un flux de travail propre qui ne contient aucune règle ; aucun changement de statut ne lui est donc permis. C'est une configuration délibérée et non une anomalie.
+  text_project_workflow_graph_nothing: 'Le flux de travail applicable ici ne contient aucune transition pour les rôles sélectionnés ; le statut d''une demande existante ne peut donc jamais changer.'
+  text_project_workflow_graph_no_diagnostics: Chaque statut de ce flux de travail est accessible depuis une nouvelle demande et possède une sortie.
+  text_project_workflow_graph_dense: 'Ce flux de travail autorise presque tous les changements : presque chaque statut peut devenir presque n''importe quel autre. Il n''y a aucune progression qu''un diagramme puisse montrer ; le tableau ci-dessous en est la forme lisible.'
+  text_project_workflow_graph_legend_solid: Une flèche continue est un changement que peut faire toute personne ayant le rôle.
+  text_project_workflow_graph_legend_dashed: Une flèche en pointillés est un changement que seuls l'auteur ou l'assigné peuvent faire.
+  text_project_workflow_graph_legend_fallback: 'Une flèche pointillée est le repli propre à Redmine et non une règle : aucune règle n''indique avec quel statut une nouvelle demande commence, Redmine la crée donc avec le statut par défaut du tracker.'
+  text_project_workflow_graph_legend_band: Les statuts situés sous la ligne pointillée sont inaccessibles depuis une nouvelle demande.
+  label_project_workflow_diagnostics: 'Diagnostic des workflows de projet'
+  label_project_workflow_diagnostics_compatibility: 'Ce Redmine'
+  label_project_workflow_diagnostics_host: 'Version installée'
+  label_project_workflow_diagnostics_tested: 'Testé avec'
+  label_project_workflow_diagnostics_database: 'Base de données'
+  label_project_workflow_diagnostics_drift: 'Ce qui a changé'
+  label_project_workflow_diagnostics_source: 'Où Redmine le définit'
+  label_project_workflow_diagnostics_screen: 'Écran'
+  label_project_workflow_diagnostics_anchor: 'Ancrage'
+  label_project_workflow_diagnostics_anchor_matched: 'Trouvé'
+  label_project_workflow_diagnostics_anchor_unmatched: 'Introuvable'
+  label_project_workflow_diagnostics_anchor_unmeasured: 'Vérification impossible'
+  label_project_workflow_diagnostics_patches: 'Classes de Redmine modifiées par ce plugin'
+  label_project_workflow_diagnostics_overrides: 'Écrans de Redmine modifiés par ce plugin'
+  label_project_workflow_diagnostics_changed: 'Modifié'
+  label_project_workflow_diagnostics_missing: 'Absent de Redmine'
+  label_project_workflow_diagnostics_added: 'Nouveau dans Redmine'
+  label_project_workflow_diagnostics_ok: 'Conforme'
+  label_project_workflow_diagnostics_not_ok: 'À examiner'
+  text_project_workflow_diagnostics_description: 'Ce à quoi ressemble ce plugin sur ce serveur. Tout y est lu ; rien sur cette page ne modifie quoi que ce soit.'
+  text_project_workflow_diagnostics_verified: 'Redmine %{version} est une version avec laquelle ce plugin est testé, à chaque modification et avec trois bases de données.'
+  text_project_workflow_diagnostics_unverified: 'Personne n''a testé ce plugin avec Redmine %{version}. Chaque partie de Redmine qu''il remplace est néanmoins identique à celle de Redmine %{newest}, la version la plus récente avec laquelle il a été testé.'
+  text_project_workflow_diagnostics_drifted: 'Personne n''a testé ce plugin avec Redmine %{version}, et %{methods} des parties de Redmine qu''il remplace ont changé depuis Redmine %{newest}, la version la plus récente avec laquelle il a été testé. Le plugin continue de fonctionner ; lisez les différences ci-dessous avant de lui faire confiance.'
+  text_project_workflow_diagnostics_drift_help: 'Ce plugin n''étend pas ces parties de Redmine, il les remplace : un changement ici est donc un changement qu''il n''a pas suivi. La comparaison montre que le texte de chacune est inchangé. Elle ne peut pas montrer que Redmine les utilise encore de la même manière.'
+  text_project_workflow_diagnostics_permission_captured: 'Un autre plugin a enregistré ce nom et Redmine répond avec le sien. Les écrans de ce plugin refuseront tout le monde, administrateurs compris. %{claimants} plugins revendiquent ce nom.'
+  text_project_workflow_diagnostics_patch_missing: 'Absent. Redmine se comporte ici comme sans ce plugin.'
+  text_project_workflow_diagnostics_overrides_help: 'Il s''agit d''ajouts à des écrans qui appartiennent à Redmine. Chacun s''accroche à un élément du balisage propre à Redmine, et Redmine ne signale rien lorsque cet élément disparaît : l''écran se retrouve simplement sans une commande. Cette page vérifie, sur ce serveur, que chacun trouve encore sa place.'
+  text_project_workflow_diagnostics_anchor_unmatched: 'Cet ajout n''a pas de place sur ce Redmine, l''écran ne l''affiche donc pas. Sélecteur : %{selector}'
+  text_project_workflow_diagnostics_unmeasured: 'Personne n''a testé ce plugin avec Redmine %{version}, et ce Ruby ne peut pas lire le code source de Redmine : aucune comparaison n''a donc été possible.'
+  # WP19 / F05 : l'état de compatibilité, sur les écrans où quelqu'un s'apprête à modifier une règle de workflow.
+  text_project_workflow_compatibility_banner_unverified: 'Ce plugin n''a pas été testé avec Redmine %{version}. Tout ce qu''il remplace est inchangé et les règles de workflow peuvent être modifiées ici comme d''habitude.'
+  text_project_workflow_compatibility_banner_unmeasured: 'Ce plugin n''a pas été testé avec Redmine %{version} et n''a pas pu s''y comparer sur ce Ruby. Les règles de workflow peuvent toujours être modifiées ici.'
+  text_project_workflow_compatibility_banner_drifted: 'Redmine %{version} a modifié des parties que ce plugin remplace. Les règles de workflow peuvent toujours être modifiées ici ; vérifiez ce qui a changé avant de vous y fier.'
+  # WP12 / ADR-003: the plugin's own administration area.
+  label_project_workflow_rules: 'Workflows de projet'
+  label_project_workflow_generic_screens: 'Workflow propre à Redmine'
+  # WP14 / audit F03: what deleting an issue status left behind.
+  warning_project_workflow_status_deleted_emptied:
+    one: "%{count} workflow de projet ne contient plus aucune règle : toutes celles qu'il avait nommaient le statut qui vient d'être supprimé. Le projet y conserve son workflow propre, et un workflow propre sans règle n'autorise aucun changement de statut. Vérifiez-le dans %{link} et ajoutez des règles ou revenez au workflow générique."
+    other: "%{count} workflows de projet ne contiennent plus aucune règle : toutes celles qu'ils avaient nommaient le statut qui vient d'être supprimé. Ces projets y conservent leur workflow propre, et un workflow propre sans règle n'autorise aucun changement de statut. Vérifiez-les dans %{link} et ajoutez des règles ou revenez au workflow générique."
+  # WP14: the workflow drawing as a switchable feature with a size ceiling.
+  label_project_workflow_graph_enabled: 'Proposer le diagramme du workflow'
+  text_project_workflow_graph_enabled: 'Le diagramme est un écran en lecture seule accessible depuis les paramètres de workflow d''un projet, depuis ses matrices et depuis le formulaire de demande. Si vous le désactivez, plus aucun lien n''y mène et l''écran lui-même répond « introuvable » ; le reste est inchangé.'
+  label_project_workflow_graph_edge_ceiling: 'Ne pas dessiner un workflow de plus de'
+  text_project_workflow_graph_edge_ceiling: 'Nombre de flèches, car c''est leur placement qui coûte : un workflow de 400 statuts et 800 flèches est dessiné en environ 50 ms, un de 60 statuts où presque tout changement est permis prend environ 1,5 s. Au-delà, le workflow est présenté sous forme de tableau plutôt que dessiné. 0 signifie aucune limite.'
+  text_project_workflow_graph_too_large: 'Ce workflow comporte %{count} changement(s) de statut, plus que les %{ceiling} que cette installation dessine ; il n''est donc pas dessiné et ses diagnostics ne sont pas listés. Le tableau ci-dessous est le workflow complet. Un administrateur peut relever la limite dans les paramètres du plugin.'
+  # ADR-004: the same ceiling as the matrix save, on *give own workflow*.
+  error_project_workflow_enable_too_large: 'Donner à ces projets leur propre workflow copierait %{count} règle(s) de workflow, soit plus que la limite de %{ceiling}. Rien n''a été modifié. Sélectionnez moins de projets, de trackers ou de rôles, donnez plutôt un workflow propre vide, ou relevez la limite dans les paramètres du plugin.'

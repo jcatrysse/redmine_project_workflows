@@ -1,0 +1,9 @@
+<%# WP8. The panel arrives in core's own #ajax-modal, which is exactly what
+    core's "new version" and "new category" links on the same form do -- so the
+    modal, its close behaviour and its styling are Redmine's, and the plugin adds
+    no JavaScript of its own.
+
+    showModal reads the title out of h3.title inside the content, which _map
+    renders. %>
+$('#ajax-modal').html('<%= escape_javascript(render partial: 'project_workflow_maps/map') %>');
+showModal('ajax-modal', '600px');

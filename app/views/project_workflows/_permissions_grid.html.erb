@@ -1,0 +1,55 @@
+<%#
+  The field-permissions grid, core's shape.
+
+  Core keeps this table inline in its own permissions view rather than in a
+  partial, so there is nothing to reuse; it is reproduced here once and rendered
+  either as selects (editable) or as words (read-only). The rule is named in
+  text in both cases -- "Read-only", "Required" -- because a colour alone would
+  not say which of the two a cell is.
+
+  Locals: editable.
+%>
+<table class="list workflows fields_permissions">
+<thead>
+  <tr>
+    <th></th>
+    <th colspan="<%= @statuses.length %>"><%= l(:label_issue_status) %></th>
+  </tr>
+  <tr>
+    <td></td>
+    <% @statuses.each do |status| %>
+      <td style="width:<%= 75 / @statuses.size %>%;"><%= status.name %></td>
+    <% end %>
+  </tr>
+</thead>
+<tbody>
+  <% [[l(:field_core_fields), @fields.map { |field, name| [field, name] }],
+      [l(:label_custom_field_plural), @custom_fields.map { |field| [field, field.name] }]].each do |group, entries| %>
+    <% next if entries.empty? %>
+    <tr class="group open">
+      <td colspan="<%= @statuses.size + 1 %>">
+        <%= project_workflows_row_group_expander %>
+        <%= group %>
+      </td>
+    </tr>
+    <% entries.each do |field, name| %>
+    <tr>
+      <td class="name">
+        <%= name %> <%= content_tag('span', '*', class: 'required') if field_required?(field) %>
+      </td>
+      <% key = field.is_a?(CustomField) ? field.id.to_s : field %>
+      <% @statuses.each do |status| %>
+        <td class="<%= @permissions[status.id][key].try(:join, ' ') %>" title="<%= name %> (<%= status.name %>)">
+          <% if editable %>
+            <%= field_permission_tag(@permissions, status, field, @roles) %>
+            <% unless status == @statuses.last %><a href="#" class="repeat-value" title="<%= l(:button_copy) %>">&#187;</a><% end %>
+          <% else %>
+            <%= project_workflow_permission_label(@permissions[status.id][key]) %>
+          <% end %>
+        </td>
+      <% end %>
+    </tr>
+    <% end %>
+  <% end %>
+</tbody>
+</table>

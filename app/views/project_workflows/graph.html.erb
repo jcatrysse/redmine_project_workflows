@@ -1,0 +1,204 @@
+<%#
+  The whole of a project's transitions workflow, as a drawing (WP9).
+
+  The order is the order somebody looking at a workflow needs it in:
+
+  1. Which roles the picture is about, and which of the three states of INV-3
+     governs each of them. A drawing of the generic workflow and a drawing of the
+     project's own look identical, so the sentence above it is what says which
+     one this is.
+  2. The picture -- or, where the workflow permits nearly every move and there is
+     therefore no progression to draw, a sentence saying so with the picture
+     folded behind a disclosure (finding F03).
+  3. What the picture is worth looking at *for*: the statuses no role can reach,
+     the ones with no way out, and the ones these roles have nothing to do with.
+     Jira draws those and says nothing about them; naming them is the part a
+     workflow administrator actually uses.
+  4. The same workflow as a table -- the readable twin, not an afterthought. No
+     aria attribute makes a drawing legible to a screen reader, and the table is
+     also what Ctrl-F finds and what prints legibly.
+
+  Transitions only: field permissions are a property of a status rather than of a
+  move, so they are not a graph. The comparison screen reads them side by side.
+%>
+<%# WP14: a workflow with more arrows than the ceiling is not drawn at all, and
+    the layout -- the expensive half -- is not computed for it either. The
+    controller decided; this reads the answer. %>
+<% layout = @graph_over_ceiling ? nil : project_workflow_graph_layout(@graph) %>
+<% multiple_roles = @graph.role_states.size > 1 %>
+
+<div class="contextual">
+  <%= link_to l(:label_settings), settings_project_path(@project, tab: 'project_workflows') %>
+</div>
+
+<%= title l(:label_project_workflow_graph) %>
+
+<p>
+  <strong><%= l(:label_project) %>:</strong> <%= @project.name %>
+  &nbsp;
+  <strong><%= l(:label_tracker) %>:</strong> <%= @tracker.name %>
+</p>
+
+<%# The selector is omitted entirely when there is only one thing to pick: a
+    control with one option is a control that cannot be used. %>
+<% if @visible_roles.size > 1 %>
+  <%= form_tag({}, method: :get) do %>
+    <p>
+      <%= hidden_field_tag 'tracker_id', @tracker.id, id: nil %>
+      <label for="role_id"><%= l(:label_project_workflow_graph_roles) %></label>
+      <%= select_tag 'role_id',
+                     options_from_collection_for_select(@visible_roles, :id, :name, @roles.map(&:id)),
+                     multiple: true, size: [@visible_roles.size, 6].min %>
+      <%= project_workflows_toggle_multiselect_tag %>
+      <%= submit_tag l(:button_apply), name: nil %>
+    </p>
+  <% end %>
+<% end %>
+
+<% if @visible_roles.empty? %>
+  <%# The project offers no role at all: nobody is a member of it, and no scope
+      brought one in. The settings tab says this in these words for this state,
+      so the two screens agree rather than inventing a second phrasing. %>
+  <p class="nodata"><%= l(:text_project_workflow_tab_nothing_to_configure) %></p>
+<% elsif @graph.role_states.empty? %>
+  <%# Roles were selected, and none of them takes part in a workflow -- Non
+      member and Anonymous can be in the list because a scope exists for them,
+      and a role that has lost both issue permissions takes no part in one. An
+      empty frame would read as "this workflow permits nothing", which is a
+      different statement. %>
+  <p class="nodata"><%= l(:text_project_workflow_graph_no_roles) %></p>
+<% else %>
+  <div class="box project-workflow-scope">
+    <% uniform = @graph.uniform_state %>
+    <% if uniform %>
+      <p>
+        <strong><%= l(:label_project_workflow_project_scope) %>:</strong>
+        <%= project_workflow_state_tag(uniform) %>
+        <em>(<%= l(:label_role_plural) %>: <%= @graph.roles.map(&:name).join(', ') %>)</em>
+      </p>
+    <% else %>
+      <%# The case that cannot be worked out from anywhere else: one role is
+          overridden while the next inherits, and the drawing is the union of the
+          two. %>
+      <p><strong><%= l(:label_project_workflow_project_scope) %>:</strong></p>
+      <ul class="project-workflow-map-scopes">
+        <% @graph.role_states.each do |role_state| %>
+          <li>
+            <%= role_state.role.name %>:
+            <%= project_workflow_state_tag(role_state.state) %>
+            <%= project_workflow_graph_matrix_link(@project, @tracker, role_state.role) %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+    <% if uniform %>
+      <p><%= project_workflow_graph_matrix_link(@project, @tracker, @graph.roles.first) %></p>
+    <% end %>
+  </div>
+
+  <%# Two different reasons for a drawing with no arrows in it, and they must not
+      be told with one sentence. An *own empty* workflow is a deliberate
+      configuration this project made (INV-3); a workflow with no rule that the
+      project merely *inherits* is a generic workflow nobody has filled in. The
+      state is what tells them apart -- never the absence of rules, which is the
+      defect the whole scope model exists to fix. %>
+  <% if @graph.role_states.any? { |role_state| role_state.state == :own_empty } %>
+    <p class="project-workflow-map-empty">
+      <em><%= l(:text_project_workflow_graph_empty) %></em>
+    </p>
+  <% elsif @graph.empty_workflow? %>
+    <p class="project-workflow-map-empty">
+      <em><%= l(:text_project_workflow_graph_nothing) %></em>
+    </p>
+  <% end %>
+
+  <%# A workflow in which nearly every status may become nearly every other has
+      no progression for a drawing to show, and the layered picture of one is the
+      spaghetti this package was written to beat -- Redmine's own default data
+      reaches it at six statuses (finding F03). Say so, and put the picture
+      behind a disclosure rather than deleting it: the reader who wants to look
+      at it anyway is one click away, and <details> needs no JavaScript and no
+      stylesheet the plugin does not ship. %>
+  <%# Larger than this installation draws (WP14). Not an error and not a refusal
+      -- nothing is written here, and the workflow is still completely readable
+      in the table below, which is the drawing's readable twin rather than a
+      consolation. The diagnostics go with the picture because they are read off
+      its layout, and the sentence says so rather than leaving a heading out
+      without explanation. %>
+  <% if @graph_over_ceiling %>
+    <p class="nodata project-workflow-graph-too-large">
+      <%= l(:text_project_workflow_graph_too_large,
+            count: @graph.edges.size, ceiling: @graph_edge_ceiling) %>
+    </p>
+  <% elsif @graph.dense? %>
+    <p class="project-workflow-graph-dense">
+      <em><%= l(:text_project_workflow_graph_dense) %></em>
+    </p>
+    <details class="project-workflow-graph-disclosure">
+      <summary><%= l(:label_project_workflow_graph_show_anyway) %></summary>
+      <%= render partial: 'project_workflows/graph_figure', locals: { layout: layout } %>
+    </details>
+  <% else %>
+    <%= render partial: 'project_workflows/graph_figure', locals: { layout: layout } %>
+  <% end %>
+
+  <%# The diagnostics are the part a workflow administrator uses, so they stay
+      out of the disclosure above whatever shape the workflow has. A workflow
+      with no rule at all reports none of them -- the helper says why. %>
+  <% unless @graph.empty_workflow? || @graph_over_ceiling %>
+    <h3><%= l(:label_project_workflow_graph_diagnostics) %></h3>
+    <% diagnostics = project_workflow_graph_diagnostics(@graph, layout) %>
+    <% if diagnostics.empty? %>
+      <p class="nodata"><%= l(:text_project_workflow_graph_no_diagnostics) %></p>
+    <% else %>
+      <ul class="project-workflow-graph-diagnostics">
+        <% diagnostics.each do |label, nodes| %>
+          <li><strong><%= label %>:</strong> <%= project_workflow_graph_node_names(nodes) %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+
+  <h3><%= l(:label_project_workflow_graph_table) %></h3>
+  <% if @graph.edges.empty? %>
+    <p class="nodata"><%= l(:text_project_workflow_map_no_outgoing) %></p>
+  <% else %>
+    <div class="autoscroll">
+      <table class="list project-workflow-graph-transitions">
+        <thead>
+          <tr>
+            <th><%= l(:label_current_status) %></th>
+            <th><%= l(:label_new_statuses_allowed) %></th>
+            <th><%= l(:label_project_workflow_compare_condition) %></th>
+            <% if multiple_roles %><th><%= l(:label_role) %></th><% end %>
+          </tr>
+        </thead>
+        <tbody>
+          <% @graph.edges.each do |edge| %>
+            <tr>
+              <td class="name">
+                <%= project_workflow_status_label(edge.old_status, edge.old_status_id) %>
+              </td>
+              <td class="name">
+                <%= project_workflow_status_label(edge.new_status, edge.new_status_id) %>
+              </td>
+              <%# The fallback is not a rule and has no condition grid behind it,
+                  so the cell names it instead of saying "anyone", which would
+                  read as a rule somebody wrote (finding F01). %>
+              <td>
+                <% if edge.fallback %>
+                  <%= l(:label_project_workflow_graph_fallback) %>
+                <% else %>
+                  <%= project_workflow_map_conditions_label(edge.conditions) %>
+                <% end %>
+              </td>
+              <% if multiple_roles %>
+                <td><%= project_workflow_map_roles_label(edge.roles) %></td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+<% end %>

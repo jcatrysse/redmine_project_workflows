@@ -1,0 +1,158 @@
+<%#
+  The one function the row and column actions call (WP5), and the undo stack
+  behind them (WP6).
+
+  Deliberately small and dependency-free: this repository has no way to test
+  JavaScript, so anything clever here would ship untested. It reads what to do
+  from data attributes the helper wrote, changes only the controls whose value
+  would actually differ, and asks first when that would touch more workflow
+  rules than the plugin setting allows.
+
+  Since WP13 it also carries the Save button's own confirmation, which asks the
+  same question about the whole matrix (audit F08). It is here rather than in a
+  second partial because it reads the same two settings and counts in the same
+  unit, and because one <script> on the page is what the actions already need.
+
+  A <select> is what a mixed cell renders as, so both kinds of control are
+  handled: "no change" means the select's own no-change option, and for a
+  checkbox it means the value the page was opened with.
+
+  What the undo restores is the value each control held *before the action*, not
+  the value the page was opened with -- those are the same thing only for the
+  first action. Every action pushes one entry, so undo walks back through them
+  one at a time. `dev/check-bulk-js.mjs` is the gate the suite cannot be: a
+  hand-built DOM, this function extracted from the partial, and one check per
+  behaviour described above.
+%>
+<%= javascript_tag do %>
+var projectWorkflowBulkUndoStack = [];
+
+function projectWorkflowBulkRegion() {
+  return document.getElementById('project-workflow-bulk-undo');
+}
+
+// Nothing here assumes the region is on the page: a screen that renders the
+// actions without it must go on working rather than throwing on every click.
+//
+// The region stays visible once anything has happened -- the last undo's own
+// confirmation is the one the reader most needs, and hiding the region to
+// signal an empty stack would take that sentence away with it. What comes and
+// goes is the undo link, which is offered exactly while there is something to
+// undo.
+function projectWorkflowBulkSay(template, cells, rules) {
+  var region = projectWorkflowBulkRegion();
+  if (!region) { return; }
+
+  var text = region.getAttribute(template) || '';
+  text = text.replace(/%\{cells\}/g, cells).replace(/%\{rules\}/g, rules);
+  region.querySelector('.project-workflow-bulk-undo-message').textContent = text;
+  region.style.display = '';
+  var undo = region.querySelector('.project-workflow-bulk-undo-action');
+  if (undo) {
+    var offered = projectWorkflowBulkUndoStack.length > 0;
+    // Focus first, hide second. A keyboard user who undoes until the stack
+    // empties has focus on this very link, and hiding the element that holds
+    // focus drops it to <body> -- so the next Tab starts at the top of the page
+    // and the sentence that has just changed is never reached. The region has
+    // tabindex="-1" so it can take focus, and it carries aria-live, so moving
+    // focus there lands on the confirmation rather than nowhere (finding F15).
+    if (!offered && undo.style.display !== 'none' &&
+        document.activeElement === undo && region.focus) {
+      region.focus();
+    }
+    undo.style.display = offered ? '' : 'none';
+  }
+}
+
+function projectWorkflowBulkSet(control, value) {
+  if (control.type === 'checkbox') { control.checked = value; }
+  else { control.value = value; }
+  if (window.jQuery) { window.jQuery(control).trigger('change'); }
+  else { control.dispatchEvent(new Event('change', { bubbles: true })); }
+}
+
+function projectWorkflowBulkApply(link) {
+  var group = link.parentNode;
+  var value = link.getAttribute('data-project-workflow-value');
+  var controls = document.querySelectorAll(group.getAttribute('data-project-workflow-target'));
+  var pending = [];
+
+  for (var i = 0; i < controls.length; i++) {
+    var control = controls[i];
+    if (control.disabled) { continue; }
+    if (control.type === 'checkbox') {
+      var checked = (value === 'no_change') ? control.defaultChecked : (value === '1');
+      if (control.checked !== checked) { pending.push([control, checked, control.checked]); }
+    } else if (control.tagName === 'SELECT' &&
+               control.querySelector('option[value="' + value + '"]') &&
+               control.value !== value) {
+      pending.push([control, value, control.value]);
+    }
+  }
+  if (pending.length === 0) { return; }
+
+  var multiplier = parseInt(group.getAttribute('data-project-workflow-multiplier'), 10);
+  var threshold = parseInt(group.getAttribute('data-project-workflow-threshold'), 10);
+  var rules = pending.length * multiplier;
+  if (!isNaN(threshold) && rules > threshold) {
+    var question = group.getAttribute('data-project-workflow-confirm').replace(/%\{count\}/g, rules);
+    if (!window.confirm(question)) { return; }
+  }
+
+  for (var j = 0; j < pending.length; j++) {
+    projectWorkflowBulkSet(pending[j][0], pending[j][1]);
+  }
+  projectWorkflowBulkUndoStack.push({ changes: pending, multiplier: multiplier });
+  projectWorkflowBulkSay('data-project-workflow-changed', pending.length, rules);
+}
+
+// The Save button's own confirmation (WP13, audit F08).
+//
+// A save rewrites every cell it submits, once per workflow the selection
+// covers, so the number it asks about is the one a row or column action asks
+// about and it is compared against the same setting. Two guards decide when it
+// asks at all:
+//
+//   multiplier <= 1   a single-workflow save is what Redmine has always done.
+//                     How many cells there are is decided by the status list
+//                     and is the same on every save of the screen, so without
+//                     this an ordinary save would grow a dialog it never had.
+//   disabled / no_change   neither submits, so neither is counted -- which is
+//                     what keeps this number equal to the one the server
+//                     computes from the payload it actually receives.
+//
+// Returns true to let the form through, which is what an onsubmit handler has
+// to answer. A page whose attributes are missing or unreadable submits: this is
+// a courtesy in front of the server's ceiling, never the thing enforcing it.
+function projectWorkflowConfirmSave(form) {
+  var multiplier = parseInt(form.getAttribute('data-project-workflow-multiplier'), 10);
+  var threshold = parseInt(form.getAttribute('data-project-workflow-threshold'), 10);
+  if (isNaN(multiplier) || multiplier <= 1 || isNaN(threshold)) { return true; }
+
+  var controls = form.querySelectorAll(
+    'input[type=checkbox][name^="transitions["], select[name^="transitions["], ' +
+    'input[type=checkbox][name^="permissions["], select[name^="permissions["]');
+  var cells = 0;
+  for (var i = 0; i < controls.length; i++) {
+    if (controls[i].disabled) { continue; }
+    if (controls[i].tagName === 'SELECT' && controls[i].value === 'no_change') { continue; }
+    cells += 1;
+  }
+
+  var rules = cells * multiplier;
+  if (rules <= threshold) { return true; }
+  var question = form.getAttribute('data-project-workflow-save-confirm') || '';
+  return window.confirm(question.replace(/%\{count\}/g, rules));
+}
+
+function projectWorkflowBulkUndo() {
+  var entry = projectWorkflowBulkUndoStack.pop();
+  if (!entry) { projectWorkflowBulkSay('data-project-workflow-undone', 0, 0); return; }
+
+  for (var i = entry.changes.length - 1; i >= 0; i--) {
+    projectWorkflowBulkSet(entry.changes[i][0], entry.changes[i][2]);
+  }
+  projectWorkflowBulkSay('data-project-workflow-undone',
+                         entry.changes.length, entry.changes.length * entry.multiplier);
+}
+<% end %>

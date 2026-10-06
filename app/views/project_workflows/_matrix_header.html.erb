@@ -1,0 +1,81 @@
+<%#
+  The head of both project matrices: where you are, which of the two matrices
+  you are on, and what state this combination is in.
+
+  The tracker and the role are shown rather than chosen. On the administration
+  screens they are multiple selects, because a system administrator edits a
+  selection at once; here the settings tab is the list and each line opens one
+  matrix, which is what keeps every cell a plain yes or no.
+%>
+<div class="contextual">
+  <%# The drawing, for this tracker and this role. Offered on both matrices even
+      though it only ever draws transitions: from the field-permissions matrix it
+      is the fastest way to see the flow the permissions hang off. %>
+  <%= project_workflow_graph_link(@project, @tracker, @role) %>
+  <%= project_workflow_compare_link(@project, @tracker, @role, @rule_type, @scope_state.state) %>
+  <%= link_to l(:label_settings), settings_project_path(@project, tab: 'project_workflows') %>
+</div>
+
+<%= title l(:label_workflow) %>
+<%= project_workflow_compatibility_banner %>
+
+<div class="tabs">
+  <ul>
+    <li>
+      <%= link_to l(:label_status_transitions),
+                  project_workflow_transitions_path(@project, tracker_id: @tracker.id, role_id: @role.id,
+                                                              used_statuses_only: params[:used_statuses_only]),
+                  class: (@rule_type == ProjectWorkflowScope::TRANSITIONS ? 'selected' : nil) %>
+    </li>
+    <li>
+      <%= link_to l(:label_fields_permissions),
+                  project_workflow_permissions_path(@project, tracker_id: @tracker.id, role_id: @role.id,
+                                                              used_statuses_only: params[:used_statuses_only]),
+                  class: (@rule_type == ProjectWorkflowScope::PERMISSIONS ? 'selected' : nil) %>
+    </li>
+  </ul>
+</div>
+
+<p>
+  <strong><%= l(:label_tracker) %>:</strong> <%= @tracker.name %>
+  &nbsp;
+  <strong><%= l(:label_role) %>:</strong> <%= @role.name %>
+</p>
+
+<div class="box project-workflow-scope">
+  <p>
+    <strong><%= l(:label_project_workflow_project_scope) %>:</strong>
+    <%= project_workflow_state_tag(@scope_state.state) %>
+  </p>
+  <% if @manage_project_workflow_rules %>
+    <p>
+      <%= render partial: 'project_workflows/scope_actions',
+                 locals: { project: @project, tracker: @tracker, role: @role,
+                           rule_type: @rule_type, state: @scope_state.state, back_url: nil,
+                           offered: @role_offered } %>
+    </p>
+  <% end %>
+  <p class="project-workflow-scope-help"><em><%= l(:text_project_workflow_scope_help) %></em></p>
+</div>
+
+<% if @rule_type == ProjectWorkflowScope::TRANSITIONS && @editable %>
+  <%# WP6. Only where there is something to undo: the row and column actions
+      come from Deface overrides on core's workflows/_form, which a read-only
+      project matrix does not render -- it renders the plugin's own grid. %>
+  <%= render partial: 'redmine_project_workflows/bulk_undo' %>
+<% end %>
+
+<%= form_tag({}, method: :get) do %>
+<p>
+  <%= hidden_field_tag 'tracker_id', @tracker.id, id: nil %>
+  <%= hidden_field_tag 'role_id', @role.id, id: nil %>
+  <%# The hidden field has to precede the checkbox: unchecked, it is the only
+      value submitted, and Rack keeps the last one when both are sent. %>
+  <%= hidden_field_tag 'used_statuses_only', '0', id: nil %>
+  <label>
+    <%= check_box_tag 'used_statuses_only', '1', @used_statuses_only %>
+    <%= l(:label_display_used_statuses_only) %>
+  </label>
+  <%= submit_tag l(:button_apply), name: nil %>
+</p>
+<% end %>

@@ -2,3 +2,195 @@ nl:
   label_project_workflows_global: Algemeen
   error_workflow_copy_source_project: Selecteer een brontracker, rol en project.
   error_workflow_copy_target: Selecteer doeltrackers, rollen en projecten.
+  error_workflow_copy_target_project: Een of meer geselecteerde doelprojecten bestaan niet.
+  error_workflow_copy_target_tracker_or_role: Een of meer geselecteerde doeltrackers of -rollen bestaan niet.
+  label_project_workflow_scope: Workflow voor de geselecteerde projecten
+  label_project_workflow_state_inherits: "Volgt de algemene workflow"
+  label_project_workflow_state_own: Eigen workflow
+  label_project_workflow_state_own_empty: Eigen lege workflow
+  label_project_workflow_count_own:
+    one: "%{count} eigen workflow"
+    other: "%{count} eigen workflows"
+  label_project_workflow_count_own_empty:
+    one: "%{count} eigen lege workflow"
+    other: "%{count} eigen lege workflows"
+  label_project_workflow_count_inherits:
+    one: "%{count} volgt de algemene workflow"
+    other: "%{count} volgen de algemene workflow"
+  button_project_workflow_enable_copy: Eigen workflow geven (kopie van de algemene)
+  button_project_workflow_enable_empty: Eigen lege workflow geven
+  button_project_workflow_clear: Deze workflow leegmaken
+  button_project_workflow_inherit: Terug naar de algemene workflow
+  text_project_workflow_scope_help: Een eigen workflow vervangt de algemene; hij wordt er nooit aan toegevoegd. Een eigen lege workflow staat niets toe.
+  text_project_workflow_enable_copy_confirm: Dit project een eigen workflow geven, als kopie van de algemene? Dit betreft %{count} combinatie(s) van project, tracker en rol.
+  text_project_workflow_enable_empty_confirm: Dit project een eigen, lege workflow geven? Er is niets toegestaan tot u regels toevoegt. Dit betreft %{count} combinatie(s) van project, tracker en rol.
+  text_project_workflow_clear_confirm: Alle regels uit deze workflow verwijderen? Het project houdt zijn eigen workflow, maar die staat niets toe.
+  text_project_workflow_inherit_confirm: Terug naar de algemene workflow? De eigen regels van het project worden verwijderd.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} workflow gekopieerd van de algemene."
+    other: "%{count} workflows gekopieerd van de algemene."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} eigen lege workflow aangemaakt."
+    other: "%{count} eigen lege workflows aangemaakt."
+  notice_project_workflow_inherited:
+    one: "%{count} workflow teruggezet naar de algemene."
+    other: "%{count} workflows teruggezet naar de algemene."
+  notice_project_workflow_emptied:
+    one: "%{count} workflow leeggemaakt."
+    other: "%{count} workflows leeggemaakt."
+  notice_project_workflow_scope_unchanged: Er hoefde niets gewijzigd te worden.
+  label_project_workflow_inventory: Workflowoverzicht
+  label_project_workflow_rule_type: Soort regel
+  label_project_workflow_inventory_deviations_only: Alleen projecten met een eigen workflow
+  text_project_workflow_inventory_description: "Eén regel per project, tracker en rol. Het getal is het aantal regels dat het project zelf heeft; het label zegt of die regels gelden, dan wel de algemene workflow."
+  text_project_workflow_inventory_empty: Geen enkel project heeft een eigen workflow voor deze selectie.
+  text_project_workflow_inventory_empty_filtered: Geen enkele combinatie van project, tracker en rol voldoet aan deze selectie.
+  button_project_workflow_inventory_show_all: Toon elk project, elke tracker en elke rol
+  button_project_workflow_inventory_open_matrices: Open de workflowmatrices
+  error_project_workflow_inventory_filter: Een of meer filterwaarden bestaan niet meer en zijn genegeerd.
+  permission_view_project_workflow_rules: Workflow van het project bekijken
+  permission_manage_project_workflow_rules: Workflow van het project beheren
+  label_project_workflow_project_scope: Workflow van dit project
+  label_project_workflow_open_matrix: Deze workflow openen
+  text_project_workflow_tab_description: Eén regel per tracker en rol waarover dit project kan beslissen. Het getal geeft aan hoeveel regels het project zelf heeft; het label zegt of die regels gelden of de algemene workflow.
+  text_project_workflow_tab_nothing_to_configure: "Er is hier nog niets in te stellen: dit project heeft geen tracker geactiveerd, of geen rol met leden die aan een workflow deelneemt."
+  text_project_workflow_project_enable_copy_confirm: Dit project een eigen workflow geven voor deze tracker en rol, beginnend als een kopie van de algemene?
+  text_project_workflow_project_enable_empty_confirm: Dit project een eigen, lege workflow geven voor deze tracker en rol? Er is niets toegestaan tot u regels toevoegt.
+  text_project_workflow_readonly_generic: "Dit project volgt de algemene workflow voor deze tracker en deze rol. Hieronder staat die ter referentie; geef het project een eigen workflow om er iets aan te wijzigen."
+  text_project_workflow_readonly_own: Dit is de eigen workflow van het project. Om hem te wijzigen hebt u het recht nodig om de workflow van dit project te beheren.
+  notice_project_workflow_not_own: "Dit project volgt de algemene workflow voor deze tracker en deze rol, dus er is niets opgeslagen. Geef het project eerst een eigen workflow."
+  notice_project_workflow_save_nothing_applied: "Er is niets opgeslagen. Ofwel is er geen cel gewijzigd, ofwel zijn de verzonden waarden niet aanvaard."
+  notice_project_workflow_save_rejected_values:
+    one: "%{count} verzonden waarde is niet aanvaard; de regel die zij noemt is ongewijzigd gebleven."
+    other: "%{count} verzonden waarden zijn niet aanvaard; de regels die zij noemen zijn ongewijzigd gebleven."
+  notice_project_workflow_copy_left_empty:
+    one: "%{count} combinatie van project, tracker en rol heeft nu een eigen lege workflow: de kopie heeft daar geen regels van die soort achtergelaten. Er is daar niets toegestaan tot u regels toevoegt."
+    other: "%{count} combinaties van project, tracker en rol hebben nu een eigen lege workflow: de kopie heeft daar geen regels van die soort achtergelaten. Er is daar niets toegestaan tot u regels toevoegt."
+  text_project_workflow_scope_inheriting_note:
+    one: "%{count} combinatie in deze selectie volgt nog de algemene workflow. De matrix hieronder toont alleen de regels die de selectie zelf bewaart, dus die combinatie lijkt leeg, en opslaan verandert er niets aan — geef haar eerst een eigen workflow."
+    other: "%{count} combinaties in deze selectie volgen nog de algemene workflow. De matrix hieronder toont alleen de regels die de selectie zelf bewaart, dus die combinaties lijken leeg, en opslaan verandert er niets aan — geef ze eerst een eigen workflow."
+  notice_project_workflow_save_skipped_inheriting:
+    one: "%{count} combinatie van project, tracker en rol volgt nog de algemene workflow en is niet gewijzigd. Geef haar eerst een eigen workflow."
+    other: "%{count} combinaties van project, tracker en rol volgen nog de algemene workflow en zijn niet gewijzigd. Geef ze eerst een eigen workflow."
+  label_project_workflow_bulk_row: 'Zet de hele rij "%{name}" op %{value}'
+  label_project_workflow_bulk_column: 'Zet de hele kolom "%{name}" op %{value}'
+  text_project_workflow_bulk_confirm: 'Deze actie raakt %{count} workflowregel(s). Doorgaan?'
+  text_project_workflow_bulk_selection: 'Eén cel van deze matrix staat voor %{count} workflow(s): %{trackers} tracker(s) × %{roles} rol(len) × %{scopes} workflowbereik(en).'
+  text_project_workflow_bulk_legend: '"%{no_change}" betekent dat de workflows waarvoor een cel staat niet allemaal hetzelfde zeggen; bij opslaan blijft elk ervan zoals het is.'
+  text_project_workflow_bulk_legend_actions: 'Een rij- of kolomactie op "%{no_change}" zet elke cel in die rij of kolom terug naar de waarde waarmee de pagina is geopend.'
+  label_project_workflow_bulk_confirm_threshold: 'Vraag bevestiging wanneer een rij- of kolomactie meer wijzigt dan'
+  text_project_workflow_bulk_confirm_threshold: 'Aantal workflowregels. Een rij- of kolomactie die meer dan dit zou wijzigen, vraagt eerst om bevestiging. 0 vraagt altijd.'
+  text_project_workflow_save_confirm: 'Deze matrix opslaan herschrijft %{count} workflowregel(s). Doorgaan?'
+  label_project_workflow_bulk_save_confirm_threshold: 'Vraag bevestiging wanneer Opslaan meer herschrijft dan'
+  text_project_workflow_bulk_save_confirm_threshold: 'Aantal workflowregels. Het opslaan van een beheermatrix die meer dan één workflow omvat, vraagt om bevestiging zodra er meer dan dit herschreven zou worden. Eén workflow opslaan vraagt nooit. 0 vraagt altijd.'
+  label_project_workflow_bulk_write_ceiling: 'Weiger een matrixopslag die meer herschrijft dan'
+  text_project_workflow_bulk_write_ceiling: 'Aantal workflowregels. Een beheermatrix die groter is dan dit wordt geweigerd voordat er iets wordt geschreven, zodat één opslagactie de workflowtabellen niet minutenlang vasthoudt. 0 betekent geen limiet.'
+  error_project_workflow_save_too_large: 'Deze opslagactie zou %{count} workflowregel(s) herschrijven, meer dan de limiet van %{ceiling}. Er is niets gewijzigd. Selecteer minder projecten, trackers of rollen, of verhoog de limiet in de plugininstellingen.'
+  label_project_workflow_compare: Vergelijken met de algemene workflow
+  label_project_workflow_copy_item: Projectworkflows
+  label_project_workflow_compare_difference: Verschil
+  label_project_workflow_compare_project_only: Alleen in dit project
+  label_project_workflow_compare_generic_only: Alleen in de algemene workflow
+  label_project_workflow_compare_changed: Verschillend
+  label_project_workflow_compare_condition: Geldt voor
+  label_project_workflow_compare_in_project: In dit project
+  label_project_workflow_compare_in_generic: In de algemene workflow
+  label_project_workflow_condition_always: Iedereen met deze rol
+  label_project_workflow_condition_author: Ook wanneer de gebruiker de auteur is
+  label_project_workflow_condition_assignee: Ook wanneer de gebruiker de toegewezen persoon is
+  text_project_workflow_compare_description: De workflow van dit project vervangt de algemene workflow voor deze tracker en deze rol; wat hieronder staat is dus het volledige verschil. Er wordt niets samengevoegd en er geldt niets meer uit de algemene workflow.
+  text_project_workflow_compare_counts: Dit project heeft %{project} eigen regel(s) voor deze tracker en deze rol; de algemene workflow heeft %{generic}.
+  text_project_workflow_compare_identical: De eigen workflow van dit project is identiek aan de algemene workflow voor deze tracker en deze rol.
+  text_project_workflow_compare_inherits: "Dit project volgt de algemene workflow voor deze tracker en deze rol, dus er is niets te vergelijken."
+  button_project_workflow_bulk_undo: Ongedaan maken
+  text_project_workflow_bulk_changed: '%{cells} cel(len) gewijzigd, %{rules} workflowregel(s).'
+  text_project_workflow_bulk_undone: 'Ongedaan gemaakt: %{cells} cel(len) teruggezet.'
+  text_project_workflow_bulk_unsaved: Er is nog niets opgeslagen. Druk op Opslaan om deze wijzigingen door te voeren.
+  label_project_workflow_comparison: Workflowvergelijking
+  text_project_workflow_compare_unreachable_field: Minstens één verschil hieronder betreft een veld dat deze tracker niet meer aanbiedt; de eigen matrix van het project kan het dus niet tonen of wijzigen. Een systeembeheerder kan zo'n regel via Beheer verwijderen.
+  label_project_workflow_map: Workflow voor dit issue
+  label_project_workflow_map_scope: Welke workflow geldt
+  label_project_workflow_map_from_here: Statuswijzigingen die hier zijn toegestaan
+  label_project_workflow_map_leads_here: Statussen die naar deze leiden
+  label_project_workflow_map_available: Nu beschikbaar
+  text_project_workflow_map_authority: Dit is wat de workflow toestaat. De statuslijst op het formulier blijft bepalen wat u op dit moment mag doen; elk verschil tussen de twee wordt hieronder uitgelegd.
+  text_project_workflow_map_no_outgoing: Deze workflow staat vanaf hier geen enkele statuswijziging toe.
+  text_project_workflow_map_no_incoming: Deze workflow staat geen enkele statuswijziging naar deze status toe.
+  text_project_workflow_map_no_roles: U hebt in dit project geen rol die aan een workflow deelneemt, dus is er geen statuswijziging toegestaan.
+  text_project_workflow_map_own_empty: Dit project heeft een eigen workflow voor deze tracker en rol, en die bevat geen enkele regel, dus is er geen statuswijziging toegestaan. Dat is een bewuste keuze en geen fout.
+  text_project_workflow_map_own_empty_some: 'Minstens één van uw rollen heeft hier een eigen workflow die geen enkele regel bevat, dus die rol staat geen enkele statuswijziging toe. Een andere rol van u kan er wel enkele toestaan. Dat is een bewuste keuze en geen fout.'
+  text_project_workflow_map_requires_author: Alleen de auteur van het issue mag deze wijziging maken.
+  text_project_workflow_map_requires_assignee: Alleen de toegewezen persoon mag deze wijziging maken.
+  text_project_workflow_map_requires_author_or_assignee: Alleen de auteur of de toegewezen persoon mag deze wijziging maken.
+  text_project_workflow_map_unavailable: Momenteel niet beschikbaar voor dit issue.
+  label_project_workflow_map_condition_author: Alleen wanneer de gebruiker de auteur is
+  label_project_workflow_map_condition_assignee: Alleen wanneer de gebruiker de toegewezen persoon is
+  label_project_workflow_map_condition_author_or_assignee: Alleen wanneer de gebruiker de auteur of de toegewezen persoon is
+  label_project_workflow_graph: Workflowdiagram
+  label_project_workflow_graph_roles: Getoonde rollen
+  label_project_workflow_graph_diagnostics: Waar u op moet letten
+  label_project_workflow_graph_table: Dezelfde workflow als tabel
+  label_project_workflow_graph_unreachable: Niet bereikbaar vanaf een nieuw issue
+  label_project_workflow_graph_dead_end: Hier leidt niets uit weg
+  label_project_workflow_graph_unmentioned: Niet gebruikt door de geselecteerde rollen
+  label_project_workflow_graph_fallback: 'Terugval van Redmine zelf'
+  label_project_workflow_graph_show_anyway: 'Toon het diagram toch'
+  text_project_workflow_graph_aria: 'Diagram van deze workflow: %{statuses} statussen en %{transitions} overgangen. Dezelfde informatie staat in de tabel hieronder.'
+  text_project_workflow_graph_aria_fallback: 'Eén extra pijl is de terugval van Redmine zelf en geen ingestelde overgang: daar begint een nieuw issue.'
+  text_project_workflow_graph_no_roles: Geen van de geselecteerde rollen neemt deel aan een workflow, dus er valt niets te tekenen.
+  text_project_workflow_graph_empty: Minstens één van de geselecteerde rollen heeft hier een eigen workflow die geen enkele regel bevat, dus is er voor die rol geen statuswijziging toegestaan. Dat is een bewuste keuze en geen fout.
+  text_project_workflow_graph_nothing: 'De workflow die hier geldt, bevat voor de geselecteerde rollen geen enkele overgang, dus kan de status van een bestaand issue nooit wijzigen.'
+  text_project_workflow_graph_no_diagnostics: Elke status in deze workflow is bereikbaar vanaf een nieuw issue en heeft een uitweg.
+  text_project_workflow_graph_dense: 'Deze workflow staat bijna elke overgang toe: bijna elke status kan bijna elke andere worden. Er is geen verloop dat een diagram kan tonen, dus is de tabel hieronder de leesbare vorm ervan.'
+  text_project_workflow_graph_legend_solid: Een doorlopende pijl is een wijziging die iedereen met de rol mag maken.
+  text_project_workflow_graph_legend_dashed: Een streepjespijl is een wijziging die alleen de auteur of de toegewezen persoon mag maken.
+  text_project_workflow_graph_legend_fallback: 'Een gestippelde pijl is de terugval van Redmine zelf en geen regel: geen enkele regel zegt met welke status een nieuw issue begint, dus start Redmine het met de standaardstatus van de tracker.'
+  text_project_workflow_graph_legend_band: Statussen onder de stippellijn zijn niet bereikbaar vanaf een nieuw issue.
+  label_project_workflow_diagnostics: 'Diagnose projectworkflows'
+  label_project_workflow_diagnostics_compatibility: 'Deze Redmine'
+  label_project_workflow_diagnostics_host: 'Draait'
+  label_project_workflow_diagnostics_tested: 'Getest tegen'
+  label_project_workflow_diagnostics_database: 'Database'
+  label_project_workflow_diagnostics_drift: 'Wat er gewijzigd is'
+  label_project_workflow_diagnostics_source: 'Waar Redmine het definieert'
+  label_project_workflow_diagnostics_screen: 'Scherm'
+  label_project_workflow_diagnostics_anchor: 'Ankerpunt'
+  label_project_workflow_diagnostics_anchor_matched: 'Gevonden'
+  label_project_workflow_diagnostics_anchor_unmatched: 'Niet gevonden'
+  label_project_workflow_diagnostics_anchor_unmeasured: 'Kon niet gecontroleerd worden'
+  label_project_workflow_diagnostics_patches: 'Redmine-klassen die deze plug-in wijzigt'
+  label_project_workflow_diagnostics_overrides: 'Redmine-schermen die deze plug-in wijzigt'
+  label_project_workflow_diagnostics_changed: 'Gewijzigd'
+  label_project_workflow_diagnostics_missing: 'Verdwenen uit Redmine'
+  label_project_workflow_diagnostics_added: 'Nieuw in Redmine'
+  label_project_workflow_diagnostics_ok: 'In orde'
+  label_project_workflow_diagnostics_not_ok: 'Vraagt aandacht'
+  text_project_workflow_diagnostics_description: 'Hoe deze plug-in er op deze server uitziet. Alles hier wordt gelezen; niets op deze pagina wijzigt iets.'
+  text_project_workflow_diagnostics_verified: 'Redmine %{version} is een versie waartegen deze plug-in getest wordt, bij elke wijziging, met drie databases.'
+  text_project_workflow_diagnostics_unverified: 'Niemand heeft deze plug-in tegen Redmine %{version} getest. Toch is elk onderdeel van Redmine dat ze vervangt identiek aan Redmine %{newest}, de nieuwste versie waartegen ze getest is.'
+  text_project_workflow_diagnostics_drifted: 'Niemand heeft deze plug-in tegen Redmine %{version} getest, en %{methods} van de onderdelen van Redmine die ze vervangt zijn gewijzigd sinds Redmine %{newest}, de nieuwste versie waartegen ze getest is. De plug-in blijft werken; lees de verschillen hieronder voor u erop vertrouwt.'
+  text_project_workflow_diagnostics_drift_help: 'Deze plug-in breidt deze onderdelen van Redmine niet uit, ze vervangt ze, dus een wijziging hier is een wijziging die ze niet gevolgd heeft. De vergelijking toont dat de tekst van elk onderdeel ongewijzigd is. Ze kan niet tonen dat Redmine ze nog op dezelfde manier gebruikt.'
+  text_project_workflow_diagnostics_permission_captured: 'Een andere plug-in heeft deze naam geregistreerd en Redmine antwoordt met de hunne. De schermen van deze plug-in weigeren iedereen, ook beheerders. %{claimants} plug-ins claimen de naam.'
+  text_project_workflow_diagnostics_patch_missing: 'Niet aanwezig. Redmine gedraagt zich hier zoals zonder deze plug-in.'
+  text_project_workflow_diagnostics_overrides_help: 'Dit zijn toevoegingen aan schermen die Redmine bezit. Elke toevoeging hangt aan een stuk van Redmines eigen opmaak, en Redmine meldt niets wanneer dat stuk er niet meer is: het scherm mist dan gewoon een besturingselement. Hier wordt op deze server gecontroleerd of elke toevoeging haar plaats nog vindt.'
+  text_project_workflow_diagnostics_anchor_unmatched: 'Deze toevoeging vindt op deze Redmine geen plaats, dus het scherm toont ze niet. Selector: %{selector}'
+  text_project_workflow_diagnostics_unmeasured: 'Niemand heeft deze plug-in tegen Redmine %{version} getest, en deze Ruby kan de broncode van Redmine niet lezen, dus was geen vergelijking mogelijk.'
+  # WP19 / F05: de compatibiliteitsstatus, op de schermen waar iemand op het punt staat een workflowregel te wijzigen.
+  text_project_workflow_compatibility_banner_unverified: 'Deze plug-in is niet tegen Redmine %{version} getest. Alles wat ze vervangt is ongewijzigd, en workflowregels kunnen hier gewoon bewerkt worden.'
+  text_project_workflow_compatibility_banner_unmeasured: 'Deze plug-in is niet tegen Redmine %{version} getest en kon zich er op deze Ruby niet mee vergelijken. Workflowregels kunnen hier nog steeds bewerkt worden.'
+  text_project_workflow_compatibility_banner_drifted: 'Redmine %{version} heeft onderdelen gewijzigd die deze plug-in vervangt. Workflowregels kunnen hier nog steeds bewerkt worden; kijk na wat er gewijzigd is voor u erop vertrouwt.'
+  # WP12 / ADR-003: the plugin's own administration area.
+  label_project_workflow_rules: 'Projectworkflows'
+  label_project_workflow_generic_screens: 'Redmine-eigen workflow'
+  # WP14 / audit F03: what deleting an issue status left behind.
+  warning_project_workflow_status_deleted_emptied:
+    one: "%{count} projectworkflow bevat nu geen enkele regel meer: elke regel die hij bevatte, noemde de status die zojuist verwijderd is. Het project behoudt daar zijn eigen workflow, en een eigen workflow zonder regels laat geen enkele statuswijziging toe. Bekijk hem in %{link} en voeg regels toe of ga terug naar de algemene workflow."
+    other: "%{count} projectworkflows bevatten nu geen enkele regel meer: elke regel die ze bevatten, noemde de status die zojuist verwijderd is. Die projecten behouden daar hun eigen workflow, en een eigen workflow zonder regels laat geen enkele statuswijziging toe. Bekijk ze in %{link} en voeg regels toe of ga terug naar de algemene workflow."
+  # WP14: the workflow drawing as a switchable feature with a size ceiling.
+  label_project_workflow_graph_enabled: 'Het workflowdiagram aanbieden'
+  text_project_workflow_graph_enabled: 'Het diagram is een alleen-lezen scherm dat bereikbaar is vanuit de workflowinstellingen van een project, de matrices en het issueformulier. Zet u het uit, dan wordt er nergens nog naar verwezen en antwoordt het scherm zelf "niet gevonden"; de rest blijft ongewijzigd.'
+  label_project_workflow_graph_edge_ceiling: 'Teken geen workflow met meer dan'
+  text_project_workflow_graph_edge_ceiling: 'Aantal pijlen, want dat is wat het bepalen van hun plaats kost: een workflow met 400 statussen en 800 pijlen wordt in ongeveer 50 ms uitgetekend, een met 60 statussen waarin bijna elke overgang is toegestaan duurt ongeveer 1,5 s. Daarboven wordt de workflow als tabel getoond in plaats van getekend. 0 betekent geen limiet.'
+  text_project_workflow_graph_too_large: 'Deze workflow bevat %{count} statuswijziging(en), meer dan de %{ceiling} die deze installatie tekent, dus wordt hij niet getekend en worden zijn bevindingen niet opgesomd. De tabel hieronder is de volledige workflow. Een beheerder kan de limiet aanpassen in de plug-in-instellingen.'
+  # ADR-004: the same ceiling as the matrix save, on *give own workflow*.
+  error_project_workflow_enable_too_large: 'Deze projecten een eigen workflow geven zou %{count} workflowregel(s) kopiëren, meer dan de limiet van %{ceiling}. Er is niets gewijzigd. Selecteer minder projecten, trackers of rollen, geef een eigen lege workflow, of verhoog de limiet in de plug-in-instellingen.'

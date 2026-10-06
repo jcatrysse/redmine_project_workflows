@@ -1,12 +1,867 @@
 # Changelog
 
-## 0.0.1
+## 0.1.6
 
-- Initial release.
+The workflow as a drawing.
 
-## 0.0.2
+### Fixed
 
-- Refactor "Only display statuses that are used by this tracker" to only display statuses that are used by the selected project.
+- **An interrupted restore can be recovered by running the same command again.**
+  `redmine_project_workflows:restore` used to create every project's decision
+  first and write the rules afterwards, so a restore that stopped halfway — a
+  dropped connection, a closed terminal — left every project it had not reached
+  with a workflow of its own and no rules in it, which is a project that permits
+  no status change at all. Running the restore again then skipped exactly those.
+  Each project, tracker, role and rule type is now put back in a transaction of
+  its own, so every one of them is either wholly restored or exactly as it was;
+  a failure no longer stops the rest, the ones that failed are named, and the
+  task exits non-zero so a script notices.
+
+- **A backup can no longer hold a state that never existed.** The decisions and
+  the rules were read one after the other, so a workflow saved in between could
+  produce a file in which the two halves describe two different moments. Both
+  reads now happen in one snapshot. And the uninstall task re-reads immediately
+  before it reverses anything: if a workflow changed while it was waiting for
+  `CONFIRM=yes`, it refuses rather than destroying what the backup does not hold.
+
+- **The administration matrices no longer write whatever a selection happens to
+  resolve to.** A tracker or role id naming something that does not exist was
+  dropped from the selection and the rest was written and reported as a success;
+  an id of the wrong shape was converted to a number, so `1e5` meant tracker 1.
+  Every selector in the plugin now refuses a value it cannot resolve, before
+  anything is written — which matters because a matrix save deletes before it
+  inserts.
+
+- **Two administrators saving the same workflow at the same moment no longer
+  leave duplicate rules behind.** Every workflow write — a project's, the one
+  every project shares, and a copy into either, from Redmine's own screens as
+  well as this plugin's — now takes a lock before it rewrites anything, so the
+  second save queues instead of colliding. A duplicate rule is what makes a
+  matrix cell render as a dropdown instead of a checkbox; the repair task
+  described under *Maintenance* in the README stays, because a database can
+  carry duplicates from before this version. This race is Redmine's own and the
+  plugin inherited it; the plugin is now the write path for both the shared
+  workflow and every project's, so it can hold one policy for them.
+
+- **A very large workflow save is bounded rather than attempted.** Selecting
+  every project, every tracker and every role and pressing Save could rewrite
+  millions of rules in one transaction, during which every other administrator
+  and every project manager saving their own workflow waits — and a web server
+  timing out in the middle rolls the whole thing back and reports nothing. The
+  Save button now asks first above the same number a row or column action asks
+  about, and a save above a second, much larger number is refused before
+  anything is written, with a message saying how many rules it would have been.
+  All three numbers are in *Administration → Plugins → Configure*; two of them are
+  new — Save asks above 5,000 rules and a save is refused above 200,000, and `0`
+  means no limit for either.
+
+  **Saving is not slow**, and does not become slow with the size of the
+  selection: the plugin writes a matrix in about eight statements per project
+  however many rules that is, where Redmine's own workflow save writes one
+  statement per rule. Measured on Redmine 7.0 and PostgreSQL 16, the same 1,620
+  rules take 30 statements and 0.22 s through this plugin and 6,480 statements
+  and 5.03 s written one at a time. `docs/settings.md` has the
+  numbers, including the one action that is still measured per combination.
+
+- **Giving many projects their own workflow is between six and sixteen times
+  faster, and is bounded.** It was the one bulk action still written one row at a
+  time. Giving 500 projects × 5 trackers × 8 roles a copy of a 30-rule shared
+  workflow — 600,000 rules — took 110 seconds on PostgreSQL (294 in a second
+  sample) and 99 on MariaDB, in 60,000 database round trips; it now takes 18 and
+  14 seconds in about 150. *Give own **empty** workflow* at that size went from a
+  minute to under four seconds. Above *Refuse a matrix save that would rewrite
+  more than* — the setting that already bounded the Save button — the copy is now
+  refused before anything is written, with a message saying how many rules it
+  would have been; the empty variant copies nothing and is never refused.
+
+  Two administrators pressing the button at the same moment are still handled,
+  and better than before: the action takes a small lock on the workflow it is
+  copying — one row per tracker and role, never one per project — so the second
+  one waits and then sees what the first did. That also closes a hole nobody had
+  reported: the shared workflow was read with no lock at all, so editing it while
+  a large copy was running gave the projects copied early the old rules and the
+  ones copied late the new ones, in one action, silently.
+
+- **Deleting an issue status no longer freezes a project's issues silently.**
+  Redmine deletes every workflow rule naming a status you delete, in the shared
+  workflow and in every project's. A project whose rules for a tracker and a role
+  all named that status was left running its own workflow with no rules in it —
+  which permits no change of status at all — and nothing said so. The deletion
+  now reports how many project workflows it emptied, with a link to them. It
+  warns and does not repair: returning those projects to the shared workflow
+  would undo a decision they made and nobody asked to undo.
+
+### Changed
+
+- **The workflow diagram has colour.** A dashed arrow — a change only the author
+  or the assignee may make — is blue, and Redmine's own fallback arrow is amber;
+  ordinary arrows, every box and every label keep the page's own colour. The
+  legend now draws a sample of each line beside its sentence. Colour is a second
+  signal and carries nothing on its own: the line style still distinguishes the
+  three kinds and the legend still names them in words, so the picture reads the
+  same in greyscale. Both accents were measured against a white page, Redmine's
+  alternate row grey and two dark-theme backgrounds.
+
+- **The warning at the top of the README changed from "alpha stage, do not use
+  in production" to a notice that says what you are taking on.** The plugin is
+  new and has not been through a wide range of production installations, and the
+  notice says so — along with what *is* tested, that workflow rules are
+  authorization, and that you should try it on a copy of your database first and
+  take a backup before upgrading or removing it. The release criteria that
+  govern removing the notice altogether are unchanged.
+
+- **A Redmine this plugin has not been tested against now says so on the screens
+  where a workflow rule is about to change**, not only in the log and on the
+  diagnostics page. It stays a warning: nothing is blocked.
+
+- **The diagnostics page moved out of Redmine's administration menu** and into
+  the action bar of the plugin's own administration screens. It keeps its
+  address and still requires an administrator.
+
+- **The backup file is written for your eyes only** — mode 0600 — and atomically,
+  so `FORCE=1` cannot destroy the previous backup before the new one is complete.
+
+- **The workflow diagram can be switched off, and is not drawn above a size.**
+  *Administration → Plugins → Project Workflows → Configure* has two new
+  settings: whether the diagram is offered at all (it is, by default), and how
+  large a workflow it will draw — 2,000 arrows by default. With the diagram
+  switched off no link to it appears anywhere and the screen answers *not found*;
+  nothing else changes. Above the size limit the page says so and lists the
+  workflow as a table instead, which holds exactly the same rules. Deciding where
+  to put the arrows is what a diagram costs, and it follows the arrows rather
+  than the statuses: a workflow of 400 statuses and 800 arrows is drawn in about
+  50 ms, one of 60 statuses where nearly every move is permitted takes about
+  1.5 s.
+
+- **`deface` is declared as `~> 1.9`** instead of unconstrained: the release
+  every supported combination is tested against, up to but not including the next
+  major. Your Redmine owns `Gemfile.lock`, so a host that already resolved deface
+  inside that range sees no change; what it protects is a fresh installation, or
+  one running `bundle update`, from resolving a deface this plugin has never been
+  run against — which, if it does not load, stops Redmine booting.
+
+- **The number beside *Project workflows* on the *Copy project* form is now what
+  a copy would actually carry.** It counted every workflow the source project
+  holds, including workflows for trackers the project has since disabled, which a
+  copy does not bring across. It counts the ones that will arrive.
+
+- **Archived projects are no longer offered a workflow of their own.** Nobody but
+  an administrator can reach an archived project and no issue in it can be
+  created or edited, so a workflow written for one governs nothing — and *give
+  every project its own workflow* was quietly writing rules for projects nobody
+  can reach. They have left the project selector on the workflow screens and the
+  copy form, and *(All)* now means every project that is not archived. Nothing
+  becomes unreachable: a link that names an archived project still opens its
+  matrix, so a workflow one of them already has can still be seen and removed,
+  and the *Project workflow inventory* still reports it.
+
+### Added
+
+- **Uninstalling no longer means losing every project workflow.** Reversing the
+  plugin's migrations deletes every workflow rule that names a project and drops
+  the table recording which projects decided to run their own — both deliberate,
+  and between them they discard every project workflow on the installation. The
+  plugin now backs that population up and puts it back:
+
+  ```
+  rake redmine_project_workflows:backup  FILE=/var/backups/project-workflows.json
+  rake redmine_project_workflows:restore FILE=/var/backups/project-workflows.json
+  ```
+
+  The backup is one JSON file holding every project's decisions and the rules
+  under them, with the names of the projects, trackers, roles and statuses it
+  refers to so that it can be read before it is trusted. An own **empty**
+  workflow — a project that deliberately permits nothing for a tracker and a role
+  — is in it too, which matters because that decision leaves no other trace: the
+  scope row is the only place it was ever recorded.
+
+  The restore validates every rule against the trackers, roles, statuses and
+  fields that exist *now*, and says how many it refused; leaves alone any project
+  that already has its own workflow there, and says how many; keeps the audit
+  trail rather than attributing every project's workflow to whoever ran it; and
+  can be run twice safely. Running it does not return any project to the generic
+  workflow — a project the file does not mention keeps inheriting.
+
+- **A scripted uninstall, in the order that makes it survivable.**
+
+  ```
+  rake redmine_project_workflows:uninstall FILE=… CONFIRM=yes
+  ```
+
+  It prints what is about to be discarded and how much of it there is, refuses to
+  go on without `CONFIRM=yes` typed in full, writes the backup **and reads it back**
+  before anything is destroyed, and only then reverses every migration. A run
+  refused at the confirmation writes no file and changes nothing. The whole round
+  trip — refusal, uninstall, reinstall, restore — now runs in CI on every push, on
+  all three Redmine versions and all three databases.
+
+- **Release criteria, written down.** `docs/release-criteria.md` says what has to
+  be true before a version is released, and — separately — before the *alpha*
+  warning comes off, with how each one is checked and where it stands today. The
+  warning stays: two criteria are unmet, and one of them is not the sort of thing
+  a repository can answer about itself.
+
+- **The upgrade from 0.0.3 is now measured rather than assumed.** A new check
+  installs the plugin as it is at the previous release, writes project rules
+  through *that* release's code, records what it answers when an issue asks which
+  statuses it may move to and which fields are required, then upgrades and asks
+  again. On Redmine 5.1 and 7.0 with PostgreSQL and 7.0 with MariaDB, and on all
+  nine combinations in CI, the answers are identical: not one workflow rule is
+  added, removed or changed, and every project that had its own rules gets a
+  recorded decision saying so — for exactly those combinations and no others.
+  Before this, that was a reasonable belief about migration 004; it is now a
+  test.
+
+- **The project side of the workflow has a screen of its own.**
+  *Administration → Project workflows* carries the project selector, the scope
+  panel, the summary, the copy form and both matrices. Redmine's own
+  *Administration → Workflow* goes on doing exactly what Redmine does, for the
+  workflow every project shares — it has no project controls on it any more, and
+  it carries a link across to the new screen so that nobody arriving there
+  looking for the project selector has to guess where it went. Nothing an
+  administrator can do has changed and nothing has moved out of reach; a
+  bookmark to one of Redmine's workflow screens with a project in its address
+  still opens, and now shows the workflow every project shares.
+
+  Behind it, and the reason it was worth doing before anybody is running this:
+  ten of the fifteen places where the plugin edits one of Redmine's own screens
+  are gone, and a 468-line replacement of Redmine's workflow controller is down
+  to four narrowed queries. Those were the parts of this plugin that an upgrade
+  of Redmine could quietly break — quietly, because a screen that loses a
+  control it was given this way reports nothing at all.
+
+- **A diagnostics page, and an answer for a Redmine nobody has tested this
+  against.** *Administration → Project workflow diagnostics* says which Redmine
+  this is, which ones the plugin is tested against, and — on a Redmine it has
+  never been tested against — whether any of the parts of Redmine it replaces
+  have actually changed. The plugin replaces more than twenty of Redmine's own
+  methods rather than extending them, so it now records a fingerprint of each
+  one for every Redmine it has been tested on and compares them on a host it
+  has not. There are three answers: tested, untested with no differences, and
+  untested with differences named one by one, each with the file Redmine
+  defines it in. It is a warning and never a refusal — the plugin keeps
+  working, and so do the screens an administrator would use to put it right.
+
+  The same page answers three more questions whose wrong answer is otherwise
+  silent: whether the permissions the plugin registered are the ones Redmine
+  answers with (two plugins can claim a name, and the loser's screens refuse
+  everybody), whether each change it makes to Redmine's own classes is in
+  place, and — for each of the five additions it makes to Redmine's own
+  screens — whether the piece of Redmine it attaches to is still there. That
+  last one is the failure this plugin worried about most: when it is not,
+  Redmine says nothing at all and the screen simply comes out missing a
+  control. Three answers per addition: found, not found, and *could not be
+  checked*, which is reported as neither.
+
+- **A workflow diagram, per role.** A new **Workflow diagram** screen draws the
+  whole of a project's status transitions for one tracker: a box per status, an
+  arrow per permitted change, and Redmine's *New issue* starting point on the
+  left. It is reached from the project's Workflow tab, from the top of both
+  matrices, and from the panel on the issue form.
+
+  It is per **role**, and that is the part no comparable screen elsewhere has.
+  Redmine decides its workflow per tracker and per role, so the diagram offers
+  every role the project screen already lists and starts on the roles the reader
+  holds — "what may a developer actually do here" is a question it can answer
+  directly.
+
+  Underneath the picture, in words: the statuses **no permitted move can reach**
+  from a new issue, the ones **nothing leads out of**, and the ones **the
+  selected roles' rules never mention**. The first two are real defects in a
+  workflow, and nothing else in Redmine reports them. A solid arrow is a change
+  anyone with the role may make; a dashed one is a change only the author or the
+  assignee may make.
+
+  The same workflow is repeated as a table below the drawing. That is not an
+  afterthought — no drawing is legible to a screen reader, and the table is also
+  what Ctrl-F finds and what prints.
+
+  The screen is behind the existing **View project workflow** permission: the
+  diagram shows what *other* roles may do, which is project configuration rather
+  than information about one issue. The panel on the issue form still needs no
+  permission of its own.
+
+  A project with its **own empty workflow** draws as the starting point alone,
+  with the sentence saying that is a deliberate configuration and not a fault. A
+  project that merely *inherits* a generic workflow nobody has filled in draws
+  the same picture and says something different, because those are two different
+  facts.
+
+  No new dependency, no JavaScript and no build step: the drawing is inline SVG
+  with the layout computed in Ruby, so the status names stay real text and a
+  theme's colours carry through to it.
+
+  **Redmine's own starting point is drawn too.** A stock Redmine ships a workflow
+  with no rule at all in the *New issue* row, and it does not refuse to create
+  issues because of it: when nothing says which status a new issue starts in,
+  Redmine starts it on the tracker's default status. The diagram draws that as a
+  dotted arrow and says in the legend that it is Redmine's fallback rather than a
+  rule anyone wrote. Without it, a freshly installed Redmine reported *every*
+  status as unreachable from a new issue, which is both wrong and the first thing
+  a new reader would have seen.
+
+  **A workflow with no progression says so rather than drawing spaghetti.**
+  Redmine's default workflow lets every status become every other one, and a
+  layered picture of that is a line between every pair of boxes — unreadable at
+  six statuses, which is where the shipped configuration already is. The screen
+  now says the workflow permits nearly every move and folds the drawing behind
+  *Show the diagram anyway*. The three lists and the table stay where they are.
+
+  **The statuses no new issue can reach** are laid out in columns of their own
+  below the dotted line, instead of one flat row with every arrow between them
+  bowed underneath it.
+
+  **What a screen reader is told first counts what the words say.** The label
+  read out before the drawing announced the *New issue* starting point as a
+  status and Redmine's fallback as a transition, so a workflow of six statuses
+  and five transitions was announced as seven and six. Both are out of the
+  counts now, and the fallback is named in a clause of its own instead — a
+  screen-reader user has the same use for it as a sighted one has for the dotted
+  arrow.
+
+- **Copying a project copies its workflow.** *Copy project* brought the members,
+  the trackers, the categories and the issues across and left the project's own
+  workflow behind, so the copy ran the **generic** workflow: in the ordinary case
+  — a project given its own workflow to be *stricter* than the generic one — the
+  copy came out **more permissive** than the original, with no message and
+  nothing in the documentation that said so. The first sign of it was somebody
+  closing an issue that should not have been closeable.
+
+  The copy now carries the decisions and the rules together, for the trackers the
+  copy actually has, and an own *empty* workflow arrives as an empty one rather
+  than as inheritance. Copying a role or a tracker has worked this way since
+  0.1.0; this is the same promise for a project. A copy into a project that
+  already runs a workflow of its own changes nothing there.
+
+  **And the copy form asks.** *Copy project* lists what it is about to bring
+  across — *Members*, *Issues*, *Wiki* and the rest, each with a count and each
+  ticked. The workflow is now one of them: **Project workflows (N)**, ticked like
+  the others, so the default is the same and unticking it starts the copy from
+  the generic workflow. It sits in core's own list through an extension point
+  Redmine provides for exactly this, so it looks and behaves like the items
+  beside it and the plugin overrides nothing to put it there.
+
+### Changed
+
+- **The two permissions are renamed to `view_project_workflow_rules` and
+  `manage_project_workflow_rules`.** The labels an administrator reads in
+  **Administration → Roles** are unchanged — *View the project's workflow* and
+  *Manage the project's workflow* — and a migration carries existing grants
+  across, so on most installations there is nothing to do.
+
+  The reason is a name collision. `redmine_custom_workflows` registers a
+  permission called `manage_project_workflow`, and Redmine answers a permission
+  lookup with the **first** plugin that registered the name; plugins load in
+  alphabetical order, so it won. On any Redmine carrying both plugins, every
+  screen here that *writes* answered "You are not authorized to access this
+  page" — to administrators too — while the read-only screens worked. Nothing
+  in Redmine reports such a clash; the losing plugin is simply silent.
+
+  **One case the migration deliberately leaves alone.** Where another plugin
+  still registers `manage_project_workflow`, a role holding it may hold it for
+  *that* plugin, and nothing in the stored value says which. Renaming it would
+  take the neighbour's permission away and adding ours beside it would widen
+  what the role may do, so the migration keeps its hands off and prints what to
+  do instead: grant **Manage the project's workflow** to the roles that should
+  have it. On such an installation the permission has never worked anyway, so
+  nothing that used to work stops working.
+
+### Fixed
+
+- **The workflow administration screens no longer break when a neighbouring
+  plugin customises the same helper.** The plugin's cell helpers were added to
+  Redmine's `WorkflowsHelper` with a `prepend`. Many Redmine plugins still take
+  a core helper over with the older `alias_method` idiom, and one loading after
+  this plugin — plugins load alphabetically — would copy *this plugin's* method
+  into its own alias, leaving the copy with nothing to call. **Administration →
+  Workflow** then raised an error for both plugins. The helpers are now attached
+  to the two controllers that render those screens instead, which is what the
+  project settings tab has done since 0.1.0 for exactly this reason. No
+  neighbour on a 45-plugin test installation triggered it, so nobody had seen it
+  yet.
+
+- **Installing the plugin on a SQLite installation no longer fails half-way.**
+  Three statements built a timestamp with the SQL `TIMESTAMP '…'` keyword, which
+  PostgreSQL, MySQL and MariaDB accept and SQLite does not. On SQLite the fourth
+  migration stopped with `no such column: TIMESTAMP` **after** the first three
+  had already been applied, leaving the installation with a half-changed
+  `workflows` table and an error on every issue page. Redmine ships SQLite
+  support, so this now works there too; the whole test suite passes on it.
+
+  The statement that needed it was the one with a `DISTINCT` in it, and that is
+  where the type had to go — PostgreSQL types a `DISTINCT` column before the
+  insert can coerce it. The `DISTINCT` now sits in a subquery and the constants
+  outside it, which every supported database reads the same way.
+
+- **A workflow diagram asked for one role that exists and one that does not now
+  says so.** It drew the one it recognised, under a heading naming both — so a
+  bookmark made before a role was deleted looked as though it still worked. It
+  answers *404 Not Found*, which is what the screen already did when *every*
+  role in the request was unknown.
+
+- **On Redmine 5.1, the workflow summary page marks an empty combination the way
+  Redmine 5.1 does again.** The plugin decided whether the host draws its icons
+  as SVG sprites — Redmine 6.0 and later — by asking whether a `sprite_icon`
+  helper existed. On Redmine 5.1 that answers *yes* as soon as any RedmineUP
+  plugin is installed, because the `redmineup` gem back-ports a `sprite_icon` of
+  its own (and `redmine_ai_triage` back-ports another). The plugin then drew
+  Redmine 6 markup on a Redmine 5 host, and a tracker-and-role combination with
+  **no rules at all** showed an unstyled `0` instead of the red "not ok" marker
+  Redmine 5.1 puts there — on the one page whose job is to show, at a glance,
+  which combinations are empty. It now asks the Redmine version, which is a fact
+  no neighbouring plugin can change.
+
+- **The workflow panel on the issue form no longer contradicts the status list
+  beside it.** A reader holding two roles — one of them with a project workflow
+  of its own that is deliberately empty, the other with rules — was told "no
+  change of status is permitted" while the form offered a full list of statuses.
+  The absolute sentence is now used only when *every* one of the reader's roles
+  is in that state; otherwise the panel says that at least one of them is, which
+  is what the diagram screen already said about the same situation.
+- **The two workflow actions on the project's settings tab no longer read as one
+  sentence.** *Give own workflow (copy of the generic one)* and *Give own empty
+  workflow* sat side by side with no separator between them, and the second is
+  the most consequential thing either screen offers. They are separated now, as
+  are *Empty this workflow* and *Return to the generic workflow*.
+
+### Internal
+
+- The two rule writers reject a payload that is not a matrix instead of raising
+  on it. Not reachable from either screen — both controllers convert first — but
+  the plugin now owns Redmine's own `replace_transitions` and
+  `replace_permissions`, so a neighbouring plugin, a rake task or a console can
+  reach them.
+- `CoreMethodDigest`, which watches for changes in the Redmine methods this
+  plugin reimplements, understands both ways a patch can be attached. Without
+  that, three of the nineteen methods it watches would have dropped out of the
+  gate silently when the helper patch stopped being a `prepend`.
+- That watch now covers what it depends on. It missed every class method,
+  including the two that *all* workflow writes are routed through, and it missed
+  the one private Redmine method the plugin calls without replacing — which
+  would raise rather than answer differently if Redmine ever renamed it.
+  Nineteen watched methods become twenty-three. The first thing the wider watch
+  found: Redmine 7.0 rewrote one of those two write methods. It is the same
+  rules with a lookup table in front of them, and the plugin replaces the method
+  outright, so nothing had to follow — but nothing would have noticed either.
+- Every version fact the plugin holds — the Redmine versions it is tested
+  against, their Ruby and Rails, the databases, the fingerprints, and the
+  version Redmine started drawing its icons differently at — moved into one file
+  that the plugin, its tests and its README all read. They used to be seven
+  separate statements of the same thing, and the test run *skipped itself* on a
+  Redmine it had no fingerprints for. It now fails instead: the plugin is
+  lenient about an untested Redmine and the build is not.
+- The workflow diagram's role selection moved into
+  `RedmineProjectWorkflows::GraphSelection`, the third extraction from
+  `ProjectWorkflowsController` for the same reason as the first two.
+- The two hottest queries in the plugin — which statuses an issue may move to,
+  and which fields it may change — built their database query in two halves and
+  gave each half its project before running it. Every half was given one, so no
+  answer was ever wrong; but the shape is one edit away from a query that reads
+  another project's rules, and it is the exact shape this repository's own rule
+  forbids. Both now go through the one place that cannot build such a half, as
+  the diagram and the issue panel already did, and a test fails the build if the
+  shape comes back. No behaviour changes.
+
+## 0.1.5
+
+The last finding left open from the review of 0.1.3 — the query behind the status
+filter grew with the number of projects that have their own workflow, on a screen
+ordinary users open rather than on an administration screen — and then the four
+things a follow-up review of that work found. Two of those four were introduced
+by the round of fixes before them, which is the ordinary cost of a large change
+and the reason the follow-up review happened at all.
+
+**No version of its own for the follow-up:** 0.1.5 has never been released — it
+exists on the development branch, `main` still carries 0.0.3, and there is no tag
+— so the four fixes belong in the entry for the version that is about to carry
+them rather than in one that would suggest an upgrade step between two states
+nobody has run.
+
+### Fixed
+
+- **A save that refuses some of the values it was sent no longer overstates how
+  many.** The administration screens write a selection one population at a time
+  (the generic workflow, then each selected project), and the count of refused
+  values was added up once per population: submitting one unacceptable value with
+  *all projects* selected on a five-hundred-project installation reported that
+  five hundred values had been refused and five hundred rules left unchanged. The
+  number now counts the request, which is what the sentence beside it has always
+  claimed. Only reachable through a hand-built request or an API client — no
+  screen can submit a value the plugin refuses — and the same is true of the next
+  item.
+- **A malformed matrix that arrives as a list no longer produces a server
+  error.** The four save screens deliberately turn a payload that is not a matrix
+  into "nothing was saved" rather than a crash, and that guard covered a plain
+  text payload but not a list one: `transitions[]=x` answered 500 from inside the
+  code written to prevent exactly that. It is now refused the same way, on all
+  four.
+- **The status filter and the status report on a project issue list no longer
+  get slower as more subprojects take over their workflow.** The query that
+  answers "which statuses does this project's workflow use" asked about each
+  project separately, in one statement that grew a clause per project — around
+  1,200 clauses and 90 KB of SQL for a tree of 300 subprojects with four
+  trackers, on **every page view** of that project's issue list. Projects that
+  have the same workflow arrangement, which is what copying a workflow to a whole
+  subtree produces, are now asked about together, so the statement's size follows
+  how many *different* arrangements exist rather than how many projects there
+  are. No answer changes — the same statuses come back, and the same are left
+  out.
+
+### Internal
+
+- The same query is behind the administration matrix with *all projects*
+  selected, where the growth was already known and had been accepted. It is
+  bounded there too now.
+- Two spec assertions were **corrected**, not relaxed: both demanded the
+  multiplied refusal count described above, and one of them explained that
+  number in its own comment as though it were the requirement.
+- The writers now settle what a payload whose keys are not text means — they
+  accept it and normalise what survives their whitelist — which closes a
+  server error reachable from the plugin's own internal write API, though not
+  from any request.
+- One log line reads the validated value in scope instead of the raw request
+  parameter two screens away. Nothing behaved differently.
+- Five tests, three of them written before the change and confirmed to pass on
+  the old code, because the two plausible wrong ways to group projects together
+  give wrong answers that no existing test would have caught. Each wrong version
+  was implemented deliberately and confirmed to fail one of them.
+
+## 0.1.4
+
+Nineteen findings from a review that bundled three independent reviews of 0.1.3
+and re-verified every claim in them. Two mattered: a concurrency defect on the
+one write path the previous round's locking had missed, and the fact that nothing
+would have noticed if Redmine changed a method this plugin has copied. The rest
+are edges, documentation that had stopped being true, and two gates that existed
+but were not being run.
+
+**Upgrading:** no new migration, but two existing ones changed, so an
+installation that has *not* yet migrated gets slightly different behaviour from
+one that has — see *Changed* below. Nothing needs to be re-run.
+
+### Fixed
+
+- **Copying a workflow into a project can no longer leave rules behind that
+  nothing will ever read.** The copy screen wrote the rules first and only then
+  looked up whether the projects it had written into own their workflow, so a
+  second request arriving in between — returning a project to the generic
+  workflow, which an ordinary project member may do — could remove the record of
+  ownership from underneath rules the copy had just written. Those rules then
+  apply to nothing, nothing cleans them up, and the copy reported *Successful
+  update*. Reproduced with two live database connections before it was fixed. The
+  three other write paths were given this protection in 0.1.2; the copy is now
+  the fourth.
+- **A save that only partly worked says so.** If some of the values submitted
+  were unacceptable and the rest were fine, the screen reported a plain success
+  and said nothing at all about the part it had refused — while the whole point
+  of refusing a value is that it leaves the rule it names alone *and tells you*.
+  It now names how many values were not accepted, alongside reporting the save.
+- **A save that carries no workflow at all no longer redirects in silence.** It
+  says nothing was saved, which is what every other outcome on that screen has
+  said since 0.1.3.
+- **The two project selectors on the copy screen are readable by a screen
+  reader.** Their labels were not associated with the selects, on the one screen
+  where the two differ only in which is the source and which the target — and
+  where getting them the wrong way round empties a workflow.
+- **Keyboard focus is no longer lost when the undo link disappears.** Undoing a
+  row or column action until there is nothing left to undo hid the link that held
+  focus, which dropped focus to the top of the page.
+- **The audit timestamps on MySQL and MariaDB are UTC.** They were the database
+  server's local time, recorded as though they were UTC, so *Updated 3 hours ago*
+  could be wrong by the server's offset — or in the future.
+- **Administration screens do no work for a request that is about to be
+  refused.** A visitor who is not logged in could make the workflow screens query
+  every project on the installation before anybody had checked who was asking.
+  Noise on a small Redmine; measurable on a large one, and repeatable at will.
+
+### Added
+
+- **Every workflow change is now recorded in the application log** — one line per
+  save or scope action, with who, what and how many, and never the contents of
+  the workflow itself. Previously the only record of a change that had rewritten
+  thousands of rules was a flash message the operator had already navigated past.
+- **The plugin now notices when Redmine changes underneath it.** It reimplements
+  eighteen of Redmine's own methods, and until now nothing compared them against
+  what Redmine actually ships — a change there is silent, and it has already
+  happened twice to the method that decides which statuses a user may set. The
+  test suite now checks all eighteen against the Redmine it is running in and
+  fails, with the method named, when one of them changes.
+- **Installation documentation for what the migrations do**, how large the table
+  they touch actually is, and what to expect on MySQL and MariaDB.
+
+### Changed
+
+- **Two migrations build their timestamps differently**, which is the fix for the
+  MySQL and MariaDB timestamps above. An installation that has already migrated
+  keeps the values it wrote — they are not displayed anywhere, so this is
+  invisible — and one migrating from now on gets correct ones.
+- **One migration now prints the number of rows it deleted.** It removes workflow
+  rules that name a project which no longer exists, and it printed no number at
+  all. On an upgrade the number is always zero; being able to see the zero is the
+  point.
+- The plugin no longer adds its test dependencies to Redmine's own bundle. They
+  were being installed into every installation of this plugin, production
+  included.
+
+### Internal
+
+- The JavaScript that powers the row and column actions is now tested on every
+  push rather than when somebody remembered to run it by hand.
+- The count of view overrides the plugin relies on is asserted, so adding one
+  without a test is now a deliberate act rather than a silent one.
+- Documentation corrections where code and documentation disagreed: the locking
+  rule, the cost of the inventory screen, what the migrations do to InnoDB, which
+  of Redmine's methods are copied and which delegate, and one invariant's single
+  deliberate exception.
+
+## 0.1.3
+
+Eight findings from an independent review of 0.1.2, plus three the review of
+*this* work turned up in it. One of the eight matters on a large installation;
+the rest are edges, and three of them are the same shape — a screen reporting
+success for something it did not do.
+
+**Upgrading:** no migration. Nothing in the database changes.
+
+### Fixed
+
+- **Saving the workflow with *All* projects selected no longer builds a URL out
+  of every project id.** The Save form carried the selection as hidden fields
+  and expanded *All* into an explicit list, so the redirect after Save named
+  every project — roughly 11 KB of query string on an installation with 500 of
+  them, which a default nginx rejects with a *414 Request-URI Too Large*: the
+  save had worked and the administrator saw an error page. Below that size the
+  failure was quieter, with every action link on the page carrying the same
+  list. The keyword is now carried through as it stands, which is what the
+  links beside it have always done.
+- **A save that applied nothing no longer says *Successful update*.** The
+  writers reported only what they had refused, and the screen worked out the
+  rest by subtraction — which cannot tell "wrote everything" from "there was
+  nothing left to write". A request whose values were all rejected is left
+  deliberately without effect, and that is the whole point of rejecting them
+  rather than clearing the rules they name; reporting it as applied undid half
+  of it. The same held on a project's own workflow screen, and there also for a
+  save that arrived just after somebody had returned the project to the generic
+  workflow.
+- **A copy that empties a workflow says so.** Copying into a project replaces
+  the target's rules for both kinds of rule, so a source with, say, no status
+  transitions leaves the target's own transitions workflow standing and empty —
+  a state in which no issue in that project can change status for that role.
+  It is a legitimate configuration and it is also how somebody deliberately
+  empties a project, so the copy still does it; it now counts the combinations
+  it left that way and names them.
+- **A copy no longer marks workflows it did not touch as edited.** The audit
+  columns behind *Updated by X, 2 minutes ago* were stamped across the whole
+  selection, including a combination the copy had skipped because its source
+  resolved to the target itself — a copy that moved nothing at all still
+  changed the audit line of every combination it named.
+- **A project's Workflow tab lists a role it does not offer, if that role
+  already has a workflow of its own.** A system administrator can give a
+  project its own workflow for *Non member* or *Anonymous*, and the last member
+  holding an ordinary role can leave. Either way the project ran its own
+  workflow for a role its own tab did not mention, with no way from that screen
+  to see or undo it. Such a row is now listed and can be emptied or returned to
+  the generic workflow; what it still is not offered is a *new* workflow of its
+  own, which stays a system administrator's decision.
+
+### Changed
+
+- **The style checker now targets the oldest supported Rails, not the newest.**
+  It was configured for Redmine 7.0's Rails, so it could demand a method that
+  does not exist on Redmine 5.1 and pass the change — a gate that approves what
+  the plugin cannot run is worse than no gate. Nothing in the plugin was
+  affected; this closes the door.
+- **The stale `.codex/` setup scripts are gone.** Nothing referred to them, they
+  named a Redmine version the plugin no longer supports and omitted the newest,
+  and they built the host somewhere `dev/run.sh` does not look. `dev/` is the
+  supported path and `dev/README.md` now says so.
+
+## 0.1.2
+
+Two findings from a review of 0.1.1, both about what happens when two people
+press a button at the same moment, and one of them about a rule this repository
+states absolutely.
+
+**Upgrading:** no migration. Nothing in the database changes.
+
+### Fixed
+
+- **Giving a project its own workflow reports what it created, and clears only
+  that.** The scope rows were written with one statement for many rows, which
+  skips a row that somebody else has just created — without saying so. Two
+  administrators pressing *give own workflow* for the same tracker and role
+  were therefore both told every scope had been created, and the second one
+  went on to clear the rules the first one had just copied and copy the generic
+  workflow over them. Each row is now written and validated on its own, and
+  only the combinations actually created are counted, cleared and copied into.
+- **A save no longer leaves rules behind that nothing will read.** Whether a
+  project runs its own workflow for a tracker and role was read once and acted
+  on afterwards, so a save running beside a *return to the generic workflow*
+  could write its rules just after the scope they belong to had been deleted.
+  Those rules stay in the table, the resolver ignores them — a project without
+  a scope follows the generic workflow — and the save reports success over a
+  change that never took effect. The two are now one decision: a save holds the
+  scope rows it depends on until it has written, and returning to the generic
+  workflow waits for it, or goes first and the save is refused and says so.
+
+## 0.1.1
+
+Two defects on the path "an administrator presses Save", found by a review of
+0.1.0 and fixed here. Both could lose configuration silently, and one of them
+changed what stock Redmine does.
+
+**Upgrading:** no migration. Nothing in the database changes.
+
+### Fixed
+
+- **A cell left at *(No change)* is left alone.** One cell of the transitions
+  matrix is three controls — the plain grid and the *author* and *assignee* grids
+  below it — over two stored rows. The writer deleted on the cell rather than on
+  the rule, so a single changed column deleted the rows of the other two: a
+  selection where one workflow permitted a transition and another did not lost
+  that transition on the next save, and reported "Successful update". Because the
+  plugin routes Redmine's own `WorkflowTransition.replace_transitions` through
+  that writer, this applied to the generic workflow as well as to a project's.
+- **Saving a matrix no longer gives a project a workflow of its own.** The
+  administration grid shows the rules the selection holds *itself*, so a project
+  that inherits renders empty — and pressing Save wrote that emptiness back as an
+  own **empty** workflow, in which no issue in the project can change status.
+  Saving now writes only into combinations the project has already taken over,
+  says how many it left alone, and the panel above the matrix says so before
+  anything is pressed. The three state actions are the only way to take a
+  workflow over, on every screen; the project's own tab already worked this way.
+- A malformed matrix submission is rejected instead of raising, on the
+  administration screens as it already was on a project's own.
+- A matrix save is one transaction over the whole selection, so a failure part
+  way through no longer leaves half of it rewritten.
+- `Issue#workflow_rule_by_attribute` is private again, as it is in Redmine.
+- The link the plugin adds to the issue form no longer raises if another plugin
+  renders Redmine's issue form from a controller of its own.
+- The threshold field on the settings screen refuses anything that is not a
+  whole number, rather than accepting it and quietly using the default.
+- Spanish, Portuguese and Polish used two or three different words for *tracker*
+  and *role* between them; all three now use Redmine's own. Dutch said *dit
+  tracker* where it meant *deze tracker*.
+
+### Changed — wording
+
+- The first of the three states is now **"Follows the generic workflow"**, in all
+  eight languages, where it used to say *Inherits*. Redmine has no workflow
+  inheritance and this plugin does not add any: a project either has taken a
+  (tracker, role) over or it has not, and there is no inheritance between
+  projects at all. "Inherits" suggested a project tree that does not exist, and
+  it misled the plugin's own maintainer. The change is to the words on screen
+  only — no setting, no data, no behaviour.
+
+### Changed
+
+- Giving many projects their own workflow at once no longer makes one database
+  round trip per combination.
+
+## 0.1.0
+
+The release that makes "this project has its own workflow" a thing the database
+records rather than something inferred from whether rows happen to exist. That
+inference could not tell a deliberately empty workflow from an absent one, and
+it silently returned a project to the generic workflow when its last rule was
+deleted.
+
+**Upgrading:** the migration backfills the new table, so a project that was
+already working keeps working. Read
+[Installing, upgrading, backing up and removing](docs/operations.md) first —
+especially before uninstalling, which removes every project-specific rule.
+
+**Breaking:** the declared minimum is now Redmine **5.1**. It was 5.0, which
+nothing had ever tested.
+
+### The model
+
+- A project's decision to run its own workflow is a row in
+  `project_workflow_scopes`, separately for status transitions and for field
+  permissions. Three states are now distinguishable and stay distinguishable:
+  *inherits the generic workflow*, *own workflow*, *own empty workflow*.
+- A project workflow **replaces** the generic one for the tracker and role it
+  covers. There is no merging and there are no negative rules.
+- No inheritance between projects: a subproject has its own workflow or uses the
+  generic one.
+- Every query against `workflows` names a `project_id`, so one project can never
+  read another's rules — or have them counted into its totals.
+
+### Correctness at Redmine's own seams
+
+- `Project#rolled_up_statuses` is computed per project across the tree and
+  unioned, with no role filter — which is what core does, and what stops the
+  status filter coming back empty for a project without members.
+- The two `Issue` call sites that asked a tracker which statuses it uses now ask
+  the issue's own project's effective workflow. `Tracker#issue_status_ids` stays
+  a global union on purpose.
+- Copying a role or a tracker carries the project rules and their scopes along,
+  so a copied role is a working copy.
+- `rake redmine_project_workflows:deduplicate_workflow_rules` repairs a database
+  that already has duplicate rules; the writers cannot produce new ones within a
+  save.
+- Redmine's own `WorkflowTransition.replace_transitions` and
+  `WorkflowPermission.replace_permissions` are routed through those writers, so a
+  generic save can never delete a project's rules. **This changes the generic
+  screens slightly even on an installation with no per-project workflow:** the
+  writers whitelist `rule`, `field_name` and status ids against server-built
+  lists, which is narrower than core, and a rejected entry is dropped before the
+  delete so it leaves the rule it names alone rather than clearing it. The
+  matrices cannot produce a rejected value; a hand-built request can.
+- The copy screen rejects a source or target tracker or role that does not
+  exist, instead of reading it as "any" or quietly dropping it. Redmine spells
+  "copy from every tracker" and "that tracker is gone" the same way — both are
+  `nil` — and drops an unknown target id from its query, so a stale form could
+  copy from a source nobody chose, or report success for a selection it had only
+  half applied. **This applies to the generic copy screen too,** with or without
+  a per-project workflow: a selection that names something real still behaves
+  exactly as before.
+- The copy screen's **target project** control preselects *Generic*. A
+  multiple-choice control with nothing selected sends nothing at all, so a copy
+  form that showed no target project still copied into the generic workflow and
+  reported success. What runs is now what the form shows. The **source** project
+  control is unchanged: blank there already means the generic workflow and
+  destroys nothing.
+
+### Screens
+
+- The **Summary** page counts the workflow you selected instead of mixing
+  populations, and its links carry the selection.
+- A **Workflow inventory**: one line per project, tracker and role, with the
+  state in words, filters, and a link into each matrix.
+- A **Workflow** tab in project settings, behind two new permissions
+  (`view_project_workflow`, `manage_project_workflow`), so a project can run its
+  own workflow without a system administrator. Every action authorizes against
+  the project it acts on.
+- **Row and column actions** on every transition matrix — Yes, No and
+  *(No change)* — which reach the mixed-value cells Redmine's own check-all
+  toggle cannot. With a count of what changed, an **Undo**, and a line saying
+  nothing is written until Save.
+- A **comparison** screen: which rules a project's own workflow has that the
+  generic one does not, and the other way round, for one tracker and role.
+- **Who last changed a workflow, and when**, on the project tab and in the
+  inventory, kept separately from when the decision was taken.
+- On the issue form, a **Workflow for this issue** panel beside Redmine's own
+  status help icon: which of the three states governs the reader — per role,
+  because a role can be overridden while the next inherits — what the workflow
+  lets this issue move to, what leads into its current status, and, for anything
+  the workflow permits but the status list is not offering, the reason. Redmine's
+  own sentence where Redmine has one (an open subtask, a blocking issue, a closed
+  parent), the plugin's where the reason is who the reader is. The link is there
+  even when Redmine renders no status control at all — which an own empty
+  workflow produces, and so does a plain generic workflow at any status with
+  nothing leading out of it. Loaded when it is opened, so an ordinary issue edit
+  costs nothing extra.
+- Redmine's own status help icon on that form needed no change and is now
+  covered by specs: the statuses it lists are the project's own effective
+  workflow, never another project's. It is invisible until an administrator fills
+  in **Administration → Issue statuses → Description**, which the README now
+  says.
+
+### Settings
+
+- One setting: *Ask before a row or column action changes more than* — 50
+  workflow rules by default, `0` to ask every time.
 
 ## 0.0.3
 
@@ -14,3 +869,10 @@
 - Add workflow project foreign key with cascade cleanup behavior.
 - Improve i18n coverage and selector/role-resolution robustness.
 
+## 0.0.2
+
+- Refactor "Only display statuses that are used by this tracker" to only display statuses that are used by the selected project.
+
+## 0.0.1
+
+- Initial release.

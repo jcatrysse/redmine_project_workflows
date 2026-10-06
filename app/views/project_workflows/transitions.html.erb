@@ -1,0 +1,52 @@
+<%= render partial: 'project_workflows/matrix_header' %>
+
+<% if @statuses.any? %>
+  <% if @editable %>
+    <%= form_tag project_workflow_transitions_path(@project), method: :patch, id: 'workflow_form' do %>
+      <%= hidden_field_tag 'tracker_id', @tracker.id, id: nil %>
+      <%= hidden_field_tag 'role_id', @role.id, id: nil %>
+      <%= hidden_field_tag 'used_statuses_only', params[:used_statuses_only], id: nil %>
+      <div class="autoscroll">
+        <%# Core's own grid, unchanged: the project matrix has to behave exactly
+            like the administration one, and a copy would drift from it. %>
+        <%= render partial: 'workflows/form', locals: { name: 'always', workflows: @workflows['always'] } %>
+
+        <% %w[author assignee].each do |name| %>
+          <fieldset class="collapsible" style="padding: 0; margin-top: 0.5em;">
+            <%= project_workflows_collapsible_legend(
+                  l("label_additional_workflow_transitions_for_#{name}"), @workflows[name].present?) %>
+            <div id="<%= name %>_workflows" style="margin: 0.5em 0 0.5em 0;">
+              <%= render partial: 'workflows/form', locals: { name: name, workflows: @workflows[name] } %>
+            </div>
+          </fieldset>
+          <%= javascript_tag "hideFieldset($('##{name}_workflows'))" if @workflows[name].blank? %>
+        <% end %>
+      </div>
+      <%= submit_tag l(:button_save) %>
+    <% end %>
+  <% else %>
+    <p class="project-workflow-readonly">
+      <em>
+        <%= @own_workflow ? l(:text_project_workflow_readonly_own) : l(:text_project_workflow_readonly_generic) %>
+      </em>
+    </p>
+    <div class="autoscroll">
+      <%= render partial: 'project_workflows/readonly_transitions',
+                 locals: { name: 'always', workflows: @workflows['always'] } %>
+
+      <% %w[author assignee].each do |name| %>
+        <% next if @workflows[name].blank? %>
+        <fieldset class="collapsible" style="padding: 0; margin-top: 0.5em;">
+          <%= project_workflows_collapsible_legend(
+                l("label_additional_workflow_transitions_for_#{name}"), true) %>
+          <div id="<%= name %>_workflows" style="margin: 0.5em 0 0.5em 0;">
+            <%= render partial: 'project_workflows/readonly_transitions',
+                       locals: { name: name, workflows: @workflows[name] } %>
+          </div>
+        </fieldset>
+      <% end %>
+    </div>
+  <% end %>
+<% else %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>

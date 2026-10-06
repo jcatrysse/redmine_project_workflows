@@ -3,26 +3,118 @@
 module RedmineProjectWorkflows
   module Services
     class PermissionWriter
+      extend MatrixScope
+      extend SanitizedPayload
+
+      # See TransitionWriter.rule_model.
+      def self.rule_model
+        WorkflowPermission
+      end
+
+      # The rules core's WorkflowPermission accepts. A blank rule is not a rule
+      # but the request to remove one, so it is kept and dropped again when the
+      # rows are built.
+      RULES = %w[readonly required].freeze
+
       def self.replace_permissions(project, trackers, roles, permissions)
         replace_permissions_for_project_id(project.id, trackers, roles, permissions)
       end
 
+      # See TransitionWriter.replace_transitions_for_project_id: a
+      # MatrixSaveResult, both counts, for the same reason.
       def self.replace_permissions_for_project_id(project_id, trackers, roles, permissions)
         trackers = Array.wrap(trackers)
         roles = Array.wrap(roles)
-        permissions = normalize_permissions(permissions)
+        return MatrixSaveResult.none if trackers.empty? || roles.empty?
 
+        permissions, rejected = sanitize_and_count(permissions)
+        return MatrixSaveResult.new(0, 0, rejected) if permissions.empty?
+
+        result = MatrixSaveResult.none
         WorkflowPermission.transaction do
-          scope = WorkflowPermission.where(
-            tracker_id: trackers.map(&:id),
-            role_id: roles.map(&:id),
-            project_id: project_id
+          pairs = WriteCoordinator.writable_pairs(project_id, trackers, roles, ProjectWorkflowScope::PERMISSIONS)
+          result = MatrixSaveResult.new(pairs.size, (trackers.size * roles.size) - pairs.size, rejected)
+          next if pairs.empty?
+
+          write_pairs(project_id, pairs, permissions)
+        end
+        # See TransitionWriter: the rules have changed, so anything cached from
+        # them is now wrong.
+        Resolver.reset_cache!
+        result
+      end
+
+      def self.write_pairs(project_id, pairs, permissions)
+        if project_id
+          ScopeWriter.touch_scopes(
+            project_ids: [project_id],
+            tracker_ids: pairs.map { |tracker, _role| tracker.id }.uniq,
+            role_ids: pairs.map { |_tracker, role| role.id }.uniq,
+            rule_type: ProjectWorkflowScope::PERMISSIONS
           )
-          delete_permissions_for_scope(scope, permissions)
-          rows = build_permission_rows(project_id, trackers, roles, permissions)
-          insert_permission_rows(rows)
+        end
+
+        scope = WorkflowPermission.where(project_id: project_id).where(pair_predicate(pairs))
+        delete_permissions_for_scope(scope, permissions)
+        insert_permission_rows(build_permission_rows(project_id, pairs, permissions))
+      end
+      private_class_method :write_pairs
+
+      # INV-2: the rows are written with insert_all, which runs no validations,
+      # so this whitelist *is* the validation. It restores what core's
+      # WorkflowPermission checks -- validates_inclusion_of :rule,
+      # validate_field_name and the presence of old_status -- which the
+      # plugin's routing of replace_permissions would otherwise have removed
+      # from the generic write path as well.
+      #
+      # An entry that fails the whitelist is dropped before the delete, not
+      # only before the insert, so an unacceptable value changes nothing rather
+      # than clearing the rule it names.
+      def self.sanitize_payload(permissions)
+        status_ids = valid_status_ids
+        field_names = valid_field_names
+
+        permissions.each_with_object({}) do |(status_id, rule_by_field), sanitized|
+          next unless rule_by_field.respond_to?(:each)
+          next unless status_ids.include?(status_id.to_s)
+
+          rule_by_field.each do |field, rule|
+            next unless field_names.include?(field.to_s)
+            next unless rule.blank? || RULES.include?(rule.to_s)
+
+            # Strings, whatever the caller spelled them as: see the same
+            # normalisation in TransitionWriter#sanitize_payload. `field` also
+            # travels into an IN list and into insert_all, where a Symbol would
+            # be cast rather than compared (finding F02 of the
+            # 2026-08-27-bundled-followup run).
+            sanitized[status_id.to_s] ||= {}
+            sanitized[status_id.to_s][field.to_s] = rule
+          end
         end
       end
+      private_class_method :sanitize_payload
+
+      # One (status, field) cell per leaf. A value where a Hash was expected
+      # counts as one, because the sanitizer drops exactly one thing there.
+      def self.leaf_count(permissions)
+        permissions.sum do |_status_id, rule_by_field|
+          rule_by_field.respond_to?(:each) ? rule_by_field.count : 1
+        end
+      end
+      private_class_method :leaf_count
+
+      def self.valid_status_ids
+        IssueStatus.pluck(:id).to_set(&:to_s)
+      end
+      private_class_method :valid_status_ids
+
+      # Core accepts any run of digits as a custom field reference; requiring
+      # the field to exist is strictly narrower and cannot reject anything the
+      # matrix offers, because it only offers the trackers' own custom fields.
+      def self.valid_field_names
+        (Tracker::CORE_FIELDS_ALL + IssueCustomField.pluck(:id).map(&:to_s)).to_set
+      end
+      private_class_method :valid_field_names
 
       def self.delete_permissions_for_scope(scope, permissions)
         table = WorkflowPermission.arel_table
@@ -40,27 +132,25 @@ module RedmineProjectWorkflows
         scope.where(predicate).delete_all
       end
 
-      def self.build_permission_rows(project_id, trackers, roles, permissions)
+      def self.build_permission_rows(project_id, pairs, permissions)
         rows = []
         permissions.each do |status_id, rule_by_field|
           status_id = status_id.to_i
           next unless rule_by_field.respond_to?(:each)
 
           rule_by_field.each do |field, rule|
-            next unless rule.present?
+            next if rule.blank?
 
-            trackers.each do |tracker|
-              roles.each do |role|
-                rows << {
-                  role_id: role.id,
-                  tracker_id: tracker.id,
-                  old_status_id: status_id,
-                  field_name: field,
-                  rule: rule,
-                  project_id: project_id,
-                  type: 'WorkflowPermission'
-                }
-              end
+            pairs.each do |tracker, role|
+              rows << {
+                role_id: role.id,
+                tracker_id: tracker.id,
+                old_status_id: status_id,
+                field_name: field,
+                rule: rule,
+                project_id: project_id,
+                type: 'WorkflowPermission'
+              }
             end
           end
         end
@@ -75,18 +165,28 @@ module RedmineProjectWorkflows
         end
       end
 
-      def self.normalize_permissions(permissions)
-        return {} if permissions.nil?
+      # A matrix is a Hash or it is nothing, and the question is what the value
+      # **is** rather than what it answers to.
+      #
+      # `respond_to?(:to_h)` was the question until finding F04 of
+      # 2026-08-28-claude-audit, and `Array` answers it yes and then raises:
+      # `['x'].to_h` is `TypeError: wrong element type String at 0`. So the
+      # method whose whole purpose is to turn a malformed matrix into a rejection
+      # raised inside itself, before any whitelist ran. `MatrixParams#to_plain_hash`
+      # and `WorkflowsControllerPatch#to_plain_hash` were both corrected for
+      # exactly this and carry the same reasoning; these two were the copies that
+      # did not move.
+      #
+      # Not reachable from either screen -- both controllers convert first -- but
+      # INV-1 routes core's own `replace_transitions` and `replace_permissions`
+      # through here, so a neighbouring plugin, a rake task or a console reaches
+      # it. A validator that raises has not rejected.
+      def self.normalize_payload(permissions)
+        return permissions.to_unsafe_h if permissions.respond_to?(:to_unsafe_h)
 
-        if permissions.respond_to?(:to_unsafe_h)
-          permissions.to_unsafe_h
-        elsif permissions.respond_to?(:to_h)
-          permissions.to_h
-        else
-          permissions
-        end
+        permissions.is_a?(Hash) ? permissions : {}
       end
-      private_class_method :normalize_permissions
+      private_class_method :normalize_payload
     end
   end
 end

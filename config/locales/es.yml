@@ -1,4 +1,196 @@
 es:
   label_project_workflows_global: Genérico
-  error_workflow_copy_source_project: Seleccione un rastreador, un rol y un proyecto de origen.
-  error_workflow_copy_target: Seleccione rastreadores, roles y proyectos de destino.
+  error_workflow_copy_source_project: Seleccione un tipo, un perfil y un proyecto de origen.
+  error_workflow_copy_target: Seleccione tipos, perfiles y proyectos de destino.
+  error_workflow_copy_target_project: Uno o varios de los proyectos de destino seleccionados no existen.
+  error_workflow_copy_target_tracker_or_role: Uno o varios de los tipos o perfiles de destino seleccionados no existen.
+  label_project_workflow_scope: Flujo de trabajo para los proyectos seleccionados
+  label_project_workflow_state_inherits: "Sigue el flujo de trabajo genérico"
+  label_project_workflow_state_own: Flujo de trabajo propio
+  label_project_workflow_state_own_empty: Flujo de trabajo propio vacío
+  label_project_workflow_count_own:
+    one: "%{count} flujo de trabajo propio"
+    other: "%{count} flujos de trabajo propios"
+  label_project_workflow_count_own_empty:
+    one: "%{count} flujo de trabajo propio vacío"
+    other: "%{count} flujos de trabajo propios vacíos"
+  label_project_workflow_count_inherits:
+    one: "%{count} sigue el flujo de trabajo genérico"
+    other: "%{count} siguen el flujo de trabajo genérico"
+  button_project_workflow_enable_copy: Dar flujo de trabajo propio (copia del genérico)
+  button_project_workflow_enable_empty: Dar flujo de trabajo propio vacío
+  button_project_workflow_clear: Vaciar este flujo de trabajo
+  button_project_workflow_inherit: Volver al flujo de trabajo genérico
+  text_project_workflow_scope_help: Un flujo de trabajo propio sustituye al genérico; nunca se le añade. Un flujo de trabajo propio vacío no permite nada.
+  text_project_workflow_enable_copy_confirm: ¿Dar a este proyecto su propio flujo de trabajo, partiendo de una copia del genérico? Afecta a %{count} combinación(es) de proyecto, tipo y perfil.
+  text_project_workflow_enable_empty_confirm: ¿Dar a este proyecto su propio flujo de trabajo, vacío? No se permitirá nada hasta que añada reglas. Afecta a %{count} combinación(es) de proyecto, tipo y perfil.
+  text_project_workflow_clear_confirm: ¿Eliminar todas las reglas de este flujo de trabajo? El proyecto conserva su flujo propio, pero no permitirá nada.
+  text_project_workflow_inherit_confirm: ¿Volver al flujo de trabajo genérico? Se eliminan las reglas propias del proyecto.
+  notice_project_workflow_enabled_copy:
+    one: "%{count} flujo de trabajo copiado del genérico."
+    other: "%{count} flujos de trabajo copiados del genérico."
+  notice_project_workflow_enabled_empty:
+    one: "%{count} flujo de trabajo propio vacío creado."
+    other: "%{count} flujos de trabajo propios vacíos creados."
+  notice_project_workflow_inherited:
+    one: "%{count} flujo de trabajo devuelto al genérico."
+    other: "%{count} flujos de trabajo devueltos al genérico."
+  notice_project_workflow_emptied:
+    one: "%{count} flujo de trabajo vaciado."
+    other: "%{count} flujos de trabajo vaciados."
+  notice_project_workflow_scope_unchanged: No hubo nada que cambiar.
+  label_project_workflow_inventory: Inventario de flujos de trabajo
+  label_project_workflow_rule_type: Tipo de regla
+  label_project_workflow_inventory_deviations_only: Solo proyectos con su propio flujo de trabajo
+  text_project_workflow_inventory_description: "Una línea por proyecto, tipo y perfil. El número indica cuántas reglas tiene el propio proyecto; la etiqueta indica si son esas reglas las que se aplican, o el flujo de trabajo general."
+  text_project_workflow_inventory_empty: Ningún proyecto tiene su propio flujo de trabajo para esta selección.
+  text_project_workflow_inventory_empty_filtered: Ninguna combinación de proyecto, tipo y perfil coincide con esta selección.
+  button_project_workflow_inventory_show_all: Mostrar todos los proyectos, tipos y perfiles
+  button_project_workflow_inventory_open_matrices: Abrir las matrices del flujo de trabajo
+  error_project_workflow_inventory_filter: Uno o más valores de filtro ya no existen y se han ignorado.
+  permission_view_project_workflow_rules: Ver el flujo de trabajo del proyecto
+  permission_manage_project_workflow_rules: Gestionar el flujo de trabajo del proyecto
+  label_project_workflow_project_scope: Flujo de trabajo de este proyecto
+  label_project_workflow_open_matrix: Abrir este flujo de trabajo
+  text_project_workflow_tab_description: Una línea por cada tipo y perfil sobre el que este proyecto puede decidir. El número indica cuántas reglas tiene el proyecto mismo; la etiqueta dice si son esas reglas las que se aplican o el flujo de trabajo genérico.
+  text_project_workflow_tab_nothing_to_configure: "Todavía no hay nada que configurar aquí: este proyecto no tiene ningún tipo activado, ni ningún perfil con miembros que participe en un flujo de trabajo."
+  text_project_workflow_project_enable_copy_confirm: ¿Dar a este proyecto su propio flujo de trabajo para este tipo y perfil, partiendo de una copia del genérico?
+  text_project_workflow_project_enable_empty_confirm: ¿Dar a este proyecto su propio flujo de trabajo, vacío, para este tipo y perfil? No se permitirá nada hasta que añada reglas.
+  text_project_workflow_readonly_generic: "Este proyecto sigue el flujo de trabajo genérico para este tipo y perfil. Se muestra abajo como referencia; dé al proyecto su propio flujo de trabajo para cambiarlo."
+  text_project_workflow_readonly_own: Este es el flujo de trabajo propio del proyecto. Cambiarlo requiere el permiso para gestionar el flujo de trabajo de este proyecto.
+  notice_project_workflow_not_own: "Este proyecto sigue el flujo de trabajo genérico para este tipo y perfil, por lo que no se guardó nada. Dé primero al proyecto su propio flujo de trabajo."
+  notice_project_workflow_save_nothing_applied: "No se ha guardado nada. O no se cambió ninguna casilla, o los valores enviados no se aceptaron."
+  notice_project_workflow_save_rejected_values:
+    one: "%{count} valor enviado no fue aceptado; la regla que indica quedó sin cambios."
+    other: "%{count} valores enviados no fueron aceptados; las reglas que indican quedaron sin cambios."
+  notice_project_workflow_copy_left_empty:
+    one: "%{count} combinación de proyecto, tipo y perfil tiene ahora su propio flujo de trabajo vacío: la copia no dejó ninguna regla de esa clase. Allí no se permite nada hasta que añada reglas."
+    other: "%{count} combinaciones de proyecto, tipo y perfil tienen ahora su propio flujo de trabajo vacío: la copia no dejó ninguna regla de esa clase. Allí no se permite nada hasta que añada reglas."
+  text_project_workflow_scope_inheriting_note:
+    one: "%{count} combinación de esta selección sigue todavía el flujo de trabajo genérico. La matriz siguiente solo muestra las reglas que la selección posee, de modo que esa combinación aparece vacía y guardar no la cambiará — déle primero su propio flujo de trabajo."
+    other: "%{count} combinaciones de esta selección siguen todavía el flujo de trabajo genérico. La matriz siguiente solo muestra las reglas que la selección posee, de modo que esas combinaciones aparecen vacías y guardar no las cambiará — déles primero su propio flujo de trabajo."
+  notice_project_workflow_save_skipped_inheriting:
+    one: "%{count} combinación de proyecto, tipo y perfil sigue todavía el flujo de trabajo genérico y no se ha cambiado. Déle primero su propio flujo de trabajo."
+    other: "%{count} combinaciones de proyecto, tipo y perfil siguen todavía el flujo de trabajo genérico y no se han cambiado. Déles primero su propio flujo de trabajo."
+  label_project_workflow_bulk_row: 'Poner toda la fila "%{name}" en %{value}'
+  label_project_workflow_bulk_column: 'Poner toda la columna "%{name}" en %{value}'
+  text_project_workflow_bulk_confirm: 'Esta acción afecta a %{count} regla(s) de flujo de trabajo. ¿Continuar?'
+  text_project_workflow_bulk_selection: 'Una celda de esta matriz representa %{count} flujo(s) de trabajo: %{trackers} tipo(s) × %{roles} perfil(es) × %{scopes} ámbito(s) de flujo de trabajo.'
+  text_project_workflow_bulk_legend: '"%{no_change}" significa que los flujos de trabajo que representa una celda no dicen todos lo mismo; al guardar, cada uno queda como está.'
+  text_project_workflow_bulk_legend_actions: 'Una acción de fila o de columna puesta en "%{no_change}" devuelve cada celda de esa fila o columna al valor con el que se abrió la página.'
+  label_project_workflow_bulk_confirm_threshold: 'Pedir confirmación cuando una acción de fila o de columna cambie más de'
+  text_project_workflow_bulk_confirm_threshold: 'Número de reglas de flujo de trabajo. Una acción de fila o de columna que cambiaría más que esto pide confirmación primero. 0 pregunta siempre.'
+  text_project_workflow_save_confirm: 'Guardar esta matriz reescribe %{count} regla(s) de flujo de trabajo. ¿Continuar?'
+  label_project_workflow_bulk_save_confirm_threshold: 'Pedir confirmación cuando Guardar reescriba más de'
+  text_project_workflow_bulk_save_confirm_threshold: 'Número de reglas de flujo de trabajo. Guardar una matriz de administración que abarca más de un flujo de trabajo pide confirmación en cuanto reescribiría más que esto. Guardar un único flujo de trabajo no pregunta nunca. 0 pregunta siempre.'
+  label_project_workflow_bulk_write_ceiling: 'Rechazar un guardado de la matriz que reescriba más de'
+  text_project_workflow_bulk_write_ceiling: 'Número de reglas de flujo de trabajo. Un guardado de la matriz de administración mayor que esto se rechaza antes de escribir nada, para que un solo guardado no bloquee las tablas de flujo de trabajo durante minutos. 0 significa sin límite.'
+  error_project_workflow_save_too_large: 'Este guardado reescribiría %{count} regla(s) de flujo de trabajo, más que el límite de %{ceiling}. No se ha cambiado nada. Seleccione menos proyectos, tipos de petición o perfiles, o aumente el límite en la configuración del plugin.'
+  label_project_workflow_compare: Comparar con el flujo de trabajo genérico
+  label_project_workflow_copy_item: Flujos de trabajo del proyecto
+  label_project_workflow_compare_difference: Diferencia
+  label_project_workflow_compare_project_only: Solo en este proyecto
+  label_project_workflow_compare_generic_only: Solo en el flujo de trabajo genérico
+  label_project_workflow_compare_changed: Diferente
+  label_project_workflow_compare_condition: Se aplica a
+  label_project_workflow_compare_in_project: En este proyecto
+  label_project_workflow_compare_in_generic: En el flujo de trabajo genérico
+  label_project_workflow_condition_always: Cualquiera con este perfil
+  label_project_workflow_condition_author: También cuando el usuario es el autor
+  label_project_workflow_condition_assignee: También cuando el usuario es el asignado
+  text_project_workflow_compare_description: El flujo de trabajo de este proyecto sustituye al genérico para este tipo y este perfil, de modo que lo siguiente es la diferencia completa. No se combina nada y ya no se aplica nada del flujo de trabajo genérico.
+  text_project_workflow_compare_counts: Este proyecto tiene %{project} regla(s) propia(s) para este tipo y este perfil; el flujo de trabajo genérico tiene %{generic}.
+  text_project_workflow_compare_identical: El flujo de trabajo propio de este proyecto es idéntico al genérico para este tipo de petición y este rol.
+  text_project_workflow_compare_inherits: "Este proyecto sigue el flujo de trabajo genérico para este tipo y este perfil, por lo que no hay nada que comparar."
+  button_project_workflow_bulk_undo: Deshacer
+  text_project_workflow_bulk_changed: '%{cells} celda(s) modificada(s), %{rules} regla(s) de flujo de trabajo.'
+  text_project_workflow_bulk_undone: 'Deshecho: %{cells} celda(s) restaurada(s).'
+  text_project_workflow_bulk_unsaved: Todavía no se ha guardado nada. Pulse Guardar para aplicar estos cambios.
+  label_project_workflow_comparison: Comparación de flujos de trabajo
+  text_project_workflow_compare_unreachable_field: Al menos una diferencia siguiente se refiere a un campo que este tipo de petición ya no ofrece, por lo que la matriz propia del proyecto no puede mostrarlo ni cambiarlo. Un administrador del sistema puede eliminar dicha regla desde Administración.
+  label_project_workflow_map: Flujo de trabajo de esta petición
+  label_project_workflow_map_scope: Qué flujo de trabajo se aplica
+  label_project_workflow_map_from_here: Cambios de estado permitidos desde aquí
+  label_project_workflow_map_leads_here: Estados que conducen a este
+  label_project_workflow_map_available: Disponible ahora
+  text_project_workflow_map_authority: Esto es lo que permite el flujo de trabajo. La lista de estados del formulario sigue siendo la referencia de lo que puede hacer en este momento; cada diferencia entre ambas se explica más abajo.
+  text_project_workflow_map_no_outgoing: Este flujo de trabajo no permite ningún cambio de estado desde aquí.
+  text_project_workflow_map_no_incoming: Este flujo de trabajo no permite ningún cambio de estado hacia este.
+  text_project_workflow_map_no_roles: No tiene en este proyecto ningún perfil que participe en un flujo de trabajo, por lo que no se permite ningún cambio de estado.
+  text_project_workflow_map_own_empty: Este proyecto tiene su propio flujo de trabajo para este tipo de petición y este perfil, y no contiene ninguna regla, por lo que no se permite ningún cambio de estado. Es una configuración deliberada y no un fallo.
+  text_project_workflow_map_own_empty_some: 'Al menos uno de sus perfiles tiene aquí un flujo de trabajo propio que no contiene ninguna regla, por lo que ese perfil no permite ningún cambio de estado. Otro de sus perfiles sí puede permitir alguno. Es una configuración deliberada y no un fallo.'
+  text_project_workflow_map_requires_author: Solo el autor de la petición puede hacer este cambio.
+  text_project_workflow_map_requires_assignee: Solo la persona asignada puede hacer este cambio.
+  text_project_workflow_map_requires_author_or_assignee: Solo el autor o la persona asignada puede hacer este cambio.
+  text_project_workflow_map_unavailable: No disponible para esta petición en este momento.
+  label_project_workflow_map_condition_author: Solo cuando el usuario es el autor
+  label_project_workflow_map_condition_assignee: Solo cuando el usuario es la persona asignada
+  label_project_workflow_map_condition_author_or_assignee: Solo cuando el usuario es el autor o la persona asignada
+  label_project_workflow_graph: Diagrama del flujo de trabajo
+  label_project_workflow_graph_roles: Perfiles mostrados
+  label_project_workflow_graph_diagnostics: En qué fijarse
+  label_project_workflow_graph_table: El mismo flujo de trabajo como tabla
+  label_project_workflow_graph_unreachable: No se puede alcanzar desde una petición nueva
+  label_project_workflow_graph_dead_end: De aquí no sale nada
+  label_project_workflow_graph_unmentioned: No lo usan los perfiles seleccionados
+  label_project_workflow_graph_fallback: 'Recurso propio de Redmine'
+  label_project_workflow_graph_show_anyway: 'Mostrar el diagrama de todos modos'
+  text_project_workflow_graph_aria: 'Diagrama de este flujo de trabajo: %{statuses} estados y %{transitions} transiciones. La misma información está en la tabla de abajo.'
+  text_project_workflow_graph_aria_fallback: 'Una flecha más es el recurso propio de Redmine y no una transición configurada: es donde empieza una petición nueva.'
+  text_project_workflow_graph_no_roles: Ninguno de los perfiles seleccionados participa en un flujo de trabajo, así que no hay nada que dibujar.
+  text_project_workflow_graph_empty: Al menos uno de los perfiles seleccionados tiene aquí un flujo de trabajo propio que no contiene ninguna regla, así que para él no se permite ningún cambio de estado. Es una configuración deliberada y no un fallo.
+  text_project_workflow_graph_nothing: 'El flujo de trabajo que se aplica aquí no contiene ninguna transición para los perfiles seleccionados, por lo que el estado de una petición existente nunca puede cambiar.'
+  text_project_workflow_graph_no_diagnostics: Todos los estados de este flujo de trabajo se pueden alcanzar desde una petición nueva y tienen salida.
+  text_project_workflow_graph_dense: 'Este flujo de trabajo permite casi todos los cambios: casi cualquier estado puede convertirse en casi cualquier otro. No hay ninguna progresión que un diagrama pueda mostrar, así que la tabla de abajo es su forma legible.'
+  text_project_workflow_graph_legend_solid: Una flecha continua es un cambio que puede hacer cualquiera que tenga el perfil.
+  text_project_workflow_graph_legend_dashed: Una flecha discontinua es un cambio que solo puede hacer el autor o el asignado.
+  text_project_workflow_graph_legend_fallback: 'Una flecha punteada es el recurso propio de Redmine y no una regla: ninguna regla indica con qué estado empieza una petición nueva, así que Redmine la crea con el estado predeterminado del tipo de petición.'
+  text_project_workflow_graph_legend_band: Los estados por debajo de la línea de puntos no se pueden alcanzar desde una petición nueva.
+  label_project_workflow_diagnostics: 'Diagnóstico de los flujos de trabajo de proyecto'
+  label_project_workflow_diagnostics_compatibility: 'Este Redmine'
+  label_project_workflow_diagnostics_host: 'Instalado'
+  label_project_workflow_diagnostics_tested: 'Probado con'
+  label_project_workflow_diagnostics_database: 'Base de datos'
+  label_project_workflow_diagnostics_drift: 'Qué ha cambiado'
+  label_project_workflow_diagnostics_source: 'Dónde lo define Redmine'
+  label_project_workflow_diagnostics_screen: 'Pantalla'
+  label_project_workflow_diagnostics_anchor: 'Anclaje'
+  label_project_workflow_diagnostics_anchor_matched: 'Encontrado'
+  label_project_workflow_diagnostics_anchor_unmatched: 'No encontrado'
+  label_project_workflow_diagnostics_anchor_unmeasured: 'No se pudo comprobar'
+  label_project_workflow_diagnostics_patches: 'Clases de Redmine que modifica este plugin'
+  label_project_workflow_diagnostics_overrides: 'Pantallas de Redmine que modifica este plugin'
+  label_project_workflow_diagnostics_changed: 'Modificado'
+  label_project_workflow_diagnostics_missing: 'Ya no existe en Redmine'
+  label_project_workflow_diagnostics_added: 'Nuevo en Redmine'
+  label_project_workflow_diagnostics_ok: 'Correcto'
+  label_project_workflow_diagnostics_not_ok: 'Requiere atención'
+  text_project_workflow_diagnostics_description: 'Cómo se ve este plugin en este servidor. Todo aquí es de lectura; nada en esta página cambia nada.'
+  text_project_workflow_diagnostics_verified: 'Redmine %{version} es una versión con la que este plugin se prueba, en cada cambio y con tres bases de datos.'
+  text_project_workflow_diagnostics_unverified: 'Nadie ha probado este plugin con Redmine %{version}. Aun así, cada parte de Redmine que sustituye es idéntica a la de Redmine %{newest}, la versión más reciente con la que se probó.'
+  text_project_workflow_diagnostics_drifted: 'Nadie ha probado este plugin con Redmine %{version}, y %{methods} de las partes de Redmine que sustituye han cambiado desde Redmine %{newest}, la versión más reciente con la que se probó. El plugin sigue funcionando; lea las diferencias más abajo antes de confiar en él.'
+  text_project_workflow_diagnostics_drift_help: 'Este plugin no amplía estas partes de Redmine, las sustituye, así que un cambio aquí es un cambio que no ha seguido. La comparación muestra que el texto de cada una no ha cambiado. No puede mostrar que Redmine las siga usando de la misma manera.'
+  text_project_workflow_diagnostics_permission_captured: 'Otro plugin ha registrado este nombre y Redmine responde con el suyo. Las pantallas de este plugin rechazarán a todo el mundo, administradores incluidos. %{claimants} plugins reclaman el nombre.'
+  text_project_workflow_diagnostics_patch_missing: 'No está aplicado. Redmine se comporta aquí como sin este plugin.'
+  text_project_workflow_diagnostics_overrides_help: 'Son añadidos a pantallas que pertenecen a Redmine. Cada uno se apoya en una parte del propio marcado de Redmine, y Redmine no avisa cuando esa parte deja de estar: la pantalla simplemente se queda sin un control. Aquí se comprueba, en este servidor, si cada uno sigue encontrando su sitio.'
+  text_project_workflow_diagnostics_anchor_unmatched: 'Este añadido no tiene dónde colocarse en este Redmine, así que la pantalla no lo muestra. Selector: %{selector}'
+  text_project_workflow_diagnostics_unmeasured: 'Nadie ha probado este plugin con Redmine %{version}, y este Ruby no puede leer el código fuente de Redmine, así que no fue posible ninguna comparación.'
+  # WP19 / F05: el estado de compatibilidad, en las pantallas donde alguien va a cambiar una regla de flujo de trabajo.
+  text_project_workflow_compatibility_banner_unverified: 'Este plugin no se ha probado con Redmine %{version}. Todo lo que sustituye está sin cambios y las reglas de flujo de trabajo pueden editarse aquí con normalidad.'
+  text_project_workflow_compatibility_banner_unmeasured: 'Este plugin no se ha probado con Redmine %{version} y no ha podido compararse con él en este Ruby. Las reglas de flujo de trabajo pueden seguir editándose aquí.'
+  text_project_workflow_compatibility_banner_drifted: 'Redmine %{version} ha cambiado partes que este plugin sustituye. Las reglas de flujo de trabajo pueden seguir editándose aquí; compruebe qué ha cambiado antes de confiar en ellas.'
+  # WP12 / ADR-003: the plugin's own administration area.
+  label_project_workflow_rules: 'Flujos de trabajo de proyecto'
+  label_project_workflow_generic_screens: 'Flujo de trabajo propio de Redmine'
+  # WP14 / audit F03: what deleting an issue status left behind.
+  warning_project_workflow_status_deleted_emptied:
+    one: "%{count} flujo de trabajo de proyecto ya no contiene ninguna regla: todas las que tenía nombraban el estado que se acaba de eliminar. El proyecto conserva ahí su flujo de trabajo propio, y un flujo de trabajo propio sin reglas no permite ningún cambio de estado. Revíselo en %{link} y añada reglas o vuelva al flujo de trabajo genérico."
+    other: "%{count} flujos de trabajo de proyecto ya no contienen ninguna regla: todas las que tenían nombraban el estado que se acaba de eliminar. Esos proyectos conservan ahí su flujo de trabajo propio, y un flujo de trabajo propio sin reglas no permite ningún cambio de estado. Revíselos en %{link} y añada reglas o vuelva al flujo de trabajo genérico."
+  # WP14: the workflow drawing as a switchable feature with a size ceiling.
+  label_project_workflow_graph_enabled: 'Ofrecer el diagrama del flujo de trabajo'
+  text_project_workflow_graph_enabled: 'El diagrama es una pantalla de solo lectura a la que se llega desde la configuración del flujo de trabajo de un proyecto, desde sus matrices y desde el formulario de petición. Si lo desactiva, no se ofrece ningún enlace en ninguna parte y la pantalla responde «no encontrado»; todo lo demás sigue igual.'
+  label_project_workflow_graph_edge_ceiling: 'No dibujar un flujo de trabajo con más de'
+  text_project_workflow_graph_edge_ceiling: 'Número de flechas, que es lo que cuesta decidir dónde dibujarlas: un flujo de trabajo de 400 estados y 800 flechas se dibuja en unos 50 ms, y uno de 60 estados en el que casi todo cambio está permitido tarda unos 1,5 s. Por encima de esto el flujo de trabajo se muestra como tabla en lugar de dibujarse. 0 significa sin límite.'
+  text_project_workflow_graph_too_large: 'Este flujo de trabajo tiene %{count} cambio(s) de estado, más de los %{ceiling} que dibuja esta instalación, así que no se dibuja ni se enumeran sus diagnósticos. La tabla de abajo es el flujo de trabajo completo. Un administrador puede subir el límite en la configuración del plugin.'
+  # ADR-004: the same ceiling as the matrix save, on *give own workflow*.
+  error_project_workflow_enable_too_large: 'Dar a estos proyectos su propio flujo de trabajo copiaría %{count} regla(s) de flujo de trabajo, más que el límite de %{ceiling}. No se ha cambiado nada. Seleccione menos proyectos, tipos de petición o perfiles, dé un flujo de trabajo propio vacío, o suba el límite en la configuración del plugin.'

@@ -1,0 +1,236 @@
+name: Specs
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# No step in this file writes to the repository, posts a comment or reads a
+# secret -- no step references the secrets context at all, and the database
+# services use literal in-workflow passwords -- so the token's authority is
+# entirely unused, and unbounded, which means a compromised action tag inherits
+# it (finding F13). Capping it here is
+# strictly broader protection than pinning `actions/checkout` and
+# `ruby/setup-ruby` to SHAs, because it holds whichever version of them runs.
+#
+# Deliberately NOT paired with SHA pins: without a Dependabot configuration
+# covering `github-actions` the pins rot, and that is a maintenance commitment
+# rather than a one-line change.
+permissions:
+  contents: read
+
+concurrency:
+  group: specs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: RuboCop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: .github/lint
+      - name: RuboCop
+        run: bundle exec rubocop --format github
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/.github/lint/Gemfile
+
+  # The only test of the only JavaScript this plugin ships -- 85 lines across
+  # _bulk_script.html.erb and permissions.html.erb. It was a manual step, and
+  # whether it ran depended on somebody remembering: docs/STATE.md's evidence
+  # table for one session reads "JavaScript gate: not re-run", which is exactly
+  # the failure mode (finding F07).
+  #
+  # No Redmine, no database, no gems: the script reads the partial off disk,
+  # evaluates the javascript_tag block against a hand-built DOM, and exits
+  # non-zero on failure. Node is preinstalled on ubuntu-latest, so this is a
+  # checkout and one command.
+  #
+  # Deliberately not the Capybara + axe-core system tests the second review
+  # asked for: the suite runs inside nine different Redmine host checkouts, so a
+  # browser gate would have to work in all nine, which is disproportionate to 85
+  # lines whose surrounding markup is already asserted server-side on every cell.
+  javascript:
+    name: Bulk action script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bulk action script
+        run: node dev/check-bulk-js.mjs
+
+  rspec:
+    name: Redmine ${{ matrix.redmine }} / ${{ matrix.db }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        redmine: ['5.1-stable', '6.1-stable', '7.0-stable']
+        db: [postgresql, mysql, mariadb]
+        include:
+          - redmine: '5.1-stable'
+            ruby: '3.2'
+          - redmine: '6.1-stable'
+            ruby: '3.3'
+          - redmine: '7.0-stable'
+            ruby: '3.3'
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: redmine
+          POSTGRES_PASSWORD: redmine
+          POSTGRES_DB: redmine_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: redmine
+          MYSQL_USER: redmine
+          MYSQL_PASSWORD: redmine
+          MYSQL_DATABASE: redmine_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -predmine"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: redmine
+          MARIADB_USER: redmine
+          MARIADB_PASSWORD: redmine
+          MARIADB_DATABASE: redmine_test
+        ports: ['3307:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+
+    env:
+      RAILS_ENV: test
+      REDMINE_BRANCH: ${{ matrix.redmine }}
+      REDMINE_DIR: ${{ github.workspace }}/.redmine/host
+      DB_NAME: redmine_test
+      DB_USER: redmine
+      DB_PASS: redmine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select database connection
+        run: |
+          case "${{ matrix.db }}" in
+            postgresql) echo "DB=postgresql"  >> $GITHUB_ENV
+                        echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV ;;
+            mysql)      echo "DB=mysql"       >> $GITHUB_ENV
+                        echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV
+                        echo "DB_PORT=3306"   >> $GITHUB_ENV ;;
+            mariadb)    echo "DB=mysql"       >> $GITHUB_ENV
+                        echo "DB_HOST=127.0.0.1" >> $GITHUB_ENV
+                        echo "DB_PORT=3307"   >> $GITHUB_ENV ;;
+          esac
+
+      - name: Install system packages
+        run: sudo apt-get update && sudo apt-get install -y build-essential libpq-dev libmysqlclient-dev rsync
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: false
+
+      - name: Set up Redmine host and plugin
+        run: dev/setup.sh "${{ matrix.redmine }}" "$DB"
+
+      # The Redmine matrix tracks the moving *-stable branches on purpose: that
+      # is this plugin's only free early warning that core has changed, which is
+      # exactly the risk spec/upstream/core_drift_spec.rb is about. Pinning them
+      # to fixed commits would buy reproducibility by throwing that away.
+      #
+      # What a moving branch does cost is attributability -- dev/setup.sh prints
+      # the branch and not the commit, so a red cell could not be tied to a
+      # Redmine revision. One line fixes that (finding F13).
+      - name: Which Redmine commit this cell tested
+        working-directory: ${{ env.REDMINE_DIR }}
+        run: git rev-parse HEAD && git log -1 --format='%ci %s'
+
+      # WP16 item 1. The only check that runs the PREVIOUS RELEASE's own code:
+      # it installs the plugin as it is at RELEASE_REF, writes project rules
+      # through that release's writers, records what it answers for an issue,
+      # then swaps this commit in, migrates, and compares. That is the only
+      # honest test of "migration 004's backfill reconstructs the implicit model
+      # exactly" -- every other rehearsal seeds its data with today's models,
+      # which is the one thing a real upgrade never does.
+      #
+      # actions/checkout fetches one branch, so origin/main is not in the
+      # checkout unless it is asked for. Depth 1 is enough: only the tree at that
+      # commit is read.
+      #
+      # Deliberately strict: if the previous release cannot be fetched the job
+      # fails rather than skipping, because a release-engineering gate that
+      # silently does not run is the failure it exists to prevent. The one shape
+      # that would trip it is a pull request from a fork, where `origin` is the
+      # fork -- this repository's pull requests are between its own branches.
+      - name: Fetch the previous release
+        run: git fetch --depth=1 origin main:refs/remotes/origin/main
+
+      - name: Upgrade rehearsal from the previous release
+        run: dev/check-release-upgrade.sh origin/main "$REDMINE_DIR"
+
+      # Before the suite, deliberately: maintain_test_schema reloads db/schema.rb
+      # when the suite starts and wipes the plugin's migration bookkeeping, after
+      # which VERSION=0 silently does nothing and this check proves nothing.
+      - name: Plugin migrations are reversible (up -> 0 -> up)
+        working-directory: ${{ env.REDMINE_DIR }}
+        run: |
+          set -e
+          bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
+          bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows VERSION=0
+          leftover=$(bundle exec rails runner '
+            c = ActiveRecord::Base.connection
+            tables = c.tables.grep(/project_workflow/)
+            cols   = c.column_exists?(:workflows, :project_id) ? ["workflows.project_id"] : []
+            puts (tables + cols).inspect')
+          echo "plugin traces after VERSION=0: $leftover"
+          test "$leftover" = "[]"
+          bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows
+
+      # Also before the suite, and for the same reason: the check takes the
+      # scope table down and up again to prove the backfill still turns an
+      # installation from before ADR-001 into the same behaviour it had.
+      - name: Scope backfill reproduces the implicit model
+        run: dev/check-backfill.sh "$REDMINE_DIR"
+
+      # WP15 item 5, and before the suite for the same reason as the two above.
+      # The upgrade an installation on 0.0.3 actually runs, over the four shapes
+      # of data three reviews named -- an own workflow, a duplicate rule under
+      # it, an own EMPTY decision and a scope whose author has been deleted --
+      # plus the downgrade, which discards every project workflow on purpose and
+      # is checked here rather than believed.
+      - name: Upgrade rehearsal over populated data
+        run: dev/check-upgrade.sh "$REDMINE_DIR"
+
+      # WP16, and before the suite for the same reason as the three above. The
+      # uninstall an administrator runs, through the plugin's own rake tasks:
+      # the refusal without CONFIRM=yes, the backup, every migration reversed,
+      # the reinstall and the restore -- with the own EMPTY decision and the
+      # audit trail, which are the two a downgrade loses most quietly, compared
+      # against what was there before.
+      - name: Uninstall and restore rehearsal
+        run: dev/check-uninstall.sh "$REDMINE_DIR"
+
+      # Redmine pushes each plugin's lib/ into the main Zeitwerk autoloader with
+      # eager loading, so a misnamed constant only breaks in production.
+      - name: Zeitwerk compliance
+        working-directory: ${{ env.REDMINE_DIR }}
+        run: bundle exec rails zeitwerk:check
+
+      - name: Run specs
+        run: dev/run.sh "$REDMINE_DIR" --format progress

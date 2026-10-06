@@ -1,0 +1,180 @@
+inherit_from: .rubocop_todo.yml
+
+# The todo file grandfathers existing offences by excluding the files they live
+# in. Without this, the Exclude lists set further down would replace the todo's
+# rather than add to them.
+inherit_mode:
+  merge:
+    - Exclude
+
+# Style baseline for the plugin. Deliberately close to Redmine core's own
+# configuration (same target versions, same plugin set) so contributions read
+# like the host application, but standalone: a plugin cannot inherit_from a
+# file that only exists inside a Redmine checkout.
+
+AllCops:
+  # Both target the *oldest* supported host, not the newest. The three Redmines
+  # do not run the same Rails -- 5.1 pins rails 6.1, 6.1 pins 7.2, 7.0 pins 8.1 --
+  # and TargetRailsVersion tells RuboCop which Rails APIs it may push code
+  # towards. Set to 8.1 it enabled cops such as Rails/StrongParametersExpect,
+  # which demands `params.expect`, a method that does not exist before Rails 8.0:
+  # the contributor complies, the lint job goes green, and the plugin raises
+  # NoMethodError on Redmine 5.1 and 6.1. A gate that approves such a change is
+  # worse than no gate (finding F02). Raise these two only when the oldest
+  # supported host does.
+  TargetRubyVersion: 3.2
+  TargetRailsVersion: 6.1
+  NewCops: enable
+  Exclude:
+    - 'tmp/**/*'
+    - 'vendor/**/*'
+    - '.redmine/**/*'
+
+plugins:
+  - rubocop-performance
+  - rubocop-rails
+
+# --- Redmine idiom -----------------------------------------------------
+
+# Redmine writes hashes as {:key => value} in a lot of places; both styles
+# appear in core, so do not fight over it.
+Style/HashSyntax:
+  EnforcedStyle: no_mixed_keys
+  EnforcedShorthandSyntax: either
+
+Style/Documentation:
+  Enabled: false
+
+# Plugin code lives under a Rails-less lib/ as well; the plugin namespace is
+# not derived from the file path in every case.
+Style/ClassAndModuleChildren:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 120
+  AllowedPatterns:
+    - '\A\s*#'
+
+Layout/EmptyLineBetweenDefs:
+  AllowAdjacentOneLineDefs: true
+
+# Redmine core disables both of these; `{|x| ...}` and `{:a => 1}` are the
+# house style there, and fighting it would make plugin code read as foreign.
+Layout/SpaceInsideBlockBraces:
+  Enabled: false
+
+Layout/SpaceInsideHashLiteralBraces:
+  Enabled: false
+
+# Keyword arguments spread over several lines are not a hash literal being
+# laid out; aligning them under the first key produces deep, unstable
+# indentation that shifts whenever a method is renamed.
+Layout/HashAlignment:
+  EnforcedLastArgumentHashStyle: ignore_implicit
+
+# --- Test code ---------------------------------------------------------
+
+# An RSpec describe block is a list of examples, and a rake namespace is a list
+# of task declarations; length tracks how many
+# entry points the operator has, not complexity. `init.rb`'s registration block
+# is the same shape: one line per permission, per menu entry, per metadata
+# field, and splitting it would mean hiding declarations from the one file an
+# operator reads to see what the plugin registers.
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - 'lib/tasks/**/*'
+    - 'init.rb'
+    # A route file is a list of declarations, exactly like init.rb: its length is
+    # the number of surfaces the plugin has, and splitting the project-nested
+    # block would separate routes from the comment explaining why each one is
+    # scoped that way.
+    - 'config/routes.rb'
+
+# A migration's `change` is a declaration, not logic: length tracks the number
+# of columns, and splitting it would hurt readability without reducing risk.
+Metrics/MethodLength:
+  Max: 25
+  Exclude:
+    - 'db/migrate/**/*'
+    - 'spec/**/*'
+
+Metrics/AbcSize:
+  Max: 25
+  Exclude:
+    - 'db/migrate/**/*'
+    - 'spec/**/*'
+
+# The writers and query services are wide, not deep: their length is the number
+# of row shapes they build, not the number of decisions they make. Depth is
+# still guarded — the complexity and AbcSize cops above are not relaxed.
+Metrics/ClassLength:
+  Max: 200
+  Exclude:
+    - 'spec/**/*'
+
+Metrics/ModuleLength:
+  Max: 250
+  Exclude:
+    - 'spec/**/*'
+
+# A `case` over JSON types has one branch per type and no nesting at all. The
+# cop counts branches, which for type dispatch and for HTTP status mapping is
+# exactly the wrong measure.
+Metrics/CyclomaticComplexity:
+  Max: 10
+  Exclude:
+    - 'spec/**/*'
+
+Metrics/PerceivedComplexity:
+  Max: 10
+  Exclude:
+    - 'spec/**/*'
+
+# Keyword arguments are self-documenting at the call site; counting them the
+# same way as positional ones penalises the clearer signature.
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
+# A rake task's user interface is its standard output, and its way of refusing is
+# a non-zero exit. Both cops are right about a web application -- a `puts` inside
+# a request goes somewhere nobody reads, and `exit` in a worker takes the process
+# with it -- and wrong about the one file here whose callers are a terminal and a
+# shell script. lib/redmine_project_workflows/tasks.rb holds the *bodies* of the
+# rake tasks, out of the .rake file so that they can be reviewed and tested like
+# anything else; RuboCop does not inspect .rake files at all, which is why moving
+# them is what brought these two cops to bear.
+Rails/Output:
+  Exclude:
+    - 'lib/redmine_project_workflows/tasks.rb'
+
+Rails/Exit:
+  Exclude:
+    - 'lib/redmine_project_workflows/tasks.rb'
+
+# Redmine's fixture names are numbered (`projects_001`, `issue_statuses_002`)
+# and specs address them by exactly those names; renaming them to satisfy the
+# cop would mean diverging from the host application's own fixtures.
+Naming/VariableNumber:
+  Enabled: false
+
+# RSpec is the suite here, not Minitest. rubocop-rspec is not in Redmine's gem
+# set, so no RSpec-specific cops are configured; the generic cops are excluded
+# from spec/ where a describe block's length is its number of examples.
+Style/StringLiterals:
+  EnforcedStyle: single_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: single_quotes
+
+Style/FrozenStringLiteralComment:
+  Enabled: true
+  EnforcedStyle: always
+
+# Redmine's own helpers read the controller's instance variables (`@project`,
+# `@issue`, `@query`) on every page, and a plugin helper that refused to would
+# have to take the same objects as arguments in every call from every template —
+# less readable, and out of step with the framework it lives in. The plugin's
+# helpers are request-scoped view logic, not reusable functions.
+Rails/HelperInstanceVariable:
+  Enabled: false

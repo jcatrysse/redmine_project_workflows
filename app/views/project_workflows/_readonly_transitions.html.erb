@@ -1,0 +1,50 @@
+<%#
+  A transitions grid nobody can change: the same shape as core's, with every
+  cell a disabled checkbox -- which is exactly how core draws the diagonal of
+  its own grid, so the markup says "read-only" in the language the screen
+  already uses.
+
+  Core's editable partial is used unchanged for the editable case; this one
+  exists because there is nothing to submit here and a form that cannot be
+  saved is worse than none.
+
+  Locals: name, workflows.
+%>
+<table class="list workflows transitions transitions-<%= name %>">
+<thead>
+  <tr>
+    <th><%= l(:label_current_status) %></th>
+    <th colspan="<%= @statuses.length %>"><%= l(:label_new_statuses_allowed) %></th>
+  </tr>
+  <tr>
+    <td></td>
+    <% @statuses.each do |new_status| %>
+      <td style="width:<%= 75 / @statuses.size %>%;"><%= new_status.name %></td>
+    <% end %>
+  </tr>
+</thead>
+<% transition_counts = workflows.each_with_object(Hash.new(0)) { |w, memo| memo[[w.old_status, w.new_status]] += 1 } %>
+<tbody>
+  <% ([nil] + @statuses).each do |old_status| %>
+  <% next if old_status.nil? && name != 'always' %>
+  <tr>
+    <td class="name">
+      <% if old_status %>
+        <% old_status_name = old_status.name %>
+        <%= old_status_name %>
+      <% else %>
+        <% old_status_name = l(:label_issue_new) %>
+        <%= content_tag('em', old_status_name) %>
+      <% end %>
+    </td>
+    <% @statuses.each do |new_status| %>
+      <% checked = (old_status == new_status) || transition_counts[[old_status, new_status]].positive? %>
+      <td class="no-tooltip <%= 'enabled' if checked %>" title="<%= old_status_name %> &#187; <%= new_status.name %>">
+        <%= check_box_tag "readonly_transitions[#{old_status.try(:id) || 0}][#{new_status.id}][#{name}]",
+                          '1', checked, disabled: true, id: nil %>
+      </td>
+    <% end %>
+  </tr>
+  <% end %>
+</tbody>
+</table>

@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+# Lint-only bundle, deliberately outside the plugin root: Redmine's Gemfile
+# evals <redmine>/plugins/*/Gemfile, and the linter has no business being part
+# of the host application's runtime bundle.
+#
+# Versions track Redmine 7.0-stable's own test group, so offences found here
+# match what a Redmine contributor would see.
+
+source 'https://rubygems.org'
+
+gem 'rubocop', '~> 1.88.0'
+gem 'rubocop-performance', '~> 1.26.0'
+gem 'rubocop-rails', '~> 2.34.3'

@@ -28,11 +28,11 @@ describe 'Workflow global write safety' do
       }
     }
 
-    expect {
+    expect do
       WorkflowTransition.replace_transitions([tracker], [role], transitions)
-    }.not_to change {
+    end.not_to(change do
       WorkflowTransition.where(project_id: project.id).count
-    }
+    end)
   end
 
   it 'keeps global transitions when project transitions are replaced' do
@@ -52,11 +52,11 @@ describe 'Workflow global write safety' do
       }
     }
 
-    expect {
+    expect do
       RedmineProjectWorkflows::Services::TransitionWriter.replace_transitions(project, [tracker], [role], transitions)
-    }.not_to change {
+    end.not_to(change do
       WorkflowTransition.where(project_id: nil).count
-    }
+    end)
   end
 
   it 'keeps project permissions when global permissions are replaced' do
@@ -73,11 +73,11 @@ describe 'Workflow global write safety' do
       status.id.to_s => { 'subject' => '' }
     }
 
-    expect {
+    expect do
       WorkflowPermission.replace_permissions([tracker], [role], permissions)
-    }.not_to change {
+    end.not_to(change do
       WorkflowPermission.where(project_id: project.id).count
-    }
+    end)
   end
 
   it 'keeps global permissions when project permissions are replaced' do
@@ -94,10 +94,10 @@ describe 'Workflow global write safety' do
       status.id.to_s => { 'subject' => 'required' }
     }
 
-    expect {
+    expect do
       RedmineProjectWorkflows::Services::PermissionWriter.replace_permissions(project, [tracker], [role], permissions)
-    }.not_to change {
+    end.not_to(change do
       WorkflowPermission.where(project_id: nil).count
-    }
+    end)
   end
 end

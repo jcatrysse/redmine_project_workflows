@@ -2,265 +2,115 @@
 
 module RedmineProjectWorkflows
   module Patches
+    # What Redmine's own workflow administration screens get wrong once the
+    # `workflows` table has a `project_id` column, and nothing else (ADR-003).
+    #
+    # Every query core runs here is written for a table in which every row is
+    # generic. Add a project dimension and those queries read a project's rules
+    # as the installation's: the summary page counted a project's transitions
+    # into the generic totals, so a project that had taken one tracker over made
+    # the generic workflow look like it had rules it does not have (claude F01).
+    # That is INV-4 -- a workflow query with no `project_id` predicate silently
+    # mixes two populations -- and it is the whole of what remains here.
+    #
+    # **Everything about projects is gone from this file**, and gone from core's
+    # screens with it: the selector, the scope panel, the summary counts, the
+    # copy form's project selectors, the bulk reporting and the copy validation
+    # are all on `ProjectWorkflowRulesController` and the plugin's own views
+    # (WP12). This patch was 468 lines replacing six core actions; the project
+    # dimension living inside a core controller was the cost ADR-003 removed.
+    #
+    # **Why these three actions and one finder, when ADR-003's own list names
+    # five.** The list in the ADR is the actions whose *screens* show or store
+    # the generic workflow, and it was written without checking where the write
+    # is isolated. `update` and `update_permissions` need nothing here:
+    # `WorkflowTransition.replace_transitions` and
+    # `WorkflowPermission.replace_permissions` are routed through the plugin's
+    # writers by their own patches, with `project_id` fixed at `nil`, so core's
+    # own bodies already write generic rows and only generic rows (INV-1). What
+    # the ADR's list missed is `find_statuses`, whose "only display statuses that
+    # are used by this tracker" query is a `workflows` query like any other and
+    # would otherwise offer the generic matrix a status only some project's own
+    # workflow uses.
+    #
+    # A parameter cannot widen any of this: none of these bodies reads
+    # `params[:project_id]`, so an id in the query string of a core workflow URL
+    # names nothing and reaches nothing (INV-7).
+    #
+    # **Nor is a malformed matrix guarded here, deliberately.** Core's own
+    # `update` and `update_permissions` reach `params[:transitions]` with
+    # `each_value`, so a payload that is not a nested hash -- `?transitions[]=x`,
+    # or `transitions=x` -- raises `NoMethodError` and answers 500. That is stock
+    # Redmine on a stock Redmine, no form produces such a request, and nothing
+    # reaches the database (INV-2 holds, because the raise is above the writers).
+    # The plugin's patch used to shield this screen from it; Jan answered **A**
+    # on 2026-08-28 -- leave it. A defect of core's, fixed on core's controller
+    # by this plugin, on a screen this plugin is meant to have stopped editing,
+    # is one more line a Redmine upgrade can break. The plugin's *own*
+    # administration screens still reject the same payload with a message, and
+    # `ProjectWorkflowRulesController` is where that guard belongs.
     module WorkflowsControllerPatch
+      # The generic workflow's own totals. Core's two `@roles` / `@trackers`
+      # lines are byte-identical in Redmine 5.1, 6.1 and 7.0; only the count
+      # gains its predicate.
+      #
+      # Rewritten rather than called through `super` and corrected afterwards,
+      # because super's query *is* the defect: running it and discarding the
+      # answer would still be a workflow query with no `project_id` predicate.
+      def index
+        @roles = Role.sorted.select(&:consider_workflow?)
+        @trackers = Tracker.sorted
+        @workflow_counts = WorkflowTransition.where(project_id: nil)
+                                             .group(:tracker_id, :role_id).count
+      end
+
+      # The status transitions matrix, for the generic workflow.
       def edit
-        if project_context?
-          if @trackers.present? && @roles.present? && @statuses.any?
-            workflows = WorkflowTransition.
-              where(role_id: @roles.map(&:id), tracker_id: @trackers.map(&:id), project_id: selected_project_ids).
-              preload(:old_status, :new_status)
-            @workflows = {}
-            @workflows['always'] = workflows.select { |workflow| !workflow.author && !workflow.assignee }
-            @workflows['author'] = workflows.select(&:author)
-            @workflows['assignee'] = workflows.select(&:assignee)
-          end
-        else
-          # Replicate Redmine's edit logic with project_id: nil to avoid loading
-          # project-specific transitions that would be discarded immediately.
-          if @trackers.present? && @roles.present? && @statuses.any?
-            workflows = WorkflowTransition.
-              where(role_id: @roles.map(&:id), tracker_id: @trackers.map(&:id), project_id: nil).
-              preload(:old_status, :new_status)
-            @workflows = {}
-            @workflows['always'] = workflows.select { |workflow| !workflow.author && !workflow.assignee }
-            @workflows['author'] = workflows.select(&:author)
-            @workflows['assignee'] = workflows.select(&:assignee)
-          end
-        end
+        return unless @trackers.present? && @roles.present? && @statuses.any?
+
+        workflows = WorkflowTransition
+                    .where(role_id: @roles.map(&:id), tracker_id: @trackers.map(&:id), project_id: nil)
+                    .preload(:old_status, :new_status)
+        @workflows = {
+          'always' => workflows.reject { |workflow| workflow.author || workflow.assignee },
+          'author' => workflows.select(&:author),
+          'assignee' => workflows.select(&:assignee)
+        }
       end
 
-      def update
-        if project_context?
-          if @roles.present? && @trackers.present? && params[:transitions]
-            transitions = params[:transitions].deep_dup
-            transitions.each do |_old_status_id, transitions_by_new_status|
-              transitions_by_new_status.each do |_new_status_id, transition_by_rule|
-                transition_by_rule.reject! { |_rule, transition| transition == 'no_change' }
-              end
-            end
-            selected_project_ids.each do |project_id|
-              RedmineProjectWorkflows::Services::TransitionWriter.replace_transitions_for_project_id(
-                project_id,
-                @trackers,
-                @roles,
-                transitions
-              )
-            end
-            flash[:notice] = l(:notice_successful_update)
-          end
-          redirect_to edit_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers, role_id: @roles, used_statuses_only: params[:used_statuses_only])
-        else
-          super
-        end
-      end
-
+      # See #edit: the same reason, for the field permissions matrix. Core reads
+      # it with `WorkflowPermission.rules_by_status_id`, which has no predicate
+      # either; the plugin's query service takes the population as an argument.
       def permissions
-        if project_context?
-          if @roles.present? && @trackers.present?
-            @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
-              [field, l("field_" + field.sub(/_id$/, ''))]
-            end
-            @custom_fields = @trackers.map(&:custom_fields).flatten.uniq.sort
-            @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
-              @trackers,
-              @roles,
-              selected_project_ids
-            )
-            @statuses.each { |status| @permissions[status.id] ||= {} }
-          end
-        else
-          # Replicate Redmine's permissions logic with project_id: nil to avoid
-          # loading project-specific permissions that would be discarded immediately.
-          if @roles.present? && @trackers.present?
-            @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
-              [field, l("field_" + field.sub(/_id$/, ''))]
-            end
-            @custom_fields = @trackers.map(&:custom_fields).flatten.uniq.sort
-            @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
-              @trackers,
-              @roles,
-              [nil]
-            )
-            @statuses.each { |status| @permissions[status.id] ||= {} }
-          end
+        return unless @roles.present? && @trackers.present?
+
+        @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
+          [field, l("field_#{field.delete_suffix('_id')}")]
         end
-      end
-
-      def update_permissions
-        if project_context?
-          if @roles.present? && @trackers.present? && params[:permissions]
-            permissions = normalize_permissions_params(params[:permissions].deep_dup)
-            permissions.each_value do |rule_by_field|
-              rule_by_field.reject! { |_field, rule| rule == 'no_change' }
-            end
-            selected_project_ids.each do |project_id|
-              RedmineProjectWorkflows::Services::PermissionWriter.replace_permissions_for_project_id(
-                project_id,
-                @trackers,
-                @roles,
-                permissions
-              )
-            end
-            flash[:notice] = l(:notice_successful_update)
-          end
-          redirect_to permissions_workflows_path(project_id: selected_project_param_values, tracker_id: @trackers, role_id: @roles, used_statuses_only: params[:used_statuses_only])
-        else
-          super
-        end
-      end
-
-      def copy
-        load_project_options
-        @source_project_id = params[:source_project_id].presence
-        super
-      end
-
-      def duplicate
-        load_project_options
-        return super unless project_context?
-
-        find_sources_and_targets
-        source_project_id = params[:source_project_id].presence
-        target_project_ids = Array.wrap(params[:target_project_ids]).reject(&:blank?)
-        if params[:source_tracker_id].blank? || params[:source_role_id].blank? ||
-          (@source_tracker.nil? && @source_role.nil?) ||
-          (source_project_id.present? && !%w[any global].include?(source_project_id) &&
-            (!source_project_id.to_s.match?(/\A\d+\z/) || !Project.exists?(source_project_id.to_i)))
-          @source_project_id = nil
-          flash.now[:error] = l(:error_workflow_copy_source_project)
-          render :copy
-        elsif @target_trackers.blank? || @target_roles.blank? || target_project_ids.blank?
-          flash.now[:error] = l(:error_workflow_copy_target)
-          render :copy
-        else
-          @source_project_id = source_project_id
-          resolved_target_project_ids = target_project_ids.map do |value|
-            value == 'global' ? nil : value
-          end
-          ActiveRecord::Base.transaction do
-            resolved_target_project_ids.each do |target_project_id|
-              resolved_source_project_id =
-                if source_project_id == 'any'
-                  target_project_id
-                elsif source_project_id.blank? || source_project_id == 'global'
-                  nil
-                else
-                  source_project_id
-                end
-              WorkflowRule.copy_for_project(
-                resolved_source_project_id,
-                target_project_id,
-                @source_tracker,
-                @source_role,
-                @target_trackers,
-                @target_roles
-              )
-            end
-          end
-          flash[:notice] = l(:notice_successful_update)
-          redirect_to copy_workflows_path(
-            source_tracker_id: @source_tracker,
-            source_role_id: @source_role,
-            source_project_id: source_project_id
-          )
-        end
+        @custom_fields = @trackers.map(&:custom_fields).flatten.uniq.sort
+        @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
+          @trackers, @roles, [nil]
+        )
+        @statuses.each { |status| @permissions[status.id] ||= {} }
       end
 
       private
 
-      def project_context?
-        selected_projects.present?
-      end
-
-      def load_project_options
-        @projects = Project.sorted
-        project_param_values = params[:project_id].presence || params[:target_project_ids]
-        project_ids = Array.wrap(project_param_values).reject(&:blank?).map(&:to_s)
-        @all_selected = project_ids.delete('all').present?
-        # Global is selected when explicitly chosen, when 'all' is selected,
-        # or when no project params are provided (default Redmine behavior).
-        @global_selected = project_ids.delete('global').present? || project_ids.empty? || @all_selected
-
-        if @all_selected
-          @selected_projects = @projects
-          @projects_for_update = @selected_projects
-          return
-        end
-
-        if project_ids.blank?
-          @selected_projects = []
-          @projects_for_update = []
-          return
-        end
-
-        @selected_projects = Project.where(id: project_ids).sorted
-        unless @selected_projects.size == project_ids.size
-          render_404
-          return
-        end
-        @projects_for_update = @selected_projects
-        @project = @selected_projects.first if @selected_projects.one?
-      end
-
-      def selected_projects
-        @projects_for_update || []
-      end
-
-      def selected_project_ids
-        ids = selected_projects.map(&:id)
-        ids << nil if @global_selected
-        ids
-      end
-
-      def selected_project_param_values
-        return ['all'] if @all_selected
-
-        values = selected_projects.map(&:id)
-        values.unshift('global') if @global_selected
-        values
-      end
-
-
-      def normalize_permissions_params(permissions)
-        permissions =
-          if permissions.respond_to?(:to_unsafe_h)
-            permissions.to_unsafe_h
-          else
-            permissions.to_h
-          end
-        return permissions if permissions.keys.all? { |key| key.to_s.match?(/\A\d+\z/) }
-
-        normalized = {}
-        permissions.each do |field, rules_by_status|
-          next unless rules_by_status.respond_to?(:each)
-
-          rules_by_status.each do |status_id, rule|
-            normalized[status_id] ||= {}
-            normalized[status_id][field] = rule
-          end
-        end
-        normalized
-      end
-
-      def find_trackers_roles_and_statuses_for_edit
-        find_roles
-        find_trackers
-        load_project_options
-        find_statuses
-      end
-
+      # "Only display statuses that are used by this tracker" -- the checkbox
+      # above both matrices, answered for the generic workflow alone.
+      #
+      # Core's own body pays no attention to `project_id`, so on an installation
+      # where one project has taken a tracker over the generic matrix grew rows
+      # for statuses no generic rule mentions. The role filter is core's own,
+      # kept as it is: the question is which statuses the workflow uses, not
+      # which the selected roles use.
       def find_statuses
-        @used_statuses_only = (params[:used_statuses_only] == '0' ? false : true)
+        @used_statuses_only = params[:used_statuses_only] != '0'
         if @trackers && @used_statuses_only
-          role_ids = Role.all.select(&:consider_workflow?).map(&:id)
-          project_ids = selected_project_ids
-          status_ids = WorkflowTransition.where(
-            tracker_id: @trackers.map(&:id),
-            role_id: role_ids,
-            project_id: project_ids
-          ).where(
-            'old_status_id <> new_status_id'
-          ).distinct.pluck(:old_status_id, :new_status_id).flatten.uniq
+          status_ids = RedmineProjectWorkflows::Services::StatusListQuery.status_ids_for_pairs(
+            pairs: @trackers.map { |tracker| [nil, tracker.id] },
+            role_ids: Role.all.select(&:consider_workflow?).map(&:id)
+          )
           @statuses = IssueStatus.where(id: status_ids).sorted.to_a.presence
         end
         @statuses ||= IssueStatus.sorted.to_a

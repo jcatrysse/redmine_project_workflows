@@ -1,0 +1,55 @@
+<%#
+  The three actions of INV-3 for one project, tracker, role and kind of rule.
+
+  Only the actions that would change something are offered: a combination that
+  inherits can be taken over, one that has been taken over can be emptied or
+  given back. The project is in the path, so nothing here can act on another
+  project (INV-7).
+
+  `offered` says whether this project may be given a workflow of its own for this
+  role at all. A role with no member in the project can still have a scope -- an
+  administrator can create one, and the last member holding an ordinary role can
+  leave -- and such a row exists so that the workflow already in force can be
+  seen and given back. Taking a *new* one over is the one action it does not get
+  (finding F05), so a combination that inherits offers nothing.
+
+  Locals: project, tracker, role, rule_type, state, back_url (optional),
+  offered (optional, defaults to true).
+%>
+<% selection = { tracker_id: tracker.id, role_id: role.id, rule_type: rule_type } %>
+<% selection[:back_url] = back_url if defined?(back_url) && back_url.present? %>
+<%# nil counts as "offered": a local that reaches here unset must not remove a
+    button silently, which is the failure mode an unmatched Deface anchor has
+    already taught this plugin about (INV-9). Every caller does pass it. %>
+<% offered = true if !defined?(offered) || offered.nil? %>
+<%# The two links of a pair are separated by a pipe, which is Redmine's own
+    idiom for adjacent contextual links in running text (app/views/projects/show
+    puts one between Summary, Calendar and Gantt) and needs no stylesheet the
+    plugin does not ship. Without it the browser renders "Give own workflow
+    (copy of the generic one) Give own empty workflow" as one sentence and the
+    reader has to find the seam -- and *Give own empty workflow* is the most
+    consequential action either screen offers, since it is the state in which no
+    status change is permitted at all (finding F05). %>
+<span class="project-workflow-scope-actions">
+  <% if state != :inherits %>
+    <%= link_to l(:button_project_workflow_clear),
+                clear_project_workflow_scope_path(project, selection),
+                method: :post,
+                data: { confirm: l(:text_project_workflow_clear_confirm) } %>
+    |
+    <%= link_to l(:button_project_workflow_inherit),
+                project_workflow_scope_path(project, selection),
+                method: :delete,
+                data: { confirm: l(:text_project_workflow_inherit_confirm) } %>
+  <% elsif offered %>
+    <%= link_to l(:button_project_workflow_enable_copy),
+                project_workflow_scope_path(project, selection.merge(source: 'copy')),
+                method: :post,
+                data: { confirm: l(:text_project_workflow_project_enable_copy_confirm) } %>
+    |
+    <%= link_to l(:button_project_workflow_enable_empty),
+                project_workflow_scope_path(project, selection.merge(source: 'empty')),
+                method: :post,
+                data: { confirm: l(:text_project_workflow_project_enable_empty_confirm) } %>
+  <% end %>
+</span>
