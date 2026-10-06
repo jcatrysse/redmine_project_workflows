@@ -29,14 +29,14 @@ view_role.issues_visibility = 'all'
 view_role.save!
 
 project = Project.find_by!(identifier: 'e2e-project')
-unless Member.where(user_id: viewer.id, project_id: project.id).exists?
+unless Member.exists?(user_id: viewer.id, project_id: project.id)
   Member.create!(principal: viewer, project: project, roles: [view_role])
 end
 
 full = Role.find_by!(name: 'E2E full')
 template = Role.find_by(name: 'Manager')
 [full, view_role].each do |role|
-  next if template.nil? || WorkflowTransition.where(role_id: role.id, project_id: nil).exists?
+  next if template.nil? || WorkflowTransition.exists?(role_id: role.id, project_id: nil)
 
   role.copy_workflow_rules(template)
 end
