@@ -46,6 +46,30 @@ In this order: things that break, security, the GEOxyz changes, the open items, 
 5. Check Redmine 7 webhooks against this plugin (see "Rules"), and note the result here even if nothing is needed.
 6. Verify every feature of the plugin by hand on a running Redmine 7 (screenshots).
 
+## Migration session 2026-10-06: baseline (before any change)
+
+Host: `jcatrysse/redmine` branch `7.0-stable-GEOxyz` @ `8067e23` (Redmine 7.0.1, Rails 8.1.3.1,
+Ruby 3.3.6), built with `dev/setup.sh` into `.redmine/70geo-postgresql` (PostgreSQL 16.15) and
+`.redmine/70geo-mysql` (MariaDB 10.11.14). Branch head `cdb32dd`.
+
+| Check | PostgreSQL | MariaDB |
+|---|---|---|
+| Plugin migrations 001-007 up on a database built from core migrations | OK | OK |
+| `VERSION=0`: no `workflows.project_id`, no plugin table, stock index set, 0 bookkeeping rows; then up again (7) | OK | OK |
+| rspec (`dev/run.sh`) | **1350 examples, 0 failures** | **1350 examples, 0 failures** |
+| `start_server.sh` (production) + `e2e.sh` smoke | 26 pages, 0 problems | (see e2e on MariaDB below) |
+| `e2e.sh` core issue flows | 6 screenshots, 0 problems | |
+
+Smoke notes: `/projects/e2e-project/workflow/{transitions,permissions,compare,graph}` and
+`/projects/e2e-project/workflow_map` answer 404 in the smoke because it passes no `tracker_id`/`role_id`;
+that is the plugin's documented refusal (`ExactSelection`), not a defect. The scenarios below open
+them with a real selection.
+
+Trap found while building the host: `dev/setup.sh` and `dev/sync.sh` resolve a **relative** target
+directory after `cd`-ing into it, so `dev/setup.sh 7.0-stable postgresql 3.3.6 .redmine/x` copies the
+plugin into `.redmine/x/.redmine/x/plugins/` and the host runs without it. Pass an absolute path.
+Recorded, not fixed (outside the migration).
+
 ## GEOxyz changes to review or re-apply
 
 Own plugin: all of it is GEOxyz code, so there is nothing to re-apply. While migrating, hold the code you touch to the rules below; list larger quality problems you find in the work list instead of fixing them in passing.
