@@ -1052,3 +1052,13 @@ All Class A unless it says otherwise.
 | Date | Subject | Decision | Notes |
 | --- | --- | --- | --- |
 | 2026-10-06 | `gem 'deface', '~> 1.9'` (audit F10) breaks `bundle install` beside `redmine_view_issue_description`, which says plain `gem 'deface'` | **Plain `gem 'deface'`, skipped when an earlier plugin already declared it** | Bundler rejects the same gem declared twice with different requirements while it parses the Gemfile, so F10's "a neighbour pinning inside the same major still resolves" was never true. Measured on a 7.0-stable-GEOxyz host with 12 GEOxyz plugins: Redmine did not bundle, so it did not boot. A plain declaration is identical to the neighbour's, which Bundler accepts in either order; a *later* declaration with a requirement still fails, and the spec asserts that limit. The major cap is given up; CI and `deface_overrides_spec.rb` remain the control. Also put to Jan in `docs/REDMINE7-MIGRATION.md` (open question 2). |
+
+## Decided (Jan) — 2026-10-07, the Redmine 7 migration
+
+| Date | Subject | Decision | Notes |
+| --- | --- | --- | --- |
+| 2026-10-07 | GitHub Actions on every push? | **B: only when started by hand** | "Alleen handmatig, zoals de andere GEOxyz-plugins". `specs.yml` is `workflow_dispatch` only; CLAUDE.md's CI gate rewritten. |
+| 2026-10-07 | deface without a version limit, as a rule for every GEOxyz plugin | **B: accept, and make it the rule** | Declared plainly or with this plugin's guard, whenever a plugin's Gemfile is touched. Text of the rule in `docs/REDMINE7-MIGRATION.md`. |
+| 2026-10-07 | Impact and Urgency of redmine_itil_priority on Fields permissions | **A: fix separately, with its own tests** | Fixed in this plugin: `WorkflowPermission.rules_by_status_id` scoped instead of replacing `WorkflowsController#permissions`; the writer asks the model's `validate_field_name`. |
+| 2026-10-07 | Redmine 5.1 and MySQL/MariaDB | **Not requirements any more** | GEOxyz goes straight to Redmine 7 on PostgreSQL 16. The CI matrix keeps its cells but runs only by hand. |
+

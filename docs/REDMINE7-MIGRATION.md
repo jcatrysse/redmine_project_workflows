@@ -18,12 +18,12 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | Plugin id | `redmine_project_workflows` |
 | GEOxyz runs today | `main` |
 | Upstream | geen (eigen plugin) |
-| Runs on Redmine 7 as is | JA (branch `redmine70-migration`, 0.1.6 line); alleen naast andere plugins was een fix nodig (C1) |
+| Runs on Redmine 7 as is | JA (branch `redmine70-migration`, 0.1.6 line); naast andere plugins waren fixes nodig (C1, C2) |
 | Upstream sync | GEEN UPSTREAM |
 | After sync | n.v.t. |
 | Complexity (1 trivial .. 5 rewrite) | 1 |
 | Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz `8067e23`), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16.15 and MariaDB 10.11.14 |
-| Migration session | 2026-10-06, done; results below |
+| Migration session | 2026-10-06, done; Jan's decisions built 2026-10-07 (see "Decided by Jan") |
 
 ## Already on this branch
 
@@ -178,7 +178,7 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
   redmine_view_issue_description's plain `gem 'deface'` makes Bundler refuse the Gemfile
   ("You cannot specify the same gem twice with different version requirements"), so Redmine does not
   start. Test in `plugin_conventions_spec.rb`, red on the old Gemfile.
-- **C2 (open, pre-existing) redmine_itil_priority's Impact/Urgency on Fields permissions.**
+- **C2 (fixed 2026-10-07, `a080401`, decision q3) redmine_itil_priority's Impact/Urgency on Fields permissions.**
   redmine_itil_priority prepends `WorkflowsController#permissions` (calls `super`, adds two rows)
   and extends `WorkflowPermission#validate_field_name`. This plugin prepends after it and replaces
   `#permissions` without `super` (deliberately: core's query has no `project_id` predicate, INV-4),
@@ -188,7 +188,7 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
   Proposed fix (not built, it touches INV-2/INV-4 code): scope `WorkflowPermission.rules_by_status_id`
   to `project_id: nil` in `WorkflowPermissionPatch` and drop the `#permissions` override so the
   action chain composes; let `PermissionWriter` accept a field name the model's own
-  `validate_field_name` accepts. See open question 3.
+  `validate_field_name` accepts. Built exactly so after Jan's decision q3.
 - **M1 (open, pre-existing, nit)** README says the row/column actions come "with a count of what
   changed and an Undo" on every matrix; on core's own Administration → Workflow screen they work
   but have no counter or Undo (the undo region is rendered on the plugin's screens only). Same on
@@ -225,23 +225,57 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
   full set on both databases ran on `30b313b`, whose only later changes are the Gemfile guard
   (covered by rspec on both databases and the combined host's bundle) and that scenario.
 
-## Open questions for Jan
+## Decided by Jan (2026-10-07)
 
-1. **CI triggers.** `.github/workflows/specs.yml` (from claude/dev) runs on every push and pull
-   request; the migration rules say GitHub Actions are manual only (`workflow_dispatch`). I did not
-   add triggers and did not remove them.
-   - A) keep push + pull_request (the plugin's own CLAUDE.md treats CI on every push as a hard gate);
-   - B) make it `workflow_dispatch` only, like the other GEOxyz plugins.
-   - Recommendation: A for this plugin, it is the only automated 5.1/6.1/7.0 x 3-database check it has.
-2. **deface version cap.** C1 removes the `~> 1.9` cap; a fresh install could resolve a future deface
-   2.x. Note the limit of the fix: a plugin evaluated *after* this one that declares deface with a
-   requirement still stops the bundle (the spec asserts that). A) accept (Gemfile.lock and CI catch a
-   deface 2); B) agree one rule for every GEOxyz plugin: declare `gem 'deface'` plainly, or guarded
-   like this one. Recommendation: A now, and B as a convention when a GEOxyz plugin touches its Gemfile.
-3. **C2, ITIL fields in workflow field permissions.** A) build the proposed fix in a follow-up (also
-   makes the plugin compose with any neighbour that extends this screen); B) leave it, ITIL field
-   rules are then edited elsewhere or not at all. Recommendation: A, as its own change with tests,
-   before GEOxyz relies on per-role Impact/Urgency rules.
+Answered by Jan on 2026-10-07 in the coordinating session (recorded verbatim in
+`docs/DECISIONS-2026-10-07.md`); final.
+
+**General, for every GEOxyz plugin**
+- GEOxyz goes straight to Redmine 7: no backports to 5.1; `redmine70-migration` is what goes live.
+  Redmine 5.1 compatibility is no longer a requirement (rule below updated).
+- Production is PostgreSQL 16 only; tests and e2e run on PostgreSQL. A MariaDB-only problem is a
+  note, not a blocker (rules and definition of done below updated). The MariaDB results of
+  2026-10-06 stay above as a record.
+- deface is required without a version constraint (see q2).
+- A core method other plugins also patch is patched with `prepend`, never `alias_method`.
+  **Checked:** this plugin has no `alias_method` at all (`grep -rn alias_method lib app init.rb`:
+  comments only); every patch is a `prepend`, a singleton `prepend` or `helper`. With the 12 other
+  GEOxyz plugins installed, Project → Settings, the issue list and an issue page answer 200 (smoke
+  on the combined host, see Results). `RMP_EXTRA_PLUGINS` is not supported by this repo's `.codex`
+  copy, so the combined host is `.redmine/70geo-together`, built by `dev/setup.sh`.
+- GitHub Actions stay manual only (see q1).
+
+**Decisions for this plugin**
+1. **q1 CI triggers.** Jan chose B: "Alleen handmatig, zoals de andere GEOxyz-plugins" (Volgt de
+   afspraak, maar fouten vallen pas op als iemand de testen zelf start.).
+   **Done in `d4e2b3e`:** `specs.yml` runs on `workflow_dispatch` only; CLAUDE.md, README,
+   operations.md and dev/README updated; conventions spec red before, green after.
+2. **q2 deface without a version limit as a rule for all plugins.** Jan chose B: "Aanvaarden plus
+   afspraak voor alle GEOxyz-plugins" (Elke GEOxyz-plugin vraagt deface voortaan zonder versie of
+   met dezelfde beveiliging, telkens wanneer zijn Gemfile toch aangepast wordt.).
+   **No code needed here** (this plugin already does it, `e4c4dc9`/`60a5e4b`, with tests). The
+   general rule, written down for every GEOxyz plugin:
+
+   > A GEOxyz plugin that depends on deface declares it in its Gemfile **without a version
+   > requirement**, either plainly (`gem 'deface'`) or with this plugin's guard:
+   > `gem 'deface' unless dependencies.any? { |d| d.name == 'deface' && d.groups.include?(:default) && d.platforms.empty? }`.
+   > Reason: Redmine evaluates every plugin Gemfile into one Bundler DSL and Bundler refuses the
+   > same gem declared twice with different requirements, so one plugin's version limit stops
+   > `bundle install` for the whole installation. Apply it whenever a plugin's Gemfile is touched.
+
+3. **q3 Impact and Urgency on Fields permissions.** Jan chose A: "Apart herstellen, met eigen
+   tests" (Een aparte wijziging laat beide plugins samen werken op dat scherm, maar raakt gevoelige
+   code van deze plugin.).
+   **Done in `a080401`, fixed in this plugin** (the cause was here, not in redmine_itil_priority):
+   core's `WorkflowsController#permissions` is no longer replaced; its unscoped query
+   `WorkflowPermission.rules_by_status_id` is scoped to the generic workflow instead (INV-4 holds),
+   and `PermissionWriter` accepts a field name the model's own `validate_field_name` accepts (INV-2
+   holds: digits must still name a custom field, unknown names are dropped).
+   Follow-up **`b112e7a`**: the drift gate took ITIL's prepended wrapper for core's body; it now
+   skips modules other plugins prepend, so the plugin's suite is green with the GEOxyz plugins too.
+   Not covered (left as is): the plugin's *own* matrices (project and administration Fields
+   permissions) list core fields and custom fields only, so per-project Impact/Urgency rules are
+   not offered there.
 
 ## GEOxyz changes to review or re-apply
 
@@ -265,9 +299,12 @@ Actions the person doing the upgrade must take, or know about, for this plugin:
   `redmine_view_issue_description` installed, the previous `~> 1.9` pin would stop the bundle.
 - Optional, once: `rake redmine_project_workflows:deduplicate_workflow_rules RAILS_ENV=production`
   removes exact duplicate rows older installations can carry (it deletes nothing else).
-- If `redmine_itil_priority` is installed: the Impact/Urgency rows on Administration > Workflow >
-  Fields permissions are not shown or saved while this plugin is installed (finding C2, also true
-  for 0.0.3). Whether existing Impact/Urgency rules are still enforced was not verified.
+- If `redmine_itil_priority` is installed: Impact/Urgency rows on Administration > Workflow >
+  Fields permissions are shown and saved again (finding C2, fixed, decision q3); with 0.0.3 they
+  were not. Check that screen once after the upgrade. Per-project Impact/Urgency rules are not
+  offered on the plugin's own project matrices.
+- GitHub Actions of this plugin no longer run on push; start `Specs` by hand from the Actions tab
+  before a release (decision q1).
 - Nothing to do for mail, cron, files or settings: the plugin sends no mail, has no cron job, and
   its settings keep their defaults.
 
@@ -375,8 +412,13 @@ results quoted in the analysis come from it.
   (on by default: `t.sudo()` in a scenario). The breaker list is in the migration kit's CHECKLIST.md.
 - **Locales**: keep the locales the plugin ships in sync; translate a new key by matching the
   closest existing key in the same file, not from scratch; do not add new languages.
-- **5.1 compatibility**: prefer fixes that also run on Redmine 5.1 so they can be merged early;
-  say so when a fix cannot.
+- **Redmine 5.1**: not a requirement any more (Jan, 2026-10-07): GEOxyz goes straight to Redmine 7
+  and nothing is backported. Do not add code paths that exist only for 5.1.
+- **Databases**: production is PostgreSQL 16; tests and e2e run on PostgreSQL. Keep SQL portable
+  where that costs nothing; a MariaDB-only problem is a note here, not a blocker (Jan, 2026-10-07).
+- **deface**: declared without a version requirement (rule under "Decided by Jan", q2).
+- **Patching core**: a core method other plugins also patch is patched with `prepend`, never
+  `alias_method` (Jan, 2026-10-07).
 - **Git**: work on `redmine70-migration` only; never push to the default branch; never force-push
   a branch someone else uses. Descriptive commit messages (what and why). Push after every
   commit, together with the updated status in this file: a cloud session can stop at a usage
@@ -387,8 +429,8 @@ results quoted in the analysis come from it.
 ## Definition of done
 
 - All items of the work list are done or explicitly deferred with a reason, in this file.
-- The plugin's tests are green on Redmine 7.0-stable-GEOxyz with PostgreSQL and MariaDB
-  (numbers in this file); boot, production-like eager load, migrations up/down OK.
+- The plugin's tests are green on Redmine 7.0-stable-GEOxyz with PostgreSQL, alone and with the
+  other GEOxyz plugins (numbers in this file; MariaDB no longer required since 2026-10-07); boot, production-like eager load, migrations up/down OK.
 - Every function in the inventory exercised end to end on a real running Redmine, with and
   without permissions and on its failure paths; `./.codex/e2e.sh` green; screenshots looked at,
   committed in `docs/e2e/` and listed.

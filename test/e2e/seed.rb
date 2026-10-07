@@ -42,6 +42,13 @@ template = Role.find_by(name: 'Manager')
   role.copy_workflow_rules(template)
 end
 
+# On a host with redmine_view_issue_description, reading an issue needs its
+# permission too; grant it so the scenarios test this plugin, not that one.
+neighbour_permissions = %i[view_issue_description view_activities].select { |name| Redmine::AccessControl.permission(name) }
+if neighbour_permissions.any?
+  Role.where(name: ['Reporter', view_role.name]).find_each { |role| role.add_permission!(*neighbour_permissions) }
+end
+
 ProjectWorkflowScope.delete_all
 WorkflowRule.where.not(project_id: nil).delete_all
 Setting.plugin_redmine_project_workflows = Redmine::Plugin.find(:redmine_project_workflows).settings[:default]
