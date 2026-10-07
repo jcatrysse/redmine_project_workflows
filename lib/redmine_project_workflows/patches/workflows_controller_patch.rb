@@ -78,21 +78,10 @@ module RedmineProjectWorkflows
         }
       end
 
-      # See #edit: the same reason, for the field permissions matrix. Core reads
-      # it with `WorkflowPermission.rules_by_status_id`, which has no predicate
-      # either; the plugin's query service takes the population as an argument.
-      def permissions
-        return unless @roles.present? && @trackers.present?
-
-        @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
-          [field, l("field_#{field.delete_suffix('_id')}")]
-        end
-        @custom_fields = @trackers.map(&:custom_fields).flatten.uniq.sort
-        @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
-          @trackers, @roles, [nil]
-        )
-        @statuses.each { |status| @permissions[status.id] ||= {} }
-      end
+      # #permissions is core's: its one unscoped read,
+      # WorkflowPermission.rules_by_status_id, is scoped in
+      # WorkflowPermissionPatch instead, so plugins that wrap the action keep
+      # working (decision q3, finding C2).
 
       private
 

@@ -72,14 +72,14 @@ module RedmineProjectWorkflows
       # than clearing the rule it names.
       def self.sanitize_payload(permissions)
         status_ids = valid_status_ids
-        field_names = valid_field_names
+        accepted = accepted_field_names
 
         permissions.each_with_object({}) do |(status_id, rule_by_field), sanitized|
           next unless rule_by_field.respond_to?(:each)
           next unless status_ids.include?(status_id.to_s)
 
           rule_by_field.each do |field, rule|
-            next unless field_names.include?(field.to_s)
+            next unless accepted[field.to_s]
             next unless rule.blank? || RULES.include?(rule.to_s)
 
             # Strings, whatever the caller spelled them as: see the same
@@ -115,6 +115,30 @@ module RedmineProjectWorkflows
         (Tracker::CORE_FIELDS_ALL + IssueCustomField.pluck(:id).map(&:to_s)).to_set
       end
       private_class_method :valid_field_names
+
+      # Answers per field name, asking each distinct name once per save.
+      def self.accepted_field_names
+        field_names = valid_field_names
+        Hash.new { |cache, name| cache[name] = field_name_accepted?(name, field_names) }
+      end
+      private_class_method :accepted_field_names
+
+      # A name outside that list is accepted when the model itself accepts it:
+      # WorkflowPermission#validate_field_name is the extension point another
+      # plugin uses to add a field (redmine_itil_priority adds impact_id and
+      # urgency_id), and the rows this writer inserts skip that validation, so
+      # it is asked here (decision q3). A run of digits is never asked: core
+      # accepts any, and the narrower rule above -- the custom field must
+      # exist -- stands.
+      def self.field_name_accepted?(name, field_names)
+        return true if field_names.include?(name)
+        return false if name.empty? || name.match?(/\A\d+\z/)
+
+        probe = WorkflowPermission.new(field_name: name)
+        probe.send(:validate_field_name)
+        probe.errors[:field_name].empty?
+      end
+      private_class_method :field_name_accepted?
 
       def self.delete_permissions_for_scope(scope, permissions)
         table = WorkflowPermission.arel_table
