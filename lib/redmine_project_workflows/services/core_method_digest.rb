@@ -230,9 +230,15 @@ module RedmineProjectWorkflows
       # means the plugin only *adds* the method and there is nothing of core's to
       # watch. A nil +patch+ is a declared dependency; the walk still applies,
       # because a dependency can sit under a patch of ours too.
+      #
+      # Also past every module *another* plugin prepended in front of the owner:
+      # its wrapper is not core's body either, and taking it reported a
+      # neighbour's patch as core drift on the combined GEOxyz host
+      # (redmine_itil_priority's WorkflowsController#permissions).
       def self.core_source(owner, patch, method_name)
+        in_front = owner.ancestors.take_while { |mod| mod != owner }
         core = owner.instance_method(method_name)
-        core = core.super_method while core && plugin_definition?(core.owner, patch)
+        core = core.super_method while core && (plugin_definition?(core.owner, patch) || in_front.include?(core.owner))
         return nil unless core
 
         file, = core.source_location
