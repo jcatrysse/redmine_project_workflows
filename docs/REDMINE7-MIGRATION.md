@@ -89,7 +89,21 @@ directory after `cd`-ing into it, so `dev/setup.sh 7.0-stable postgresql 3.3.6 .
 plugin into `.redmine/x/.redmine/x/plugins/` and the host runs without it. Pass an absolute path.
 Recorded, not fixed (outside the migration).
 
-## Results (2026-10-06, final head)
+## Results (2026-10-07, after Jan's decisions; PostgreSQL only, per Jan)
+
+| Check | Plain host (this plugin) | Combined host (+12 GEOxyz plugins) |
+|---|---|---|
+| rspec | **1362 examples, 0 failures, 1 pending** (the real-ITIL example, which needs that plugin) | **1362 examples, 0 failures** |
+| e2e (production) | smoke 25 pages + core + 10 scenarios: **0 problems, 141 assertions**; ITIL scenario SKIP | **105 screenshots, 152 assertions, 0 problems**; ITIL scenario re-run after the review fixes: 11 assertions, 0 problems |
+| Project → Settings, issue list, issue page | 200 | 200 (`docs/e2e/together/smoke.md`) |
+| RuboCop | 164 files, no offenses | |
+| OpenAI review `638eb88..e3b4cc2` | no findings (`docs/reviews/openai-2026-10-07-e3b4cc2.md`) | |
+
+The smoke lists `/workflows/permissions` no longer: it lists the GET routes the plugin defines, and
+the plugin no longer defines that action (q3). The screen is driven by `core_workflow` and
+`neighbour_field_permissions` instead.
+
+## Results (2026-10-06)
 
 | Check | PostgreSQL 16.15 | MariaDB 10.11.14 |
 |---|---|---|
@@ -166,6 +180,7 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
 | Plugin settings (thresholds, write ceiling, diagram) | Administration → Plugins → Configure | `admin_tools`, `diagram`, `admin_rules` | `settings`, `settings-invalid-fallback` (forged "abc" falls back to 50) |
 | Copying a role or tracker copies its project rules | Administration → Roles / Trackers → Copy | `admin_tools` | `role-copied`, `tracker-copied` |
 | Deleting a status that empties a project workflow warns | Administration → Issue statuses → Delete | `admin_tools` | `status-deleted-warning` |
+| Impact/Urgency of redmine_itil_priority on core Fields permissions (decision q3) | Administration → Workflow → Fields permissions, with redmine_itil_priority installed | `neighbour_field_permissions` (combined host; SKIP elsewhere) | `docs/e2e/together/neighbour_field_permissions-rows-shown`, `-impact-saved`, `-outsider-403` (manager, reporter: 403 asserted; anonymous: login); before the fix: `together-itil-core-permissions` |
 | Core Administration → Workflow still edits the generic workflow only (INV-1, INV-4) | Administration → Workflow | `core_workflow` | `summary`, `generic-saved`, `generic-permissions`, `core-copy`, `manager-403` |
 | Cross-link from core's workflow screen (Deface) | Administration → Workflow | `admin_rules` | asserted; visible in `docs/e2e/smoke-12.png` |
 | Rake: backup (0600, FORCE), restore (OVERWRITE, junk file), deduplicate, uninstall refusal | shell | `rake_tasks` | `before-restore`, `after-restore`, `after-uninstall-refused`; full uninstall/reinstall: `dev/check-uninstall.sh` |
