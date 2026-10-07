@@ -36,10 +36,10 @@ await t.shot('impact-saved', 'Admin: Impact read-only for New saved on the gener
 // A field name nothing accepts is still refused (INV-2).
 const forged = await forge(t, 'PATCH', '/workflows/update_permissions',
   { 'role_id[]': `${FULL}`, 'tracker_id[]': `${BUG}`, [`permissions[${NEW}][no_such_field]`]: 'readonly' });
-assert(t, rails(`puts WorkflowPermission.where(field_name: 'no_such_field').count`) === 0, `a forged field name nothing accepts is not written (HTTP ${forged})`);
+assert(t, forged === 302 && rails(`puts WorkflowPermission.where(field_name: 'no_such_field').count`) === 0, `a forged field name nothing accepts is accepted as a request but not written (HTTP ${forged})`);
 
-// The project screens: Impact rules cannot leak into a project.
-assert(t, rails(`puts WorkflowPermission.where.not(project_id: nil).where(field_name: 'impact_id').count`) === 0, 'no project row was written');
+// A generic save writes no project row.
+assert(t, rails(`puts WorkflowPermission.where.not(project_id: nil).where(field_name: 'impact_id').count`) === 0, 'the generic save wrote no project row');
 
 for (const who of ['manager', 'reporter', 'outsider']) {
   await t.login(who);
@@ -49,7 +49,7 @@ for (const who of ['manager', 'reporter', 'outsider']) {
   assert(t, st === 403, `${who}: the screen and a forged save answer 403 (HTTP ${st})`);
 }
 await t.shot('outsider-403', 'Outsider (after manager and reporter, same answer): core Fields permissions answers 403');
-assert(t, rails(`puts WorkflowPermission.where(field_name: 'impact_id').pluck(:rule).to_json`)[0] === 'readonly', 'and the rule is unchanged');
+assert(t, JSON.stringify(rails(`puts WorkflowPermission.where(tracker_id: ${BUG}, role_id: ${FULL}, old_status_id: ${NEW}, field_name: 'impact_id').pluck(:project_id, :rule).to_json`)) === JSON.stringify([[null, 'readonly']]), 'and the rule is unchanged');
 await t.anonymous();
 await t.go(url);
 assert(t, /\/login/.test(t.page.url()), 'anonymous is sent to the login page');

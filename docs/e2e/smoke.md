@@ -1,6 +1,6 @@
 # smoke
 
-Run 2026-10-06T20:53:29.302Z against http://127.0.0.1:3000.
+Run 2026-10-07T16:31:51.553Z against http://127.0.0.1:3000.
 
 | screenshot | user | URL | shows |
 |---|---|---|---|
@@ -16,17 +16,16 @@ Run 2026-10-06T20:53:29.302Z against http://127.0.0.1:3000.
 | ![](smoke-10.png) | admin | `/admin/plugins` | /admin/plugins (HTTP 200) |
 | ![](smoke-11.png) | admin | `/settings/plugin/redmine_project_workflows` | /settings/plugin/redmine_project_workflows (HTTP 200) |
 | ![](smoke-12.png) | admin | `/workflows/edit` | /workflows/edit (HTTP 200) |
-| ![](smoke-13.png) | admin | `/workflows/permissions` | /workflows/permissions (HTTP 200) |
-| ![](smoke-14.png) | admin | `/workflows` | /workflows (HTTP 200) |
-| ![](smoke-15.png) | admin | `/project_workflow_inventories` | /project_workflow_inventories (HTTP 200) |
-| ![](smoke-16.png) | admin | `/projects/e2e-project/workflow/transitions` | /projects/e2e-project/workflow/transitions (HTTP 404) |
-| ![](smoke-17.png) | admin | `/projects/e2e-project/workflow/permissions` | /projects/e2e-project/workflow/permissions (HTTP 404) |
-| ![](smoke-18.png) | admin | `/projects/e2e-project/workflow/compare` | /projects/e2e-project/workflow/compare (HTTP 404) |
-| ![](smoke-19.png) | admin | `/projects/e2e-project/workflow/graph` | /projects/e2e-project/workflow/graph (HTTP 404) |
-| ![](smoke-20.png) | admin | `/issues/1/workflow_map` | /issues/1/workflow_map (HTTP 200) |
-| ![](smoke-21.png) | admin | `/projects/e2e-project/workflow_map` | /projects/e2e-project/workflow_map (HTTP 404) |
-| ![](smoke-22.png) | admin | `/project_workflow_diagnostics` | /project_workflow_diagnostics (HTTP 200) |
-| ![](smoke-23.png) | admin | `/project_workflow_rules` | /project_workflow_rules (HTTP 200) |
-| ![](smoke-24.png) | admin | `/project_workflow_rules/edit` | /project_workflow_rules/edit (HTTP 200) |
-| ![](smoke-25.png) | admin | `/project_workflow_rules/permissions` | /project_workflow_rules/permissions (HTTP 200) |
-| ![](smoke-26.png) | admin | `/project_workflow_rules/copy` | /project_workflow_rules/copy (HTTP 200) |
+| ![](smoke-13.png) | admin | `/workflows` | /workflows (HTTP 200) |
+| ![](smoke-14.png) | admin | `/project_workflow_inventories` | /project_workflow_inventories (HTTP 200) |
+| ![](smoke-15.png) | admin | `/projects/e2e-project/workflow/transitions` | /projects/e2e-project/workflow/transitions (HTTP 404) |
+| ![](smoke-16.png) | admin | `/projects/e2e-project/workflow/permissions` | /projects/e2e-project/workflow/permissions (HTTP 404) |
+| ![](smoke-17.png) | admin | `/projects/e2e-project/workflow/compare` | /projects/e2e-project/workflow/compare (HTTP 404) |
+| ![](smoke-18.png) | admin | `/projects/e2e-project/workflow/graph` | /projects/e2e-project/workflow/graph (HTTP 404) |
+| ![](smoke-19.png) | admin | `/issues/1/workflow_map` | /issues/1/workflow_map (HTTP 200) |
+| ![](smoke-20.png) | admin | `/projects/e2e-project/workflow_map` | /projects/e2e-project/workflow_map (HTTP 404) |
+| ![](smoke-21.png) | admin | `/project_workflow_diagnostics` | /project_workflow_diagnostics (HTTP 200) |
+| ![](smoke-22.png) | admin | `/project_workflow_rules` | /project_workflow_rules (HTTP 200) |
+| ![](smoke-23.png) | admin | `/project_workflow_rules/edit` | /project_workflow_rules/edit (HTTP 200) |
+| ![](smoke-24.png) | admin | `/project_workflow_rules/permissions` | /project_workflow_rules/permissions (HTTP 200) |
+| ![](smoke-25.png) | admin | `/project_workflow_rules/copy` | /project_workflow_rules/copy (HTTP 200) |

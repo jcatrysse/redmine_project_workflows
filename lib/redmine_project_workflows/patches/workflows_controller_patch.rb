@@ -20,8 +20,9 @@ module RedmineProjectWorkflows
     # (WP12). This patch was 468 lines replacing six core actions; the project
     # dimension living inside a core controller was the cost ADR-003 removed.
     #
-    # **Why these three actions and one finder, when ADR-003's own list names
-    # five.** The list in the ADR is the actions whose *screens* show or store
+    # **Why these two actions and one finder, when ADR-003's own list names
+    # five** (`#permissions` was the third until decision q3 of 2026-10-07; its
+    # query is scoped in WorkflowPermissionPatch instead). The list in the ADR is the actions whose *screens* show or store
     # the generic workflow, and it was written without checking where the write
     # is isolated. `update` and `update_permissions` need nothing here:
     # `WorkflowTransition.replace_transitions` and

@@ -12,7 +12,7 @@ cover.
 ![The Workflow tab in project settings](docs/images/project-workflow-tab.png)
 
 > **Please read this before installing.** This plugin is new. Every supported
-> combination of Redmine version and database is tested in CI (started by hand), with a
+> combination of Redmine version and database can be tested in CI (started by hand), with a
 > suite of over 1,300 examples — but it has not been through a wide range of real
 > production installations, and CI is not the same thing. What it changes is
 > **workflow rules, which are authorization**: which status changes your users

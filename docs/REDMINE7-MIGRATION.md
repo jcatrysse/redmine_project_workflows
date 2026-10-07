@@ -54,8 +54,8 @@ In this order: things that break, security, the GEOxyz changes, the open items, 
 5. Check Redmine 7 webhooks against this plugin (see "Rules"), and note the result here even if nothing is needed.
 6. Verify every feature of the plugin by hand on a running Redmine 7 (screenshots).
 
-   - 4: **done**, numbers under "Results". 5.1 not run locally; CI runs 5.1, 6.1 and 7.0 on three
-     databases on every push of this branch (see "Results").
+   - 4: **done**, numbers under "Results". 5.1 not run locally and no longer required (Jan,
+     2026-10-07); CI (5.1, 6.1, 7.0 × three databases) now runs only when started by hand.
    - 5: **done, nothing needed.** Core renders the issue payload with `issues/show.api.rsb` and empty
      params, so `include_in_api_response?('allowed_statuses')` is false and the only
      workflow-dependent part of an issue is never in a webhook. The plugin changes which status a
@@ -276,6 +276,31 @@ Answered by Jan on 2026-10-07 in the coordinating session (recorded verbatim in
    Not covered (left as is): the plugin's *own* matrices (project and administration Fields
    permissions) list core fields and custom fields only, so per-project Impact/Urgency rules are
    not offered there.
+
+### Review of the decision commits (2026-10-07)
+
+Own adversarial review in a fresh subagent, over `638eb88..29cde11`:
+- **Blocker, fixed:** the writer's new field-name probe let a name through that core's
+  line-anchored `/^\d+$/` accepts (`"\n5"`, `"5\n<svg…>"`), so an arbitrary string could reach
+  `workflows.field_name` (INV-2). Now only a plain identifier (`/\A[a-z_][a-z0-9_]*\z/`) is put to
+  the model; a spec with those names was red before the fix.
+- **Major, recorded for Jan (open question below):** after a takeover, a project holds a copy of the
+  generic Impact/Urgency rules, and they are enforced, but the plugin's own project matrices do
+  not offer those fields. Behaviour is unchanged by the takeover; editing them per project is not
+  possible. Pinned by a spec.
+- Minor, fixed: design.md and a patch comment still described `#permissions` as replaced; the
+  render spec now really renders (with a note that it is coverage, not the regression test); e2e
+  forged request checks the HTTP status and the rule lookup is filtered; stale CI claims reworded.
+- Not built (suggestion): Diagnostics could list other plugins' modules in front of a shadowed
+  method; the drift gate no longer reports them since `b112e7a`.
+
+## Open questions for Jan
+
+1. **Impact/Urgency per project.** A) offer a neighbour's fields on the plugin's project and
+   administration Fields permissions matrices too (reads the generic rows' field names the model
+   accepts; more code in the matrix helpers); B) leave it: projects carry the generic rule along on
+   takeover and can change it only by emptying the workflow or returning to the generic one.
+   Recommendation: B until GEOxyz needs a project-specific Impact/Urgency rule; then A.
 
 ## GEOxyz changes to review or re-apply
 

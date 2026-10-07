@@ -132,7 +132,10 @@ module RedmineProjectWorkflows
       # exist -- stands.
       def self.field_name_accepted?(name, field_names)
         return true if field_names.include?(name)
-        return false if name.empty? || name.match?(/\A\d+\z/)
+        # Only a plain lower-case identifier is put to the model. Core's own
+        # check is line-anchored (/^\d+$/), so "5\nanything" passes it; and a
+        # run of digits must name a custom field (above), never be waved through.
+        return false unless name.match?(/\A[a-z_][a-z0-9_]*\z/)
 
         probe = WorkflowPermission.new(field_name: name)
         probe.send(:validate_field_name)
