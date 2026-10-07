@@ -33,3 +33,10 @@ What to do:
 7. Update Status, the inventory, the work list and "After the upgrade". Push `redmine70-migration` after every commit.
 8. These decisions are final; do not stop to ask about them. If one turns out to be impossible, write down why in the plan and carry on with the rest.
 9. End with a short report in Dutch: per decision what you did (commit), test numbers, e2e numbers (scenarios, screenshots, problems), the review result, what is left for Jan.
+
+## Round 2, decided by Jan on 2026-10-07 (evening)
+
+Jan answered these follow-up questions from the migration report the same way, one at a time, in the coordinating session.
+
+- redmine_project_workflows-n2-1 (proj_wf 4): Neemt een project een eigen workflow, dan neemt het de algemene regels voor Impact en Urgentie mee. Die velden staan niet op de projectschermen van deze plugin, dus per project aanpassen kan niet. Wat doen we?
+  Jan chose: "Zo laten" (Projecten volgen de algemene regel; bouwen pas als een project een eigen regel nodig heeft.). Already built: keep it and record the decision.
