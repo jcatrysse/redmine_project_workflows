@@ -1,9 +1,8 @@
 name: Specs
 
+# Manual only (Jan, 2026-10-07, for every GEOxyz plugin): start it from the
+# Actions tab or the API. spec/plugin_conventions_spec.rb asserts it.
 on:
-  push:
-    branches: ['**']
-  pull_request:
   workflow_dispatch:
 
 # No step in this file writes to the repository, posts a comment or reads a

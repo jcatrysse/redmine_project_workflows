@@ -39,7 +39,7 @@ replace, and create two tables of the plugin's own —
 `project_workflow_scopes`, which records which projects run their own workflow,
 and `project_workflow_write_locks`, which holds a place for two simultaneous
 saves to queue. `VERSION=0` removes all of it. That reversal is tested on every
-supported Redmine and database on every push.
+supported Redmine and database in CI, which runs when started by hand.
 
 The size to expect is smaller than "a core table" suggests. `workflows` holds one
 row per configured rule, so it grows with trackers, roles and statuses, not with
@@ -222,7 +222,7 @@ the uninstall above. Coming back afterwards is three steps:
 2. `RAILS_ENV=production bundle exec rake redmine:plugins:migrate NAME=redmine_project_workflows`;
 3. `RAILS_ENV=production bundle exec rake redmine_project_workflows:restore FILE=…`.
 
-Every step of that round trip runs in CI on every push, on all three Redmine
+Every step of that round trip runs in CI (started by hand), on all three Redmine
 versions and all three databases (`dev/check-uninstall.sh`).
 
 ## Maintenance

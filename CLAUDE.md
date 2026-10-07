@@ -91,9 +91,12 @@ task description seems to ask for it.
   **wrong**. A fix is finished when its example has been inverted (or deleted)
   and moved into the normal spec directories — never when it has been made
   green again. The plan is complete when that directory is empty.
-- **Every supported combination, every time.** Redmine 5.1, 6.1 and 7.0 ×
-  PostgreSQL, MySQL and MariaDB. CI runs the matrix on every push; `dev/` can
-  reproduce any cell locally. "Green on my machine" means one of nine.
+- **Every supported combination, every time.** Since Jan's decision of
+  2026-10-07 GEOxyz runs Redmine 7.0 on PostgreSQL 16 only: that cell is the
+  requirement, 5.1 compatibility and MySQL/MariaDB are not (a MariaDB-only
+  problem is a note, not a blocker). The CI matrix (5.1, 6.1, 7.0 × PostgreSQL,
+  MySQL, MariaDB) still exists but runs **only when started by hand**
+  (`workflow_dispatch`, same decision); `dev/` can reproduce any cell locally.
 - **A test that fails on the old code.** Every fix carries one, and the commit
   message says how you know it does.
 

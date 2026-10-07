@@ -144,7 +144,8 @@ exactly, for every combination and no other.
 ## Continuous integration
 
 `.github/workflows/specs.yml` runs the same scripts across Redmine 5.1 / 6.1 /
-7.0 and PostgreSQL / MySQL / MariaDB on every push and pull request, plus three
+7.0 and PostgreSQL / MySQL / MariaDB when started by hand (`workflow_dispatch`
+only, Jan 2026-10-07), plus three
 gates per cell:
 
 1. **The five migration checks above** — the upgrade from the previous release,

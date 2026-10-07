@@ -552,6 +552,22 @@ describe RedmineProjectWorkflows do
     end
   end
 
+  # Decision q1 (Jan, 2026-10-07), the same for every GEOxyz plugin: GitHub
+  # Actions run only when somebody starts them. YAML 1.1 reads a bare `on:` key
+  # as `true`, so both spellings are looked up.
+  it 'runs its GitHub Actions workflows on workflow_dispatch only' do
+    files = Dir[File.expand_path('../.github/workflows/*.{yml,yaml}', __dir__)]
+    expect(files).not_to be_empty
+
+    files.each do |file|
+      workflow = YAML.safe_load_file(file, aliases: true)
+      triggers = workflow['on'] || workflow[true]
+      triggers = Array(triggers).map { |trigger| trigger.is_a?(Array) ? trigger.first : trigger }
+      expect(triggers.map(&:to_s)).to eq(['workflow_dispatch']),
+                                      "#{File.basename(file)} triggers on #{triggers.inspect}"
+    end
+  end
+
   # A check of the CI environment rather than of the plugin: every cell runs the
   # deface major the five overrides were written against.
   it 'runs on the deface major the overrides are tested against' do
