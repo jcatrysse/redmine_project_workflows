@@ -40,3 +40,19 @@ Jan answered these follow-up questions from the migration report the same way, o
 
 - redmine_project_workflows-n2-1 (proj_wf 4): Neemt een project een eigen workflow, dan neemt het de algemene regels voor Impact en Urgentie mee. Die velden staan niet op de projectschermen van deze plugin, dus per project aanpassen kan niet. Wat doen we?
   Jan chose: "Zo laten" (Projecten volgen de algemene regel; bouwen pas als een project een eigen regel nodig heeft.). Already built: keep it and record the decision.
+
+## Round 6, 2026-10-12: Impact/Urgency per project
+
+Jan answered the open question "Impact/Urgency per project" after an impact analysis in the coordinating session: **build it, in this plugin, as a generic extension point** (not as a hook inside redmine_itil_priority).
+
+What the analysis found (verify it, do not take it on trust):
+- Enforcement already works: a project's own WorkflowPermission rows for `impact_id` / `urgency_id` are copied on takeover (`ScopeWriter.enable`, `copy_generic: true`) and enforced; `PermissionWriter` accepts the names through `WorkflowPermission#validate_field_name` (C2, `a080401`), and `delete_permissions_for_scope` deletes only the submitted (status, field) cells, so saving a project matrix does not drop them.
+- What is missing is the row list: `ProjectWorkflowsController#permissions` and `ProjectWorkflowRulesController#permissions` build `@fields` from `Tracker::CORE_FIELDS_ALL` minus disabled core fields, and `ProjectWorkflowsController#update_permissions` builds `@offered_field_names` the same way, so a neighbour's fields are never offered and a difference on them is reported as not shown.
+- redmine_itil_priority adds its two rows to core's screen by prepending `WorkflowsController#default_render` (`lib/redmine_itil_priority/patches/workflow_patch.rb`, `FIELDS = %w[impact_id urgency_id]`).
+
+What to build:
+- A small, documented extension point in this plugin through which another plugin's field-permission fields appear on the project matrix, the administration rule matrix and in `@offered_field_names`, with their label. One list, used by all three places. Choose the design yourself (Class A within your invariants): for instance a registry other plugins call, or offering the extra names core's own Fields permissions screen shows. If a registration call in redmine_itil_priority is needed, write it down exactly; the coordinating session puts it in that plugin's branch.
+- INV-1 to INV-9 hold. INV-2 in particular: every offered name must still pass the writer's whitelist and the model's own `validate_field_name`; a name that a plugin registers but the model refuses is not written.
+- Tests that fail without it: Impact/Urgency rows shown on both project matrices with redmine_itil_priority installed; a project-scoped impact rule saved and enforced in that project only, the generic rule and other projects untouched; nothing offered without a neighbour plugin; the comparison after a save no longer reports those fields as not shown.
+- e2e with redmine_itil_priority: a project manager sets Impact read-only for one project, a member of that project cannot change it, a member of another project still follows the generic rule; screenshots opened and committed.
+- Update the plan (open question to decided, "After the upgrade"), this plugin's docs/DECISIONS.md, your own review and `./.codex/openai_review.sh` when OPENAI_API_KEY is set; push after every commit; end with a short Dutch report.
