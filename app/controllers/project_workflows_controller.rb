@@ -111,9 +111,7 @@ class ProjectWorkflowsController < ApplicationController
   def permissions
     @rule_type = ProjectWorkflowScope::PERMISSIONS
     load_matrix
-    @fields = (Tracker::CORE_FIELDS_ALL - @tracker.disabled_core_fields).map do |field|
-      [field, l("field_#{field.sub(/_id$/, '')}")]
-    end
+    @fields = RedmineProjectWorkflows::Services::PermissionFields.for_trackers([@tracker])
     @custom_fields = @tracker.custom_fields.to_a.sort
     @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
       [@tracker], [@role], [displayed_project_id]
@@ -162,7 +160,7 @@ class ProjectWorkflowsController < ApplicationController
     # tracker has since disabled, or on a custom field removed from it, is still
     # in the table and still a difference -- and there is no control anywhere on
     # a project screen that can change it.
-    @offered_field_names = (Tracker::CORE_FIELDS_ALL - @tracker.disabled_core_fields).to_set +
+    @offered_field_names = RedmineProjectWorkflows::Services::PermissionFields.names_for_trackers([@tracker]).to_set +
                            @custom_fields_by_name.keys
   end
 

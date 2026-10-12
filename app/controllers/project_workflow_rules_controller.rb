@@ -107,9 +107,7 @@ class ProjectWorkflowRulesController < ApplicationController
     return unless @roles.present? && @trackers.present?
 
     @project_workflow_scope_state = scope_state_for(ProjectWorkflowScope::PERMISSIONS)
-    @fields = (Tracker::CORE_FIELDS_ALL - @trackers.map(&:disabled_core_fields).reduce(:&)).map do |field|
-      [field, l("field_#{field.delete_suffix('_id')}")]
-    end
+    @fields = RedmineProjectWorkflows::Services::PermissionFields.for_trackers(@trackers)
     @custom_fields = @trackers.map(&:custom_fields).flatten.uniq.sort
     @permissions = RedmineProjectWorkflows::Services::PermissionQuery.rules_by_status_id_for_project(
       @trackers, @roles, workflow_project_ids
