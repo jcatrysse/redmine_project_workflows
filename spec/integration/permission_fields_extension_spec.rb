@@ -23,7 +23,7 @@ module ExtensionFieldSpec
   end
 
   module Validation
-    private
+    protected
 
     def validate_field_name
       return if ExtensionFieldSpec.accepted && field_name == ExtensionFieldSpec::FIELD
@@ -114,22 +114,36 @@ describe ProjectWorkflowsController, type: :controller do
     expect(response.body).to include("permissions[#{status.id}][#{ExtensionFieldSpec::FIELD}]")
   end
 
+  # Not a regression test for this change -- the writer already took a name
+  # the model accepts (decision q3) -- but the behaviour round 6 asks for:
+  # saved for this project only, enforced there, the generic rule and another
+  # project untouched.
   it 'saves a project rule for it, enforced in that project only' do
-    WorkflowPermission.where(tracker_id: tracker.id, role_id: role.id).delete_all
+    WorkflowPermission.where(project_id: [nil, project.id], tracker_id: tracker.id, role_id: role.id).delete_all
+    WorkflowPermission.create!(project_id: nil, tracker_id: tracker.id, role_id: role.id, old_status_id: status.id,
+                               field_name: ExtensionFieldSpec::FIELD, rule: 'required')
 
     patch :update_permissions,
           params: params_for.merge(permissions: { status.id.to_s => { ExtensionFieldSpec::FIELD => 'readonly' } })
 
-    rows = WorkflowPermission.where(tracker_id: tracker.id, role_id: role.id, field_name: ExtensionFieldSpec::FIELD)
-    expect(rows.pluck(:project_id, :rule)).to eq([[project.id, 'readonly']])
+    expect(WorkflowPermission.where(project_id: project.id, tracker_id: tracker.id, role_id: role.id,
+                                    field_name: ExtensionFieldSpec::FIELD).pluck(:rule)).to eq(['readonly'])
+    expect(WorkflowPermission.where(project_id: nil, tracker_id: tracker.id, role_id: role.id,
+                                    field_name: ExtensionFieldSpec::FIELD).pluck(:rule)).to eq(['required'])
 
+    user = User.find(2)
     issue = Issue.find_by!(project_id: project.id, tracker_id: tracker.id, status_id: status.id)
-    expect(issue.send(:workflow_rule_by_attribute, User.find(2))[ExtensionFieldSpec::FIELD]).to eq('readonly')
-    expect(WorkflowPermission.where(project_id: nil, field_name: ExtensionFieldSpec::FIELD)).to be_empty
+    expect(issue.send(:workflow_rule_by_attribute, user)[ExtensionFieldSpec::FIELD]).to eq('readonly')
 
-    # Another project, without an own workflow, still follows the generic one.
-    other_issue = Issue.where(project_id: other_project.id).first
-    expect(other_issue.send(:workflow_rule_by_attribute, User.find(2))[ExtensionFieldSpec::FIELD]).to be_nil
+    # The same user, with the same single role, in a project that follows the
+    # generic workflow: the generic rule, not the project's.
+    elsewhere = Issue.where(tracker_id: tracker.id).where.not(project_id: project.id).first!
+    elsewhere.update_column(:status_id, status.id) # rubocop:disable Rails/SkipsModelValidations -- a fixture, not the code under test
+    elsewhere.project.trackers << tracker unless elsewhere.project.trackers.include?(tracker)
+    Member.where(user_id: user.id, project_id: elsewhere.project_id).destroy_all
+    Member.create!(principal: user, project: elsewhere.project, roles: [role])
+    expect(elsewhere.reload.send(:roles_for_workflow, user)).to eq([role])
+    expect(elsewhere.send(:workflow_rule_by_attribute, user)[ExtensionFieldSpec::FIELD]).to eq('required')
   end
 
   it 'counts the field as offered on the comparison screen' do

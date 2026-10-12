@@ -89,6 +89,14 @@ directory after `cd`-ing into it, so `dev/setup.sh 7.0-stable postgresql 3.3.6 .
 plugin into `.redmine/x/.redmine/x/plugins/` and the host runs without it. Pass an absolute path.
 Recorded, not fixed (outside the migration).
 
+## Results (2026-10-12, round 6)
+
+| Check | Plain host | Combined host (+12 GEOxyz plugins, registration line in redmine_itil_priority) |
+|---|---|---|
+| rspec | **1372 examples, 0 failures, 2 pending** (the two real-ITIL examples) | **1372 examples, 0 failures** (those two ran) |
+| e2e | (round-6 scenarios SKIP there) | full set: 14 runs, 0 problems except one wrong assertion of mine in the new scenario (a number compared to a string); fixed and both neighbour scenarios re-run: **24 assertions, 9 screenshots, 0 problems** |
+| RuboCop | 166 files, no offenses | |
+
 ## Results (2026-10-07, after Jan's decisions; PostgreSQL only, per Jan)
 
 | Check | Plain host (this plugin) | Combined host (+12 GEOxyz plugins) |
@@ -181,6 +189,7 @@ added by `test/e2e/seed.rb`), reporter (no plugin permission), outsider (no memb
 | Copying a role or tracker copies its project rules | Administration → Roles / Trackers → Copy | `admin_tools` | `role-copied`, `tracker-copied` |
 | Deleting a status that empties a project workflow warns | Administration → Issue statuses → Delete | `admin_tools` | `status-deleted-warning` |
 | Impact/Urgency of redmine_itil_priority on core Fields permissions (decision q3) | Administration → Workflow → Fields permissions, with redmine_itil_priority installed | `neighbour_field_permissions` (combined host; SKIP elsewhere) | `docs/e2e/together/neighbour_field_permissions-rows-shown`, `-impact-saved`, `-outsider-403` (manager, reporter: 403 asserted; anonymous: login); before the fix: `together-itil-core-permissions` |
+| Impact/Urgency per project on this plugin's matrices (round 6) | Project → Settings → Workflow → Fields permissions; Administration → Project workflows → Fields permissions; Compare | `neighbour_fields_per_project` (combined host, with the registration line; SKIP elsewhere) | `docs/e2e/together/neighbour_fields_per_project-project-matrix-saved`, `-compare`, `-viewer-project-readonly` (no Impact select, forged change ignored), `-viewer-other-project-editable` (generic workflow), `-admin-matrix`, `-outsider-403` (reporter 403, viewer's forged save 403) |
 | Core Administration → Workflow still edits the generic workflow only (INV-1, INV-4) | Administration → Workflow | `core_workflow` | `summary`, `generic-saved`, `generic-permissions`, `core-copy`, `manager-403` |
 | Cross-link from core's workflow screen (Deface) | Administration → Workflow | `admin_rules` | asserted; visible in `docs/e2e/smoke-12.png` |
 | Rake: backup (0600, FORCE), restore (OVERWRITE, junk file), deduplicate, uninstall refusal | shell | `rake_tasks` | `before-restore`, `after-restore`, `after-uninstall-refused`; full uninstall/reinstall: `dev/check-uninstall.sh` |
@@ -309,13 +318,39 @@ Own adversarial review in a fresh subagent, over `638eb88..29cde11`:
 - Not built (suggestion): Diagnostics could list other plugins' modules in front of a shadowed
   method; the drift gate no longer reports them since `b112e7a`.
 
+## Decided by Jan (2026-10-12): Impact/Urgency per project
+
+Round 2 (2026-10-07) answered "Zo laten"; round 6 (2026-10-12, `docs/DECISIONS-2026-10-07.md`)
+replaced it: **build it, in this plugin, as a generic extension point.** Done:
+
+- `75753ff`: `Services::PermissionFields`, one list for the project matrix, the administration
+  matrix and the comparison screen's offered set. Offered only when the name is a plain identifier,
+  not a core field or digits, and `WorkflowPermission#validate_field_name` accepts it (INV-2); the
+  writer asks the same probe.
+- `7d02540`: the registration idiom that really works in any load order (the first one did not).
+- Review fixes in the commit after `d679109`.
+
+**The registration call for redmine_itil_priority** (its `init.rb`, anywhere in the body; for the
+coordinating session to put on that plugin's branch):
+
+```ruby
+# Offer Impact and Urgency on redmine_project_workflows' own Fields permissions
+# matrices too. Order-independent: nothing here needs that plugin to be loaded,
+# or installed at all.
+RedmineItilPriority::Patches::WorkflowPatch::FIELDS.each { |name| Rails.configuration.x.project_workflow_permission_fields[name] = true }
+```
+
+(`(config.x.key ||= []).concat(...)` does **not** work: reading an unknown key of `config.x`
+already returns and keeps an empty `OrderedOptions`.) Without that line nothing changes: the fields
+stay on core's screen only, as before.
+
+Known limits, left as they are: the extra rows sit under "Core fields" and are offered even in a
+project that has not enabled the neighbour's module (core's own screen does the same); a neighbour
+whose `validate_field_name` depends on the tracker is asked without one.
+
 ## Open questions for Jan
 
-1. **Impact/Urgency per project.** A) offer a neighbour's fields on the plugin's project and
-   administration Fields permissions matrices too (reads the generic rows' field names the model
-   accepts; more code in the matrix helpers); B) leave it: projects carry the generic rule along on
-   takeover and can change it only by emptying the workflow or returning to the generic one.
-   Recommendation: B until GEOxyz needs a project-specific Impact/Urgency rule; then A.
+None.
 
 ## GEOxyz changes to review or re-apply
 
@@ -341,8 +376,11 @@ Actions the person doing the upgrade must take, or know about, for this plugin:
   removes exact duplicate rows older installations can carry (it deletes nothing else).
 - If `redmine_itil_priority` is installed: Impact/Urgency rows on Administration > Workflow >
   Fields permissions are shown and saved again (finding C2, fixed, decision q3); with 0.0.3 they
-  were not. Check that screen once after the upgrade. Per-project Impact/Urgency rules are not
-  offered on the plugin's own project matrices.
+  were not. Check that screen once after the upgrade.
+- Per-project Impact/Urgency (round 6): needs redmine_itil_priority with the registration line above.
+  Then Project → Settings → Workflow → Fields permissions and Administration → Project workflows →
+  Fields permissions show Impact and Urgency rows. Projects that already took their field
+  permissions over carry the generic Impact/Urgency rules they copied; nothing to migrate.
 - GitHub Actions of this plugin no longer run on push; start `Specs` by hand from the Actions tab
   before a release (decision q1).
 - Nothing to do for mail, cron, files or settings: the plugin sends no mail, has no cron job, and

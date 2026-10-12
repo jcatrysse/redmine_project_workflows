@@ -1,6 +1,6 @@
 # project_settings_tab
 
-Run 2026-10-07T16:28:02.827Z against http://127.0.0.1:3000.
+Run 2026-10-12T11:35:11.050Z against http://127.0.0.1:3000.
 
 | screenshot | user | URL | shows |
 |---|---|---|---|

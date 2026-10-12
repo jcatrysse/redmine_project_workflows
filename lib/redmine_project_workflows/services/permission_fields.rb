@@ -27,7 +27,8 @@ module RedmineProjectWorkflows
     #
     # The label is the field's `field_<name without _id>` translation, which is
     # how core and redmine_itil_priority label these rows, falling back to the
-    # name itself.
+    # name without `_id`, humanized. The comparison screen labels with the same
+    # method, so a field reads the same on every screen.
     class PermissionFields
       CONFIG_KEY = :project_workflow_permission_fields
       IDENTIFIER = /\A[a-z_][a-z0-9_]*\z/
@@ -63,6 +64,11 @@ module RedmineProjectWorkflows
           probe.errors[:field_name].empty?
         end
 
+        def label(field)
+          base = field.to_s.delete_suffix('_id')
+          ::I18n.t("field_#{base}", default: base.humanize)
+        end
+
         private
 
         # The documented hash form, and a plain list assigned to the key.
@@ -70,10 +76,6 @@ module RedmineProjectWorkflows
           value = Rails.configuration.x.public_send(CONFIG_KEY)
           names = value.is_a?(Hash) ? value.select { |_name, offered| offered }.keys : Array(value)
           names.map(&:to_s).uniq
-        end
-
-        def label(field)
-          ::I18n.t("field_#{field.delete_suffix('_id')}", default: field.delete_suffix('_id').humanize)
         end
       end
     end

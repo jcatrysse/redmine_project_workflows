@@ -232,7 +232,7 @@ module ProjectWorkflowsHelper
   def project_workflow_field_label(field_name, custom_fields)
     return custom_fields[field_name.to_s]&.name || "##{field_name}" if field_name.to_s.match?(/\A\d+\z/)
 
-    l("field_#{field_name.to_s.delete_suffix('_id')}", default: field_name.to_s)
+    RedmineProjectWorkflows::Services::PermissionFields.label(field_name)
   end
 
   # Who last changed this combination's rules, and when (WP6).

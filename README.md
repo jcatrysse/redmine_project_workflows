@@ -132,6 +132,19 @@ you save.
 | [Compatibility](docs/compatibility.md) | Supported versions, what happens on an untested Redmine, the diagnostics page |
 | [Design](docs/design.md) | How the plugin decides which workflow applies |
 
+## For other plugins: extra field-permission fields
+
+A plugin that adds a field to Redmine's *Fields permissions* (by extending
+`WorkflowPermission#validate_field_name`) can have it offered on this plugin's
+project and administration matrices too, with one line in its own `init.rb`:
+
+```ruby
+%w[my_field_id].each { |name| Rails.configuration.x.project_workflow_permission_fields[name] = true }
+```
+
+It works in any plugin load order and does nothing when this plugin is not
+installed. A name is offered only if `WorkflowPermission` itself accepts it.
+
 ## Removing it
 
 Reverse the migrations **before** deleting the plugin directory, and take a

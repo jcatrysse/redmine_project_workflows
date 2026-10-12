@@ -19,13 +19,17 @@ const NEW = ids.statuses.New;
 const sel = `tracker_id=${BUG}&role_id=${VIEW}`;
 // The viewer is also a member of e2e-private with the same role, so one user
 // can be compared across the two projects; undone at the end.
-const priv = rails(`v = User.find_by!(login: 'viewer'); r = Role.find(${VIEW}); q = Project.find(${Q})
+// Everything changed here is recorded first and put back in `finally`.
+const before = rails(`q = Project.find(${Q})
+  i = Issue.find_by!(project_id: q.id, subject: 'E2E private issue'); p = Issue.find_by!(project_id: ${P}, subject: 'E2E assigned issue')
+  puts({ modules: q.enabled_module_names, private: [i.id, i.tracker_id, i.status_id, i.impact_id], project: [p.id, p.status_id, p.impact_id] }.to_json)`);
+const [privateIssue] = before.private, [projectIssue] = before.project;
+const impacts = rails(`puts RedmineItilPriority.impact_options(Project.find(${P}), Tracker.find(${BUG})).map(&:last).to_json`);
+rails(`v = User.find_by!(login: 'viewer'); r = Role.find(${VIEW}); q = Project.find(${Q})
   Member.create!(principal: v, project: q, roles: [r]) unless Member.exists?(user_id: v.id, project_id: q.id)
   q.enabled_module_names = q.enabled_module_names | ['itil_priority']
-  i = Issue.find_by!(project_id: q.id, subject: 'E2E private issue'); i.update_columns(tracker_id: ${BUG}, status_id: ${NEW})
-  p = Issue.find_by!(project_id: ${P}, subject: 'E2E assigned issue'); p.update_columns(status_id: ${NEW})
-  puts [i.id, p.id].to_json`);
-const [privateIssue, projectIssue] = priv;
+  Issue.find(${privateIssue}).update_columns(tracker_id: ${BUG}, status_id: ${NEW})
+  Issue.find(${projectIssue}).update_columns(status_id: ${NEW}, impact_id: ${impacts[0]})`);
 const t = await e2e('neighbour_fields_per_project');
 
 try {
@@ -48,7 +52,8 @@ try {
   // Comparison: the difference is shown as a field the matrix offers.
   await t.go(`/projects/e2e-project/workflow/compare?${sel}&rule_type=permissions`);
   const cmp = await t.page.locator('#content').textContent();
-  assert(t, /Impact/.test(cmp) && /Only in this project|Different/.test(cmp), 'the comparison lists Impact as a difference of this project');
+  const diffRows = (await t.page.locator('#content table.list tbody tr').allTextContents()).join(' | ');
+  assert(t, /Impact/.test(diffRows) && /Only in this project|Different/.test(diffRows), `the comparison's table lists Impact as a difference (${diffRows.replace(/\s+/g, ' ').slice(0, 120)})`);
   assert(t, await t.page.locator('p.project-workflow-comparison-note').count() === 0, 'and no longer notes a field the matrix cannot show');
   await t.shot('compare', 'Manager: the comparison names the Impact rule as only in this project');
 
@@ -58,9 +63,11 @@ try {
   assert(t, await t.page.locator('select#issue_impact_id').count() === 0, 'in e2e-project the viewer has no Impact select (read-only)');
   assert(t, await t.page.locator('select#issue_urgency_id').count() === 1, 'while Urgency stays editable');
   await t.shot('viewer-project-readonly', 'Viewer in e2e-project: Impact is read-only (no select), Urgency still editable');
-  const forged = await forge(t, 'PATCH', `/issues/${projectIssue}`, { 'issue[impact_id]': '1' });
-  const impactAfter = rails(`puts Issue.find(${projectIssue}).impact_id.to_json`);
-  assert(t, impactAfter !== 1, `a forged change of Impact is ignored (HTTP ${forged}, impact_id ${impactAfter})`);
+  const note = `E2E note ${Date.now()}`;
+  const forged = await forge(t, 'PATCH', `/issues/${projectIssue}`, { 'issue[impact_id]': `${impacts[1]}`, 'issue[notes]': note });
+  const after = rails(`i = Issue.find(${projectIssue}); puts [i.impact_id, i.journals.where(notes: '${note}').exists?].to_json`);
+  assert(t, forged === 302 && after[1] === true, `a forged update is processed (HTTP ${forged}, the note was saved: ${after[1]})`);
+  assert(t, String(after[0]) === String(impacts[0]), `but its change of Impact is ignored (impact_id still ${after[0]}, forged ${impacts[1]})`);
 
   // The viewer, in e2e-private: the generic workflow, Impact editable.
   await t.go(`/issues/${privateIssue}/edit`);
@@ -88,6 +95,9 @@ try {
   await t.go(`/project_workflow_rules/permissions?tracker_id[]=${BUG}&role_id[]=${VIEW}`, { status: 403 });
   await t.shot('outsider-403', 'Outsider: the project and administration Fields permissions answer 403 (reporter: 403 as well)');
 } finally {
-  rails(`v = User.find_by!(login: 'viewer'); Member.where(user_id: v.id, project_id: ${Q}).destroy_all`);
+  rails(`v = User.find_by!(login: 'viewer'); Member.where(user_id: v.id, project_id: ${Q}).destroy_all
+    Project.find(${Q}).enabled_module_names = ${JSON.stringify(before.modules)}
+    Issue.find(${privateIssue}).update_columns(tracker_id: ${before.private[1]}, status_id: ${before.private[2]}, impact_id: ${before.private[3] ?? 'nil'})
+    Issue.find(${projectIssue}).update_columns(status_id: ${before.project[1]}, impact_id: ${before.project[2] ?? 'nil'})`);
 }
 await t.done();
