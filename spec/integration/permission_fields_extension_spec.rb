@@ -11,7 +11,7 @@ require_relative '../spec_helper'
 # A plugin adds its names in its own init.rb, in whichever order the plugins
 # load and without depending on this one:
 #
-#   (Rails.configuration.x.project_workflow_permission_fields ||= []).concat(%w[impact_id urgency_id])
+#   %w[impact_id urgency_id].each { |name| Rails.configuration.x.project_workflow_permission_fields[name] = true }
 #
 # A registered name is offered only when WorkflowPermission's own
 # validate_field_name accepts it (INV-2): registering is not enough.
@@ -36,8 +36,9 @@ end
 RSpec.shared_context 'with an extension field registered' do
   around do |example|
     WorkflowPermission.prepend(ExtensionFieldSpec::Validation)
-    previous = Rails.configuration.x.project_workflow_permission_fields
-    Rails.configuration.x.project_workflow_permission_fields = [ExtensionFieldSpec::FIELD]
+    previous = Rails.configuration.x.project_workflow_permission_fields.dup
+    Rails.configuration.x.project_workflow_permission_fields = ActiveSupport::OrderedOptions.new
+    Rails.configuration.x.project_workflow_permission_fields[ExtensionFieldSpec::FIELD] = true
     ExtensionFieldSpec.accepted = true
     example.run
   ensure
@@ -54,6 +55,15 @@ describe 'RedmineProjectWorkflows::Services::PermissionFields' do
   it 'offers a registered name the model accepts, with a label' do
     expect(service.extra_names).to eq([ExtensionFieldSpec::FIELD])
     expect(service.for_trackers([Tracker.first]).last).to eq([ExtensionFieldSpec::FIELD, 'Extension spec'])
+  end
+
+  it 'takes a registration made with the documented one-liner, whatever was read before' do
+    Rails.configuration.x.project_workflow_permission_fields = ActiveSupport::OrderedOptions.new
+    expect(service.extra_names).to eq([])
+
+    [ExtensionFieldSpec::FIELD].each { |name| Rails.configuration.x.project_workflow_permission_fields[name] = true }
+
+    expect(service.extra_names).to eq([ExtensionFieldSpec::FIELD])
   end
 
   it 'offers nothing extra when nothing is registered' do

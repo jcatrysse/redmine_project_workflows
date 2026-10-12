@@ -11,7 +11,12 @@ module RedmineProjectWorkflows
     # How another plugin adds a field, in its own init.rb -- in any plugin load
     # order, and without depending on this plugin being installed:
     #
-    #   (Rails.configuration.x.project_workflow_permission_fields ||= []).concat(%w[impact_id urgency_id])
+    #   %w[impact_id urgency_id].each { |name| Rails.configuration.x.project_workflow_permission_fields[name] = true }
+    #
+    # Reading an unknown key of `config.x` creates and keeps an
+    # ActiveSupport::OrderedOptions, so every plugin writes into the same hash
+    # whichever loads first. (`||= []` does not work: the read already answers
+    # an empty, truthy OrderedOptions.)
     #
     # Registering is not enough to be offered. A name must be a plain
     # lower-case identifier, not a core field and not a run of digits (custom
@@ -42,8 +47,7 @@ module RedmineProjectWorkflows
         end
 
         def extra_names
-          registered = Array(Rails.configuration.x.public_send(CONFIG_KEY)).map(&:to_s).uniq
-          registered.select do |name|
+          registered_names.select do |name|
             name.match?(IDENTIFIER) && Tracker::CORE_FIELDS_ALL.exclude?(name) && model_accepts?(name)
           end
         end
@@ -60,6 +64,13 @@ module RedmineProjectWorkflows
         end
 
         private
+
+        # The documented hash form, and a plain list assigned to the key.
+        def registered_names
+          value = Rails.configuration.x.public_send(CONFIG_KEY)
+          names = value.is_a?(Hash) ? value.select { |_name, offered| offered }.keys : Array(value)
+          names.map(&:to_s).uniq
+        end
 
         def label(field)
           ::I18n.t("field_#{field.delete_suffix('_id')}", default: field.delete_suffix('_id').humanize)
