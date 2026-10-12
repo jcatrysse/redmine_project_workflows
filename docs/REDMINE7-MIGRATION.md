@@ -96,6 +96,7 @@ Recorded, not fixed (outside the migration).
 | rspec | **1372 examples, 0 failures, 2 pending** (the two real-ITIL examples) | **1372 examples, 0 failures** (those two ran) |
 | e2e | (round-6 scenarios SKIP there) | full set: 14 runs, 0 problems except one wrong assertion of mine in the new scenario (a number compared to a string); fixed and both neighbour scenarios re-run: **24 assertions, 9 screenshots, 0 problems** |
 | RuboCop | 166 files, no offenses | |
+| Reviews | own (fresh subagent): no blocker, findings fixed in `b458db4`; OpenAI `d547bfb..b458db4`: **no findings** (`docs/reviews/openai-2026-10-12-b458db4.md`) | |
 
 ## Results (2026-10-07, after Jan's decisions; PostgreSQL only, per Jan)
 
