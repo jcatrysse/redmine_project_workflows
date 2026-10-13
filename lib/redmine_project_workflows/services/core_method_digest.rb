@@ -36,8 +36,8 @@ module RedmineProjectWorkflows
     # What this costs instead: nothing at runtime. The suite runs *inside* the
     # host Redmine checkout, so core's source is already on disk in all nine
     # cells. `UnboundMethod#super_method` reaches core's definition through the
-    # prepend and `RubyVM::AbstractSyntaxTree.of` gives its line range. No gem,
-    # no network, no CI change.
+    # prepend and `RubyVM::AbstractSyntaxTree.of` gives its line range (Prism,
+    # from Ruby 3.4 on). No gem, no network, no CI change.
     class CoreMethodDigest
       # Every module of the plugin's that holds a copy of a core body, and the
       # class or module core defines that body on. Most are patch modules; one
@@ -85,8 +85,14 @@ module RedmineProjectWorkflows
 
       # Whether this Ruby can answer at all. CRuby only -- every supported
       # Redmine runs on it, but a spec must skip rather than fail elsewhere.
+      # Asked of a real definition, because from Ruby 3.4 on the AST alone is
+      # not enough and Prism has to be loadable as well.
       def self.available?
-        defined?(RubyVM::AbstractSyntaxTree) && RubyVM::AbstractSyntaxTree.respond_to?(:of)
+        return false unless defined?(RubyVM::AbstractSyntaxTree) && RubyVM::AbstractSyntaxTree.respond_to?(:of)
+
+        !definition_lines(method(:available?)).nil?
+      rescue ScriptError
+        false
       end
 
       # Everything this plugin's correctness rests on in core, digested:
@@ -244,13 +250,40 @@ module RedmineProjectWorkflows
         file, = core.source_location
         return nil unless file && File.readable?(file)
 
-        node = RubyVM::AbstractSyntaxTree.of(core)
-        return nil unless node
+        first, last = definition_lines(core)
+        return nil unless first
 
-        File.readlines(file)[(node.first_lineno - 1)..(node.last_lineno - 1)].join
+        File.readlines(file)[(first - 1)..(last - 1)].join
       rescue NameError, ScriptError, ArgumentError
         nil
       end
+
+      # First and last line of a method's definition. From Ruby 3.4 on methods
+      # are compiled by Prism, and `RubyVM::AbstractSyntaxTree.of` refuses them
+      # with a RuntimeError; there the same range comes from Prism's parse of the
+      # file (a default gem since Ruby 3.3, and in Redmine 7's bundle through irb
+      # and rdoc).
+      def self.definition_lines(method)
+        node = RubyVM::AbstractSyntaxTree.of(method)
+        node && [node.first_lineno, node.last_lineno]
+      rescue RuntimeError
+        require 'prism'
+        file, line = method.source_location
+        node = prism_definition_at(Prism.parse_file(file).value, line)
+        node && [node.location.start_line, node.location.end_line]
+      end
+      private_class_method :definition_lines
+
+      def self.prism_definition_at(node, line)
+        return node if node.is_a?(Prism::DefNode) && node.location.start_line == line
+
+        node.compact_child_nodes.each do |child|
+          found = prism_definition_at(child, line)
+          return found if found
+        end
+        nil
+      end
+      private_class_method :prism_definition_at
 
       # Whether a definition is one of the plugin's rather than core's. The module
       # being asked about counts even when it is anonymous or lives outside the
