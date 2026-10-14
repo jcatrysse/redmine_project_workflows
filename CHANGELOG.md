@@ -6,6 +6,11 @@ The workflow as a drawing.
 
 ### Fixed
 
+- **The test suite is green on Redmine 5.1 again.** Two examples of the drift
+  gate's Prism fallback stubbed a Ruby 3.4 behaviour on Ruby 3.2, which has no
+  Prism to fall back to, and failed there. They now skip on a Ruby without Prism.
+  The plugin itself was not affected.
+
 - **`deface` is declared without a version requirement again** (`gem 'deface'`,
   skipped when something evaluated earlier already declared it). The `~> 1.9`
   below made Bundler refuse the whole Gemfile on any Redmine with another plugin
