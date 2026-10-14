@@ -5,6 +5,14 @@
 > `docs/REDMINE7-MIGRATION.md`. Everything below describes `claude/dev` as of 2026-08-29 and is
 > unchanged by that session, except the deface declaration (see `docs/DECISIONS.md`, 2026-10-06).
 
+> **2026-10-14, session C of the Jira migration (branch `redmine70-migration`):** 0.1.6 tested as
+> the replacement for production's 0.0.3. Upgrade path verified (004 backfill, rehearsal OK on
+> 5.1-GEOxyz), the five 0.0.3 defects B2 read reproduced (`dev/legacy/check-legacy-defects.sh`) and
+> pinned (`spec/integration/legacy_release_defects_spec.rb`), the 5.1 suite made green again (Prism
+> specs on Ruby 3.2), the migration runner run end to end on 7.0. Suites: 5.1-GEOxyz 1381/0/4
+> pending, 7.0-GEOxyz 1381/0/2 pending (PostgreSQL 16). Details and the open runner remark:
+> `docs/review/findings/2026-10-14-claude-migration-test.md`.
+
 > This file is the project's memory between sessions. It is rewritten in full
 > at the end of **every** session (overwritten, not appended). Write it as if
 > the next session knows nothing, because it does.

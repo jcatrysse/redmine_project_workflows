@@ -117,3 +117,21 @@ plugin's writers, so status ids are not whitelisted (fine while the plan's ids c
 and `have` is computed before `ScopeWriter.enable`, which deletes rows that have no scope, so on a
 database that holds such rows the first run leaves them missing and the second run adds them. On a
 database upgraded through migration 004 there are none.
+
+### Independent review of 0.1.6 (fresh subagent, read-only)
+
+No defect in the plugin for the upgrade from 0.0.3, the move to Redmine 7.0 or status resolution on
+issue pages (several roles with one scoped and one inheriting, author/assignee, required and
+read-only fields, subprojects, tracker/role/project deletion, role and tracker copy, project copy
+with its own workflow, request-scoped caches). One finding for the runner, reported to the
+coordinator: `ScopeWriter.enable` runs per combination, each in its own committed transaction,
+before the transaction that inserts the rows. Between the two, and permanently if the second one
+fails and rolls back, those combinations are own **empty** workflows and their issues cannot change
+status. Running the enable loop inside the same transaction (enable joins an outer transaction)
+makes it all or nothing. Still present in jira2redmine_migration `004063c`.
+
+Migration 006's notice "another plugin still registers manage_project_workflow" on B2's 5.1 instance
+is correct: redmine_custom_workflows v2.1.2 registers that name (its `init.rb:31`), so the role
+grants are that plugin's and are left alone. With this plugin alone the rename runs without notice.
+0.0.3 registered no permissions; after the production upgrade the two `*_rules` permissions have to
+be granted to the roles that need them.
