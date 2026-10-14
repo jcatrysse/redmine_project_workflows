@@ -109,9 +109,10 @@ project did not mention. That is why *Give own workflow* starts from a copy.
 Two consequences that catch people out:
 
 - **An own empty workflow permits nothing**, and on the issue form that means the
-  Status field is not there at all. That is Redmine's own rendering: it shows the
-  field only when at least one status is allowed. The *Workflow for this issue*
-  panel is the only place that explains it.
+  Status field is plain text showing the current status, with no list to choose
+  from. That is Redmine's own rendering: it offers the list only when at least one
+  status is allowed. The *Workflow for this issue* panel is the only place that
+  explains it.
 - **Nothing is inherited between projects.** A subproject does not get its
   parent's workflow. Use the copy screen to apply one workflow to several
   projects.

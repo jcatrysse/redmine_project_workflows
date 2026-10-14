@@ -12,16 +12,17 @@ project means its workflow is now the whole answer for that tracker and role.
 
 This is why *Give own workflow* starts from a copy of the generic workflow.
 
-## An own empty workflow permits nothing, and the Status field disappears
+## An own empty workflow permits nothing, and the Status field cannot be changed
 
 An own empty transitions workflow is a state you can reach deliberately, and it
 means no issue in that project can change status for that role.
 
-On the issue form that shows up as the **Status field not being there at all**,
-with nothing to say why. That is Redmine's own rendering rather than something
-this plugin draws: core shows the field only when at least one status is allowed,
-and it adds the current status to that list only when something else is allowed
-too. So the field disappears rather than showing a single dead option.
+On the issue form that shows up as the **Status field turning into plain text**
+("Status: New") instead of a list, with nothing to say why. That is Redmine's own
+rendering rather than something this plugin draws: core offers the list only when
+at least one status is allowed, and it adds the current status to that list only
+when something else is allowed too (`Issue#new_statuses_allowed_to`). Otherwise
+`issues/_attributes.html.erb` prints the current status as text.
 
 The *Workflow for this issue* panel is the only place that explains it. Redmine
 behaves the same way without this plugin for any status with nothing leading out
