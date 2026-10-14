@@ -399,7 +399,17 @@ describe ProjectsController, type: :controller do
   #
   # Plugins load alphabetically, and `redmine_project_workflows` sorts before
   # `redmine_q...` and everything after it, so this is not a corner case.
+  #
+  # The `ensure` puts back ProjectsHelper's **own** body rather than aliasing the
+  # name back to the `_without_` copy. On a host where another plugin has
+  # prepended `project_settings_tabs` (redmine_contacts_helpdesk does), that copy
+  # is the neighbour's prepended method, whose `super` reaches nothing once it
+  # lives in ProjectsHelper -- and aliasing it back left every later example
+  # rendering a settings page that raised (2026-10-14, the combined GEOxyz host).
   def with_later_neighbour_alias_chain
+    own = ProjectsHelper.instance_method(:project_settings_tabs)
+    own = own.super_method until own.owner == ProjectsHelper
+
     ProjectsHelper.class_eval do
       alias_method :project_settings_tabs_without_later, :project_settings_tabs
       def project_settings_tabs_with_later
@@ -410,9 +420,20 @@ describe ProjectsController, type: :controller do
     yield
   ensure
     ProjectsHelper.class_eval do
-      alias_method :project_settings_tabs, :project_settings_tabs_without_later
+      define_method(:project_settings_tabs, own)
       remove_method :project_settings_tabs_without_later
       remove_method :project_settings_tabs_with_later
+    end
+  end
+
+  # Another plugin's module prepended to ProjectsHelper with its own
+  # `project_settings_tabs`. A real `alias_method` after it copies that module's
+  # method, which then has no `super` -- whatever this plugin does -- so the
+  # example below cannot say anything about this plugin on such a host.
+  def other_prepend_on_project_settings_tabs
+    ProjectsHelper.ancestors.take_while { |mod| mod != ProjectsHelper }.find do |mod|
+      mod.method_defined?(:project_settings_tabs, false) ||
+        mod.private_method_defined?(:project_settings_tabs, false)
     end
   end
 
@@ -444,6 +465,10 @@ describe ProjectsController, type: :controller do
     # outright -- NoMethodError on every project's settings page -- the moment
     # the tab override goes back inside ProjectsHelper.
     it 'survives a neighbour that aliases after this plugin has applied' do
+      prepended = other_prepend_on_project_settings_tabs
+      if prepended
+        skip "#{prepended} is prepended to ProjectsHelper; a later alias chain breaks on it, not on this plugin"
+      end
       log_in(2, :view_project_workflow_rules)
 
       with_later_neighbour_alias_chain do
