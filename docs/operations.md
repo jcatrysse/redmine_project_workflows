@@ -106,6 +106,28 @@ Two things change behaviour afterwards, both deliberately:
   be filtered by role as well, which returned nothing for a project with no
   members.
 
+**Grant the two permissions by hand afterwards.** 0.0.3 registered no permission
+at all: its only screens were Redmine's own workflow administration, which is for
+administrators. 0.1.x adds *View project workflow rules*
+(`view_project_workflow_rules`) and *Manage project workflow rules*
+(`manage_project_workflow_rules`), and after the upgrade no role holds either, so
+nobody loses access -- administrators can do everything they could before -- and
+nobody gains any until you tick them in **Administration → Roles and
+permissions**.
+
+No migration grants them from an older name, on purpose. The only older names,
+`view_project_workflow` and `manage_project_workflow`, belonged to 0.1.0 to 0.1.5
+for a few days and were renamed by migration 006. On an installation coming from
+0.0.3, a role holding `manage_project_workflow` holds it from
+**redmine_custom_workflows**, which registers that exact name for its own project
+settings; mapping it to ours would hand project workflow editing to everyone
+allowed to manage custom workflow scripts. That is why 006 prints *"another plugin
+still registers manage_project_workflow; leaving role grants of it alone"* on such a
+host: it is expected, and it means those grants are the neighbour's. This plugin
+neither grants nor checks that name anywhere (`spec/plugin_conventions_spec.rb`
+asserts that the registrations Redmine answers for the two `_rules` names are this
+plugin's).
+
 ## Backing up the project workflows
 
 A downgrade is not the reverse of an upgrade. Reversing the migrations **deletes
