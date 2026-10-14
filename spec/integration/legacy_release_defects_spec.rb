@@ -8,9 +8,10 @@ require_relative '../spec_helper'
 # that none of them came back.
 #
 # None of these examples can run against 0.0.3 itself: that release has no scope
-# table, and the specs need one to arrange anything. How each was shown to fail
-# there is recorded in docs/review/findings/2026-10-14-claude-migration-test.md,
-# measured on a 5.1-stable-GEOxyz host with 0.0.3 installed.
+# table, and the specs need one to arrange anything. Each is shown to fail there
+# by dev/legacy/check-legacy-defects.sh, which installs 0.0.3 on a Redmine host
+# and runs dev/legacy/repro_0_0_3.rb; the result is recorded in
+# docs/review/findings/2026-10-14-claude-migration-test.md.
 describe 'Defects of the 0.0.3 release' do
   fixtures :projects, :roles, :trackers, :issue_statuses, :users, :members, :member_roles,
            :enumerations, :projects_trackers, :enabled_modules

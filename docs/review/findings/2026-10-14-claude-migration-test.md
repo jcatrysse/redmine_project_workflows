@@ -29,7 +29,8 @@ transitions.
 
 **Counts:** blocker 0 · major 0 · minor 0 · nit 0 · question 0 (in 0.1.6). The five items below
 are defects of 0.0.3 only, recorded so they are not re-found and so production knows what it runs
-until the upgrade.
+until the upgrade. `dev/legacy/check-legacy-defects.sh` reproduces all five against 0.0.3 on any
+host `dev/setup.sh` builds (measured: five "DEFECT REPRODUCED" lines on 5.1-stable-GEOxyz).
 
 ---
 
