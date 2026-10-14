@@ -6,6 +6,14 @@ The workflow as a drawing.
 
 ### Fixed
 
+- **The issue context menu and the bulk screens no longer cost a workflow query
+  per selected issue.** Inside those actions the answers to "which statuses may
+  this issue move to" and "which fields are read-only or required" are memoised
+  for issues of the same project, tracker, roles and status. Measured with 10 and
+  20 selected issues: 22 and 42 workflow statements before, 4 and 4 after.
+  Nowhere else is anything memoised, and a rule saved inside such a request still
+  clears the memo.
+
 - **The test suite is green on Redmine 5.1 again.** Two examples of the drift
   gate's Prism fallback stubbed a Ruby 3.4 behaviour on Ruby 3.2, which has no
   Prism to fall back to, and failed there. They now skip on a Ruby without Prism.

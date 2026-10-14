@@ -18,9 +18,20 @@ module RedmineProjectWorkflows
         roles = issue.send(:roles_for_workflow, user)
         return [] if roles.empty?
 
+        # Memoised inside WorkflowMemo.during, for the reason TransitionQuery
+        # gives.
+        role_ids = roles.map(&:id).sort
+        cache = RedmineProjectWorkflows::Current.permission_rules
+        return query(issue.project_id, issue.tracker_id, role_ids, old_status_id) unless cache
+
+        key = [issue.project_id, issue.tracker_id, role_ids, old_status_id]
+        (cache[key] ||= query(issue.project_id, issue.tracker_id, role_ids, old_status_id)).dup
+      end
+
+      def self.query(project_id, tracker_id, role_ids, old_status_id)
         combined = WorkflowPopulations.combined(
-          model: WorkflowPermission, project_id: issue.project_id,
-          tracker_id: issue.tracker_id, role_ids: roles.map(&:id)
+          model: WorkflowPermission, project_id: project_id,
+          tracker_id: tracker_id, role_ids: role_ids
         )
         return [] if combined.nil?
 
@@ -28,6 +39,7 @@ module RedmineProjectWorkflows
         # that has already been narrowed differently on the two sides.
         combined.where(old_status_id: old_status_id).to_a
       end
+      private_class_method :query
 
       def self.rules_by_status_id_for_project(trackers, roles, project_ids)
         WorkflowPermission.where(

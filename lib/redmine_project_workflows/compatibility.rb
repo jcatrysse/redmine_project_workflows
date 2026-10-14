@@ -130,6 +130,17 @@ module RedmineProjectWorkflows
         Gem::Version.new(host_minor) >= Gem::Version.new(data.fetch('sprite_icons_from'))
       end
 
+      # The controller and action that render the issue context menu: Redmine 7.0
+      # moved it into ContextMenus::IssuesController#index. Names, not constants,
+      # so that asking does not load a controller.
+      def issue_context_menu_action
+        if Gem::Version.new(host_minor) >= Gem::Version.new(data.fetch('issue_context_menu_split_from'))
+          ['ContextMenus::IssuesController', :index]
+        else
+          ['ContextMenusController', :issues]
+        end
+      end
+
       # :verified, :unverified, :drifted -- or :unmeasured, which ADR-002 does
       # not list and which exists so that the plugin never says "no drift was
       # detected" when it detected nothing. Reading core's bodies needs

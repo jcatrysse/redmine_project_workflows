@@ -15,6 +15,7 @@ require_relative 'redmine_project_workflows/services/resolver'
 require_relative 'redmine_project_workflows/services/workflow_populations'
 require_relative 'redmine_project_workflows/services/transition_query'
 require_relative 'redmine_project_workflows/services/permission_query'
+require_relative 'redmine_project_workflows/services/workflow_memo'
 require_relative 'redmine_project_workflows/services/permission_fields'
 require_relative 'redmine_project_workflows/services/matrix_save_result'
 require_relative 'redmine_project_workflows/services/transition_writer'
@@ -50,6 +51,7 @@ require_relative 'redmine_project_workflows/admin_matrix'
 require_relative 'redmine_project_workflows/tasks'
 require_relative 'redmine_project_workflows/patches/issue_patch'
 require_relative 'redmine_project_workflows/patches/issues_controller_patch'
+require_relative 'redmine_project_workflows/patches/multi_issue_actions_patch'
 require_relative 'redmine_project_workflows/patches/issue_statuses_controller_patch'
 require_relative 'redmine_project_workflows/patches/workflows_controller_patch'
 require_relative 'redmine_project_workflows/patches/workflow_transition_patch'
@@ -98,6 +100,9 @@ module RedmineProjectWorkflows
     # controller's helper chain, which Rails' include_all_helpers does not do
     # for a plugin's app/helpers. See the patch.
     Patches::IssuesControllerPatch.apply!
+    # The context menu and the bulk screens ask the same workflow question once
+    # per selected issue; see the patch.
+    Patches::MultiIssueActionsPatch.apply!
     # Nor a prepend: this only puts the plugin's matrix helper into core's
     # workflow controller's chain, which core's own workflows/_form needs since
     # the row and column actions of WP5 are rendered into it. See the patch.

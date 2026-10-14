@@ -29,13 +29,28 @@ module RedmineProjectWorkflows
         roles = issue.send(:roles_for_workflow, user)
         return [] if roles.empty?
 
+        # Inside WorkflowMemo.during -- the context menu and the bulk screens,
+        # which ask once per selected issue -- the answer is memoised on
+        # everything the statement below reads, so N issues of one project,
+        # tracker and status cost one statement. A copy is returned because the
+        # caller appends to it.
+        flags = [author ? true : false, assignee ? true : false]
+        key = [issue.project_id, tracker.id, roles.map(&:id).sort, initial_status&.id || 0, *flags]
+        cache = RedmineProjectWorkflows::Current.allowed_statuses
+        return query(key) unless cache
+
+        (cache[key] ||= query(key)).dup
+      end
+
+      def self.query(key)
+        project_id, tracker_id, role_ids, old_status_id, author, assignee = key
         combined_scope = WorkflowPopulations.combined(
-          model: WorkflowTransition, project_id: issue.project_id,
-          tracker_id: tracker.id, role_ids: roles.map(&:id)
+          model: WorkflowTransition, project_id: project_id,
+          tracker_id: tracker_id, role_ids: role_ids
         )
         return [] if combined_scope.nil?
 
-        combined_scope = combined_scope.where(old_status_id: initial_status&.id || 0)
+        combined_scope = combined_scope.where(old_status_id: old_status_id)
         unless author && assignee
           combined_scope = if author || assignee
                              combined_scope.where('author = ? OR assignee = ?', author, assignee)
@@ -66,6 +81,7 @@ module RedmineProjectWorkflows
         # day any default ordering appears on WorkflowRule.
         IssueStatus.where(id: combined_scope.select(:new_status_id)).to_a.sort
       end
+      private_class_method :query
     end
   end
 end

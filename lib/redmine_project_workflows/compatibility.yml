@@ -66,6 +66,11 @@
 # 2026-08-28-claude-plugin-compat-5.1.md).
 sprite_icons_from: '6.0'
 
+# Redmine 7.0 serves the issue context menu from ContextMenus::IssuesController#index;
+# 5.1 and 6.1 from ContextMenusController#issues. Patches::MultiIssueActionsPatch
+# wraps whichever this host has.
+issue_context_menu_split_from: '7.0'
+
 # The three the CI matrix runs against every verified minor. Nine cells.
 databases:
   - PostgreSQL

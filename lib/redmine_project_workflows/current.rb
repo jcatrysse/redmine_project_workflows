@@ -31,6 +31,16 @@ module RedmineProjectWorkflows
     # from ScopeWriter.
     attribute :effective_status_ids
 
+    # {[project_id, tracker_id, role_ids, old_status_id, author, assignee] =>
+    # [IssueStatus, ...]} -- the answer of Services::TransitionQuery for one
+    # combination -- and the same for Services::PermissionQuery.rules_for. Nil,
+    # and so not used, except inside Services::WorkflowMemo.during, which wraps
+    # only the actions that ask once per selected issue (the context menu, bulk
+    # edit, bulk update). Not request-wide: a rule written with plain
+    # ActiveRecord mid-request would otherwise be read back stale.
+    attribute :allowed_statuses
+    attribute :permission_rules
+
     # Forget everything cached about the workflow configuration. Called after
     # any write that changes a scope **or a rule**, so that a request which
     # changes the configuration and then reads it back does not answer from a
@@ -38,6 +48,8 @@ module RedmineProjectWorkflows
     def self.reset_workflow_caches!
       self.scoped_role_ids = nil
       self.effective_status_ids = nil
+      self.allowed_statuses = {} if allowed_statuses
+      self.permission_rules = {} if permission_rules
     end
   end
 end

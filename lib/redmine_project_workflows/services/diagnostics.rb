@@ -60,6 +60,8 @@ module RedmineProjectWorkflows
         ['IssuePatch', :prepend, %w[Issue]],
         ['IssueStatusesControllerPatch', :prepend, %w[IssueStatusesController]],
         ['IssuesControllerPatch', :helper, %w[IssuesController], 'ProjectWorkflowMapsHelper'],
+        ['MultiIssueActionsPatch', :around_action,
+         RedmineProjectWorkflows::Patches::MultiIssueActionsPatch.target_names.map(&:first)],
         ['ProjectPatch', :prepend, %w[Project]],
         ['ProjectsHelperPatch', :helper, %w[ProjectsController]],
         ['RolePatch', :prepend, %w[Role]],
@@ -251,6 +253,7 @@ module RedmineProjectWorkflows
         when :prepend, :included then owner.ancestors.include?(patch)
         when :singleton then owner.singleton_class.ancestors.include?(patch)
         when :helper then owner._helpers.ancestors.include?(patch)
+        when :around_action then patch.attached?(owner)
         else false
         end
       end
