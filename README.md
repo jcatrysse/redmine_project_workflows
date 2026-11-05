@@ -47,7 +47,7 @@ cover.
 ## Requirements
 
 - **Redmine 5.1, 6.1 and 7.0** are tested, each against **PostgreSQL, MySQL and
-  MariaDB**, on **Ruby 3.2** (Redmine 5.1) and **Ruby 3.3** (6.1 and 7.0). Nine
+  MariaDB**, on **Ruby 3.2** (Redmine 5.1) and **Ruby 3.3** (6.1) and **Ruby 4.0** (7.0). Nine
   combinations, all green before a change lands.
 - 5.1 is the declared minimum. There is no declared maximum, so the plugin
   installs on a newer Redmine and tells you whether anything it depends on has

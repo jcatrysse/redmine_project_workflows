@@ -33,7 +33,7 @@ Recover it with `git log -- .codex` if you need to, but do not build from it
   | ------- | ----- | -------------- |
   | 5.1     | 6.1   | 3.2            |
   | 6.1     | 7.2   | 3.3            |
-  | 7.0     | 8.1   | 3.3            |
+  | 7.0     | 8.1   | 4.0            |
 
 ## Usage
 

@@ -77,7 +77,7 @@ jobs:
           - redmine: '6.1-stable'
             ruby: '3.3'
           - redmine: '7.0-stable'
-            ruby: '3.3'
+            ruby: '4.0'
 
     services:
       postgres:

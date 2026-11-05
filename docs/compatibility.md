@@ -8,7 +8,7 @@ and a spec fails if the two disagree.
 
 - **Redmine 5.1, 6.1 and 7.0**, each against **PostgreSQL, MySQL and MariaDB**.
   Nine combinations, all of them green before a change lands.
-- **Ruby 3.2** for Redmine 5.1, **Ruby 3.3** for 6.1 and 7.0 — the versions CI
+- **Ruby 3.2** for Redmine 5.1, **Ruby 3.3** for 6.1, **Ruby 4.0** for 7.0 — the versions CI
   uses.
 
 Redmine 5.1 is the declared minimum as of 0.1.0. It used to be 5.0, which nothing
